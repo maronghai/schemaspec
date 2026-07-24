@@ -1,5 +1,6 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
+const resolved_ast = @import("../types/resolved_ast.zig");
 const diff_fields = @import("../diff/fields.zig");
 const diff_indexes = @import("../diff/indexes.zig");
 const diff_fks = @import("../diff/fks.zig");
@@ -47,7 +48,7 @@ const optionalStrEq = utils.optionalStrEq;
 
 // ─── Diff Engine ───────────────────────────────────────────
 
-pub fn diff(old: ast_mod.ResolvedAst, new: ast_mod.ResolvedAst, alloc: std.mem.Allocator, dialect: ?Dialect) !SchemaDiff {
+pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc: std.mem.Allocator, dialect: ?Dialect) !SchemaDiff {
     var table_diffs = try std.ArrayList(TableDiff).initCapacity(alloc, 8);
     var dropped_tables = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var view_diffs = try std.ArrayList(ViewDiff).initCapacity(alloc, 4);
@@ -127,7 +128,7 @@ pub fn diff(old: ast_mod.ResolvedAst, new: ast_mod.ResolvedAst, alloc: std.mem.A
     };
 }
 
-fn diffTable(alloc: std.mem.Allocator, old: ast_mod.ResolvedTable, new: ast_mod.ResolvedTable, dialect: ?Dialect) !TableDiff {
+fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: resolved_ast.ResolvedTable, dialect: ?Dialect) !TableDiff {
     const field_diffs = try diff_fields.diffFields(alloc, old.fields, new.fields, dialect);
     const index_diffs = try diff_indexes.diffIndexes(alloc, old.indexes, new.indexes);
     const fk_diffs = try diff_fks.diffFks(alloc, old.fks, new.fks);

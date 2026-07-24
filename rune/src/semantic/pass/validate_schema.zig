@@ -1,8 +1,9 @@
 const std = @import("std");
 const ast = @import("../../types/ast.zig");
+const resolved_ast = @import("../../types/resolved_ast.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const FkDecl = ast.FkDecl;
-const ResolvedTable = ast.ResolvedTable;
+const ResolvedTable = resolved_ast.ResolvedTable;
 
 const VisitStatus = enum { visiting, visited };
 

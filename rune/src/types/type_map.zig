@@ -147,6 +147,8 @@ test "SqlType.toSql: passthrough passes through" {
 // agree with SqlType.toSql() for the base type in all dialects.
 // When adding a new type, update BOTH SqlType.toSql() and REVERSE_MAP.
 
+// NOTE: This import is test-only. It creates a types/ → reverse/ dependency
+// but only during `zig build test`, not in production builds.
 const reverse_map = @import("../reverse/map.zig");
 
 fn forwardNameAlloc(dialect: Dialect, sql_type: sql_type_mod.SqlType) ![]const u8 {

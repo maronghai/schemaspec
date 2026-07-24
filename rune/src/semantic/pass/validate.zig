@@ -1,8 +1,9 @@
 const std = @import("std");
 const ast = @import("../../types/ast.zig");
+const resolved_ast = @import("../../types/resolved_ast.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const FkDecl = ast.FkDecl;
-const ResolvedTable = ast.ResolvedTable;
+const ResolvedTable = resolved_ast.ResolvedTable;
 
 /// Helper: validate a single FK declaration against the table and schema.
 fn validateFk(ctx: *PassContext, table_names: *const std.StringHashMap(void), table: ResolvedTable, fk: FkDecl) !void {

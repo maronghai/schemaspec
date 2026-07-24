@@ -1,10 +1,11 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
+const resolved_ast = @import("../types/resolved_ast.zig");
 const Ast = ast_mod.Ast;
 const Template = ast_mod.Template;
 const Table = ast_mod.Table;
 const Field = ast_mod.Field;
-const ResolvedTable = ast_mod.ResolvedTable;
+const ResolvedTable = resolved_ast.ResolvedTable;
 
 // ─── Template Resolution & Application ──────────────────────────
 //

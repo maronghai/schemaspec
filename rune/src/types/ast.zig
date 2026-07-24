@@ -179,7 +179,3 @@ pub const Ast = struct {
     views: []const View,
     sql_comments: []const SqlComment,
 };
-
-// Re-export resolved AST types from dedicated module (separation of concerns).
-pub const ResolvedTable = @import("resolved_ast.zig").ResolvedTable;
-pub const ResolvedAst = @import("resolved_ast.zig").ResolvedAst;

@@ -1,12 +1,13 @@
 const std = @import("std");
 const ast = @import("ast.zig");
+const resolved_ast = @import("resolved_ast.zig");
 
 // ─── Schema Symbol Table ────────────────────────────────────────
 // Unified name resolution for templates, tables, and fields.
 // Built once by the resolve_names pass, then queried by downstream passes.
 
 pub const TableEntry = struct {
-    table: *const ast.ResolvedTable,
+    table: *const resolved_ast.ResolvedTable,
 };
 
 pub const FieldEntry = struct {
@@ -26,7 +27,7 @@ pub const SymbolTable = struct {
     }
 
     /// Register a table. Returns false if the name is already taken.
-    pub fn registerTable(self: *SymbolTable, name: []const u8, table: *const ast.ResolvedTable) !bool {
+    pub fn registerTable(self: *SymbolTable, name: []const u8, table: *const resolved_ast.ResolvedTable) !bool {
         if (self.tables.contains(name) or self.templates.contains(name)) return false;
         try self.tables.put(name, .{ .table = table });
         return true;
@@ -40,7 +41,7 @@ pub const SymbolTable = struct {
     }
 
     /// Look up a table by name.
-    pub fn lookupTable(self: *const SymbolTable, name: []const u8) ?*const ast.ResolvedTable {
+    pub fn lookupTable(self: *const SymbolTable, name: []const u8) ?*const resolved_ast.ResolvedTable {
         if (self.tables.get(name)) |entry| return entry.table;
         return null;
     }

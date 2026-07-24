@@ -2,12 +2,13 @@ const std = @import("std");
 const migrate_mod = @import("../diff/migrate.zig");
 const diff_mod = @import("../diff/engine.zig");
 const ast_mod = @import("../types/ast.zig");
+const resolved_ast = @import("../types/resolved_ast.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const generateFromDiff = migrate_mod.generateFromDiff;
 
 const testing = std.testing;
 
-fn emptyResolvedAst() ast_mod.ResolvedAst {
+fn emptyResolvedAst() resolved_ast.ResolvedAst {
     return .{
         .schema_name = null,
         .schema_charset = null,

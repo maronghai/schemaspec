@@ -1,6 +1,7 @@
 const std = @import("std");
 const diff_mod = @import("diff/engine.zig");
 const ast_mod = @import("types/ast.zig");
+const resolved_ast = @import("types/resolved_ast.zig");
 const diff = diff_mod.diff;
 const TableAction = diff_mod.TableAction;
 const FieldAction = diff_mod.FieldAction;
@@ -24,7 +25,7 @@ fn makeField(alloc: std.mem.Allocator, name: []const u8, type_info: TypeInfo) !F
     };
 }
 
-fn makeResolvedAst(_: std.mem.Allocator, tables: []const ast_mod.ResolvedTable) ast_mod.ResolvedAst {
+fn makeResolvedAst(_: std.mem.Allocator, tables: []const resolved_ast.ResolvedTable) resolved_ast.ResolvedAst {
     return .{
         .schema_name = null,
         .schema_charset = null,
@@ -41,7 +42,7 @@ test "diff: table engine change detected" {
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
-    const old_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = null,
         .engine = "InnoDB",
@@ -50,7 +51,7 @@ test "diff: table engine change detected" {
         .indexes = &.{},
         .line_no = 1,
     }});
-    const new_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = null,
         .engine = "MyISAM",
@@ -73,7 +74,7 @@ test "diff: no metadata change produces null metadata_diff" {
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
-    const old_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = "same",
         .engine = "InnoDB",
@@ -82,7 +83,7 @@ test "diff: no metadata change produces null metadata_diff" {
         .indexes = &.{},
         .line_no = 1,
     }});
-    const new_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = "same",
         .engine = "InnoDB",
@@ -106,7 +107,7 @@ test "diff: combined field and metadata change" {
     new_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     new_fields[1] = try makeField(alloc, "name", .{ .simple = "s" });
 
-    const old_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = "old",
         .engine = null,
@@ -115,7 +116,7 @@ test "diff: combined field and metadata change" {
         .indexes = &.{},
         .line_no = 1,
     }});
-    const new_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = "new",
         .engine = null,
@@ -136,7 +137,7 @@ test "diff: no changes produces empty diff" {
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
-    const t = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const t = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -160,7 +161,7 @@ test "diff: new table detected as create" {
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
     const old_ast = makeResolvedAst(alloc, &.{});
-    const new_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -182,7 +183,7 @@ test "diff: dropped table detected" {
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
-    const old_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -209,7 +210,7 @@ test "diff: added field detected" {
     new_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     new_fields[1] = try makeField(alloc, "name", .{ .varchar_explicit = 32 });
 
-    const old_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -218,7 +219,7 @@ test "diff: added field detected" {
         .indexes = &.{},
         .line_no = 1,
     }}));
-    const new_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -246,7 +247,7 @@ test "diff: renamed field detected by signature match" {
     new_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     new_fields[1] = try makeField(alloc, "full_name", .{ .varchar_explicit = 32 });
 
-    const old_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -255,7 +256,7 @@ test "diff: renamed field detected by signature match" {
         .indexes = &.{},
         .line_no = 1,
     }}));
-    const new_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -292,7 +293,7 @@ test "diff: table created and dropped simultaneously" {
     const new_fields = try alloc.alloc(Field, 1);
     new_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
-    const old_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "users",
         .comment = null,
         .engine = null,
@@ -301,7 +302,7 @@ test "diff: table created and dropped simultaneously" {
         .indexes = &.{},
         .line_no = 1,
     }}));
-    const new_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "accounts",
         .comment = null,
         .engine = null,
@@ -327,7 +328,7 @@ test "diff: field type change detected" {
     const new_fields = try alloc.alloc(Field, 1);
     new_fields[0] = try makeField(alloc, "count", .{ .simple = "N" });
 
-    const old_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "stats",
         .comment = null,
         .engine = null,
@@ -336,7 +337,7 @@ test "diff: field type change detected" {
         .indexes = &.{},
         .line_no = 1,
     }}));
-    const new_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "stats",
         .comment = null,
         .engine = null,
@@ -364,7 +365,7 @@ test "diff: index added and dropped" {
     const new_idx = try alloc.alloc(IndexDecl, 1);
     new_idx[0] = .{ .kind = .regular, .name = "idx_email", .fields = &.{"email"}, .descending = &.{false}, .line_no = 1 };
 
-    const old_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -373,7 +374,7 @@ test "diff: index added and dropped" {
         .indexes = old_idx,
         .line_no = 1,
     }}));
-    const new_ast = makeResolvedAst(alloc, try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_ast = makeResolvedAst(alloc, try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -395,7 +396,7 @@ test "diff: no changes on identical tables" {
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     fields[1] = try makeField(alloc, "name", .{ .simple = "s" });
 
-    const t1 = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const t1 = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -404,7 +405,7 @@ test "diff: no changes on identical tables" {
         .indexes = &.{},
         .line_no = 1,
     }});
-    const t2 = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const t2 = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "user",
         .comment = null,
         .engine = null,
@@ -430,7 +431,7 @@ test "diff: field added and dropped simultaneously" {
     new_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     new_fields[1] = try makeField(alloc, "new_col", .{ .simple = "n" });
 
-    const old_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = null,
         .engine = null,
@@ -439,7 +440,7 @@ test "diff: field added and dropped simultaneously" {
         .indexes = &.{},
         .line_no = 1,
     }});
-    const new_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = null,
         .engine = null,
@@ -475,7 +476,7 @@ test "diff: FK change detected" {
         .line_no = 1,
     }});
 
-    const old_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "order",
         .comment = null,
         .engine = null,
@@ -484,7 +485,7 @@ test "diff: FK change detected" {
         .indexes = &.{},
         .line_no = 1,
     }});
-    const new_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "order",
         .comment = null,
         .engine = null,
@@ -505,7 +506,7 @@ test "diff: table comment change detected" {
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
-    const old_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const old_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = "old comment",
         .engine = null,
@@ -514,7 +515,7 @@ test "diff: table comment change detected" {
         .indexes = &.{},
         .line_no = 1,
     }});
-    const new_table = try alloc.dupe(ast_mod.ResolvedTable, &.{.{
+    const new_table = try alloc.dupe(resolved_ast.ResolvedTable, &.{.{
         .name = "t",
         .comment = "new comment",
         .engine = null,

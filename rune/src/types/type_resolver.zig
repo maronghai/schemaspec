@@ -1,5 +1,6 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
+const resolved_ast = @import("../types/resolved_ast.zig");
 const type_map = @import("../types/type_map.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
@@ -25,7 +26,7 @@ pub const TypeResolver = struct {
         return .{ .alloc = alloc };
     }
 
-    pub fn resolve(self: *TypeResolver, resolved: ast_mod.ResolvedAst, dialect: Dialect) !TypedAst {
+    pub fn resolve(self: *TypeResolver, resolved: resolved_ast.ResolvedAst, dialect: Dialect) !TypedAst {
         var tables = try std.ArrayList(TypedTable).initCapacity(self.alloc, resolved.tables.len);
         for (resolved.tables) |table| {
             var columns = try std.ArrayList(TypedColumn).initCapacity(self.alloc, table.fields.len);

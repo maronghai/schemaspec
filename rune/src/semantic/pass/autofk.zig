@@ -1,10 +1,11 @@
 const std = @import("std");
 const ast = @import("../../types/ast.zig");
+const resolved_ast = @import("../../types/resolved_ast.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const Field = ast.Field;
 const FkDecl = ast.FkDecl;
 const IndexDecl = ast.IndexDecl;
-const ResolvedTable = ast.ResolvedTable;
+const ResolvedTable = resolved_ast.ResolvedTable;
 
 /// Auto FK inference: _id suffix → foreign key to matching table.
 pub fn run(ctx: *PassContext) !void {

@@ -1,8 +1,9 @@
 const std = @import("std");
 pub const ast_mod = @import("../types/ast.zig");
+const resolved_ast = @import("../types/resolved_ast.zig");
 const diag = @import("../semantic/diagnostic.zig");
 const symbol_table_mod = @import("../types/symbol_table.zig");
-const ResolvedTable = ast_mod.ResolvedTable;
+const ResolvedTable = resolved_ast.ResolvedTable;
 const Template = ast_mod.Template;
 
 // ─── Pass Manager ──────────────────────────────────────────────

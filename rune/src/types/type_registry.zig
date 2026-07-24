@@ -1,6 +1,5 @@
 const std = @import("std");
 const dialect_enum = @import("../dialect/enum.zig");
-const dialect_mod = @import("../dialect/dialect.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
 const Dialect = dialect_enum.Dialect;
 
@@ -56,33 +55,6 @@ pub fn lookupSqlType(sym: []const u8, dialect: Dialect) ?[]const u8 {
     var aw = std.Io.Writer.Allocating.init(std.heap.page_allocator);
     sql_type.toSql(dialect, &aw.writer) catch return null;
     return aw.toOwnedSlice(std.heap.page_allocator) catch null;
-}
-
-/// Look up SS symbol for a SQL type in a given dialect.
-/// Returns .{ .sym, .omit } where omit indicates the symbol should be omitted in reverse output.
-pub const ReverseResult = dialect_mod.ReverseResult;
-
-pub fn lookupSymbol(sql_type: []const u8, dialect: Dialect) ?ReverseResult {
-    // Parameterized types: check prefix matches
-    if (std.mem.startsWith(u8, sql_type, "varchar(")) {
-        return .{ .sym = "s", .omit = true, .is_parameterized = true };
-    }
-    if (std.mem.startsWith(u8, sql_type, "decimal(") or std.mem.startsWith(u8, sql_type, "numeric(")) {
-        return .{ .sym = "m", .omit = false, .is_parameterized = true };
-    }
-    // Exact match via reverse_map
-    const reverse_map = @import("../reverse/map.zig");
-    for (&reverse_map.REVERSE_MAP) |entry| {
-        const dialect_type = switch (dialect) {
-            .mysql => entry.mysql,
-            .pg => entry.pg,
-            .sqlite => entry.sqlite,
-        };
-        if (std.mem.eql(u8, sql_type, dialect_type)) {
-            return .{ .sym = entry.sym, .omit = false };
-        }
-    }
-    return null;
 }
 
 /// Check if a SS symbol is a known core type.

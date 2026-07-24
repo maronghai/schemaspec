@@ -1,6 +1,7 @@
 const std = @import("std");
 const visitor_mod = @import("ast_visitor.zig");
 const ast_mod = @import("types/ast.zig");
+const resolved_ast = @import("types/resolved_ast.zig");
 const AstVisitor = visitor_mod.AstVisitor;
 const VisitCounts = visitor_mod.VisitCounts;
 const Ast = ast_mod.Ast;
@@ -10,7 +11,7 @@ const Table = ast_mod.Table;
 const Field = ast_mod.Field;
 const FkDecl = ast_mod.FkDecl;
 const IndexDecl = ast_mod.IndexDecl;
-const ResolvedTable = ast_mod.ResolvedTable;
+const ResolvedTable = resolved_ast.ResolvedTable;
 const SqlComment = ast_mod.SqlComment;
 
 const testing = std.testing;

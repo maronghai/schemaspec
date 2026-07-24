@@ -1,5 +1,6 @@
 const std = @import("std");
 const ast_mod = @import("types/ast.zig");
+const resolved_ast = @import("types/resolved_ast.zig");
 const Ast = ast_mod.Ast;
 const Schema = ast_mod.Schema;
 const Template = ast_mod.Template;
@@ -8,7 +9,7 @@ const Field = ast_mod.Field;
 const FkDecl = ast_mod.FkDecl;
 const IndexDecl = ast_mod.IndexDecl;
 const SqlComment = ast_mod.SqlComment;
-const ResolvedTable = ast_mod.ResolvedTable;
+const ResolvedTable = resolved_ast.ResolvedTable;
 
 // ─── AST Visitor Pattern ───────────────────────────────────────
 // Provides generic traversal for the AST without manual traversal
@@ -215,4 +216,3 @@ fn countVisitIndex(ctx: *VisitCounts, _: IndexDecl, _: ?[]const u8) void {
 fn countVisitSqlComment(ctx: *VisitCounts, _: SqlComment) void {
     ctx.sql_comments += 1;
 }
-

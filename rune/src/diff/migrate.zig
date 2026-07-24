@@ -1,6 +1,7 @@
 const std = @import("std");
 const diff_mod = @import("../diff/engine.zig");
 const ast_mod = @import("../types/ast.zig");
+const resolved_ast = @import("../types/resolved_ast.zig");
 const codegen = @import("../codegen/codegen.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
@@ -35,7 +36,7 @@ pub fn generateFromDiff(
     alloc: std.mem.Allocator,
     d: diff_mod.SchemaDiff,
     new_typed: typed_ast.TypedAst,
-    new_resolved: ast_mod.ResolvedAst,
+    new_resolved: resolved_ast.ResolvedAst,
     dialect: Dialect,
 ) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
@@ -99,7 +100,7 @@ fn emitTableDiffs(
     alloc: std.mem.Allocator,
     w: anytype,
     table_diffs: []const diff_mod.TableDiff,
-    new_resolved: ast_mod.ResolvedAst,
+    new_resolved: resolved_ast.ResolvedAst,
     dialect: Dialect,
     has_operations: *bool,
 ) !void {
@@ -112,9 +113,9 @@ fn emitTableDiffs(
             .create => {
                 has_operations.* = true;
                 if (findResolvedTable(new_resolved, td.name)) |table| {
-                    var single_tables = try std.ArrayList(ast_mod.ResolvedTable).initCapacity(alloc, 1);
+                    var single_tables = try std.ArrayList(resolved_ast.ResolvedTable).initCapacity(alloc, 1);
                     try single_tables.append(alloc, table);
-                    const single_resolved = ast_mod.ResolvedAst{
+                    const single_resolved = resolved_ast.ResolvedAst{
                         .schema_name = new_resolved.schema_name,
                         .schema_charset = new_resolved.schema_charset,
                         .custom_types = new_resolved.custom_types,
@@ -154,7 +155,7 @@ fn emitFieldDiffs(
     tr: *typed_ast.TypeResolver,
     cg: *codegen.Codegen,
     dialect: Dialect,
-    new_resolved: ast_mod.ResolvedAst,
+    new_resolved: resolved_ast.ResolvedAst,
     table_has_ops: *bool,
     sub_needs_comma: *bool,
 ) !void {
@@ -324,7 +325,7 @@ fn emitFkDiffs(
     }
 }
 
-fn findResolvedTable(ast: ast_mod.ResolvedAst, name: []const u8) ?ast_mod.ResolvedTable {
+fn findResolvedTable(ast: resolved_ast.ResolvedAst, name: []const u8) ?resolved_ast.ResolvedTable {
     for (ast.tables) |table| {
         if (std.mem.eql(u8, table.name, name)) return table;
     }
@@ -337,4 +338,3 @@ fn findTypedView(typed: typed_ast.TypedAst, name: []const u8) ?typed_ast.TypedVi
     }
     return null;
 }
-
