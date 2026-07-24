@@ -91,6 +91,11 @@ pub const DialectBackend = struct {
     emitConfidenceComment: ?*const fn (w: *Writer, confidence: []const u8) anyerror!void = null,
     /// Dialect-specific reverse lookup. Returns null to fall back to general logic.
     reverseLookup: ?*const fn (sql_type: []const u8, col_name: []const u8, is_auto_inc: bool, is_default_ts: bool) ?ReverseResult = null,
+    /// Look up SqlType for a SS symbol (e.g. "n" → .int, "B" → .blob).
+    /// Each dialect owns its own forward mapping — adding a new dialect is a local change.
+    lookupSym: *const fn (sym: []const u8) ?SqlType,
+    /// Quote character for identifiers in diff output (backtick for MySQL, double-quote for PG/SQLite).
+    quoteChar: u8,
 
     // ── Behavioral flags (eliminate dialect checks in caller) ──
     /// MySQL CHANGE COLUMN requires the full column definition after the rename.

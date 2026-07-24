@@ -215,6 +215,32 @@ fn sqliteReverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: 
     return .{ .sym = t, .omit = false, .score = 50 };
 }
 
+// ─── Forward Type Mapping (SS symbol → SqlType) ─────────────
+
+fn sqliteLookupSym(sym: []const u8) ?SqlType {
+    if (sym.len != 1) return null;
+    return switch (sym[0]) {
+        'n' => .int,
+        'N' => .int, // SQLite: bigint → INTEGER (same affinity)
+        'i' => .smallint,
+        'm' => .{ .decimal = .{ .precision = 16, .scale = 2 } },
+        'M' => .{ .decimal = .{ .precision = 20, .scale = 6 } },
+        'S' => .text,
+        'b' => .boolean,
+        'B' => .blob,
+        'j' => .json,
+        'd' => .date,
+        't' => .datetime,
+        'T' => .timestamptz,
+        's' => .{ .varchar = 0 },
+        'U' => .{ .passthrough = "TEXT" }, // SQLite: uuid → TEXT
+        'p' => .{ .passthrough = "INTEGER" }, // SQLite: serial → INTEGER
+        'J' => .jsonb,
+        'I' => .inet,
+        else => null,
+    };
+}
+
 // ─── Backend Instance ──────────────────────────────────────
 
 pub const sqlite_backend = DialectBackend{
@@ -247,6 +273,8 @@ pub const sqlite_backend = DialectBackend{
     .emitConfidenceComment = sqliteEmitConfidenceComment,
     .reverseLookup = sqliteReverseLookup,
     // emitCreateDatabase, emitUnsigned, emitAutoIncrement default to null (no-op)
+    .lookupSym = sqliteLookupSym,
+    .quoteChar = '"',
     .rename_needs_column_def = false,
     .modify_needs_column_def = false,
     .modify_column_def_skips_name = false,

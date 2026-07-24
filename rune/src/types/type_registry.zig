@@ -1,51 +1,23 @@
 const std = @import("std");
 const dialect_enum = @import("../dialect/enum.zig");
+const dialect_mod = @import("../dialect/dialect.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
 const Dialect = dialect_enum.Dialect;
 
 // ─── Type Registry: Single source of truth for SS types ─────
 //
-// To add a new SS type (e.g., UUID):
-//   1. Add one entry to SYMBOL_MAP below
-//   2. Add the SqlType variant to sql_type.zig if needed
-//   3. All four pipelines (forward, reverse, diff, migrate) automatically recognize it
-//
 // Production code uses lookupSqlTypeDirect() which returns SqlType variants.
 // lookupSqlType() is a convenience wrapper for tests that need string output.
+//
+// The actual per-dialect mapping lives in each DialectBackend.lookupSym.
+// This module is now a thin delegation layer — adding a new SS type only
+// requires adding one entry to the relevant backend's lookupSym function.
 
 /// Look up SqlType variant directly for a SS symbol in a given dialect.
-/// This is the primary lookup used by production code (SqlType.fromTypeInfo).
-/// Avoids the stringly-typed round-trip (SS → SQL string → SqlType).
+/// Delegates to DialectBackend.lookupSym (the vtable).
 pub fn lookupSqlTypeDirect(sym: []const u8, dialect: Dialect) ?sql_type_mod.SqlType {
-    const SYMBOL_MAP = [_]struct { sym: []const u8, mysql: sql_type_mod.SqlType, pg: sql_type_mod.SqlType, sqlite: sql_type_mod.SqlType }{
-        .{ .sym = "n", .mysql = .int, .pg = .int, .sqlite = .int },
-        .{ .sym = "N", .mysql = .bigint, .pg = .bigint, .sqlite = .int },
-        .{ .sym = "i", .mysql = .smallint, .pg = .smallint, .sqlite = .smallint },
-        .{ .sym = "m", .mysql = .{ .decimal = .{ .precision = 16, .scale = 2 } }, .pg = .{ .decimal = .{ .precision = 16, .scale = 2 } }, .sqlite = .{ .decimal = .{ .precision = 16, .scale = 2 } } },
-        .{ .sym = "M", .mysql = .{ .decimal = .{ .precision = 20, .scale = 6 } }, .pg = .{ .decimal = .{ .precision = 20, .scale = 6 } }, .sqlite = .{ .decimal = .{ .precision = 20, .scale = 6 } } },
-        .{ .sym = "S", .mysql = .text, .pg = .text, .sqlite = .text },
-        .{ .sym = "b", .mysql = .boolean, .pg = .boolean, .sqlite = .boolean },
-        .{ .sym = "B", .mysql = .blob, .pg = .blob, .sqlite = .blob },
-        .{ .sym = "j", .mysql = .json, .pg = .json, .sqlite = .json },
-        .{ .sym = "d", .mysql = .date, .pg = .date, .sqlite = .date },
-        .{ .sym = "t", .mysql = .datetime, .pg = .datetime, .sqlite = .datetime },
-        .{ .sym = "T", .mysql = .timestamptz, .pg = .timestamptz, .sqlite = .timestamptz },
-        .{ .sym = "s", .mysql = .{ .varchar = 0 }, .pg = .{ .varchar = 0 }, .sqlite = .{ .varchar = 0 } },
-        .{ .sym = "U", .mysql = .uuid, .pg = .uuid, .sqlite = .{ .passthrough = "TEXT" } },
-        .{ .sym = "p", .mysql = .serial, .pg = .serial, .sqlite = .{ .passthrough = "INTEGER" } },
-        .{ .sym = "J", .mysql = .jsonb, .pg = .jsonb, .sqlite = .jsonb },
-        .{ .sym = "I", .mysql = .inet, .pg = .inet, .sqlite = .inet },
-    };
-    for (&SYMBOL_MAP) |entry| {
-        if (std.mem.eql(u8, entry.sym, sym)) {
-            return switch (dialect) {
-                .mysql => entry.mysql,
-                .pg => entry.pg,
-                .sqlite => entry.sqlite,
-            };
-        }
-    }
-    return null;
+    const backend = dialect_mod.getBackend(dialect);
+    return backend.lookupSym(sym);
 }
 
 /// Look up SQL type name for a SS symbol in a given dialect.

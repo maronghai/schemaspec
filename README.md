@@ -229,21 +229,25 @@ Three IR boundaries: `Line[]` → `Ast` → `ResolvedAst` → `TypedAst` → SQL
 
 ### Key Design
 
-- **DialectBackend vtable**: 23+6 function pointers. Zero `switch(dialect)` in codegen. Adding a dialect = new `dialect_<name>.zig` (~200 lines).
+- **DialectBackend vtable**: 26+6 function pointers + 1 data field (`quoteChar`). Zero `switch(dialect)` in codegen or type mapping. Adding a dialect = new `dialect_<name>.zig` (~200 lines, self-contained type mapping).
 - **Semantic Pass Manager**: 7 dependency-ordered passes. New pass = new `pass/<name>.zig`.
 - **AST-level diff**: Semantic comparison, not text diff. Detects renames, type changes, structural differences.
 
 ### Type Mapping
 
-Three-layer system:
+Vtable-driven, zero hardcoded dialect switches:
 
 ```
-SS symbol → type_registry (direct SqlType) → DialectBackend.renderType (SQL string)
-                  ↕
-         reverse_map (SQL → SS, for reverse pipeline)
+SS symbol → DialectBackend.lookupSym (per-dialect SqlType)
+                ↓
+       DialectBackend.renderType (SQL string)
+                ↓
+       DialectBackend.quoteChar (diff output)
+                ↕
+       reverse_map (SQL → SS, for reverse pipeline)
 ```
 
-17 core symbols, 3 dialect backends, lossless roundtrip for MySQL/PG, metadata-preserved roundtrip for SQLite.
+17 core symbols, 3 dialect backends, lossless roundtrip for MySQL/PG, metadata-preserved roundtrip for SQLite. Adding a new dialect is a local change — implement `lookupSym` + `renderType` + `quoteChar` in one file.
 
 ## Generators
 

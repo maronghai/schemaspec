@@ -1,10 +1,10 @@
 const std = @import("std");
 const diff_types = @import("../diff/types.zig");
-const dialect_enum = @import("../dialect/enum.zig");
+const dialect_mod = @import("../dialect/dialect.zig");
 const utils = @import("../utils.zig");
 const SchemaDiff = diff_types.SchemaDiff;
 const TableDiff = diff_types.TableDiff;
-const Dialect = dialect_enum.Dialect;
+const Dialect = @import("../dialect/enum.zig").Dialect;
 
 const optionalStrEq = utils.optionalStrEq;
 
@@ -15,10 +15,7 @@ const optionalStrEq = utils.optionalStrEq;
 // (JSON, machine-readable) without modifying the diff engine.
 
 fn quoteChar(dialect: Dialect) u8 {
-    return switch (dialect) {
-        .mysql => '`',
-        .pg, .sqlite => '"',
-    };
+    return dialect_mod.getBackend(dialect).quoteChar;
 }
 
 /// Core diff formatting logic — writes to any std.io.Writer.

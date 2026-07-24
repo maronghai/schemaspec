@@ -83,7 +83,7 @@ rune/src/
 
 ### Key Design Patterns
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 30 function pointers (24 required + 6 optional) + 3 behavioral flags for dialect-specific SQL rendering. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines).
+- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping).
 
 - **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (8 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
 
@@ -101,7 +101,7 @@ rune/src/
 
 - **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null.
 
-- **Unified ReverseResult** (`dialect/dialect.zig`): Single `ReverseResult` struct shared by `types/type_registry.zig` and `reverse/column.zig` — zero duplication across the reverse pipeline.
+- **Unified ReverseResult** (`dialect/dialect.zig`): Single `ReverseResult` struct shared by dialect backends and `reverse/column.zig` — zero duplication across the reverse pipeline.
 
 ### Module Roles
 
@@ -144,7 +144,7 @@ rune/src/
 | | `typed_ast.zig` | TypedAst IR + ColumnFlags bitflags |
 | | `sql_type.zig` | Self-contained SqlType union with toSql()/toJsonSchema() |
 | | `type_map.zig` | Helper functions (lookupCustomType, isNumericSymType) |
-| | `type_registry.zig` | SS symbol → SqlType direct mapping |
+| | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
 | | `type_resolver.zig` | ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
 | `semantic/` | `analyzer.zig` | SemanticAnalyzer + diagnosticTrace |

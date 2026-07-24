@@ -123,6 +123,32 @@ fn pgEmitCreateView(w: *Writer, name: []const u8, query: []const u8) anyerror!vo
     try w.writeAll(";\n");
 }
 
+// ─── Forward Type Mapping (SS symbol → SqlType) ─────────────
+
+fn pgLookupSym(sym: []const u8) ?SqlType {
+    if (sym.len != 1) return null;
+    return switch (sym[0]) {
+        'n' => .int,
+        'N' => .bigint,
+        'i' => .smallint,
+        'm' => .{ .decimal = .{ .precision = 16, .scale = 2 } },
+        'M' => .{ .decimal = .{ .precision = 20, .scale = 6 } },
+        'S' => .text,
+        'b' => .boolean,
+        'B' => .blob,
+        'j' => .json,
+        'd' => .date,
+        't' => .datetime,
+        'T' => .timestamptz,
+        's' => .{ .varchar = 0 },
+        'U' => .uuid,
+        'p' => .serial,
+        'J' => .jsonb,
+        'I' => .inet,
+        else => null,
+    };
+}
+
 // ─── Backend Instance ──────────────────────────────────────
 
 pub const pg_backend = DialectBackend{
@@ -154,6 +180,8 @@ pub const pg_backend = DialectBackend{
     .emitCreateDatabase = pgEmitCreateDatabase,
     .emitAutoIncrement = pgEmitAutoIncrement,
     // emitUnsigned, emitTypeMetadata, emitConfidenceComment default to null (no-op)
+    .lookupSym = pgLookupSym,
+    .quoteChar = '"',
     .rename_needs_column_def = false,
     .modify_needs_column_def = true,
     .modify_column_def_skips_name = true,
