@@ -1,6 +1,7 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
+const reverse_map = @import("../reverse/map.zig");
 const TypeInfo = ast_mod.TypeInfo;
 const Dialect = dialect_enum.Dialect;
 
@@ -65,6 +66,20 @@ fn simpleEquiv(a: []const u8, b: []const u8, dialect: Dialect) bool {
     return std.mem.eql(u8, ca, cb);
 }
 
+// ─── SQL-Level Semantic Equivalence ──────────────────────────
+//
+// Compares two SQL type strings by reverse-looking-up each to its
+// SS symbol and checking if the symbols are identical. This is the
+// SQL-string-level counterpart to typeInfoEquiv (which works on AST
+// TypeInfo values).
+
+/// Check if two SQL type strings are semantically equivalent via reverse lookup.
+pub fn semanticEquiv(a_sql_type: []const u8, a_col_name: []const u8, a_dialect: Dialect, b_sql_type: []const u8, b_col_name: []const u8, b_dialect: Dialect) bool {
+    const a_sym = reverse_map.reverseLookup(a_sql_type, a_col_name, false, false, a_dialect).sym;
+    const b_sym = reverse_map.reverseLookup(b_sql_type, b_col_name, false, false, b_dialect).sym;
+    return std.mem.eql(u8, a_sym, b_sym);
+}
+
 // ─── Tests ────────────────────────────────────────────────────
 
 const testing = std.testing;
@@ -115,4 +130,42 @@ test "typeInfoEquiv: explicit types" {
 test "typeInfoEquiv: cross-tag not equivalent" {
     try testing.expect(!typeInfoEquiv(.{ .simple = "n" }, .none, .mysql));
     try testing.expect(!typeInfoEquiv(.{ .simple = "n" }, .{ .varchar_explicit = 255 }, .mysql));
+}
+
+// ─── semanticEquiv tests ─────────────────────────────────────
+
+test "semanticEquiv: MySQL int ↔ PG integer → true" {
+    try testing.expect(semanticEquiv("int", "id", .mysql, "integer", "id", .pg));
+}
+
+test "semanticEquiv: MySQL int ↔ PG bigint → false" {
+    try testing.expect(!semanticEquiv("int", "id", .mysql, "bigint", "id", .pg));
+}
+
+test "semanticEquiv: MySQL datetime ↔ PG timestamp → true" {
+    try testing.expect(semanticEquiv("datetime", "created_at", .mysql, "timestamp", "created_at", .pg));
+}
+
+test "semanticEquiv: MySQL blob ↔ PG bytea → true" {
+    try testing.expect(semanticEquiv("blob", "data", .mysql, "bytea", "data", .pg));
+}
+
+test "semanticEquiv: MySQL boolean ↔ PG boolean → true (same name)" {
+    try testing.expect(semanticEquiv("boolean", "flag", .mysql, "boolean", "flag", .pg));
+}
+
+test "semanticEquiv: MySQL tinyint ↔ PG smallint → true (both → n)" {
+    try testing.expect(semanticEquiv("tinyint", "age", .mysql, "smallint", "age", .pg));
+}
+
+test "semanticEquiv: MySQL text ↔ PG text → true" {
+    try testing.expect(semanticEquiv("text", "bio", .mysql, "text", "bio", .pg));
+}
+
+test "semanticEquiv: MySQL int ↔ SQLite INTEGER → true" {
+    try testing.expect(semanticEquiv("int", "id", .mysql, "INTEGER", "id", .sqlite));
+}
+
+test "semanticEquiv: MySQL varchar(255) ↔ PG varchar → true (both → s)" {
+    try testing.expect(semanticEquiv("varchar(255)", "name", .mysql, "varchar", "name", .pg));
 }

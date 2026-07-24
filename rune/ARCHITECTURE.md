@@ -61,7 +61,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `diff.zig` | `diff_fields.zig` | Field-level diffing + rename detection + equality helpers |
 | `diff.zig` | `diff_indexes.zig` | Index diffing |
 | `diff.zig` | `diff_fks.zig` | FK diffing |
-| `diff.zig` | `diff_semantic.zig` | Dialect-aware type equivalence (canonical SS symbol mapping) |
+| `diff.zig` | `semantic.zig` | Dialect-aware type equivalence — `typeInfoEquiv` (AST-level) + `semanticEquiv` (SQL string-level via reverse lookup) |
 | `diff.zig` | `diff_format.zig` | Human-readable diff formatting |
 | `codegen.zig` | `codegen_columns.zig` | Column definition rendering (emitColumnDef, emitColumnDefEx, emitDefault) + shared `isDominatedByExplicitIndex()` |
 | `codegen.zig` | `codegen_indexes.zig` | Inline and standalone index emission |
@@ -87,8 +87,9 @@ Input (.ss text)
     Output: []Line (line_type + tokens)
     │
     ▼
-[2] Parser (parser.zig, 425 lines + 9 parse_*.zig modules)
+[2] Parser (parser.zig, 456 lines + 9 parse_*.zig modules)
     Token-level parsing into AST
+    BlockState struct encapsulates block-level parsing state (12 fields)
     Output: Ast (schema, templates, tables, sql_comments)
     │
     ▼
@@ -97,12 +98,12 @@ Input (.ss text)
     Output: []ResolvedTable (templates applied to each table)
     │
     ▼
-[4] Semantic Analyzer (semantic.zig, 789 lines)
-    Pass manager: validate_template_types, autofk, suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_schema
+[4] Semantic Analyzer (analyzer.zig, 421 lines + pass_manager.zig + 8 pass implementations)
+    Pass manager: validate_template_types, resolve_names, autofk, suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_schema
     Output: ResolvedAst (templates resolved + passes applied)
     │
     ▼
-[5] Type Resolver (typed_ast.zig, 289 lines)
+[5] Type Resolver (type_resolver.zig, 189 lines + typed_ast.zig, 132 lines)
     Abstract TypeInfo → concrete SqlType per dialect
     Modifier classification into ColumnFlags bitflags
     Output: TypedAst (dialect-agnostic IR)
@@ -246,7 +247,7 @@ PG and SQLite share 4/5 method implementations. `emitCheckExpr` is a shared stan
 
 ```zig
 SemanticPass = struct { name: []const u8, run: fn(*PassContext) !void, depends_on: []const []const u8 };
-DEFAULT_PASSES = [_]SemanticPass{ validate_template_types, autofk, suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_schema };
+DEFAULT_PASSES = [_]SemanticPass{ validate_template_types, resolve_names, autofk, suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_schema };
 ```
 
 New passes can be added by:
@@ -314,7 +315,7 @@ Rune uses a three-layer type mapping system:
 2. **DialectBackend vtable**: 23 core + 6 optional function pointers + 3 behavioral flags cover all dialect differences. Adding a new dialect requires < 100 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect_common.zig:emitForeignKeyShared`.
 3. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
 4. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).
-5. **AST-level diff**: Semantic comparison, not text diff. Detects renames by signature matching. Dialect-aware type equivalence (`diff_semantic.zig`) uses canonical SS symbol mapping — different symbols that resolve to the same SQL type are equivalent (e.g., `N4` ↔ `4` in MySQL), but distinct types like `n` (int) vs `N` (bigint) are NOT equivalent.
+5. **AST-level diff**: Semantic comparison, not text diff. Detects renames by signature matching. Dialect-aware type equivalence (`diff/semantic.zig`) provides two levels: `typeInfoEquiv` for AST-level TypeInfo comparison and `semanticEquiv` for SQL string-level comparison via reverse lookup. Canonical SS symbol mapping ensures different symbols resolving to the same SQL type are equivalent (e.g., `N4` ↔ `4` in MySQL), but distinct types like `n` (int) vs `N` (bigint) are NOT equivalent.
 6. **Arena allocation**: All modules take `std.mem.Allocator`. Arena-style usage for command-lifetime memory.
 7. **God function decomposition**: Large functions (>100 lines) are split into focused sub-functions. `migrate.zig:generateFromDiff` (258→7 sub-fns), `codegen.zig:generateTypedTable` (135→5 sub-fns), `reverse_codegen.zig:generateInner` (215→4 sub-fns).
 8. **Pipeline-CLI separation**: `pipeline_forward.zig` has no dependency on `cli.zig`. Output format dispatch (SQL vs JSON Schema) is the caller's responsibility.
@@ -402,7 +403,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | `type_map.zig`, `type_registry.zig`, `sql_type.zig`, `tokenizer.zig`, `parser.zig`, `diff.zig`, `diff_semantic.zig`, `semantic.zig`, `template.zig`, `reverse_column.zig`, `sql_parser_test.zig` | ~160 | Core logic |
+| Unit tests | `type_map.zig`, `type_registry.zig`, `sql_type.zig`, `tokenizer.zig`, `parser.zig`, `diff.zig`, `diff_semantic.zig`, `semantic.zig`, `template.zig`, `reverse_column.zig`, `sql_parser_test.zig`, `pipeline/forward.zig`, `pipeline/diff.zig`, `semantic/pass_manager.zig` | ~170 | Core logic + pipeline |
 | MySQL golden | `tests/test.sh` | 85 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 83 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 24 | Full pipeline |

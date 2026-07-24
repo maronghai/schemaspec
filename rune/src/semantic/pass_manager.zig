@@ -53,3 +53,15 @@ pub fn validateDependencyOrder() void {
         }
     }
 }
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "DEFAULT_PASSES: dependency order is valid" {
+    validateDependencyOrder();
+}
+
+test "DEFAULT_PASSES: expected count" {
+    try testing.expectEqual(@as(usize, 8), DEFAULT_PASSES.len);
+}

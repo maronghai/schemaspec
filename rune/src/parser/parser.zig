@@ -55,6 +55,49 @@ pub const Parser = struct {
         return parse_recovery.locFromLine(line, tok);
     }
 
+    // ─── Block State ─────────────────────────────────────────────
+
+    const BlockMode = enum { none, template, table };
+
+    const BlockState = struct {
+        name: ?[]const u8 = null,
+        comment: ?[]const u8 = null,
+        template_ref: ?[]const u8 = null,
+        parents_buf: [][]const u8 = &.{},
+        parents_len: usize = 0,
+        fields: std.ArrayList(Field),
+        fks: std.ArrayList(FkDecl),
+        indexes: std.ArrayList(IndexDecl),
+        line_no: usize = 0,
+        loc: ?SourceLocation = null,
+        engine: ?[]const u8 = null,
+        mode: BlockMode = .none,
+
+        fn init(alloc: std.mem.Allocator) !BlockState {
+            return .{
+                .fields = try std.ArrayList(Field).initCapacity(alloc, 16),
+                .fks = try std.ArrayList(FkDecl).initCapacity(alloc, 4),
+                .indexes = try std.ArrayList(IndexDecl).initCapacity(alloc, 4),
+            };
+        }
+
+        fn reset(self: *BlockState, alloc: std.mem.Allocator) !void {
+            self.name = null;
+            self.comment = null;
+            self.template_ref = null;
+            self.parents_buf = try alloc.alloc([]const u8, 4);
+            self.parents_len = 0;
+            self.fields.clearRetainingCapacity();
+            self.fks.clearRetainingCapacity();
+            self.indexes.clearRetainingCapacity();
+            self.line_no = 0;
+            self.loc = null;
+            self.engine = null;
+        }
+    };
+
+    // ─── Parse ──────────────────────────────────────────────────
+
     pub fn parse(self: *Parser, lines: []const tk.Line) !Ast {
         var schema: ?Schema = null;
         var templates = try std.ArrayList(Template).initCapacity(self.alloc, 8);
@@ -63,19 +106,7 @@ pub const Parser = struct {
         var sql_comments = try std.ArrayList(SqlComment).initCapacity(self.alloc, 8);
         var custom_types = try std.ArrayList(ast_mod.CustomType).initCapacity(self.alloc, 8);
 
-        // Current block being parsed (template or table)
-        var cur_name: ?[]const u8 = null;
-        var cur_comment: ?[]const u8 = null;
-        var cur_template_ref: ?[]const u8 = null;
-        var cur_parents_buf = try self.alloc.alloc([]const u8, 4);
-        var cur_parents_len: usize = 0;
-        var cur_fields = try std.ArrayList(Field).initCapacity(self.alloc, 16);
-        var cur_fks = try std.ArrayList(FkDecl).initCapacity(self.alloc, 4);
-        var cur_indexes = try std.ArrayList(IndexDecl).initCapacity(self.alloc, 4);
-        var cur_line_no: usize = 0;
-        var cur_loc: ?SourceLocation = null;
-        var cur_engine: ?[]const u8 = null;
-        var in_block: enum { none, template, table } = .none;
+        var block = try BlockState.init(self.alloc);
 
         for (lines) |line| {
             switch (line.line_type) {
@@ -112,51 +143,40 @@ pub const Parser = struct {
                     }
                 },
                 .Template => {
-                    if (in_block == .template) {
-                        try self.flushCurrentTemplate(&templates, cur_name, cur_parents_buf, cur_parents_len, &cur_fields, cur_line_no, cur_loc);
-                        cur_fields = try std.ArrayList(Field).initCapacity(self.alloc, 16);
-                        cur_parents_buf = try self.alloc.alloc([]const u8, 4);
-                        cur_parents_len = 0;
-                    } else if (in_block == .table) {
-                        try self.flushCurrentTable(&tables, cur_name, cur_comment, cur_template_ref, cur_engine, &cur_fields, &cur_fks, &cur_indexes, cur_line_no, cur_loc);
+                    if (block.mode == .template) {
+                        try self.flushCurrentTemplate(&templates, &block);
+                    } else if (block.mode == .table) {
+                        try self.flushCurrentTable(&tables, &block);
                     }
 
                     // Parse new template header
                     const tmpl = parse_template.parseTemplateHeader(self.alloc, line) catch |err| {
                         if (!self.handleParseError(err, line, "failed to parse template declaration")) return err;
-                        in_block = .none;
+                        block.mode = .none;
                         continue;
                     };
-                    cur_name = tmpl.name;
-                    cur_parents_buf = try self.alloc.alloc([]const u8, 4);
-                    cur_parents_len = 0;
+                    try block.reset(self.alloc);
+                    block.name = tmpl.name;
                     for (tmpl.parents) |p| {
-                        if (cur_parents_len < cur_parents_buf.len) {
-                            cur_parents_buf[cur_parents_len] = p;
-                            cur_parents_len += 1;
+                        if (block.parents_len < block.parents_buf.len) {
+                            block.parents_buf[block.parents_len] = p;
+                            block.parents_len += 1;
                         }
                     }
-                    cur_template_ref = null;
-                    cur_comment = null;
-                    cur_line_no = tmpl.line_no;
-                    cur_loc = tmpl.loc;
-                    cur_fields.clearRetainingCapacity();
-                    cur_fks.clearRetainingCapacity();
-                    cur_indexes.clearRetainingCapacity();
-                    in_block = .template;
+                    block.line_no = tmpl.line_no;
+                    block.loc = tmpl.loc;
+                    block.mode = .template;
                 },
                 .Table => {
-                    if (in_block == .template) {
-                        try self.flushCurrentTemplate(&templates, cur_name, cur_parents_buf, cur_parents_len, &cur_fields, cur_line_no, cur_loc);
-                        cur_fields = try std.ArrayList(Field).initCapacity(self.alloc, 16);
-                        cur_parents_buf = try self.alloc.alloc([]const u8, 4);
-                        cur_parents_len = 0;
-                    } else if (in_block == .table) {
-                        try self.flushCurrentTable(&tables, cur_name, cur_comment, cur_template_ref, cur_engine, &cur_fields, &cur_fks, &cur_indexes, cur_line_no, cur_loc);
+                    if (block.mode == .template) {
+                        try self.flushCurrentTemplate(&templates, &block);
+                    } else if (block.mode == .table) {
+                        try self.flushCurrentTable(&tables, &block);
                     }
 
                     const result = try parse_table.stripEngineTokens(self.alloc, line.tokens);
-                    if (result.engine) |e| cur_engine = e;
+                    try block.reset(self.alloc);
+                    if (result.engine) |e| block.engine = e;
                     const stripped_line = tk.Line{
                         .line_type = line.line_type,
                         .tokens = result.stripped,
@@ -167,40 +187,34 @@ pub const Parser = struct {
 
                     const hdr = parse_table.parseTableHeader(self.alloc, stripped_line) catch |err| {
                         if (!self.handleParseError(err, line, "failed to parse table declaration")) return err;
-                        in_block = .none;
+                        block.mode = .none;
                         continue;
                     };
-                    cur_name = hdr.name;
-                    cur_comment = hdr.comment;
-                    cur_template_ref = hdr.template_ref;
-                    cur_line_no = hdr.line_no;
-                    cur_loc = hdr.loc;
-                    cur_fields.clearRetainingCapacity();
-                    cur_fks.clearRetainingCapacity();
-                    cur_indexes.clearRetainingCapacity();
-                    in_block = .table;
+                    block.name = hdr.name;
+                    block.comment = hdr.comment;
+                    block.template_ref = hdr.template_ref;
+                    block.line_no = hdr.line_no;
+                    block.loc = hdr.loc;
+                    block.mode = .table;
                 },
                 .View => {
-                    if (in_block == .template) {
-                        try self.flushCurrentTemplate(&templates, cur_name, cur_parents_buf, cur_parents_len, &cur_fields, cur_line_no, cur_loc);
-                        cur_fields = try std.ArrayList(Field).initCapacity(self.alloc, 16);
-                        cur_parents_buf = try self.alloc.alloc([]const u8, 4);
-                        cur_parents_len = 0;
-                    } else if (in_block == .table) {
-                        try self.flushCurrentTable(&tables, cur_name, cur_comment, cur_template_ref, cur_engine, &cur_fields, &cur_fks, &cur_indexes, cur_line_no, cur_loc);
+                    if (block.mode == .template) {
+                        try self.flushCurrentTemplate(&templates, &block);
+                    } else if (block.mode == .table) {
+                        try self.flushCurrentTable(&tables, &block);
                     }
-                    in_block = .none;
+                    block.mode = .none;
                     if (line.tokens.len >= 2) {
                         views.append(self.alloc, parse_table.processViewLine(self.alloc, line.tokens, line.line_no) catch continue) catch continue;
                     }
                 },
                 .Field => {
-                    if (in_block != .none) {
+                    if (block.mode != .none) {
                         const fld = parse_field.parseField(self.alloc, line) catch |err| {
                             if (!self.handleParseError(err, line, "failed to parse field")) return err;
                             continue;
                         };
-                        try cur_fields.append(self.alloc, fld);
+                        try block.fields.append(self.alloc, fld);
                     } else {
                         diag.printDiagnostic(.{
                             .severity = .warning,
@@ -212,8 +226,8 @@ pub const Parser = struct {
                     }
                 },
                 .Slot => {
-                    if (in_block != .none) {
-                        try cur_fields.append(self.alloc, .{
+                    if (block.mode != .none) {
+                        try block.fields.append(self.alloc, .{
                             .name = "...",
                             .type_info = .none,
                             .modifiers = &.{},
@@ -235,13 +249,13 @@ pub const Parser = struct {
                     }
                 },
                 .FK => {
-                    if (in_block == .table) {
+                    if (block.mode == .table) {
                         const fk = parse_fk.parseFk(self.alloc, line) catch |err| {
                             if (!self.handleParseError(err, line, "failed to parse foreign key")) return err;
                             continue;
                         };
-                        try cur_fks.append(self.alloc, fk);
-                    } else if (in_block == .template) {
+                        try block.fks.append(self.alloc, fk);
+                    } else if (block.mode == .template) {
                         diag.printDiagnostic(.{
                             .severity = .warning,
                             .line_no = line.line_no,
@@ -252,13 +266,13 @@ pub const Parser = struct {
                     }
                 },
                 .Index => {
-                    if (in_block == .table) {
+                    if (block.mode == .table) {
                         const idx = parse_index.parseIndex(self.alloc, line) catch |err| {
                             if (!self.handleParseError(err, line, "failed to parse index")) return err;
                             continue;
                         };
-                        try cur_indexes.append(self.alloc, idx);
-                    } else if (in_block == .template) {
+                        try block.indexes.append(self.alloc, idx);
+                    } else if (block.mode == .template) {
                         diag.printDiagnostic(.{
                             .severity = .warning,
                             .line_no = line.line_no,
@@ -269,13 +283,13 @@ pub const Parser = struct {
                     }
                 },
                 .CompositePK => {
-                    if (in_block == .table) {
+                    if (block.mode == .table) {
                         const idx = parse_index.parseCompositePk(self.alloc, line) catch |err| {
                             if (!self.handleParseError(err, line, "failed to parse composite primary key")) return err;
                             continue;
                         };
-                        try cur_indexes.append(self.alloc, idx);
-                    } else if (in_block == .template) {
+                        try block.indexes.append(self.alloc, idx);
+                    } else if (block.mode == .template) {
                         diag.printDiagnostic(.{
                             .severity = .warning,
                             .line_no = line.line_no,
@@ -287,13 +301,13 @@ pub const Parser = struct {
                 },
                 .Engine => {
                     if (line.tokens.len >= 2) {
-                        cur_engine = try self.alloc.dupe(u8, line.tokens[1]);
+                        block.engine = try self.alloc.dupe(u8, line.tokens[1]);
                     } else {
-                        cur_engine = "InnoDB";
+                        block.engine = "InnoDB";
                     }
                 },
                 .SQLComment => {
-                    if (in_block == .none) {
+                    if (block.mode == .none) {
                         try sql_comments.append(self.alloc, .{
                             .text = line.raw,
                             .line_no = line.line_no,
@@ -304,20 +318,20 @@ pub const Parser = struct {
         }
 
         // Flush last block — catch allocation errors gracefully
-        if (in_block == .template) {
-            self.flushCurrentTemplate(&templates, cur_name, cur_parents_buf, cur_parents_len, &cur_fields, cur_line_no, cur_loc) catch |err| {
+        if (block.mode == .template) {
+            self.flushCurrentTemplate(&templates, &block) catch |err| {
                 diag.printDiagnostic(.{
                     .severity = .@"error",
-                    .line_no = cur_line_no,
+                    .line_no = block.line_no,
                     .message = "failed to flush template block",
                     .actual = @errorName(err),
                 });
             };
-        } else if (in_block == .table) {
-            self.flushCurrentTable(&tables, cur_name, cur_comment, cur_template_ref, cur_engine, &cur_fields, &cur_fks, &cur_indexes, cur_line_no, cur_loc) catch |err| {
+        } else if (block.mode == .table) {
+            self.flushCurrentTable(&tables, &block) catch |err| {
                 diag.printDiagnostic(.{
                     .severity = .@"error",
-                    .line_no = cur_line_no,
+                    .line_no = block.line_no,
                     .message = "failed to flush table block",
                     .actual = @errorName(err),
                 });
@@ -358,40 +372,27 @@ pub const Parser = struct {
     fn flushCurrentTable(
         self: *Parser,
         tables: *std.ArrayList(Table),
-        name: ?[]const u8,
-        comment: ?[]const u8,
-        template_ref: ?[]const u8,
-        engine: ?[]const u8,
-        fields: *std.ArrayList(Field),
-        fks: *std.ArrayList(FkDecl),
-        indexes: *std.ArrayList(IndexDecl),
-        line_no: usize,
-        loc: ?SourceLocation,
+        block: *BlockState,
     ) !void {
         try tables.append(self.alloc, .{
-            .template_ref = template_ref,
-            .name = name orelse "",
-            .comment = comment,
-            .engine = engine,
-            .fields = try fields.toOwnedSlice(self.alloc),
-            .fks = try fks.toOwnedSlice(self.alloc),
-            .indexes = try indexes.toOwnedSlice(self.alloc),
-            .line_no = line_no,
-            .loc = loc,
+            .template_ref = block.template_ref,
+            .name = block.name orelse "",
+            .comment = block.comment,
+            .engine = block.engine,
+            .fields = try block.fields.toOwnedSlice(self.alloc),
+            .fks = try block.fks.toOwnedSlice(self.alloc),
+            .indexes = try block.indexes.toOwnedSlice(self.alloc),
+            .line_no = block.line_no,
+            .loc = block.loc,
         });
     }
 
     fn flushCurrentTemplate(
         self: *Parser,
         templates: *std.ArrayList(Template),
-        name: ?[]const u8,
-        parents_buf: []const []const u8,
-        parents_len: usize,
-        fields: *std.ArrayList(Field),
-        line_no: usize,
-        loc: ?SourceLocation,
+        block: *BlockState,
     ) !void {
-        try parse_template.flushTemplate(self.alloc, templates, name, parents_buf, parents_len, fields, line_no, loc);
+        try parse_template.flushTemplate(self.alloc, templates, block.name, block.parents_buf, block.parents_len, &block.fields, block.line_no, block.loc);
     }
 
     // ─── Public API: delegated functions ────────────────────

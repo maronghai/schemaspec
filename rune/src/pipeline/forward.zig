@@ -110,3 +110,37 @@ pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: 
 
     try io_mod.writeOutput(io, output, output_path);
 }
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "compilePipeline: simple schema produces resolved tables" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ss_input =
+        \\$ demo
+        \\
+        \\# user
+        \\
+        \\id   n++
+        \\name s
+    ;
+    const io: std.Io = undefined;
+    const result = try compilePipeline(io, alloc, ss_input);
+    try testing.expect(result.resolved.tables.len > 0);
+    try testing.expectEqualStrings("user", result.resolved.tables[0].name);
+}
+
+test "compilePipeline: syntax error returns error" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const bad_input = "### invalid $$$";
+    const io: std.Io = undefined;
+    const result = compilePipeline(io, alloc, bad_input);
+    try testing.expectError(error.ParseError, result);
+}

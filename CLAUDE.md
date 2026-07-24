@@ -95,7 +95,7 @@ rune/src/
 
 - **Self-contained SqlType** (`types/sql_type.zig`): `SqlType.toSql()` delegates to `DialectBackend.renderType` for dialect-aware rendering. `toJsonSchema()` provides dialect-agnostic JSON Schema output.
 
-- **Dialect-Aware Diff** (`diff/semantic.zig`): Type equivalence checking uses canonical SS symbol mapping — different symbols that resolve to the same SQL type are equivalent (e.g. `N4` ↔ `4`), but distinct types like `n` (int) vs `N` (bigint) are NOT equivalent.
+- **Dialect-Aware Diff** (`diff/semantic.zig`): Unified type equivalence module — `typeInfoEquiv` (AST-level TypeInfo comparison) and `semanticEquiv` (SQL string-level via reverse lookup). Canonical SS symbol mapping ensures different symbols resolving to the same SQL type are equivalent (e.g. `N4` ↔ `4`), but distinct types like `n` (int) vs `N` (bigint) are NOT equivalent.
 
 - **Two-Pass FK Diffing** (`diff/fks.zig`): First pass matches identical FKs (structure + actions). Second pass matches structurally identical FKs with different actions → `modify`. Remaining unmatched FKs → `drop`/`add`.
 
@@ -137,7 +137,7 @@ rune/src/
 | | `fks.zig` | FK diffing — two-pass matching |
 | | `indexes.zig` | Index diffing |
 | | `format.zig` | Diff output formatting |
-| | `semantic.zig` | Dialect-aware type equivalence |
+| | `semantic.zig` | Dialect-aware type equivalence (`typeInfoEquiv` + `semanticEquiv`) |
 | | `migrate.zig` | Migration SQL generation |
 | `types/` | `ast.zig` | AST type definitions (Schema, Table, Field, Template, etc.) |
 | | `resolved_ast.zig` | ResolvedTable + ResolvedAst (semantic output) |
@@ -162,7 +162,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks — inline in production files, or in dedicated `*_test.zig` files (`diff_test.zig`, `codegen_test.zig`, `diff/migrate_test.zig`, `ast_visitor_test.zig`, `diff_fields_test.zig`, `parser/sql_parser_test.zig`, `semantic/analyzer.zig`). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks — inline in production files, or in dedicated `*_test.zig` files (`diff_test.zig`, `codegen_test.zig`, `diff/migrate_test.zig`, `ast_visitor_test.zig`, `diff_fields_test.zig`, `parser/sql_parser_test.zig`, `semantic/analyzer.zig`). Pipeline tests in `pipeline/forward.zig` and `pipeline/diff.zig`. Pass manager tests in `semantic/pass_manager.zig`. Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`
 
