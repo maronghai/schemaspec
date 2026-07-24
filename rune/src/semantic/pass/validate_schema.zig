@@ -147,3 +147,132 @@ pub fn run(ctx: *PassContext) !void {
         }
     }
 }
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+const test_helpers = @import("../test_helpers.zig");
+const diag_mod = @import("../diagnostic.zig");
+const symbol_table_mod = @import("../../types/symbol_table.zig");
+
+fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag_mod.DiagnosticCollector) PassContext {
+    var st = symbol_table_mod.SymbolTable.init(alloc);
+    for (tables) |*t| {
+        _ = st.registerTable(t.name, t) catch {};
+    }
+    return .{
+        .alloc = alloc,
+        .tables = tables,
+        .schema = null,
+        .diagnostics = diagnostics,
+        .symbol_table = st,
+    };
+}
+
+test "validate_schema: circular FK emits diagnostic" {
+    const alloc = testing.allocator;
+
+    const a_fields = try alloc.alloc(ast.Field, 1);
+    a_fields[0] = test_helpers.makeTestField("b_id", .{ .simple = "n" });
+
+    const b_fields = try alloc.alloc(ast.Field, 1);
+    b_fields[0] = test_helpers.makeTestField("a_id", .{ .simple = "n" });
+
+    const a_fks = try alloc.alloc(ast.FkDecl, 1);
+    a_fks[0] = .{
+        .fields = try alloc.dupe([]const u8, &.{"b_id"}),
+        .ref_table = "b",
+        .ref_fields = try alloc.dupe([]const u8, &.{"id"}),
+        .actions = &.{},
+        .line_no = 2,
+    };
+
+    const b_fks = try alloc.alloc(ast.FkDecl, 1);
+    b_fks[0] = .{
+        .fields = try alloc.dupe([]const u8, &.{"a_id"}),
+        .ref_table = "a",
+        .ref_fields = try alloc.dupe([]const u8, &.{"id"}),
+        .actions = &.{},
+        .line_no = 6,
+    };
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
+    try tables.append(alloc, .{
+        .name = "a",
+        .comment = null,
+        .engine = null,
+        .fields = a_fields,
+        .fks = a_fks,
+        .indexes = &.{},
+        .line_no = 1,
+    });
+    try tables.append(alloc, .{
+        .name = "b",
+        .comment = null,
+        .engine = null,
+        .fields = b_fields,
+        .fks = b_fks,
+        .indexes = &.{},
+        .line_no = 5,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    try run(&ctx);
+
+    var found_circular = false;
+    for (diagnostics.diagnostics.items) |d| {
+        if (std.mem.indexOf(u8, d.message, "circular") != null) {
+            found_circular = true;
+            break;
+        }
+    }
+    try testing.expect(found_circular);
+}
+
+test "validate_schema: non-circular FK produces no circular diagnostic" {
+    const alloc = testing.allocator;
+
+    const order_fields = try alloc.alloc(ast.Field, 1);
+    order_fields[0] = test_helpers.makeTestField("user_id", .{ .simple = "n" });
+
+    const user_fields = try alloc.alloc(ast.Field, 1);
+    user_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });
+
+    const order_fks = try alloc.alloc(ast.FkDecl, 1);
+    order_fks[0] = .{
+        .fields = try alloc.dupe([]const u8, &.{"user_id"}),
+        .ref_table = "user",
+        .ref_fields = try alloc.dupe([]const u8, &.{"id"}),
+        .actions = &.{},
+        .line_no = 2,
+    };
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
+    try tables.append(alloc, .{
+        .name = "order",
+        .comment = null,
+        .engine = null,
+        .fields = order_fields,
+        .fks = order_fks,
+        .indexes = &.{},
+        .line_no = 1,
+    });
+    try tables.append(alloc, .{
+        .name = "user",
+        .comment = null,
+        .engine = null,
+        .fields = user_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 5,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    try run(&ctx);
+
+    for (diagnostics.diagnostics.items) |d| {
+        try testing.expect(std.mem.indexOf(u8, d.message, "circular") == null);
+    }
+}

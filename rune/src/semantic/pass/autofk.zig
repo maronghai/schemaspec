@@ -77,3 +77,131 @@ pub fn run(ctx: *PassContext) !void {
     }
     ctx.tables.* = new_tables;
 }
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+const test_helpers = @import("../test_helpers.zig");
+const diag_mod = @import("../diagnostic.zig");
+
+fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag_mod.DiagnosticCollector, schema: ?ast.Schema) PassContext {
+    return .{
+        .alloc = alloc,
+        .tables = tables,
+        .schema = schema,
+        .diagnostics = diagnostics,
+    };
+}
+
+test "autofk: _id suffix triggers FK inference" {
+    const alloc = testing.allocator;
+
+    const user_fields = try alloc.alloc(Field, 2);
+    user_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });
+    user_fields[1] = test_helpers.makeTestField("name", .{ .simple = "s" });
+
+    const order_fields = try alloc.alloc(Field, 2);
+    order_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });
+    order_fields[1] = test_helpers.makeTestField("user_id", .none);
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
+    try tables.append(alloc, .{
+        .name = "user",
+        .comment = null,
+        .engine = null,
+        .fields = user_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+    try tables.append(alloc, .{
+        .name = "order",
+        .comment = null,
+        .engine = null,
+        .fields = order_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 5,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics, .{
+        .name = "demo",
+        .charset = null,
+        .autofk = true,
+        .custom_types = &.{},
+        .line_no = 1,
+    });
+    try run(&ctx);
+
+    // user_id field should now have an FK
+    const order = ctx.tables.items[1];
+    const uid_field = order.fields[1];
+    try testing.expect(uid_field.fk != null);
+    try testing.expectEqualStrings("user", uid_field.fk.?.ref_table);
+}
+
+test "autofk: no suffix means no FK" {
+    const alloc = testing.allocator;
+
+    const fields = try alloc.alloc(Field, 2);
+    fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });
+    fields[1] = test_helpers.makeTestField("tag", .{ .simple = "s" });
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "item",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics, .{
+        .name = "demo",
+        .charset = null,
+        .autofk = true,
+        .custom_types = &.{},
+        .line_no = 1,
+    });
+    try run(&ctx);
+
+    // No FK should be added
+    const item = ctx.tables.items[0];
+    try testing.expect(item.fields[1].fk == null);
+}
+
+test "autofk: disabled schema skips inference" {
+    const alloc = testing.allocator;
+
+    const fields = try alloc.alloc(Field, 2);
+    fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });
+    fields[1] = test_helpers.makeTestField("user_id", .none);
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "order",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics, .{
+        .name = "demo",
+        .charset = null,
+        .autofk = false,
+        .custom_types = &.{},
+        .line_no = 1,
+    });
+    try run(&ctx);
+
+    // autofk disabled → no FK
+    try testing.expect(ctx.tables.items[0].fields[1].fk == null);
+}

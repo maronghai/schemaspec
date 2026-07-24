@@ -51,7 +51,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 
 ```
 rune/src/
-  main.zig, cli.zig, compiler.zig, io.zig, utils.zig   # CLI + glue
+  main.zig, cli.zig, io.zig, utils.zig                           # CLI + glue
   bench.zig, json_schema.zig, ast_visitor.zig            # standalone modules
   pipeline/    forward.zig, reverse.zig, diff.zig        # pipeline orchestration
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
@@ -155,16 +155,15 @@ rune/src/
 | | `pass/*.zig` | 8 semantic passes (autofk, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
-| | `compiler.zig` | Re-export hub for pipeline modules |
 | | `io.zig` | File I/O, stdin reading, output writing |
 | | `bench.zig` | Benchmark entry point |
 | | `json_schema.zig` | JSON Schema output |
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks — inline in production files, or in dedicated `*_test.zig` files (`diff_test.zig`, `codegen_test.zig`, `diff/migrate_test.zig`, `ast_visitor_test.zig`, `diff_fields_test.zig`, `parser/sql_parser_test.zig`, `semantic/analyzer.zig`). Pipeline tests in `pipeline/forward.zig` and `pipeline/diff.zig`. Pass manager tests in `semantic/pass_manager.zig`. Run via `zig build test`
-- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`
-- Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`
+- **Unit tests**: Zig `test` blocks — inline in production files, or in dedicated `*_test.zig` files (`diff_test.zig`, `codegen_test.zig`, `diff/migrate_test.zig`, `ast_visitor_test.zig`, `diff_fields_test.zig`, `parser/sql_parser_test.zig`, `semantic/analyzer.zig`). Each semantic pass has direct unit tests in `semantic/pass/*.zig`. Dialect backends (`mysql.zig`, `pg.zig`, `sqlite.zig`) have `renderType` + `quoteChar` tests. Pipeline tests in `pipeline/forward.zig` and `pipeline/diff.zig`. Pass manager tests in `semantic/pass_manager.zig`. Run via `zig build test`
+- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. 9 scripts: `test.sh` (MySQL, 85), `test_postgres.sh` (PG, 83), `test_sqlite.sh` (SQLite, 24), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (15), `test_error_recovery.sh` (12), `test_json_schema.sh` (1), `test_roundtrip.sh` (24). Run a single test by filter: `bash tests/test.sh 01`
+- Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
 ## Conventions
 

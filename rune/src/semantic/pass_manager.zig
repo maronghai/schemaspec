@@ -41,8 +41,9 @@ pub const DEFAULT_PASSES = [_]SemanticPass{
 /// Validate dependency ordering at runtime (comptime safety check).
 pub fn validateDependencyOrder() void {
     if (comptime std.debug.runtime_safety) {
-        var seen_names = std.StringHashMap(void).init(std.heap.page_allocator);
-        defer seen_names.deinit();
+        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer arena.deinit();
+        var seen_names = std.StringHashMap(void).init(arena.allocator());
         for (DEFAULT_PASSES) |pass| {
             for (pass.depends_on) |dep| {
                 if (!seen_names.contains(dep)) {

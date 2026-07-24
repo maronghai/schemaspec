@@ -46,3 +46,81 @@ pub fn run(ctx: *PassContext) !void {
     // Store the symbol table in PassContext for downstream passes
     ctx.symbol_table = st;
 }
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+const test_helpers = @import("../test_helpers.zig");
+const diag_mod = @import("../diagnostic.zig");
+const resolved_ast = @import("../../types/resolved_ast.zig");
+const ResolvedTable = resolved_ast.ResolvedTable;
+
+fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag_mod.DiagnosticCollector, templates: std.StringHashMap(*const ast.Template)) PassContext {
+    return .{
+        .alloc = alloc,
+        .tables = tables,
+        .schema = null,
+        .templates = templates,
+        .diagnostics = diagnostics,
+    };
+}
+
+test "resolve_names: duplicate table name emits diagnostic" {
+    const alloc = testing.allocator;
+    const fields = try alloc.alloc(ast.Field, 1);
+    fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 5,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    const templates = std.StringHashMap(*const ast.Template).init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics, templates);
+    try run(&ctx);
+
+    try testing.expect(diagnostics.diagnostics.items.len > 0);
+    const msg = diagnostics.diagnostics.items[0].message;
+    try testing.expect(std.mem.indexOf(u8, msg, "duplicate name: 'users'") != null);
+}
+
+test "resolve_names: valid tables populate symbol table" {
+    const alloc = testing.allocator;
+    const fields = try alloc.alloc(ast.Field, 1);
+    fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    const templates = std.StringHashMap(*const ast.Template).init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics, templates);
+    try run(&ctx);
+
+    try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
+    try testing.expect(ctx.symbol_table.lookupTable("users") != null);
+}

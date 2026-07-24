@@ -154,6 +154,8 @@ pub fn formatDiff(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect) ![]
 }
 
 pub fn printDiff(d: SchemaDiff, dialect: Dialect) void {
-    const text = formatDiff(std.heap.page_allocator, d, dialect) catch return;
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const text = formatDiff(arena.allocator(), d, dialect) catch return;
     std.debug.print("{s}", .{text});
 }

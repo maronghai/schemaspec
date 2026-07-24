@@ -23,8 +23,7 @@ pub const PipelineResult = struct {
 
 /// Shared tokenizer → parser → semantic pipeline.
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
-pub fn compilePipeline(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
-    _ = io;
+pub fn compilePipeline(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
     var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
 
     var line_it = std.mem.splitScalar(u8, file_data, '\n');

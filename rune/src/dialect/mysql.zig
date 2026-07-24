@@ -308,3 +308,49 @@ pub const mysql_backend = DialectBackend{
     .modify_needs_column_def = true,
     .modify_column_def_skips_name = false,
 };
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "mysql: renderType maps common types" {
+    const alloc = testing.allocator;
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+
+    try mysqlRenderType(w, .int);
+    try w.flush();
+    try testing.expectEqualStrings("int", aw.getWritten());
+
+    aw.deinit();
+    var aw2 = std.Io.Writer.Allocating.init(alloc);
+    const w2 = &aw2.writer;
+    try mysqlRenderType(w2, .bigint);
+    try w2.flush();
+    try testing.expectEqualStrings("bigint", aw2.getWritten());
+
+    aw2.deinit();
+    var aw3 = std.Io.Writer.Allocating.init(alloc);
+    const w3 = &aw3.writer;
+    try mysqlRenderType(w3, .{ .varchar = 128 });
+    try w3.flush();
+    try testing.expectEqualStrings("varchar(128)", aw3.getWritten());
+
+    aw3.deinit();
+    var aw4 = std.Io.Writer.Allocating.init(alloc);
+    const w4 = &aw4.writer;
+    try mysqlRenderType(w4, .{ .decimal = .{ .precision = 10, .scale = 2 } });
+    try w4.flush();
+    try testing.expectEqualStrings("decimal(10, 2)", aw4.getWritten());
+
+    aw4.deinit();
+    var aw5 = std.Io.Writer.Allocating.init(alloc);
+    const w5 = &aw5.writer;
+    try mysqlRenderType(w5, .boolean);
+    try w5.flush();
+    try testing.expectEqualStrings("boolean", aw5.getWritten());
+}
+
+test "mysql: quoteChar is backtick" {
+    try testing.expectEqual(@as(u8, '`'), mysql_backend.quoteChar);
+}
