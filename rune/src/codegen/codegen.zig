@@ -167,41 +167,23 @@ pub const Codegen = struct {
 
 // ─── Diagnostic ──────────────────────────────────────────────
 
-pub fn diagnosticTrace(sql: []const u8) void {
+pub fn diagnosticTrace(typed: typed_ast_mod.TypedAst) void {
     std.debug.print("=== [Stage 4: Codegen] ===\n\n", .{});
 
-    var table_count: usize = 0;
-    var field_count: usize = 0;
+    var column_count: usize = 0;
     var fk_count: usize = 0;
     var index_count: usize = 0;
 
-    var line_it = std.mem.splitScalar(u8, sql, '\n');
-    while (line_it.next()) |line| {
-        const trimmed = std.mem.trim(u8, line, " \t\r");
-        if (std.mem.startsWith(u8, trimmed, "CREATE TABLE ")) {
-            table_count += 1;
-        } else if (trimmed.len > 0 and trimmed[0] == '`' and std.mem.indexOf(u8, trimmed, "PRIMARY KEY") != null) {
-            // Skip PRIMARY KEY lines
-        } else if (std.mem.indexOf(u8, trimmed, "FOREIGN KEY") != null) {
-            fk_count += 1;
-        } else if (std.mem.indexOf(u8, trimmed, "INDEX") != null or std.mem.indexOf(u8, trimmed, "UNIQUE INDEX") != null or std.mem.indexOf(u8, trimmed, "FULLTEXT INDEX") != null) {
-            index_count += 1;
-        }
+    for (typed.tables) |table| {
+        column_count += table.columns.len;
+        fk_count += table.fks.len;
+        index_count += table.indexes.len;
     }
 
-    var col_it = std.mem.splitScalar(u8, sql, '\n');
-    while (col_it.next()) |line| {
-        const trimmed = std.mem.trim(u8, line, " \t\r");
-        if (trimmed.len > 0 and trimmed[0] == '`') {
-            field_count += 1;
-        }
-    }
-
-    std.debug.print("Tables:    {d}\n", .{table_count});
-    std.debug.print("Columns:   {d}\n", .{field_count});
+    std.debug.print("Tables:    {d}\n", .{typed.tables.len});
+    std.debug.print("Columns:   {d}\n", .{column_count});
+    std.debug.print("Views:     {d}\n", .{typed.views.len});
     std.debug.print("FKs:       {d}\n", .{fk_count});
-    std.debug.print("Indexes:   {d}\n", .{index_count});
-    std.debug.print("SQL lines: {d}\n", .{std.mem.count(u8, sql, "\n") + 1});
-    std.debug.print("SQL bytes: {d}\n\n", .{sql.len});
+    std.debug.print("Indexes:   {d}\n\n", .{index_count});
 }
 

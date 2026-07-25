@@ -65,14 +65,14 @@ fn pgCommentResult() CommentResult {
 // ─── PG-specific helpers ──────────────────────────────────────
 
 fn pgEmitTableComment(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
-    const ct = if (comment.len >= 1 and comment[0] == ':') comment[1..] else comment;
+    const ct = common.stripCommentPrefix(comment);
     const tr = std.mem.trim(u8, ct, " ");
     if (tr.len > 0) try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n", .{ table_name, tr });
 }
 
 fn pgEmitColumnComment(w: *Writer, table_name: []const u8, col_name: []const u8, comment: []const u8) anyerror!void {
     if (comment.len >= 1 and comment[0] == ':') {
-        const ct = std.mem.trim(u8, comment[1..], " ");
+        const ct = std.mem.trim(u8, common.stripCommentPrefix(comment), " ");
         if (ct.len > 0) try w.print("COMMENT ON COLUMN \"{s}\".\"{s}\" IS '{s}';\n", .{ table_name, col_name, ct });
     }
 }
@@ -126,27 +126,7 @@ fn pgEmitCreateView(w: *Writer, name: []const u8, query: []const u8) anyerror!vo
 // ─── Forward Type Mapping (SS symbol → SqlType) ─────────────
 
 fn pgLookupSym(sym: []const u8) ?SqlType {
-    if (sym.len != 1) return null;
-    return switch (sym[0]) {
-        'n' => .int,
-        'N' => .bigint,
-        'i' => .smallint,
-        'm' => .{ .decimal = .{ .precision = 16, .scale = 2 } },
-        'M' => .{ .decimal = .{ .precision = 20, .scale = 6 } },
-        'S' => .text,
-        'b' => .boolean,
-        'B' => .blob,
-        'j' => .json,
-        'd' => .date,
-        't' => .datetime,
-        'T' => .timestamptz,
-        's' => .{ .varchar = 0 },
-        'U' => .uuid,
-        'p' => .serial,
-        'J' => .jsonb,
-        'I' => .inet,
-        else => null,
-    };
+    return common.lookupSymDefault(&.{}, sym);
 }
 
 // ─── Backend Instance ──────────────────────────────────────

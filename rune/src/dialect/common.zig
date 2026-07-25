@@ -1,7 +1,59 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
+const sql_type_mod = @import("../types/sql_type.zig");
+const SqlType = sql_type_mod.SqlType;
 const Writer = std.Io.Writer;
 const IndexDecl = ast_mod.IndexDecl;
+
+// ─── Shared Symbol Lookup ────────────────────────────────────
+//
+// All three dialect backends (MySQL, PG, SQLite) map 18 single-char
+// SS symbols to SqlType values. The default map covers MySQL/PG;
+// SQLite overrides 3 entries ('N'→int, 'U'→passthrough TEXT, 'p'→passthrough INTEGER).
+
+pub const SymEntry = struct { char: u8, sql_type: SqlType };
+
+/// Default symbol map shared by MySQL and PostgreSQL.
+pub const DEFAULT_SYM_MAP = [_]SymEntry{
+    .{ .char = 'n', .sql_type = .int },
+    .{ .char = 'N', .sql_type = .bigint },
+    .{ .char = 'i', .sql_type = .smallint },
+    .{ .char = 'm', .sql_type = .{ .decimal = .{ .precision = 16, .scale = 2 } } },
+    .{ .char = 'M', .sql_type = .{ .decimal = .{ .precision = 20, .scale = 6 } } },
+    .{ .char = 'S', .sql_type = .text },
+    .{ .char = 'b', .sql_type = .boolean },
+    .{ .char = 'B', .sql_type = .blob },
+    .{ .char = 'j', .sql_type = .json },
+    .{ .char = 'd', .sql_type = .date },
+    .{ .char = 't', .sql_type = .datetime },
+    .{ .char = 'T', .sql_type = .timestamptz },
+    .{ .char = 's', .sql_type = .{ .varchar = 0 } },
+    .{ .char = 'U', .sql_type = .uuid },
+    .{ .char = 'p', .sql_type = .serial },
+    .{ .char = 'J', .sql_type = .jsonb },
+    .{ .char = 'I', .sql_type = .inet },
+};
+
+/// SQLite overrides: 'N'→int (no bigint), 'U'→TEXT, 'p'→INTEGER.
+pub const SQLITE_SYM_MAP = [_]SymEntry{
+    .{ .char = 'N', .sql_type = .int },
+    .{ .char = 'U', .sql_type = .{ .passthrough = "TEXT" } },
+    .{ .char = 'p', .sql_type = .{ .passthrough = "INTEGER" } },
+};
+
+/// Look up a SS symbol using a primary map with fallback to defaults.
+/// SQLite passes SQLITE_SYM_MAP as overrides; MySQL/PG pass empty overrides.
+pub fn lookupSymDefault(overrides: []const SymEntry, sym: []const u8) ?SqlType {
+    if (sym.len != 1) return null;
+    const ch = sym[0];
+    for (overrides) |entry| {
+        if (entry.char == ch) return entry.sql_type;
+    }
+    for (DEFAULT_SYM_MAP) |entry| {
+        if (entry.char == ch) return entry.sql_type;
+    }
+    return null;
+}
 
 // ─── Shared PG/SQLite Dialect Logic ──────────────────────────
 //
@@ -11,6 +63,15 @@ const IndexDecl = ast_mod.IndexDecl;
 // MySQL uses backtick quoting and inline comments;
 // PG/SQLite both use double-quote quoting and standalone comments.
 // These functions capture the common PG/SQLite behavior.
+
+// ─── Comment Stripping ───────────────────────────────────────
+// SS comments prefixed with `:` are metadata comments (not user comments).
+// Both PG and SQLite strip this prefix before emitting SQL comments.
+
+pub fn stripCommentPrefix(comment: []const u8) []const u8 {
+    if (comment.len >= 1 and comment[0] == ':') return comment[1..];
+    return comment;
+}
 
 // ─── Identifier Quoting ──────────────────────────────────────
 

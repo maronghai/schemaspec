@@ -63,14 +63,14 @@ fn sqliteNoopAlterDropColumn(w: *Writer, _: []const u8) anyerror!void {
 // ─── SQLite-specific helpers ──────────────────────────────────
 
 fn sqliteEmitTableComment(w: *Writer, _: []const u8, comment: []const u8) anyerror!void {
-    const ct = if (comment.len >= 1 and comment[0] == ':') comment[1..] else comment;
+    const ct = common.stripCommentPrefix(comment);
     const tr = std.mem.trim(u8, ct, " ");
     if (tr.len > 0) try w.print("-- {s}\n", .{tr});
 }
 
 fn sqliteEmitColumnComment(w: *Writer, table_name: []const u8, col_name: []const u8, comment: []const u8) anyerror!void {
     if (comment.len >= 1 and comment[0] == ':') {
-        const ct = std.mem.trim(u8, comment[1..], " ");
+        const ct = std.mem.trim(u8, common.stripCommentPrefix(comment), " ");
         if (ct.len > 0) try w.print("-- {s}.{s}: {s}\n", .{ table_name, col_name, ct });
     }
 }
@@ -218,27 +218,7 @@ fn sqliteReverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: 
 // ─── Forward Type Mapping (SS symbol → SqlType) ─────────────
 
 fn sqliteLookupSym(sym: []const u8) ?SqlType {
-    if (sym.len != 1) return null;
-    return switch (sym[0]) {
-        'n' => .int,
-        'N' => .int, // SQLite: bigint → INTEGER (same affinity)
-        'i' => .smallint,
-        'm' => .{ .decimal = .{ .precision = 16, .scale = 2 } },
-        'M' => .{ .decimal = .{ .precision = 20, .scale = 6 } },
-        'S' => .text,
-        'b' => .boolean,
-        'B' => .blob,
-        'j' => .json,
-        'd' => .date,
-        't' => .datetime,
-        'T' => .timestamptz,
-        's' => .{ .varchar = 0 },
-        'U' => .{ .passthrough = "TEXT" }, // SQLite: uuid → TEXT
-        'p' => .{ .passthrough = "INTEGER" }, // SQLite: serial → INTEGER
-        'J' => .jsonb,
-        'I' => .inet,
-        else => null,
-    };
+    return common.lookupSymDefault(&common.SQLITE_SYM_MAP, sym);
 }
 
 // ─── Backend Instance ──────────────────────────────────────

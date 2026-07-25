@@ -83,7 +83,7 @@ pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
         tokenizer.Tokenizer.diagnosticTrace(pipeline.lines);
         parser.diagnosticTrace(pipeline.tree);
         semantic.diagnosticTrace(pipeline.resolved);
-        codegen.diagnosticTrace(output);
+        codegen.diagnosticTrace(typed);
     }
 
     try io_mod.writeOutput(io, output, output_path);
