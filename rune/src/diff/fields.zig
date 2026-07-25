@@ -174,8 +174,8 @@ fn detectRenames(
 
         for (new_fields) |new_f| {
             if (std.mem.eql(u8, new_f.name, "...")) continue;
-            if (new_fmap.contains(new_f.name) and old_fmap.contains(new_f.name)) continue;
-            if (!new_fmap.contains(new_f.name)) continue;
+            // Skip fields that exist in both old and new (not a rename candidate)
+            if (old_fmap.contains(new_f.name)) continue;
 
             if (fieldSignatureMatch(old_f, new_f, dialect)) {
                 match_name = new_f.name;
@@ -200,6 +200,8 @@ fn detectRenames(
 
 // ─── Equality Helpers ──────────────────────────────────────
 
+/// Check if two fields have the same signature (type, modifiers, default, check).
+/// Used by rename detection to match dropped ↔ added fields.
 pub fn fieldSignatureMatch(a: Field, b: Field, dialect: ?Dialect) bool {
     if (!typeInfoEqualDialect(a.type_info, b.type_info, dialect)) return false;
     if (a.modifiers.len != b.modifiers.len) return false;
@@ -211,15 +213,9 @@ pub fn fieldSignatureMatch(a: Field, b: Field, dialect: ?Dialect) bool {
     return true;
 }
 
+/// Check if two fields are fully equal (type, modifiers, default, check).
 pub fn fieldsEqual(a: Field, b: Field, dialect: ?Dialect) bool {
-    if (!typeInfoEqualDialect(a.type_info, b.type_info, dialect)) return false;
-    if (a.modifiers.len != b.modifiers.len) return false;
-    for (a.modifiers, 0..) |am, i| {
-        if (am.kind != b.modifiers[i].kind) return false;
-    }
-    if (!defaultValEqual(a.default_val, b.default_val)) return false;
-    if (!checkEqual(a.check, b.check)) return false;
-    return true;
+    return fieldSignatureMatch(a, b, dialect);
 }
 
 pub fn typeInfoEqual(a: TypeInfo, b: TypeInfo) bool {

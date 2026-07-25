@@ -55,3 +55,5 @@ nul
 zig-upx/
 zig-out/
 .zig-cache/
+
+plan-*.md

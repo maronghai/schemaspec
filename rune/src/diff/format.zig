@@ -137,10 +137,6 @@ fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8) !void {
         }
         if (table_has_changes) has_changes = true;
     }
-
-    if (!has_changes) {
-        // Empty output for no differences
-    }
 }
 
 pub fn formatDiff(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect) ![]const u8 {
