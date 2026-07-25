@@ -270,11 +270,8 @@ fn printRegressionDetails(current: StageTimes, baseline: Baseline) void {
     }
 }
 
-fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !StageTimes {
-    var times = StageTimes{};
-
-    // Stage 1: Tokenize
-    var sw_start = std.Io.Clock.Timestamp.now(io, .awake);
+/// Shared pipeline initialization: tokenize → parse. Returns the parsed AST.
+fn parseFile(alloc: std.mem.Allocator, file_data: []const u8) !ast_mod.Ast {
     var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
     var line_it = std.mem.splitScalar(u8, file_data, '\n');
     while (line_it.next()) |line| {
@@ -282,33 +279,34 @@ fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8)
     }
     const tok = tokenizer.Tokenizer.init(try lines.toOwnedSlice(alloc));
     const tokenized = try tok.tokenizeAll(alloc);
-    times.tokenize = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
-    // Stage 2: Parse
-    sw_start = std.Io.Clock.Timestamp.now(io, .awake);
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
     var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    const tree = p.parse(tokenized) catch |err| {
-        if (!diagnostics.hasErrors()) {
-            std.debug.print("error: {s}\n", .{@errorName(err)});
-        }
-        return err;
-    };
-    times.parse = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
+    return try p.parse(tokenized);
+}
 
-    // Stage 3: Semantic
+fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !StageTimes {
+    var times = StageTimes{};
+
+    // Stage 1: Tokenize + Parse (combined — timing is coarse but avoids duplication)
+    var sw_start = std.Io.Clock.Timestamp.now(io, .awake);
+    const tree = try parseFile(alloc, file_data);
+    times.tokenize = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
+    times.parse = 0; // combined with tokenize
+
+    // Stage 2: Semantic
     sw_start = std.Io.Clock.Timestamp.now(io, .awake);
     var sa = semantic.SemanticAnalyzer.init(alloc);
     const resolved = try sa.analyze(tree);
     times.semantic = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
-    // Stage 4: Type Resolve
+    // Stage 3: Type Resolve
     sw_start = std.Io.Clock.Timestamp.now(io, .awake);
     var tr = typed_ast.TypeResolver.init(alloc);
     const typed = try tr.resolve(resolved, .mysql);
     times.type_resolve = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
-    // Stage 5: Codegen
+    // Stage 4: Codegen
     sw_start = std.Io.Clock.Timestamp.now(io, .awake);
     var cg = codegen.Codegen.init(alloc, .mysql);
     _ = try cg.generateFromTypedAst(typed);
@@ -318,17 +316,7 @@ fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8)
 }
 
 fn runPipeline(alloc: std.mem.Allocator, file_data: []const u8) ![]const u8 {
-    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
-    var line_it = std.mem.splitScalar(u8, file_data, '\n');
-    while (line_it.next()) |line| {
-        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
-    }
-    const tok = tokenizer.Tokenizer.init(try lines.toOwnedSlice(alloc));
-    const tokenized = try tok.tokenizeAll(alloc);
-
-    var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    const tree = try p.parse(tokenized);
+    const tree = try parseFile(alloc, file_data);
 
     var sa = semantic.SemanticAnalyzer.init(alloc);
     const resolved = try sa.analyze(tree);

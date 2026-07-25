@@ -76,7 +76,7 @@ fn emitViewDiffs(w: anytype, backend: dialect_mod.DialectBackend, view_diffs: []
                     try backend.quoteIdent(w, vd.name);
                     try w.writeAll(";\n\n");
                 }
-                if (findTypedView(new_typed, vd.name)) |view| {
+                if (emit.findTypedView(new_typed, vd.name)) |view| {
                     try backend.emitCreateView(w, view.name, view.query);
                     try w.writeAll("\n");
                 }
@@ -101,7 +101,7 @@ fn emitTableDiffs(
         switch (td.action) {
             .create => {
                 has_operations.* = true;
-                if (findResolvedTable(new_resolved, td.name)) |table| {
+                if (emit.findResolvedTable(new_resolved, td.name)) |table| {
                     var single_tables = try std.ArrayList(resolved_ast.ResolvedTable).initCapacity(alloc, 1);
                     try single_tables.append(alloc, table);
                     const single_resolved = resolved_ast.ResolvedAst{
@@ -312,18 +312,4 @@ fn emitFkDiffs(
             },
         }
     }
-}
-
-fn findResolvedTable(ast: resolved_ast.ResolvedAst, name: []const u8) ?resolved_ast.ResolvedTable {
-    for (ast.tables) |table| {
-        if (std.mem.eql(u8, table.name, name)) return table;
-    }
-    return null;
-}
-
-fn findTypedView(typed: typed_ast.TypedAst, name: []const u8) ?typed_ast.TypedView {
-    for (typed.views) |view| {
-        if (std.mem.eql(u8, view.name, name)) return view;
-    }
-    return null;
 }
