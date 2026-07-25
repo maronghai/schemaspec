@@ -41,7 +41,9 @@ pub fn generateFromDiff(
     try emitViewDiffs(w, dialect_mod.getBackend(dialect), d.view_diffs, new_typed);
     if (d.view_diffs.len > 0) has_operations = true;
 
-    try emitTableDiffs(alloc, w, d.table_diffs, new_resolved, dialect, &has_operations);
+    var tr = typed_ast.TypeResolver.init(alloc);
+    var cg = codegen.Codegen.init(alloc, dialect);
+    try emitTableDiffs(alloc, w, d.table_diffs, new_resolved, dialect, &cg, &tr, &has_operations);
 
     try w.writeAll("COMMIT;\n");
 
@@ -89,10 +91,10 @@ fn emitTableDiffs(
     table_diffs: []const diff_mod.TableDiff,
     new_resolved: resolved_ast.ResolvedAst,
     dialect: Dialect,
+    cg: *codegen.Codegen,
+    tr: *typed_ast.TypeResolver,
     has_operations: *bool,
 ) !void {
-    var tr = typed_ast.TypeResolver.init(alloc);
-    var cg = codegen.Codegen.init(alloc, dialect);
     const backend = dialect_mod.getBackend(dialect);
 
     for (table_diffs) |td| {
@@ -121,7 +123,7 @@ fn emitTableDiffs(
                 var table_has_ops = false;
                 var sub_needs_comma = false;
 
-                try emitFieldDiffs(w, backend, td, &tr, &cg, dialect, new_resolved, &table_has_ops, &sub_needs_comma);
+                try emitFieldDiffs(w, backend, td, tr, cg, dialect, new_resolved, &table_has_ops, &sub_needs_comma);
                 try emitIndexDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
                 try emitMetadataDiffs(w, backend, td, &table_has_ops, &sub_needs_comma, has_operations);
                 try emitFkDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
