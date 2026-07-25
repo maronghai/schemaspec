@@ -7,6 +7,7 @@ const typed_ast = @import("../types/typed_ast.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const utils = @import("../utils.zig");
+const emit = @import("../diff/emit.zig");
 const Field = ast_mod.Field;
 const TypeInfo = ast_mod.TypeInfo;
 
@@ -15,20 +16,6 @@ const Dialect = dialect_enum.Dialect;
 // ─── Helpers ───────────────────────────────────────────────
 
 const optionalStrEq = utils.optionalStrEq;
-
-fn emitComma(w: anytype, needs_comma: *bool) !void {
-    if (needs_comma.*) try w.writeAll(",\n");
-    needs_comma.* = true;
-}
-
-fn beginAlterTable(w: anytype, backend: dialect_mod.DialectBackend, table_name: []const u8, table_has_ops: *bool) !void {
-    if (!table_has_ops.*) {
-        try w.writeAll("ALTER TABLE ");
-        try backend.quoteIdent(w, table_name);
-        try w.writeAll("\n");
-        table_has_ops.* = true;
-    }
-}
 
 // ─── generateFromDiff (orchestrator) ─────────────────────────
 
@@ -325,16 +312,18 @@ fn emitFkDiffs(
     }
 }
 
+fn emitComma(w: anytype, needs_comma: *bool) !void {
+    return emit.emitComma(w, needs_comma);
+}
+
+fn beginAlterTable(w: anytype, backend: dialect_mod.DialectBackend, table_name: []const u8, table_has_ops: *bool) !void {
+    return emit.beginAlterTable(w, backend, table_name, table_has_ops);
+}
+
 fn findResolvedTable(ast: resolved_ast.ResolvedAst, name: []const u8) ?resolved_ast.ResolvedTable {
-    for (ast.tables) |table| {
-        if (std.mem.eql(u8, table.name, name)) return table;
-    }
-    return null;
+    return emit.findResolvedTable(ast, name);
 }
 
 fn findTypedView(typed: typed_ast.TypedAst, name: []const u8) ?typed_ast.TypedView {
-    for (typed.views) |view| {
-        if (std.mem.eql(u8, view.name, name)) return view;
-    }
-    return null;
+    return emit.findTypedView(typed, name);
 }

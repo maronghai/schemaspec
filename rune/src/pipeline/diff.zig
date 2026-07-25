@@ -10,7 +10,13 @@ const pipeline_forward = @import("../pipeline/forward.zig");
 
 // ─── Diff/Migrate Pipeline ────────────────────────────────────
 
-fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect) !struct { old_ast: resolved_ast.ResolvedAst, new_ast: resolved_ast.ResolvedAst, schema_diff: diff_types.SchemaDiff } {
+const DiffResult = struct {
+    old_ast: resolved_ast.ResolvedAst,
+    new_ast: resolved_ast.ResolvedAst,
+    schema_diff: diff_types.SchemaDiff,
+};
+
+fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect) !DiffResult {
     const old_ast = try pipeline_forward.compileToAst(io, alloc, old_path);
     const new_ast = try pipeline_forward.compileToAst(io, alloc, new_path);
     const schema_diff = try diff.diff(old_ast, new_ast, alloc, dialect);
@@ -19,61 +25,41 @@ fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_p
 
 pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-
-    if (trace) {
-        traceResolvedAst("old", result.old_ast);
-        traceResolvedAst("new", result.new_ast);
-        traceSchemaDiff(result.schema_diff);
-    }
-
+    if (trace) traceDiffResult(result);
     const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, dialect);
     try @import("../io.zig").writeOutput(io, diff_text, null);
 }
 
 pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-
-    if (trace) {
-        traceResolvedAst("old", result.old_ast);
-        traceResolvedAst("new", result.new_ast);
-        traceSchemaDiff(result.schema_diff);
-    }
-
+    if (trace) traceDiffResult(result);
     const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
     try @import("../io.zig").writeOutput(io, json_text, output_path);
 }
 
 pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-
-    // Resolve new AST to TypedAst for migration generation
     var tr = typed_ast.TypeResolver.init(alloc);
     const new_typed = try tr.resolve(result.new_ast, dialect);
-
-    if (trace) {
-        traceResolvedAst("old", result.old_ast);
-        traceResolvedAst("new", result.new_ast);
-        traceSchemaDiff(result.schema_diff);
-    }
-
+    if (trace) traceDiffResult(result);
     const migration_sql = try migrate.generateFromDiff(alloc, result.schema_diff, new_typed, result.new_ast, dialect);
     try @import("../io.zig").writeOutput(io, migration_sql, output_path);
 }
 
 pub fn handleMigrateJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-
-    if (trace) {
-        traceResolvedAst("old", result.old_ast);
-        traceResolvedAst("new", result.new_ast);
-        traceSchemaDiff(result.schema_diff);
-    }
-
+    if (trace) traceDiffResult(result);
     const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
     try @import("../io.zig").writeOutput(io, json_text, output_path);
 }
 
 // ─── Trace Helpers ──────────────────────────────────────────────
+
+fn traceDiffResult(result: DiffResult) void {
+    traceResolvedAst("old", result.old_ast);
+    traceResolvedAst("new", result.new_ast);
+    traceSchemaDiff(result.schema_diff);
+}
 
 fn traceResolvedAst(label: []const u8, ast: resolved_ast.ResolvedAst) void {
     std.debug.print("=== [{s} ResolvedAst] ===\n\n", .{label});

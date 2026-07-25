@@ -107,6 +107,8 @@ fn digitCount(n: usize) usize {
 pub const DiagnosticCollector = struct {
     diagnostics: std.ArrayList(Diagnostic),
     alloc: std.mem.Allocator,
+    max_errors: usize = 100,
+    overflow: bool = false,
 
     pub fn init(alloc: std.mem.Allocator) !DiagnosticCollector {
         return .{
@@ -116,7 +118,14 @@ pub const DiagnosticCollector = struct {
     }
 
     /// Record a diagnostic (warning, error, or note).
+    /// Stops recording when max_errors is exceeded.
     pub fn push(self: *DiagnosticCollector, d: Diagnostic) void {
+        if (self.overflow) return;
+        if (d.severity == .@"error" and self.errorCount() >= self.max_errors) {
+            self.overflow = true;
+            std.debug.print("error: too many errors ({d}), stopping\n", .{self.max_errors});
+            return;
+        }
         self.diagnostics.append(self.alloc, d) catch {};
     }
 
@@ -368,4 +377,34 @@ test "DiagnosticCollector: formatJson empty" {
     defer testing.allocator.free(json);
 
     try testing.expectEqualStrings("[\n]", json);
+}
+
+test "DiagnosticCollector: max_errors stops recording" {
+    var dc = try DiagnosticCollector.init(testing.allocator);
+    dc.max_errors = 3;
+
+    // Push 5 errors — only first 3 should be recorded
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        dc.push(.{ .severity = .@"error", .line_no = i, .message = "error" });
+    }
+
+    try testing.expectEqual(@as(usize, 3), dc.diagnostics.items.len);
+    try testing.expect(dc.overflow);
+}
+
+test "DiagnosticCollector: max_errors does not limit warnings" {
+    var dc = try DiagnosticCollector.init(testing.allocator);
+    dc.max_errors = 2;
+
+    // Push 2 errors + 5 warnings — all should be recorded
+    dc.push(.{ .severity = .@"error", .line_no = 1, .message = "e1" });
+    dc.push(.{ .severity = .@"error", .line_no = 2, .message = "e2" });
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        dc.push(.{ .severity = .warning, .line_no = i + 10, .message = "w" });
+    }
+
+    try testing.expectEqual(@as(usize, 7), dc.diagnostics.items.len);
+    try testing.expect(!dc.overflow);
 }

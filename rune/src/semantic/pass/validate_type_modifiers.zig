@@ -56,3 +56,122 @@ pub fn run(ctx: *PassContext) !void {
 
     visitor.walkResolvedTables(ctx.tables.items);
 }
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+const test_helpers = @import("../test_helpers.zig");
+const diag_mod = @import("../diagnostic.zig");
+const resolved_ast = @import("../../types/resolved_ast.zig");
+const ResolvedTable = resolved_ast.ResolvedTable;
+
+fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag_mod.DiagnosticCollector) PassContext {
+    return .{
+        .alloc = alloc,
+        .tables = tables,
+        .schema = null,
+        .diagnostics = diagnostics,
+    };
+}
+
+test "validate_type_modifiers: unsigned on numeric type — no diagnostic" {
+    const alloc = testing.allocator;
+    var fields = try std.ArrayList(Field).initCapacity(alloc, 1);
+    var field = test_helpers.makeTestField("count", .{ .simple = "n" });
+    field.modifiers = &.{.{ .kind = .unsigned, .line_no = 1 }};
+    try fields.append(alloc, field);
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "t",
+        .comment = null,
+        .engine = null,
+        .fields = try fields.toOwnedSlice(alloc),
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    try run(&ctx);
+
+    try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
+}
+
+test "validate_type_modifiers: unsigned on string type — warning" {
+    const alloc = testing.allocator;
+    var fields = try std.ArrayList(Field).initCapacity(alloc, 1);
+    var field = test_helpers.makeTestField("name", .{ .simple = "s" });
+    field.modifiers = &.{.{ .kind = .unsigned, .line_no = 1 }};
+    try fields.append(alloc, field);
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "t",
+        .comment = null,
+        .engine = null,
+        .fields = try fields.toOwnedSlice(alloc),
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    try run(&ctx);
+
+    try testing.expect(diagnostics.diagnostics.items.len > 0);
+    const msg = diagnostics.diagnostics.items[0].message;
+    try testing.expect(std.mem.indexOf(u8, msg, "unsigned") != null);
+}
+
+test "validate_type_modifiers: auto_inc on non-numeric non-datetime — warning" {
+    const alloc = testing.allocator;
+    var fields = try std.ArrayList(Field).initCapacity(alloc, 1);
+    var field = test_helpers.makeTestField("tag", .{ .simple = "s" });
+    field.modifiers = &.{.{ .kind = .auto_inc_pk, .line_no = 1 }};
+    try fields.append(alloc, field);
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "t",
+        .comment = null,
+        .engine = null,
+        .fields = try fields.toOwnedSlice(alloc),
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    try run(&ctx);
+
+    try testing.expect(diagnostics.diagnostics.items.len > 0);
+    const msg = diagnostics.diagnostics.items[0].message;
+    try testing.expect(std.mem.indexOf(u8, msg, "auto_increment") != null);
+}
+
+test "validate_type_modifiers: empty modifiers — no diagnostic" {
+    const alloc = testing.allocator;
+    const fields = try alloc.alloc(Field, 1);
+    fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "t",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    try run(&ctx);
+
+    try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
+}

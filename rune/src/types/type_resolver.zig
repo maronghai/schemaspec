@@ -76,7 +76,7 @@ pub const TypeResolver = struct {
     }
 
     fn resolveColumnInner(self: *TypeResolver, field: Field, dialect: Dialect, custom_types: []const ast_mod.CustomType, depth: u8) !TypedColumn {
-        // Check custom types first (multi-char names only)
+        // Check custom types first (multi-char names)
         if (field.type_info == .simple and field.type_info.simple.len > 1) {
             if (type_map.lookupCustomType(custom_types, field.type_info.simple, dialect)) |ct_info| {
                 // Detect circular custom type references (e.g., ~A B + ~B A)
@@ -99,85 +99,31 @@ pub const TypeResolver = struct {
         // Resolve to structured SqlType (dialect-agnostic)
         const sql_type = SqlType.fromTypeInfo(field.type_info, dialect);
 
-        // Classify modifiers
-        var pk = false;
-        var ai = false;
-        var nn = false;
-        var unsigned = false;
-        var inline_unique = false;
-        var inline_index = false;
-        var on_update_ts = false;
-        var has_timestamp_mod = false;
-        for (field.modifiers) |mod| {
-            switch (mod.kind) {
-                .auto_inc_pk => {
-                    if (type_map.isDatetimeSymType(field.type_info)) {
-                        on_update_ts = true;
-                        has_timestamp_mod = true;
-                    } else {
-                        pk = true;
-                        ai = true;
-                    }
-                },
-                .auto_inc => {
-                    if (type_map.isDatetimeSymType(field.type_info)) {
-                        has_timestamp_mod = true;
-                    } else {
-                        ai = true;
-                    }
-                },
-                .primary_key => pk = true,
-                .not_null => nn = true,
-                .unsigned => unsigned = true,
-                .inline_unique => inline_unique = true,
-                .inline_index => inline_index = true,
-            }
-        }
+        // Classify modifiers into boolean flags
+        const flags = classifyModifiers(field);
 
         const is_dt = type_map.isDatetimeSymType(field.type_info);
         const is_enum = field.type_info == .enum_type;
         const enum_vals = if (is_enum) field.type_info.enum_type else &[_][]const u8{};
 
         // Compute original SS type string for roundtrip preservation
-        var sym_type: ?[]const u8 = switch (field.type_info) {
-            .simple => |s| if (s.len == 1) s else null,
-            .varchar_explicit => |n| if (n > 0) blk: {
-                var tbuf: [16]u8 = undefined;
-                const result = try std.fmt.bufPrint(&tbuf, "s{d}", .{n});
-                break :blk try self.alloc.dupe(u8, result);
-            } else null,
-            .decimal_explicit => |ds| blk: {
-                var tbuf: [16]u8 = undefined;
-                const result = try std.fmt.bufPrint(&tbuf, "{d},{d}", .{ ds.precision, ds.scale });
-                break :blk try self.alloc.dupe(u8, result);
-            },
-            .none => "s",
-            else => null,
-        };
-        // Unsigned → prepend + prefix for roundtrip (+n, +N, +i)
-        if (unsigned) {
-            if (sym_type) |tt| {
-                if (tt.len == 1 and (tt[0] == 'n' or tt[0] == 'N' or tt[0] == 'i')) {
-                    sym_type = try std.fmt.allocPrint(self.alloc, "+{s}", .{tt});
-                }
-            }
-        }
+        const sym_type = try buildSymType(self.alloc, field.type_info, flags.unsigned);
 
         return .{
             .name = field.name,
             .sql_type = sql_type,
             .sym_type = sym_type,
             .flags = .{
-                .nullable = !nn,
-                .primary_key = pk,
-                .auto_increment = ai,
-                .unsigned = unsigned,
-                .inline_unique = inline_unique,
-                .inline_index = inline_index,
+                .nullable = !flags.nn,
+                .primary_key = flags.pk,
+                .auto_increment = flags.ai,
+                .unsigned = flags.unsigned,
+                .inline_unique = flags.inline_unique,
+                .inline_index = flags.inline_index,
                 .is_enum = is_enum,
                 .is_datetime = is_dt,
-                .has_timestamp_default = has_timestamp_mod,
-                .on_update_current_timestamp = on_update_ts,
+                .has_timestamp_default = flags.has_timestamp_mod,
+                .on_update_current_timestamp = flags.on_update_ts,
             },
             .default = if (field.default_val) |dv| dv.value else null,
             .check = field.check,
@@ -187,3 +133,159 @@ pub const TypeResolver = struct {
         };
     }
 };
+
+// ─── Modifier Classification ────────────────────────────────────
+
+const ModifierFlags = struct {
+    pk: bool = false,
+    ai: bool = false,
+    nn: bool = false,
+    unsigned: bool = false,
+    inline_unique: bool = false,
+    inline_index: bool = false,
+    on_update_ts: bool = false,
+    has_timestamp_mod: bool = false,
+};
+
+/// Classifies a field's modifier list into boolean flags.
+fn classifyModifiers(field: Field) ModifierFlags {
+    var flags = ModifierFlags{};
+    for (field.modifiers) |mod| {
+        switch (mod.kind) {
+            .auto_inc_pk => {
+                if (type_map.isDatetimeSymType(field.type_info)) {
+                    flags.on_update_ts = true;
+                    flags.has_timestamp_mod = true;
+                } else {
+                    flags.pk = true;
+                    flags.ai = true;
+                }
+            },
+            .auto_inc => {
+                if (type_map.isDatetimeSymType(field.type_info)) {
+                    flags.has_timestamp_mod = true;
+                } else {
+                    flags.ai = true;
+                }
+            },
+            .primary_key => flags.pk = true,
+            .not_null => flags.nn = true,
+            .unsigned => flags.unsigned = true,
+            .inline_unique => flags.inline_unique = true,
+            .inline_index => flags.inline_index = true,
+        }
+    }
+    return flags;
+}
+
+// ─── Sym Type Computation ───────────────────────────────────────
+
+/// Compute the original SS type string for roundtrip preservation.
+/// Returns null for multi-char types (custom types are resolved before this).
+fn buildSymType(alloc: std.mem.Allocator, type_info: ast_mod.TypeInfo, unsigned: bool) !?[]const u8 {
+    var sym_type: ?[]const u8 = switch (type_info) {
+        .simple => |s| if (s.len == 1) s else null,
+        .varchar_explicit => |n| if (n > 0) blk: {
+            var tbuf: [16]u8 = undefined;
+            const result = try std.fmt.bufPrint(&tbuf, "s{d}", .{n});
+            break :blk try alloc.dupe(u8, result);
+        } else null,
+        .decimal_explicit => |ds| blk: {
+            var tbuf: [16]u8 = undefined;
+            const result = try std.fmt.bufPrint(&tbuf, "{d},{d}", .{ ds.precision, ds.scale });
+            break :blk try alloc.dupe(u8, result);
+        },
+        .none => "s",
+        else => null,
+    };
+    // Unsigned → prepend + prefix for roundtrip (+n, +N, +i)
+    if (unsigned) {
+        if (sym_type) |tt| {
+            if (tt.len == 1 and (tt[0] == 'n' or tt[0] == 'N' or tt[0] == 'i')) {
+                sym_type = try std.fmt.allocPrint(alloc, "+{s}", .{tt});
+            }
+        }
+    }
+    return sym_type;
+}
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+const test_helpers = @import("../semantic/test_helpers.zig");
+
+test "classifyModifiers: empty modifiers — all false" {
+    const field = test_helpers.makeTestField("x", .{ .simple = "n" });
+    const flags = classifyModifiers(field);
+    try testing.expect(!flags.pk);
+    try testing.expect(!flags.ai);
+    try testing.expect(!flags.nn);
+    try testing.expect(!flags.unsigned);
+    try testing.expect(!flags.inline_unique);
+    try testing.expect(!flags.inline_index);
+}
+
+test "classifyModifiers: primary_key + not_null" {
+    var field = test_helpers.makeTestField("id", .{ .simple = "n" });
+    field.modifiers = &.{ .{ .kind = .primary_key, .line_no = 1 }, .{ .kind = .not_null, .line_no = 1 } };
+    const flags = classifyModifiers(field);
+    try testing.expect(flags.pk);
+    try testing.expect(flags.nn);
+    try testing.expect(!flags.ai);
+    try testing.expect(!flags.unsigned);
+}
+
+test "classifyModifiers: auto_inc_pk on numeric — pk + ai" {
+    var field = test_helpers.makeTestField("id", .{ .simple = "n" });
+    field.modifiers = &.{.{ .kind = .auto_inc_pk, .line_no = 1 }};
+    const flags = classifyModifiers(field);
+    try testing.expect(flags.pk);
+    try testing.expect(flags.ai);
+    try testing.expect(!flags.on_update_ts);
+}
+
+test "classifyModifiers: auto_inc_pk on datetime — on_update_ts" {
+    var field = test_helpers.makeTestField("updated_at", .{ .simple = "t" });
+    field.modifiers = &.{.{ .kind = .auto_inc_pk, .line_no = 1 }};
+    const flags = classifyModifiers(field);
+    try testing.expect(!flags.pk);
+    try testing.expect(!flags.ai);
+    try testing.expect(flags.on_update_ts);
+    try testing.expect(flags.has_timestamp_mod);
+}
+
+test "buildSymType: simple single-char type" {
+    const result = try buildSymType(testing.allocator, .{ .simple = "n" }, false);
+    try testing.expect(result != null);
+    try testing.expectEqualStrings("n", result.?);
+}
+
+test "buildSymType: unsigned int gets + prefix" {
+    const result = try buildSymType(testing.allocator, .{ .simple = "n" }, true);
+    try testing.expect(result != null);
+    try testing.expectEqualStrings("+n", result.?);
+}
+
+test "buildSymType: unsigned N (bigint) gets + prefix" {
+    const result = try buildSymType(testing.allocator, .{ .simple = "N" }, true);
+    try testing.expect(result != null);
+    try testing.expectEqualStrings("+N", result.?);
+}
+
+test "buildSymType: varchar_explicit" {
+    const result = try buildSymType(testing.allocator, .{ .varchar_explicit = 255 }, false);
+    try testing.expect(result != null);
+    try testing.expectEqualStrings("s255", result.?);
+}
+
+test "buildSymType: decimal_explicit" {
+    const result = try buildSymType(testing.allocator, .{ .decimal_explicit = .{ .precision = 10, .scale = 2 } }, false);
+    try testing.expect(result != null);
+    try testing.expectEqualStrings("10,2", result.?);
+}
+
+test "buildSymType: none → s" {
+    const result = try buildSymType(testing.allocator, .none, false);
+    try testing.expect(result != null);
+    try testing.expectEqualStrings("s", result.?);
+}
