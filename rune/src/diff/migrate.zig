@@ -151,23 +151,23 @@ fn emitFieldDiffs(
     for (td.field_diffs) |fd| {
         switch (fd.action) {
             .add => {
-                try beginAlterTable(w, backend, td.name, table_has_ops);
+                try emit.beginAlterTable(w, backend, td.name, table_has_ops);
                 if (fd.new_field) |nf| {
-                    try emitComma(w, sub_needs_comma);
+                    try emit.emitComma(w, sub_needs_comma);
                     try w.writeAll("ADD COLUMN ");
                     const typed_col = try tr.resolveColumn(nf, dialect, new_resolved.custom_types);
                     try cg.emitColumnDef(w, typed_col);
                 }
             },
             .drop => {
-                try beginAlterTable(w, backend, td.name, table_has_ops);
-                try emitComma(w, sub_needs_comma);
+                try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                try emit.emitComma(w, sub_needs_comma);
                 try backend.emitAlterDropColumn(w, fd.name);
             },
             .modify => {
-                try beginAlterTable(w, backend, td.name, table_has_ops);
+                try emit.beginAlterTable(w, backend, td.name, table_has_ops);
                 if (fd.new_field) |nf| {
-                    try emitComma(w, sub_needs_comma);
+                    try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterModifyColumn(w, nf.name);
                     if (backend.modify_needs_column_def) {
                         const typed_col = try tr.resolveColumn(nf, dialect, new_resolved.custom_types);
@@ -176,9 +176,9 @@ fn emitFieldDiffs(
                 }
             },
             .rename => {
-                try beginAlterTable(w, backend, td.name, table_has_ops);
+                try emit.beginAlterTable(w, backend, td.name, table_has_ops);
                 if (fd.rename_from) |old_name| {
-                    try emitComma(w, sub_needs_comma);
+                    try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterRenameColumn(w, old_name, fd.name);
                     if (backend.rename_needs_column_def) {
                         if (fd.new_field) |nf| {
@@ -203,27 +203,27 @@ fn emitIndexDiffs(
         switch (idx_diff.action) {
             .add => {
                 if (idx_diff.new_idx) |idx| {
-                    try beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emitComma(w, sub_needs_comma);
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                    try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterAddIndex(w, td.name, idx);
                 }
             },
             .drop => {
                 if (idx_diff.old_idx) |idx| {
-                    try beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emitComma(w, sub_needs_comma);
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                    try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterDropIndex(w, idx);
                 }
             },
             .modify => {
                 if (idx_diff.old_idx) |old_idx| {
-                    try beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emitComma(w, sub_needs_comma);
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                    try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterDropIndex(w, old_idx);
                 }
                 if (idx_diff.new_idx) |new_idx| {
-                    try beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emitComma(w, sub_needs_comma);
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                    try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterAddIndex(w, td.name, new_idx);
                 }
             },
@@ -245,8 +245,8 @@ fn emitMetadataDiffs(
                 const result = backend.commentResult();
                 switch (result) {
                     .added_to_alter => {
-                        try beginAlterTable(w, backend, td.name, table_has_ops);
-                        try emitComma(w, sub_needs_comma);
+                        try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                        try emit.emitComma(w, sub_needs_comma);
                         try backend.emitAlterTableComment(w, td.name, nc);
                     },
                     .standalone_emitted => {
@@ -259,16 +259,16 @@ fn emitMetadataDiffs(
                         has_operations.* = true;
                     },
                     .unsupported => {
-                        try beginAlterTable(w, backend, td.name, table_has_ops);
-                        try emitComma(w, sub_needs_comma);
+                        try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                        try emit.emitComma(w, sub_needs_comma);
                         try backend.emitAlterTableComment(w, td.name, nc);
                     },
                 }
             }
         }
         if (!optionalStrEq(md.old_engine, md.new_engine)) {
-            try beginAlterTable(w, backend, td.name, table_has_ops);
-            try emitComma(w, sub_needs_comma);
+            try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+            try emit.emitComma(w, sub_needs_comma);
             try backend.emitAlterEngine(w, md.new_engine);
         }
     }
@@ -285,27 +285,27 @@ fn emitFkDiffs(
         switch (fk_diff.action) {
             .add => {
                 if (fk_diff.new_fk) |fk| {
-                    try beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emitComma(w, sub_needs_comma);
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                    try emit.emitComma(w, sub_needs_comma);
                     try w.writeAll("ADD ");
                     try backend.emitForeignKey(w, fk);
                 }
             },
             .drop => {
                 if (fk_diff.old_fk) |fk| {
-                    try beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emitComma(w, sub_needs_comma);
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                    try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterDropFk(w, fk);
                 }
             },
             .modify => {
                 if (fk_diff.old_fk) |old_fk| {
-                    try beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emitComma(w, sub_needs_comma);
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                    try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterDropFk(w, old_fk);
                 }
                 if (fk_diff.new_fk) |new_fk| {
-                    try emitComma(w, sub_needs_comma);
+                    try emit.emitComma(w, sub_needs_comma);
                     try w.writeAll("ADD ");
                     try backend.emitForeignKey(w, new_fk);
                 }
@@ -314,18 +314,16 @@ fn emitFkDiffs(
     }
 }
 
-fn emitComma(w: anytype, needs_comma: *bool) !void {
-    return emit.emitComma(w, needs_comma);
-}
-
-fn beginAlterTable(w: anytype, backend: dialect_mod.DialectBackend, table_name: []const u8, table_has_ops: *bool) !void {
-    return emit.beginAlterTable(w, backend, table_name, table_has_ops);
-}
-
 fn findResolvedTable(ast: resolved_ast.ResolvedAst, name: []const u8) ?resolved_ast.ResolvedTable {
-    return emit.findResolvedTable(ast, name);
+    for (ast.tables) |table| {
+        if (std.mem.eql(u8, table.name, name)) return table;
+    }
+    return null;
 }
 
 fn findTypedView(typed: typed_ast.TypedAst, name: []const u8) ?typed_ast.TypedView {
-    return emit.findTypedView(typed, name);
+    for (typed.views) |view| {
+        if (std.mem.eql(u8, view.name, name)) return view;
+    }
+    return null;
 }
