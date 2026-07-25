@@ -183,13 +183,11 @@ pub fn emitForeignKeyShared(w: *Writer, fk: ast_mod.FkDecl, quoteIdent: QuoteIde
     }
 }
 
-// ─── Inline Column Comment No-ops ────────────────────────────
-// Both PG and SQLite handle column comments via standalone statements,
-// not inline in column definitions.
+// ─── Inline Column Comment No-op ────────────────────────────
+// PG and SQLite handle column comments via standalone statements,
+// not inline in column definitions. Both share this no-op implementation.
 
-pub fn noopInlineColumnCommentPG(_: *Writer, _: []const u8) anyerror!void {}
-
-pub fn noopInlineColumnCommentSQLite(_: *Writer, _: []const u8) anyerror!void {}
+pub fn noopInlineColumnComment(_: *Writer, _: []const u8) anyerror!void {}
 
 // ─── Tests ───────────────────────────────────────────────────
 

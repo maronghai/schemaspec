@@ -57,3 +57,4 @@ zig-out/
 .zig-cache/
 
 plan-*.md
+CHANGELOG.md

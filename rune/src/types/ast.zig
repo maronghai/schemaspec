@@ -20,6 +20,26 @@ pub const TypeInfo = union(enum) {
     /// Raw SQL type string — passed through directly, no further resolution.
     /// Used by dialect-specific custom type overrides.
     raw_sql: []const u8,
+
+    /// Check if two TypeInfo values represent the same SS type.
+    pub fn eql(a: TypeInfo, b: TypeInfo) bool {
+        if (std.meta.activeTag(a) != std.meta.activeTag(b)) return false;
+        return switch (a) {
+            .none => true,
+            .simple => |s| std.mem.eql(u8, s, b.simple),
+            .raw_sql => |s| std.mem.eql(u8, s, b.raw_sql),
+            .int_explicit => |n| n == b.int_explicit,
+            .decimal_explicit => |ds| ds.precision == b.decimal_explicit.precision and ds.scale == b.decimal_explicit.scale,
+            .varchar_explicit => |n| n == b.varchar_explicit,
+            .enum_type => |vals| {
+                if (vals.len != b.enum_type.len) return false;
+                for (vals, 0..) |v, i| {
+                    if (!std.mem.eql(u8, v, b.enum_type[i])) return false;
+                }
+                return true;
+            },
+        };
+    }
 };
 
 pub const ModifierType = enum {

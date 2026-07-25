@@ -122,29 +122,24 @@ pub fn run(ctx: *PassContext) !void {
     // Validate self-referencing FK field count
     for (ctx.tables.items) |table| {
         for (table.fks) |fk| {
-            if (std.mem.eql(u8, fk.ref_table, table.name)) {
-                if (fk.fields.len != fk.ref_fields.len) {
-                    ctx.diagnostics.push(.{
-                        .severity = .@"error",
-                        .line_no = fk.line_no,
-                        .message = std.fmt.allocPrint(ctx.alloc, "self-referencing FK in table '{s}' has mismatched field count: {d} local vs {d} referenced", .{ table.name, fk.fields.len, fk.ref_fields.len }) catch return,
-                    });
-                }
-            }
+            validateSelfRefFk(ctx, table, fk);
         }
         for (table.fields) |field| {
             if (field.fk) |fk| {
-                if (std.mem.eql(u8, fk.ref_table, table.name)) {
-                    if (fk.fields.len != fk.ref_fields.len) {
-                        ctx.diagnostics.push(.{
-                            .severity = .@"error",
-                            .line_no = fk.line_no,
-                            .message = std.fmt.allocPrint(ctx.alloc, "self-referencing FK in table '{s}' has mismatched field count: {d} local vs {d} referenced", .{ table.name, fk.fields.len, fk.ref_fields.len }) catch return,
-                        });
-                    }
-                }
+                validateSelfRefFk(ctx, table, fk);
             }
         }
+    }
+}
+
+fn validateSelfRefFk(ctx: *PassContext, table: ResolvedTable, fk: FkDecl) void {
+    if (!std.mem.eql(u8, fk.ref_table, table.name)) return;
+    if (fk.fields.len != fk.ref_fields.len) {
+        ctx.diagnostics.push(.{
+            .severity = .@"error",
+            .line_no = fk.line_no,
+            .message = std.fmt.allocPrint(ctx.alloc, "self-referencing FK in table '{s}' has mismatched field count: {d} local vs {d} referenced", .{ table.name, fk.fields.len, fk.ref_fields.len }) catch return,
+        });
     }
 }
 

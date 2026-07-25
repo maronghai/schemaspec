@@ -70,7 +70,7 @@ pub fn diffFields(
     }
 
     // Rename detection: match dropped ↔ added by (type_info, modifiers, default, check)
-    const renames = try detectRenames(old_fields, new_fields, &dropped_names, alloc, dialect);
+    const renames = try detectRenames(old_fmap, new_fmap, old_fields, new_fields, &dropped_names, alloc, dialect);
 
     // Emit add for unmatched added fields
     for (added_fields.items) |af| {
@@ -146,6 +146,8 @@ pub fn createAllFieldDiffs(alloc: std.mem.Allocator, new_fields: []const Field) 
 // ─── Rename Detection ──────────────────────────────────────
 
 fn detectRenames(
+    old_fmap: std.StringHashMap(usize),
+    new_fmap: std.StringHashMap(usize),
     old_fields: []const Field,
     new_fields: []const Field,
     dropped_names: *const std.ArrayList([]const u8),
@@ -153,17 +155,6 @@ fn detectRenames(
     dialect: ?Dialect,
 ) ![]const RenamePair {
     var renames = try std.ArrayList(RenamePair).initCapacity(alloc, 4);
-
-    var old_fmap = std.StringHashMap(usize).init(alloc);
-    for (old_fields, 0..) |f, i| {
-        if (!std.mem.eql(u8, f.name, "..."))
-            try old_fmap.put(f.name, i);
-    }
-    var new_fmap = std.StringHashMap(usize).init(alloc);
-    for (new_fields, 0..) |f, i| {
-        if (!std.mem.eql(u8, f.name, "..."))
-            try new_fmap.put(f.name, i);
-    }
 
     for (dropped_names.items) |old_name| {
         const old_idx = old_fmap.get(old_name) orelse continue;
@@ -219,22 +210,7 @@ pub fn fieldsEqual(a: Field, b: Field, dialect: ?Dialect) bool {
 }
 
 pub fn typeInfoEqual(a: TypeInfo, b: TypeInfo) bool {
-    if (std.meta.activeTag(a) != std.meta.activeTag(b)) return false;
-    return switch (a) {
-        .none => true,
-        .simple => |s| std.mem.eql(u8, s, b.simple),
-        .raw_sql => |s| std.mem.eql(u8, s, b.raw_sql),
-        .int_explicit => |n| n == b.int_explicit,
-        .decimal_explicit => |ds| ds.precision == b.decimal_explicit.precision and ds.scale == b.decimal_explicit.scale,
-        .varchar_explicit => |n| n == b.varchar_explicit,
-        .enum_type => |vals| {
-            if (vals.len != b.enum_type.len) return false;
-            for (vals, 0..) |v, i| {
-                if (!std.mem.eql(u8, v, b.enum_type[i])) return false;
-            }
-            return true;
-        },
-    };
+    return a.eql(b);
 }
 
 /// Dialect-aware type info equality: uses semantic equivalence when dialect is provided.
