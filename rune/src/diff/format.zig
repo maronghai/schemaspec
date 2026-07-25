@@ -155,3 +155,85 @@ pub fn printDiff(d: SchemaDiff, dialect: Dialect) void {
     const text = formatDiff(arena.allocator(), d, dialect) catch return;
     std.debug.print("{s}", .{text});
 }
+
+// ─── JSON Diff Output ────────────────────────────────────────────
+
+/// Format SchemaDiff as a JSON string for programmatic consumption.
+pub fn formatDiffJson(alloc: std.mem.Allocator, d: SchemaDiff) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+
+    try w.writeAll("{\n");
+
+    // dropped_tables
+    try w.writeAll("  \"dropped_tables\": [");
+    for (d.dropped_tables, 0..) |tname, i| {
+        if (i > 0) try w.writeAll(", ");
+        try w.print("\"{s}\"", .{tname});
+    }
+    try w.writeAll("],\n");
+
+    // view_diffs
+    try w.writeAll("  \"view_diffs\": [");
+    for (d.view_diffs, 0..) |vd, i| {
+        if (i > 0) try w.writeAll(", ");
+        try w.print("{{\"name\": \"{s}\", \"action\": \"{s}\"}}", .{ vd.name, @tagName(vd.action) });
+    }
+    try w.writeAll("],\n");
+
+    // table_diffs
+    try w.writeAll("  \"table_diffs\": [");
+    for (d.table_diffs, 0..) |td, ti| {
+        if (ti > 0) try w.writeAll(", ");
+        try w.writeAll("{\n");
+        try w.print("    \"name\": \"{s}\",\n", .{td.name});
+        try w.print("    \"action\": \"{s}\",\n", .{@tagName(td.action)});
+
+        // field_diffs
+        try w.writeAll("    \"field_diffs\": [");
+        for (td.field_diffs, 0..) |fd, fi| {
+            if (fi > 0) try w.writeAll(", ");
+            try w.writeAll("{\"name\": \"");
+            try w.writeAll(fd.name);
+            try w.writeAll("\", \"action\": \"");
+            try w.writeAll(@tagName(fd.action));
+            try w.writeAll("\"");
+            if (fd.rename_from) |rf| {
+                try w.print(", \"from\": \"{s}\"", .{rf});
+            }
+            try w.writeAll("}");
+        }
+        try w.writeAll("],\n");
+
+        // index_diffs
+        try w.writeAll("    \"index_diffs\": [");
+        for (td.index_diffs, 0..) |idx, ii| {
+            if (ii > 0) try w.writeAll(", ");
+            try w.print("{{\"name\": \"{s}\", \"action\": \"{s}\"}}", .{ idx.name, @tagName(idx.action) });
+        }
+        try w.writeAll("],\n");
+
+        // fk_diffs
+        try w.writeAll("    \"fk_diffs\": [");
+        for (td.fk_diffs, 0..) |fk, fi| {
+            if (fi > 0) try w.writeAll(", ");
+            try w.writeAll("{\"action\": \"");
+            try w.writeAll(@tagName(fk.action));
+            try w.writeAll("\"");
+            if (fk.new_fk) |nfk| {
+                try w.print(", \"ref_table\": \"{s}\"", .{nfk.ref_table});
+            }
+            try w.writeAll("}");
+        }
+        try w.writeAll("]");
+
+        try w.writeAll("\n  }");
+    }
+    try w.writeAll("]\n");
+
+    try w.writeAll("}\n");
+
+    try w.flush();
+    var out = aw.toArrayList();
+    return try out.toOwnedSlice(alloc);
+}

@@ -62,7 +62,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.4.63";
+const VERSION = "0.6.9";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -83,15 +83,25 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, name, cmd.output, cmd.trace, parsed.dialect),
             };
         },
-        .diff => |cmd| return diff_pipe.handleDiff(io, alloc, cmd.old, cmd.new, parsed.dialect),
-        .migrate => |cmd| return diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect),
+        .diff => |cmd| {
+            return switch (parsed.target) {
+                .sql => diff_pipe.handleDiff(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace),
+                .json_schema => diff_pipe.handleDiffJson(io, alloc, cmd.old, cmd.new, null, parsed.dialect, cmd.trace),
+            };
+        },
+        .migrate => |cmd| {
+            return switch (parsed.target) {
+                .sql => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace),
+                .json_schema => diff_pipe.handleMigrateJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace),
+            };
+        },
         .reverse => |cmd| {
             const file_data = if (cmd.input) |path|
                 try io_mod.readFileOrStdin(io, alloc, path)
             else
                 try io_mod.readStdin(io, alloc);
             const name = cmd.input orelse "<stdin>";
-            return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect);
+            return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace);
         },
     }
 }

@@ -64,10 +64,24 @@ fn detectCycle(
     try visited.put(node, .visited);
 }
 
-/// Schema-level semantic validation: circular FKs, FK target field existence,
+/// Schema-level semantic validation: duplicate table names, circular FKs, FK target field existence,
 /// self-referencing FK field count mismatch.
 /// Uses the SymbolTable built by the resolve_names pass.
 pub fn run(ctx: *PassContext) !void {
+    // Validate duplicate table names
+    var seen_tables = std.StringHashMap(usize).init(ctx.alloc);
+    for (ctx.tables.items, 0..) |table, i| {
+        if (seen_tables.get(table.name)) |first_idx| {
+            ctx.diagnostics.push(.{
+                .severity = .@"error",
+                .line_no = table.line_no,
+                .message = std.fmt.allocPrint(ctx.alloc, "duplicate table name '{s}' (first declared at table #{d})", .{ table.name, first_idx + 1 }) catch return,
+            });
+        } else {
+            try seen_tables.put(table.name, i);
+        }
+    }
+
     // Build FK dependency graph for cycle detection
     var fk_graph = std.StringHashMap(std.ArrayList([]const u8)).init(ctx.alloc);
     defer {
@@ -162,6 +176,49 @@ fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag
         .diagnostics = diagnostics,
         .symbol_table = st,
     };
+}
+
+test "validate_schema: duplicate table names emit diagnostic" {
+    const alloc = testing.allocator;
+
+    const a_fields = try alloc.alloc(ast.Field, 1);
+    a_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
+
+    const b_fields = try alloc.alloc(ast.Field, 1);
+    b_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = a_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = b_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 5,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    try run(&ctx);
+
+    var found_duplicate = false;
+    for (diagnostics.diagnostics.items) |d| {
+        if (std.mem.indexOf(u8, d.message, "duplicate table name") != null) {
+            found_duplicate = true;
+            break;
+        }
+    }
+    try testing.expect(found_duplicate);
 }
 
 test "validate_schema: circular FK emits diagnostic" {

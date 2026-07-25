@@ -7,9 +7,9 @@ pub const Target = enum { sql, json_schema };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool },
-    diff: struct { old: []const u8, new: []const u8 },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8 },
-    reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool },
+    diff: struct { old: []const u8, new: []const u8, trace: bool },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool },
+    reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool },
     version,
 };
 
@@ -80,25 +80,34 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (std.mem.eql(u8, sub, "diff")) {
         if (fargs.len < 3) return error.DiffMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2] } } };
+        var trace = false;
+        var j: usize = 2;
+        while (j < fargs.len) : (j += 1) {
+            if (std.mem.eql(u8, fargs[j], "-t")) trace = true;
+        }
+        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = trace } } };
     }
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
         var output: ?[]const u8 = null;
+        var trace = false;
         var j: usize = 3;
         while (j < fargs.len) : (j += 1) {
             if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
                 output = fargs[j + 1];
                 j += 1;
+            } else if (std.mem.eql(u8, fargs[j], "-t")) {
+                trace = true;
             }
         }
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = output } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = output, .trace = trace } } };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {
         var output: ?[]const u8 = null;
         var with_templates = false;
+        var trace = false;
         var input: ?[]const u8 = null;
         var j: usize = 1;
         while (j < fargs.len) : (j += 1) {
@@ -107,11 +116,13 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 j += 1;
             } else if (std.mem.eql(u8, fargs[j], "-t")) {
                 with_templates = true;
+            } else if (std.mem.eql(u8, fargs[j], "--trace")) {
+                trace = true;
             } else if (input == null) {
                 input = fargs[j];
             }
         }
-        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = output, .with_templates = with_templates } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = output, .with_templates = with_templates, .trace = trace } } };
     }
 
     // Default: compile

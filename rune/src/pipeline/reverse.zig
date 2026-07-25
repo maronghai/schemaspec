@@ -7,35 +7,47 @@ const io_mod = @import("../io.zig");
 
 // ─── Reverse Pipeline: SQL → .ss ─────────────────────────────
 
-/// Auto-detect SQL dialect from content patterns using scoring.
-/// Each pattern match adds +1 to the corresponding dialect score.
+/// Auto-detect SQL dialect from content patterns using weighted scoring.
+/// Each pattern match adds weight to the corresponding dialect score.
 /// Highest score wins; ties default to MySQL.
 pub fn detectSqlDialect(sql: []const u8) codegen.Dialect {
     var scores = [3]u8{ 0, 0, 0 }; // mysql, pg, sqlite
 
-    // MySQL-specific patterns
-    if (std.mem.indexOf(u8, sql, "ENGINE=") != null) scores[0] += 1;
-    if (std.mem.indexOf(u8, sql, "CHARACTER SET") != null) scores[0] += 1;
-    if (std.mem.indexOf(u8, sql, "DEFAULT CHARSET") != null) scores[0] += 1;
-    if (std.mem.indexOf(u8, sql, "AUTO_INCREMENT") != null) scores[0] += 1;
-    if (std.mem.indexOf(u8, sql, "UNSIGNED") != null) scores[0] += 1;
-    if (std.mem.indexOf(u8, sql, "FULLTEXT INDEX") != null) scores[0] += 1;
+    // MySQL-specific patterns (high confidence)
+    if (std.mem.indexOf(u8, sql, "ENGINE=") != null) scores[0] += 3;
+    if (std.mem.indexOf(u8, sql, "CHARACTER SET") != null) scores[0] += 2;
+    if (std.mem.indexOf(u8, sql, "DEFAULT CHARSET") != null) scores[0] += 2;
+    if (std.mem.indexOf(u8, sql, "AUTO_INCREMENT") != null) scores[0] += 2;
+    if (std.mem.indexOf(u8, sql, "UNSIGNED") != null) scores[0] += 2;
+    if (std.mem.indexOf(u8, sql, "FULLTEXT INDEX") != null) scores[0] += 3;
     if (std.mem.indexOf(u8, sql, "COMMENT '") != null) scores[0] += 1;
+    if (std.mem.indexOf(u8, sql, "ROW_FORMAT=") != null) scores[0] += 3;
+    if (std.mem.indexOf(u8, sql, "COLLATE=") != null) scores[0] += 1;
+    if (std.mem.indexOf(u8, sql, "UNIQUE KEY") != null) scores[0] += 2;
+    if (std.mem.indexOf(u8, sql, "KEY `") != null) scores[0] += 2;
+    if (std.mem.indexOf(u8, sql, "ON UPDATE CURRENT_TIMESTAMP") != null) scores[0] += 1;
 
-    // PostgreSQL-specific patterns
-    if (std.mem.indexOf(u8, sql, "GENERATED ALWAYS AS IDENTITY") != null) scores[1] += 2;
-    if (std.mem.indexOf(u8, sql, "COMMENT ON") != null) scores[1] += 1;
-    if (std.mem.indexOf(u8, sql, "CREATE EXTENSION") != null) scores[1] += 2;
-    if (std.mem.indexOf(u8, sql, "ENCODING=") != null) scores[1] += 1;
-    if (std.mem.indexOf(u8, sql, "CREATE TYPE") != null) scores[1] += 1;
+    // PostgreSQL-specific patterns (high confidence)
+    if (std.mem.indexOf(u8, sql, "GENERATED ALWAYS AS IDENTITY") != null) scores[1] += 3;
+    if (std.mem.indexOf(u8, sql, "COMMENT ON") != null) scores[1] += 2;
+    if (std.mem.indexOf(u8, sql, "CREATE EXTENSION") != null) scores[1] += 3;
+    if (std.mem.indexOf(u8, sql, "ENCODING=") != null) scores[1] += 2;
+    if (std.mem.indexOf(u8, sql, "CREATE TYPE") != null) scores[1] += 2;
     if (std.mem.indexOf(u8, sql, "IF NOT EXISTS\n  (") != null) scores[1] += 1; // PG style serial
+    if (std.mem.indexOf(u8, sql, "SERIAL") != null) scores[1] += 2;
+    if (std.mem.indexOf(u8, sql, "BIGSERIAL") != null) scores[1] += 3;
+    if (std.mem.indexOf(u8, sql, "bytea") != null) scores[1] += 2;
+    if (std.mem.indexOf(u8, sql, "boolean") != null) scores[1] += 1;
+    if (std.mem.indexOf(u8, sql, "jsonb") != null) scores[1] += 2;
+    if (std.mem.indexOf(u8, sql, "timestamptz") != null) scores[1] += 3;
 
-    // SQLite-specific patterns
-    if (std.mem.indexOf(u8, sql, "AUTOINCREMENT") != null) scores[2] += 2;
-    if (std.mem.indexOf(u8, sql, "INTEGER PRIMARY KEY") != null) scores[2] += 2;
-    if (std.mem.indexOf(u8, sql, "WITHOUT ROWID") != null) scores[2] += 2;
-    if (std.mem.indexOf(u8, sql, "STRICT") != null) scores[2] += 1;
+    // SQLite-specific patterns (high confidence)
+    if (std.mem.indexOf(u8, sql, "AUTOINCREMENT") != null) scores[2] += 3;
+    if (std.mem.indexOf(u8, sql, "INTEGER PRIMARY KEY") != null) scores[2] += 3;
+    if (std.mem.indexOf(u8, sql, "WITHOUT ROWID") != null) scores[2] += 3;
+    if (std.mem.indexOf(u8, sql, "STRICT") != null) scores[2] += 2;
     if (std.mem.indexOf(u8, sql, "CREATE TABLE \"") != null) scores[2] += 1;
+    if (std.mem.indexOf(u8, sql, "ON CONFLICT") != null) scores[2] += 1;
 
     // Determine winner (ties → MySQL)
     var best: usize = 0;
@@ -50,7 +62,7 @@ pub fn detectSqlDialect(sql: []const u8) codegen.Dialect {
     };
 }
 
-pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, with_templates: bool, dialect: codegen.Dialect) !void {
+pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, with_templates: bool, dialect: codegen.Dialect, trace: bool) !void {
     // Auto-detect dialect from SQL content when not explicitly specified
     const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) detectSqlDialect(file_data) else dialect;
 
@@ -97,6 +109,10 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
         std.debug.print("warning: no tables found in SQL input\n", .{});
     }
 
+    if (trace) {
+        traceSqlSchema(schema);
+    }
+
     var rcg = reverse_codegen.ReverseCodegen.init(alloc, sql_dialect);
     const ss_text = if (with_templates)
         try rcg.generateWithTemplates(schema)
@@ -104,6 +120,25 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
         try rcg.generate(schema);
 
     try io_mod.writeOutput(io, ss_text, output_path);
+}
+
+// ─── Trace Helper ──────────────────────────────────────────────
+
+fn traceSqlSchema(schema: sql_parser.SqlSchema) void {
+    std.debug.print("=== [Reverse: SqlSchema] ===\n\n", .{});
+    std.debug.print("Schema: {?s}\n", .{schema.name});
+    std.debug.print("Tables ({d}):\n", .{schema.tables.len});
+    for (schema.tables) |table| {
+        std.debug.print("  # {s} ({d} columns, {d} indexes, {d} fks)\n", .{ table.name, table.columns.len, table.indexes.len, table.foreign_keys.len });
+        for (table.columns) |col| {
+            std.debug.print("    {s: <24} {s}", .{ col.name, col.type_sql });
+            if (col.primary_key) std.debug.print(" PK", .{});
+            if (col.auto_increment) std.debug.print(" AI", .{});
+            if (col.nullable) std.debug.print(" NULL", .{});
+            std.debug.print("\n", .{});
+        }
+    }
+    std.debug.print("\n", .{});
 }
 
 // ─── Unit Tests ─────────────────────────────────────────────
