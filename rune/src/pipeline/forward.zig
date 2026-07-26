@@ -39,16 +39,14 @@ pub const ImportContext = struct {
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
 pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
     const lines = try splitLines(alloc, file_data);
-    const tree = try tokenizeAndParse(alloc, lines);
-    const tok = tokenizer.Tokenizer.init(lines);
-    const tokenized = try tok.tokenizeAll(alloc);
+    const result = try tokenizeAndParseWithLines(alloc, lines);
 
     var sa = semantic.SemanticAnalyzer.init(alloc);
-    const resolved = sa.analyze(tree) catch |err| {
+    const resolved = sa.analyze(result.tree) catch |err| {
         return err;
     };
 
-    return .{ .resolved = resolved, .lines = tokenized, .tree = tree };
+    return .{ .resolved = resolved, .lines = result.tokenized, .tree = result.tree };
 }
 
 /// Compile pipeline with import resolution. Handles @import directives by
@@ -294,8 +292,10 @@ fn splitLines(alloc: std.mem.Allocator, file_data: []const u8) ![]const []const 
     return try lines.toOwnedSlice(alloc);
 }
 
-/// Tokenize lines and parse into AST with diagnostic error handling.
-fn tokenizeAndParse(alloc: std.mem.Allocator, lines: []const []const u8) !ast_mod.Ast {
+/// Tokenize and parse a .ss file into AST and tokenized lines.
+/// Returns both the parsed tree and the tokenized lines so callers
+/// don't need to re-tokenize for trace output.
+fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []const u8) !struct { tree: ast_mod.Ast, tokenized: []tokenizer.Line } {
     const tok = tokenizer.Tokenizer.init(lines);
     const tokenized = try tok.tokenizeAll(alloc);
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
@@ -311,7 +311,13 @@ fn tokenizeAndParse(alloc: std.mem.Allocator, lines: []const []const u8) !ast_mo
         diagnostics.printSummary();
         return error.DiagnosticsError;
     }
-    return tree;
+    return .{ .tree = tree, .tokenized = tokenized };
+}
+
+/// Tokenize lines and parse into AST with diagnostic error handling.
+fn tokenizeAndParse(alloc: std.mem.Allocator, lines: []const []const u8) !ast_mod.Ast {
+    const result = try tokenizeAndParseWithLines(alloc, lines);
+    return result.tree;
 }
 
 // ─── Public API ────────────────────────────────────────────────

@@ -18,6 +18,35 @@ const Dialect = dialect_enum.Dialect;
 
 const optionalStrEq = utils.optionalStrEq;
 
+/// Emit a single table's CREATE TABLE statement by resolving it from a full schema.
+/// Used by both forward (create) and rollback (re-create dropped table) paths.
+fn emitSingleTable(
+    alloc: std.mem.Allocator,
+    w: anytype,
+    cg: *codegen.Codegen,
+    resolved: resolved_ast.ResolvedAst,
+    table_name: []const u8,
+    dialect: Dialect,
+) !void {
+    if (emit.findResolvedTable(resolved, table_name)) |table| {
+        var single_tables = try std.ArrayList(resolved_ast.ResolvedTable).initCapacity(alloc, 1);
+        try single_tables.append(alloc, table);
+        const single_resolved = resolved_ast.ResolvedAst{
+            .schema_name = resolved.schema_name,
+            .schema_charset = resolved.schema_charset,
+            .custom_types = resolved.custom_types,
+            .tables = try single_tables.toOwnedSlice(alloc),
+            .views = &.{},
+            .sql_comments = &.{},
+        };
+        const single_typed = try TypeResolver.resolve(alloc, single_resolved, dialect);
+        if (single_typed.tables.len > 0) {
+            try cg.generateTypedTable(w, single_typed.tables[0]);
+        }
+        try w.writeAll("\n\n");
+    }
+}
+
 // ─── generateFromDiff (orchestrator) ─────────────────────────
 
 pub fn generateFromDiff(
@@ -98,23 +127,7 @@ fn emitRollbackDroppedTables(
     var cg = codegen.Codegen.init(alloc, dialect);
     for (dropped) |tname| {
         has_operations.* = true;
-        if (emit.findResolvedTable(old_resolved, tname)) |table| {
-            var single_tables = try std.ArrayList(resolved_ast.ResolvedTable).initCapacity(alloc, 1);
-            try single_tables.append(alloc, table);
-            const single_resolved = resolved_ast.ResolvedAst{
-                .schema_name = old_resolved.schema_name,
-                .schema_charset = old_resolved.schema_charset,
-                .custom_types = old_resolved.custom_types,
-                .tables = try single_tables.toOwnedSlice(alloc),
-                .views = &.{},
-                .sql_comments = &.{},
-            };
-            const single_typed = try TypeResolver.resolve(alloc, single_resolved, dialect);
-            if (single_typed.tables.len > 0) {
-                try cg.generateTypedTable(w, single_typed.tables[0]);
-            }
-            try w.writeAll("\n\n");
-        }
+        try emitSingleTable(alloc, w, &cg, old_resolved, tname, dialect);
     }
 }
 
@@ -185,6 +198,8 @@ fn emitRollbackTableDiffs(
                 try emitRollbackFieldDiffs(alloc, w, backend, td, old_resolved, dialect, &table_has_ops, &sub_needs_comma);
                 // Rollback index diffs in reverse
                 try emitRollbackIndexDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
+                // Rollback metadata diffs (restore old comment/engine)
+                try emitRollbackMetadataDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
                 // Rollback FK diffs in reverse
                 try emitRollbackFkDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
 
@@ -341,6 +356,51 @@ fn emitRollbackFkDiffs(
     }
 }
 
+fn emitRollbackMetadataDiffs(
+    w: anytype,
+    backend: dialect_mod.DialectBackend,
+    td: diff_mod.TableDiff,
+    table_has_ops: *bool,
+    sub_needs_comma: *bool,
+) !void {
+    if (td.metadata_diff) |md| {
+        // Rollback comment: restore old comment
+        if (!optionalStrEq(md.old_comment, md.new_comment)) {
+            if (md.old_comment) |oc| {
+                const result = backend.commentResult();
+                switch (result) {
+                    .added_to_alter => {
+                        try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                        try emit.emitComma(w, sub_needs_comma);
+                        try backend.emitAlterTableComment(w, td.name, oc);
+                    },
+                    .standalone_emitted => {
+                        if (table_has_ops.*) {
+                            try w.writeAll(";\n\n");
+                            table_has_ops.* = false;
+                            sub_needs_comma.* = false;
+                        }
+                        try backend.emitAlterTableComment(w, td.name, oc);
+                    },
+                    .unsupported => {
+                        try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                        try emit.emitComma(w, sub_needs_comma);
+                        try backend.emitAlterTableComment(w, td.name, oc);
+                    },
+                }
+            }
+        }
+        // Rollback engine: restore old engine
+        if (!optionalStrEq(md.old_engine, md.new_engine)) {
+            if (md.old_engine) |oe| {
+                try emit.beginAlterTable(w, backend, td.name, table_has_ops);
+                try emit.emitComma(w, sub_needs_comma);
+                try backend.emitAlterEngine(w, oe);
+            }
+        }
+    }
+}
+
 // ─── generateFromDiff sub-functions ────────────────────────────
 
 fn emitDroppedTables(w: anytype, backend: dialect_mod.DialectBackend, dropped: []const []const u8) !void {
@@ -389,23 +449,7 @@ fn emitTableDiffs(
         switch (td.action) {
             .create => {
                 has_operations.* = true;
-                if (emit.findResolvedTable(new_resolved, td.name)) |table| {
-                    var single_tables = try std.ArrayList(resolved_ast.ResolvedTable).initCapacity(alloc, 1);
-                    try single_tables.append(alloc, table);
-                    const single_resolved = resolved_ast.ResolvedAst{
-                        .schema_name = new_resolved.schema_name,
-                        .schema_charset = new_resolved.schema_charset,
-                        .custom_types = new_resolved.custom_types,
-                        .tables = try single_tables.toOwnedSlice(alloc),
-                        .views = &.{},
-                        .sql_comments = &.{},
-                    };
-                    const single_typed = try TypeResolver.resolve(alloc, single_resolved, dialect);
-                    if (single_typed.tables.len > 0) {
-                        try cg.generateTypedTable(w, single_typed.tables[0]);
-                    }
-                    try w.writeAll("\n\n");
-                }
+                try emitSingleTable(alloc, w, cg, new_resolved, td.name, dialect);
             },
             .alter => {
                 var table_has_ops = false;
