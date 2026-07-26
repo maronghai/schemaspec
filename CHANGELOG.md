@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.23.0] - 2026-07-27
+
+### Added
+- JSON Schema output now properly parses IN list CHECK constraints to `enum` values
+- JSON Schema output handles NULL defaults (emits `null`) and boolean defaults (emits `true`/`false`)
+- Diff output now shows type changes for modified columns (e.g., `~ field (modify: int → varchar)`)
+
 ## [0.22.0] - 2026-07-27
 
 ### Added

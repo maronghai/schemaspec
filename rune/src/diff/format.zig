@@ -66,7 +66,25 @@ fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8) !void {
             switch (fd.action) {
                 .add => try w.print("  + {s} (add)\n", .{fd.name}),
                 .drop => try w.print("  - {s} (drop)\n", .{fd.name}),
-                .modify => try w.print("  ~ {s} (modify)\n", .{fd.name}),
+                .modify => {
+                    // Show what changed: type and modifiers
+                    if (fd.old_field) |old_f| {
+                        if (fd.new_field) |new_f| {
+                            // Check if type changed
+                            const old_type = @tagName(old_f.type_info);
+                            const new_type = @tagName(new_f.type_info);
+                            if (!std.mem.eql(u8, old_type, new_type)) {
+                                try w.print("  ~ {s} (modify: {s} → {s})\n", .{ fd.name, old_type, new_type });
+                            } else {
+                                try w.print("  ~ {s} (modify)\n", .{fd.name});
+                            }
+                        } else {
+                            try w.print("  ~ {s} (modify)\n", .{fd.name});
+                        }
+                    } else {
+                        try w.print("  ~ {s} (modify)\n", .{fd.name});
+                    }
+                },
                 .rename => try w.print("  ~ {s} → {s} (rename)\n", .{ fd.rename_from.?, fd.name }),
             }
         }

@@ -47,7 +47,6 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]const u8
 }
 
 fn writeTable(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable) !void {
-    _ = alloc;
     try w.print("    \"{s}\": {{\n", .{table.name});
     try w.writeAll("      \"type\": \"object\",\n");
 
@@ -98,7 +97,7 @@ fn writeTable(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable)
                 },
                 .in_list => {
                     // Parse IN list like "a,b,c"
-                    if (parseInList(check.expr)) |items| {
+                    if (parseInList(alloc, check.expr)) |items| {
                         try w.writeAll(",\n          \"enum\": [");
                         for (items, 0..) |item, ii| {
                             if (ii > 0) try w.writeAll(",");
@@ -113,8 +112,18 @@ fn writeTable(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable)
         // Add default value
         if (col.default) |def| {
             try w.writeAll(",\n          \"default\": ");
+            // Handle NULL default
+            if (std.mem.eql(u8, def, "NULL") or std.mem.eql(u8, def, "null")) {
+                try w.writeAll("null");
+            }
+            // Handle boolean defaults
+            else if (std.mem.eql(u8, def, "true") or std.mem.eql(u8, def, "TRUE")) {
+                try w.writeAll("true");
+            } else if (std.mem.eql(u8, def, "false") or std.mem.eql(u8, def, "FALSE")) {
+                try w.writeAll("false");
+            }
             // Try to parse as number, otherwise treat as string
-            if (std.fmt.parseInt(i64, def, 10)) |num| {
+            else if (std.fmt.parseInt(i64, def, 10)) |num| {
                 try w.print("{d}", .{num});
             } else |_| {
                 if (std.fmt.parseFloat(f64, def)) |num| {
@@ -229,11 +238,72 @@ fn parseComparison(expr: []const u8) ?Comparison {
     return null;
 }
 
-fn parseInList(expr: []const u8) ?[]const []const u8 {
-    // This is a simplified parser - in real code you'd want proper allocation
-    // For now, return null as IN lists are complex to parse without allocation
-    _ = expr;
-    return null;
+fn parseInList(alloc: std.mem.Allocator, expr: []const u8) ?[]const []const u8 {
+    // Parse IN list like "'a','b','c'" or "a,b,c"
+    const trimmed = std.mem.trim(u8, expr, " ");
+    if (trimmed.len < 2) return null;
+
+    // Check for parentheses wrapper
+    const inner = if (trimmed[0] == '(' and trimmed[trimmed.len - 1] == ')')
+        trimmed[1 .. trimmed.len - 1]
+    else
+        trimmed;
+
+    var items = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return null;
+    var start: usize = 0;
+    var in_quote = false;
+    var i: usize = 0;
+
+    while (i < inner.len) {
+        if (inner[i] == '\'') {
+            if (in_quote) {
+                // End of quoted item
+                const item = std.mem.trim(u8, inner[start..i], " '");
+                items.append(alloc, item) catch {
+                    items.deinit(alloc);
+                    return null;
+                };
+                in_quote = false;
+                start = i + 1;
+            } else {
+                // Start of quoted item
+                in_quote = true;
+                start = i + 1;
+            }
+        } else if (inner[i] == ',' and !in_quote) {
+            // Unquoted item separator
+            const item = std.mem.trim(u8, inner[start..i], " ");
+            if (item.len > 0) {
+                items.append(alloc, item) catch {
+                    items.deinit(alloc);
+                    return null;
+                };
+            }
+            start = i + 1;
+        }
+        i += 1;
+    }
+
+    // Handle last item
+    if (start < inner.len) {
+        const item = std.mem.trim(u8, inner[start..], " '");
+        if (item.len > 0) {
+            items.append(alloc, item) catch {
+                items.deinit(alloc);
+                return null;
+            };
+        }
+    }
+
+    if (items.items.len == 0) {
+        items.deinit(alloc);
+        return null;
+    }
+
+    return items.toOwnedSlice(alloc) catch {
+        items.deinit(alloc);
+        return null;
+    };
 }
 
 // ─── Unit Tests ──────────────────────────────────────────────
