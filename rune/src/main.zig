@@ -61,7 +61,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.18.0";
+const VERSION = "0.19.0";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -69,6 +69,10 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
     switch (parsed.command) {
         .version => {
             std.debug.print("rune {s}\n", .{VERSION});
+            return;
+        },
+        .help => {
+            cli.printUsage();
             return;
         },
         .compile => |cmd| {

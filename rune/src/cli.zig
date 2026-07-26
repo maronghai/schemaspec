@@ -12,6 +12,7 @@ pub const Command = union(enum) {
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool },
     version,
+    help,
 };
 
 pub const ParsedArgs = struct {
@@ -71,12 +72,15 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var target: Target = .sql;
     var filtered = try std.ArrayList([]const u8).initCapacity(alloc, raw_args.len);
 
-    // Pass 1: extract --dialect / -d / --target / --version / -v from all args
+    // Pass 1: extract --dialect / -d / --target / --version / -v / --help / -h from all args
     var i: usize = 1; // skip argv[0]
     var want_version = false;
+    var want_help = false;
     while (i < raw_args.len) : (i += 1) {
         if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
             want_version = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--help") or std.mem.eql(u8, raw_args[i], "-h")) {
+            want_help = true;
         } else if (std.mem.eql(u8, raw_args[i], "--dialect") or std.mem.eql(u8, raw_args[i], "-d")) {
             if (i + 1 < raw_args.len) {
                 dialect = parseDialect(raw_args[i + 1]) catch |e| {
@@ -105,6 +109,10 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (want_version) {
         return .{ .dialect = dialect, .target = target, .command = .version };
+    }
+
+    if (want_help) {
+        return .{ .dialect = dialect, .target = target, .command = .help };
     }
 
     // Pass 2: route subcommand
@@ -179,6 +187,7 @@ pub fn printUsage() void {
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
+    std.debug.print("  -h, --help      Show this help message and exit\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});
@@ -380,4 +389,22 @@ test "parseArgs: postgres alias resolves to pg dialect" {
     const args = makeArgs(3, .{ "rune", "-d", "postgres" });
     const result = try parseArgs(alloc, &args);
     try testing.expectEqual(dialect_enum.Dialect.pg, result.dialect);
+}
+
+test "parseArgs: --help returns help command" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(2, .{ "rune", "--help" });
+    const result = try parseArgs(alloc, &args);
+    try testing.expectEqual(Command.help, result.command);
+}
+
+test "parseArgs: -h returns help command" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(2, .{ "rune", "-h" });
+    const result = try parseArgs(alloc, &args);
+    try testing.expectEqual(Command.help, result.command);
 }

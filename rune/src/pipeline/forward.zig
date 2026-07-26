@@ -47,6 +47,7 @@ const CompileFlags = struct {
 
 /// Unified internal compilation pipeline.
 /// Handles tokenize → parse → (optional imports) → (optional semantic) → ResolvedAst.
+/// `io` is only used when `resolve_imports` is true; pass `undefined` safely when imports are disabled.
 fn compileInternal(
     io: std.Io,
     alloc: std.mem.Allocator,
@@ -56,7 +57,7 @@ fn compileInternal(
 ) !struct { tree: ast_mod.Ast, lines: []tokenizer.Line, resolved: ?resolved_ast.ResolvedAst } {
     const raw_lines = try splitLines(alloc, file_data);
 
-    // Resolve @import directives if requested
+    // Resolve @import directives only when enabled and io is available
     const imports_result = if (flags.resolve_imports and import_ctx != null)
         try resolveImports(io, alloc, raw_lines, import_ctx.?)
     else

@@ -58,23 +58,23 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `parser.zig` | `parse_table.zig` | Table header parsing + engine token stripping |
 | `parser.zig` | `parse_trace.zig` | Parser diagnostic trace output (debug mode) |
 | `parser.zig` | `parse_recovery.zig` | Error handling + sync point detection for error recovery |
-| `diff.zig` | `diff_fields.zig` | Field-level diffing + rename detection + equality helpers |
-| `diff.zig` | `diff_indexes.zig` | Index diffing |
-| `diff.zig` | `diff_fks.zig` | FK diffing |
-| `diff.zig` | `semantic.zig` | Dialect-aware type equivalence — `typeInfoEquiv` (AST-level) + `semanticEquiv` (SQL string-level via reverse lookup) |
-| `diff.zig` | `diff_format.zig` | Human-readable diff formatting |
-| `codegen.zig` | `codegen_columns.zig` | Column definition rendering (emitColumnDef, emitColumnDefEx, emitDefault) + shared `isDominatedByExplicitIndex()` |
-| `codegen.zig` | `codegen_indexes.zig` | Inline and standalone index emission |
-| `sql_parser.zig` | `sql_parser_helpers.zig` | Identifier/literal/word parsing, whitespace/comment skipping, trailing comment capture, `parseExpression` |
-| `sql_parser.zig` | `sql_parser_alter.zig` | ALTER TABLE statement parsing |
-| `sql_parser.zig` | `sql_parser_comment.zig` | COMMENT ON TABLE/COLUMN parsing |
-| `sql_parser.zig` | `sql_parser_create.zig` | CREATE DATABASE/TABLE/column parsing |
-| `sql_parser.zig` | `sql_parser_fk.zig` | Foreign key parsing (reverse pipeline) |
-| `sql_parser.zig` | `sql_parser_index.zig` | Index declaration parsing (reverse pipeline) |
-| `sql_parser.zig` | `sql_parser_check.zig` | CHECK constraint parsing (reverse pipeline) |
-| `reverse_codegen.zig` | `reverse_column.zig` | Column reverse engineering (type mapping, suffix, inline index detection) |
-| `reverse_codegen.zig` | `reverse_fk.zig` | FK reverse classification |
-| `reverse_codegen.zig` | `reverse_check.zig` | CHECK constraint reverse engineering |
+| `diff/engine.zig` | `diff/fields.zig` | Field-level diffing + rename detection + equality helpers |
+| `diff/engine.zig` | `diff/indexes.zig` | Index diffing |
+| `diff/engine.zig` | `diff/fks.zig` | FK diffing |
+| `diff/engine.zig` | `diff/semantic.zig` | Dialect-aware type equivalence — `typeInfoEquiv` (AST-level) + `semanticEquiv` (SQL string-level via reverse lookup) |
+| `diff/engine.zig` | `diff/format.zig` | Human-readable diff formatting |
+| `codegen/codegen.zig` | `codegen/columns.zig` | Column definition rendering (emitColumnDef, emitColumnDefEx, emitDefault) + shared `isDominatedByExplicitIndex()` |
+| `codegen/codegen.zig` | `codegen/indexes.zig` | Inline and standalone index emission |
+| `parser/sql_parser.zig` | `parser/sql_parser_helpers.zig` | Identifier/literal/word parsing, whitespace/comment skipping, trailing comment capture, `parseExpression` |
+| `parser/sql_parser.zig` | `parser/sql_parser_alter.zig` | ALTER TABLE statement parsing |
+| `parser/sql_parser.zig` | `parser/sql_parser_comment.zig` | COMMENT ON TABLE/COLUMN parsing |
+| `parser/sql_parser.zig` | `parser/sql_parser_create.zig` | CREATE DATABASE/TABLE/column parsing |
+| `parser/sql_parser.zig` | `parser/sql_parser_fk.zig` | Foreign key parsing (reverse pipeline) |
+| `parser/sql_parser.zig` | `parser/sql_parser_index.zig` | Index declaration parsing (reverse pipeline) |
+| `parser/sql_parser.zig` | `parser/sql_parser_check.zig` | CHECK constraint parsing (reverse pipeline) |
+| `reverse/codegen.zig` | `reverse/column.zig` | Column reverse engineering (type mapping, suffix, inline index detection) |
+| `reverse/codegen.zig` | `reverse/fk.zig` | FK reverse classification |
+| `reverse/codegen.zig` | `reverse/check.zig` | CHECK constraint reverse engineering |
 
 ## Forward Pipeline
 

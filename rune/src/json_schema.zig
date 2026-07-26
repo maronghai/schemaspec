@@ -1,6 +1,7 @@
 const std = @import("std");
 const typed_ast = @import("types/typed_ast.zig");
 const sql_type_mod = @import("types/sql_type.zig");
+const utils = @import("utils.zig");
 const Writer = std.Io.Writer;
 
 // ─── JSON Schema Generator ──────────────────────────────────
@@ -50,10 +51,12 @@ fn writeTable(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable)
     try w.print("    \"{s}\": {{\n", .{table.name});
     try w.writeAll("      \"type\": \"object\",\n");
 
-    // Description from comment
+    // Description from comment (with JSON-safe escaping)
     if (table.comment) |c| {
         if (c.len > 0) {
-            try w.print("      \"description\": \"{s}\",\n", .{c});
+            try w.writeAll("      \"description\": \"");
+            try utils.jsonEscapeString(w, c);
+            try w.writeAll("\",\n");
         }
     }
 
