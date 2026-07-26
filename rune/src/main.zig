@@ -25,8 +25,7 @@ pub fn main(init: std.process.Init) !void {
             cli.printUsage();
             std.process.exit(1);
         }
-        const file_data = try io_mod.readStdin(init.io, alloc);
-        return forward.handleCompile(init.io, alloc, file_data, null, false, .mysql);
+        return forward.handleCompileRequest(init.io, alloc, null, null, false, .mysql, .sql);
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
@@ -62,7 +61,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.16.0";
+const VERSION = "0.17.0";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -73,26 +72,19 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return;
         },
         .compile => |cmd| {
-            if (cmd.input) |path| {
-                if (std.mem.eql(u8, path, "-")) {
-                    // "-" means read from stdin
-                    const file_data = try io_mod.readStdin(io, alloc);
-                    return switch (parsed.target) {
-                        .sql => forward.handleCompile(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
-                        .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
-                    };
-                }
-                return switch (parsed.target) {
-                    .sql => forward.handleCompileFile(io, alloc, path, cmd.output, cmd.trace, parsed.dialect),
-                    .json_schema => forward.handleCompileJsonSchemaFile(io, alloc, path, cmd.output, cmd.trace, parsed.dialect),
-                };
-            } else {
-                const file_data = try io_mod.readStdin(io, alloc);
-                return switch (parsed.target) {
-                    .sql => forward.handleCompile(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
-                    .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
-                };
-            }
+            // Determine input path (null = stdin, "-" = stdin, else = file)
+            const input_path = if (cmd.input) |path|
+                if (std.mem.eql(u8, path, "-")) null else path
+            else
+                null;
+
+            // Determine output format
+            const format: forward.OutputFormat = switch (parsed.target) {
+                .sql => .sql,
+                .json_schema => .json_schema,
+            };
+
+            return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format);
         },
         .validate => |cmd| {
             const file_data = if (cmd.input) |path|

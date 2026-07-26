@@ -9,6 +9,7 @@ const typed_ast = @import("../types/typed_ast.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const diag = @import("../semantic/diagnostic.zig");
 const io_mod = @import("../io.zig");
+const json_schema = @import("../json_schema.zig");
 
 // ─── Forward Pipeline: .ss → SQL ─────────────────────────────
 // No dependency on cli.zig — output format dispatch is the caller's responsibility.
@@ -363,7 +364,6 @@ pub fn handleCompileRequest(
             break :blk try cg.generateFromTypedAst(typed);
         },
         .json_schema => blk: {
-            const json_schema = @import("../json_schema.zig");
             break :blk try json_schema.generate(alloc, typed);
         },
     };
@@ -372,46 +372,6 @@ pub fn handleCompileRequest(
         if (format == .sql) traceWithTyped(pipeline, typed) else traceForward(pipeline);
     }
 
-    try io_mod.writeOutput(io, output, output_path);
-}
-
-/// Compile .ss to SQL DDL from stdin.
-pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
-    const pipeline = try compilePipeline(alloc, file_data);
-    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
-    var cg = codegen.Codegen.init(alloc, dialect);
-    const output = try cg.generateFromTypedAst(typed);
-    if (trace) traceWithTyped(pipeline, typed);
-    try io_mod.writeOutput(io, output, output_path);
-}
-
-/// Compile .ss from a file path, handling imports, to SQL DDL.
-pub fn handleCompileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
-    const pipeline = try compileFile(io, alloc, file_path);
-    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
-    var cg = codegen.Codegen.init(alloc, dialect);
-    const output = try cg.generateFromTypedAst(typed);
-    if (trace) traceWithTyped(pipeline, typed);
-    try io_mod.writeOutput(io, output, output_path);
-}
-
-/// Compile .ss to JSON Schema (alternative output path).
-pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
-    const json_schema = @import("../json_schema.zig");
-    const pipeline = try compilePipeline(alloc, file_data);
-    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
-    const output = try json_schema.generate(alloc, typed);
-    if (trace) traceForward(pipeline);
-    try io_mod.writeOutput(io, output, output_path);
-}
-
-/// Compile .ss from a file path, handling imports, to JSON Schema.
-pub fn handleCompileJsonSchemaFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
-    const json_schema = @import("../json_schema.zig");
-    const pipeline = try compileFile(io, alloc, file_path);
-    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
-    const output = try json_schema.generate(alloc, typed);
-    if (trace) traceForward(pipeline);
     try io_mod.writeOutput(io, output, output_path);
 }
 
