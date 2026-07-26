@@ -21,8 +21,7 @@ const Dialect = dialect_enum.Dialect;
 // ResolvedAst → TypedAst resolves types to structured SqlType.
 // TypedAst → SQL: SqlType.toSql(dialect, writer) renders dialect-specific output.
 // TypedAst → JSON/Prisma: inspect SqlType variants directly (no SQL binding).
-//
-// SqlType is defined in sql_type.zig and re-exported here for backward compat.
+// SqlType is defined in sql_type.zig.
 
 pub const ColumnFlags = packed struct {
     nullable: bool = false,
@@ -36,13 +35,6 @@ pub const ColumnFlags = packed struct {
     has_timestamp_default: bool = false,
     on_update_current_timestamp: bool = false,
 };
-
-// ─── SqlType: Dialect-agnostic structured type representation ──
-//
-// Defined in sql_type.zig, re-exported here for backward compatibility.
-// SqlType.toSql() is self-contained in sql_type.zig (no delegation).
-
-pub const SqlType = sql_type_mod.SqlType;
 
 pub const TypedAst = struct {
     schema_name: ?[]const u8,
@@ -71,7 +63,7 @@ pub const TypedTable = struct {
 
 pub const TypedColumn = struct {
     name: []const u8,
-    sql_type: SqlType,
+    sql_type: sql_type_mod.SqlType,
     sym_type: ?[]const u8 = null,
     flags: ColumnFlags = .{},
     default: ?[]const u8,

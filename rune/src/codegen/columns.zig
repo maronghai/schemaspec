@@ -2,6 +2,7 @@ const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
+const sql_type_mod = @import("../types/sql_type.zig");
 const Writer = std.Io.Writer;
 
 pub fn isDominatedByExplicitIndex(col_name: []const u8, explicit_indexes: []const ast_mod.IndexDecl, require_unique: bool) bool {
@@ -76,7 +77,7 @@ pub fn emitColumnDefEx(backend: dialect_mod.DialectBackend, w: *Writer, col: typ
 
 const testing = std.testing;
 
-fn makeTestColumn(name: []const u8, sql_type: typed_ast_mod.SqlType) typed_ast_mod.TypedColumn {
+fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast_mod.TypedColumn {
     return .{
         .name = name,
         .sql_type = sql_type,

@@ -3,6 +3,7 @@ const ast_mod = @import("../types/ast.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const type_map = @import("../types/type_map.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
+const sql_type_mod = @import("../types/sql_type.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const Field = ast_mod.Field;
 const Dialect = dialect_enum.Dialect;
@@ -10,7 +11,7 @@ const TypedAst = typed_ast_mod.TypedAst;
 const TypedTable = typed_ast_mod.TypedTable;
 const TypedView = typed_ast_mod.TypedView;
 const TypedColumn = typed_ast_mod.TypedColumn;
-const SqlType = typed_ast_mod.SqlType;
+const SqlType = sql_type_mod.SqlType;
 const FkDecl = ast_mod.FkDecl;
 
 // ─── TypeResolver: ResolvedAst → TypedAst ──────────────────────

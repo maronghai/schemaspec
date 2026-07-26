@@ -1,15 +1,37 @@
 const std = @import("std");
-const diff_fields = @import("../diff/fields.zig");
-const diff_indexes = @import("../diff/indexes.zig");
-const diff_fks = @import("../diff/fks.zig");
+const ast_mod = @import("../types/ast.zig");
 const utils = @import("../utils.zig");
 
-pub const FieldDiff = diff_fields.FieldDiff;
-pub const FieldAction = diff_fields.FieldAction;
-pub const IndexDiff = diff_indexes.IndexDiff;
-pub const IndexAction = diff_indexes.IndexAction;
-pub const FkDiff = diff_fks.FkDiff;
-pub const FkAction = diff_fks.FkAction;
+// ─── Diff Data Types ────────────────────────────────────────────
+// All diff-related data types live here to avoid circular dependencies.
+// diff/fields.zig, diff/indexes.zig, diff/fks.zig import from here.
+
+pub const FieldDiff = struct {
+    name: []const u8,
+    action: FieldAction,
+    old_field: ?ast_mod.Field,
+    new_field: ?ast_mod.Field,
+    rename_from: ?[]const u8,
+};
+
+pub const FieldAction = enum { add, modify, drop, rename };
+
+pub const IndexDiff = struct {
+    name: []const u8,
+    action: IndexAction,
+    old_idx: ?ast_mod.IndexDecl,
+    new_idx: ?ast_mod.IndexDecl,
+};
+
+pub const IndexAction = enum { add, drop, modify };
+
+pub const FkDiff = struct {
+    action: FkAction,
+    old_fk: ?ast_mod.FkDecl,
+    new_fk: ?ast_mod.FkDecl,
+};
+
+pub const FkAction = enum { add, drop, modify };
 
 pub const TableAction = enum { create, alter };
 

@@ -1,18 +1,9 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
+const diff_types = @import("../diff/types.zig");
 const IndexDecl = ast_mod.IndexDecl;
-
-// ─── Index Diff ────────────────────────────────────────────
-// Extracted from diff.zig for single-responsibility.
-
-pub const IndexDiff = struct {
-    name: []const u8,
-    action: IndexAction,
-    old_idx: ?IndexDecl,
-    new_idx: ?IndexDecl,
-};
-
-pub const IndexAction = enum { add, drop, modify };
+pub const IndexDiff = diff_types.IndexDiff;
+pub const IndexAction = diff_types.IndexAction;
 
 pub fn diffIndexes(alloc: std.mem.Allocator, old_idxs: []const IndexDecl, new_idxs: []const IndexDecl) ![]const IndexDiff {
     var diffs = try std.ArrayList(IndexDiff).initCapacity(alloc, 4);

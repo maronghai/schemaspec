@@ -55,11 +55,12 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
     if (std.mem.eql(u8, t, "varchar(255)"))
         return .{ .sym = "s", .omit = canOmitType(col_name, "s", is_auto_inc, is_default_ts) };
 
-    // character varying(N) → sN
+    // character varying(N) → sN (guard: inner must fit in 16-byte buffer)
     if (std.mem.startsWith(u8, t, "character varying(") and std.mem.endsWith(u8, t, ")")) {
         const inner = std.mem.trim(u8, t[17 .. t.len - 1], " ");
         if (std.mem.eql(u8, inner, "255"))
             return .{ .sym = "s", .omit = canOmitType(col_name, "s", is_auto_inc, is_default_ts) };
+        if (inner.len > 15) return .{ .sym = t, .omit = false };
         const sbuf = struct {
             var buf: [16]u8 = undefined;
         };
@@ -68,9 +69,10 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
         return .{ .sym = sbuf.buf[0 .. 1 + inner.len], .omit = false };
     }
 
-    // varchar(N) → sN
+    // varchar(N) → sN (guard: inner must fit in 16-byte buffer)
     if (std.mem.startsWith(u8, t, "varchar(") and std.mem.endsWith(u8, t, ")")) {
         const inner = std.mem.trim(u8, t[8 .. t.len - 1], " ");
+        if (inner.len > 15) return .{ .sym = t, .omit = false };
         const sbuf = struct {
             var buf: [16]u8 = undefined;
         };
@@ -321,4 +323,16 @@ test "score: SQLite TEXT with json column name returns 80" {
 test "score: SQLite TEXT fallback returns 50" {
     const r = reverseLookup("TEXT", "some_col", false, false, .sqlite);
     try testing.expectEqual(@as(u8, 50), r.score);
+}
+
+// ─── Buffer overflow guard tests ────────────────────────────────
+
+test "reverse: varchar with long N falls back to raw" {
+    const r = reverseLookup("varchar(9999999999999999)", "col", false, false, .mysql);
+    try testing.expectEqualStrings("varchar(9999999999999999)", r.sym);
+}
+
+test "reverse: character varying with long N falls back to raw" {
+    const r = reverseLookup("character varying(9999999999999999)", "col", false, false, .pg);
+    try testing.expectEqualStrings("character varying(9999999999999999)", r.sym);
 }

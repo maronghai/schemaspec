@@ -5,7 +5,7 @@ const sp = @import("../parser/sql_parser.zig");
 // Extracted from reverse_codegen.zig for single-responsibility.
 // Classifies SQL foreign keys into SS shorthand/full forms.
 
-pub const FkForm = enum { ultra, shorthand, full };
+pub const FkForm = enum { shorthand, full };
 
 pub const FkClassification = struct {
     form: FkForm,

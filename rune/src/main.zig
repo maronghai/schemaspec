@@ -26,7 +26,7 @@ pub fn main(init: std.process.Init) !void {
             std.process.exit(1);
         }
         const file_data = try io_mod.readStdin(init.io, alloc);
-        return forward.handleCompile(init.io, alloc, file_data, "<stdin>", null, false, .mysql);
+        return forward.handleCompile(init.io, alloc, file_data, null, false, .mysql);
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
@@ -62,7 +62,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.8.2";
+const VERSION = "0.8.3";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -77,10 +77,9 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 try io_mod.readFileOrStdin(io, alloc, path)
             else
                 try io_mod.readStdin(io, alloc);
-            const name = cmd.input orelse "<stdin>";
             return switch (parsed.target) {
-                .sql => forward.handleCompile(io, alloc, file_data, name, cmd.output, cmd.trace, parsed.dialect),
-                .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, name, cmd.output, cmd.trace, parsed.dialect),
+                .sql => forward.handleCompile(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
+                .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
             };
         },
         .diff => |cmd| {

@@ -4,7 +4,6 @@ const resolved_ast = @import("../types/resolved_ast.zig");
 const diff_fields = @import("../diff/fields.zig");
 const diff_indexes = @import("../diff/indexes.zig");
 const diff_fks = @import("../diff/fks.zig");
-const diff_format = @import("../diff/format.zig");
 const diff_types = @import("../diff/types.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const utils = @import("../utils.zig");
@@ -150,11 +149,6 @@ fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: res
         .metadata_diff = if (metadata_diff.hasChanges()) metadata_diff else null,
     };
 }
-
-// ─── Re-export formatting (moved to diff_format.zig) ─────────
-
-pub const formatDiff = diff_format.formatDiff;
-pub const printDiff = diff_format.printDiff;
 
 // ─── Unit Tests ─────────────────────────────────────────────
 

@@ -252,7 +252,6 @@ fn emitStandaloneIndexes(self: *ReverseCodegen, w: anytype, table: sp.SqlTable) 
 fn emitForeignKeys(self: *ReverseCodegen, w: anytype, table: sp.SqlTable) !void {
     for (table.foreign_keys) |fk| {
         const cls = rf.classifyFk(self.alloc, fk);
-        if (cls.form == .ultra) continue;
         try w.writeAll("\n");
         if (cls.text) |txt| try w.writeAll(txt);
     }

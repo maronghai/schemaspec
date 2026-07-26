@@ -8,10 +8,8 @@ const sql_type_mod = @import("../types/sql_type.zig");
 //
 // Helper functions for type classification and custom type lookup.
 // SqlType → SQL rendering is self-contained in sql_type.zig:SqlType.toSql().
-// SqlType is re-exported here for backward compatibility.
 
 pub const Dialect = dialect_enum.Dialect;
-pub const SqlType = sql_type_mod.SqlType;
 
 // ─── Helper: classify SS type symbols ───────────────────────
 

@@ -68,9 +68,7 @@ pub fn compileToAst(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !res
 }
 
 /// Compile .ss to SQL DDL (the default output path).
-pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
-    _ = input_name;
-
+pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const pipeline = try compilePipeline(io, alloc, file_data);
 
     var tr = typed_ast.TypeResolver.init(alloc);
@@ -90,9 +88,8 @@ pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
 }
 
 /// Compile .ss to JSON Schema (alternative output path).
-pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
+pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const json_schema = @import("../json_schema.zig");
-    _ = input_name;
 
     const pipeline = try compilePipeline(io, alloc, file_data);
 

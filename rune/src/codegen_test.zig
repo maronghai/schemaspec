@@ -1,11 +1,12 @@
 const std = @import("std");
 const codegen_mod = @import("codegen/codegen.zig");
 const typed_ast_mod = @import("types/typed_ast.zig");
+const sql_type_mod = @import("types/sql_type.zig");
 const Codegen = codegen_mod.Codegen;
 
 const testing = std.testing;
 
-fn makeTestColumn(name: []const u8, sql_type: typed_ast_mod.SqlType) typed_ast_mod.TypedColumn {
+fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast_mod.TypedColumn {
     return .{
         .name = name,
         .sql_type = sql_type,

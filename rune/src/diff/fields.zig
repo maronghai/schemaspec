@@ -1,6 +1,7 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const diff_semantic = @import("../diff/semantic.zig");
+const diff_types = @import("../diff/types.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const Field = ast_mod.Field;
 const TypeInfo = ast_mod.TypeInfo;
@@ -8,6 +9,8 @@ const DefaultVal = ast_mod.DefaultVal;
 const Modifier = ast_mod.Modifier;
 const CheckConstraint = ast_mod.CheckConstraint;
 const Dialect = dialect_enum.Dialect;
+pub const FieldDiff = diff_types.FieldDiff;
+pub const FieldAction = diff_types.FieldAction;
 
 // ─── Field Diff + Rename Detection ─────────────────────────
 // Extracted from diff.zig for single-responsibility.
@@ -231,15 +234,126 @@ pub fn checkEqual(a: ?CheckConstraint, b: ?CheckConstraint) bool {
     return a.?.kind == b.?.kind and std.mem.eql(u8, a.?.expr, b.?.expr);
 }
 
-// ─── FieldDiff (re-export for convenience) ─────────────────
+// ─── Unit Tests ──────────────────────────────────────────────
 
-pub const FieldDiff = struct {
-    name: []const u8,
-    action: FieldAction,
-    old_field: ?Field,
-    new_field: ?Field,
-    rename_from: ?[]const u8,
-};
+const testing = std.testing;
 
-pub const FieldAction = enum { add, modify, drop, rename };
+fn makeTestField(name: []const u8, sym: []const u8) Field {
+    return .{
+        .name = name,
+        .type_info = .{ .simple = sym },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+}
 
+fn makeTestFieldWithDefault(name: []const u8, sym: []const u8, default: []const u8) Field {
+    return .{
+        .name = name,
+        .type_info = .{ .simple = sym },
+        .modifiers = &.{},
+        .default_val = .{ .value = default, .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+}
+
+fn makeTestFieldWithCheck(name: []const u8, sym: []const u8, expr: []const u8) Field {
+    return .{
+        .name = name,
+        .type_info = .{ .simple = sym },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = .{ .kind = .comparison, .expr = expr, .line_no = 1 },
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+}
+
+test "fieldSignatureMatch: identical fields match" {
+    const a = makeTestField("id", "n");
+    const b = makeTestField("id", "n");
+    try testing.expect(fieldSignatureMatch(a, b, null));
+}
+
+test "fieldSignatureMatch: different type does not match" {
+    const a = makeTestField("id", "n");
+    const b = makeTestField("id", "s");
+    try testing.expect(!fieldSignatureMatch(a, b, null));
+}
+
+test "fieldSignatureMatch: different default does not match" {
+    const a = makeTestFieldWithDefault("col", "n", "0");
+    const b = makeTestFieldWithDefault("col", "n", "1");
+    try testing.expect(!fieldSignatureMatch(a, b, null));
+}
+
+test "fieldSignatureMatch: different check does not match" {
+    const a = makeTestFieldWithCheck("col", "n", "x > 0");
+    const b = makeTestFieldWithCheck("col", "n", "x < 100");
+    try testing.expect(!fieldSignatureMatch(a, b, null));
+}
+
+test "fieldSignatureMatch: both null checks match" {
+    const a = makeTestField("col", "n");
+    const b = makeTestField("col", "n");
+    try testing.expect(fieldSignatureMatch(a, b, null));
+}
+
+test "checkEqual: both null" {
+    try testing.expect(checkEqual(null, null));
+}
+
+test "checkEqual: different expr" {
+    const a = CheckConstraint{ .kind = .comparison, .expr = "x > 0", .line_no = 1 };
+    const b = CheckConstraint{ .kind = .comparison, .expr = "x < 100", .line_no = 1 };
+    try testing.expect(!checkEqual(a, b));
+}
+
+test "diffFields: one-to-one rename" {
+    const alloc = testing.allocator;
+    const old_fields = try alloc.alloc(Field, 1);
+    old_fields[0] = makeTestField("old_name", "n");
+    const new_fields = try alloc.alloc(Field, 1);
+    new_fields[0] = makeTestField("new_name", "n");
+
+    const diffs = try diffFields(alloc, old_fields, new_fields, null);
+    try testing.expectEqual(@as(usize, 1), diffs.len);
+    try testing.expectEqual(FieldAction.rename, diffs[0].action);
+    try testing.expectEqualStrings("new_name", diffs[0].name);
+    try testing.expectEqualStrings("old_name", diffs[0].rename_from.?);
+}
+
+test "diffFields: ambiguous renames produce no rename" {
+    const alloc = testing.allocator;
+    const old_fields = try alloc.alloc(Field, 2);
+    old_fields[0] = makeTestField("a", "n");
+    old_fields[1] = makeTestField("b", "n");
+    const new_fields = try alloc.alloc(Field, 2);
+    new_fields[0] = makeTestField("c", "n");
+    new_fields[1] = makeTestField("d", "n");
+
+    const diffs = try diffFields(alloc, old_fields, new_fields, null);
+    // Ambiguous: 2 dropped + 2 added with same signature → 2 drops + 2 adds, no renames
+    var renames: usize = 0;
+    var adds: usize = 0;
+    var drops: usize = 0;
+    for (diffs) |d| {
+        switch (d.action) {
+            .rename => renames += 1,
+            .add => adds += 1,
+            .drop => drops += 1,
+            else => {},
+        }
+    }
+    try testing.expectEqual(@as(usize, 0), renames);
+    try testing.expectEqual(@as(usize, 2), adds);
+    try testing.expectEqual(@as(usize, 2), drops);
+}

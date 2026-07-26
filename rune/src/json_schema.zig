@@ -1,5 +1,6 @@
 const std = @import("std");
 const typed_ast = @import("types/typed_ast.zig");
+const sql_type_mod = @import("types/sql_type.zig");
 const Writer = std.Io.Writer;
 
 // ─── JSON Schema Generator ──────────────────────────────────
@@ -85,7 +86,7 @@ fn writeTable(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable)
 
 const testing = std.testing;
 
-fn makeTestColumn(name: []const u8, sql_type: typed_ast.SqlType) typed_ast.TypedColumn {
+fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast.TypedColumn {
     return .{
         .name = name,
         .sql_type = sql_type,

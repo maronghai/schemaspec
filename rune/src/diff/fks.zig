@@ -1,17 +1,9 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
+const diff_types = @import("../diff/types.zig");
 const FkDecl = ast_mod.FkDecl;
-
-// ─── FK Diff ───────────────────────────────────────────────
-// Extracted from diff.zig for single-responsibility.
-
-pub const FkDiff = struct {
-    action: FkAction,
-    old_fk: ?FkDecl,
-    new_fk: ?FkDecl,
-};
-
-pub const FkAction = enum { add, drop, modify };
+pub const FkDiff = diff_types.FkDiff;
+pub const FkAction = diff_types.FkAction;
 
 pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []const FkDecl) ![]const FkDiff {
     var diffs = try std.ArrayList(FkDiff).initCapacity(alloc, 4);
