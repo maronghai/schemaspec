@@ -35,75 +35,92 @@ pub const ImportContext = struct {
     max_depth: u8 = 8,
 };
 
+// ─── Unified Pipeline ──────────────────────────────────────────
+
+/// Flags controlling pipeline behavior.
+const CompileFlags = struct {
+    resolve_imports: bool = false,
+    run_semantic: bool = true,
+    merge_imports: bool = false,
+};
+
+/// Unified internal compilation pipeline.
+/// Handles tokenize → parse → (optional imports) → (optional semantic) → ResolvedAst.
+fn compileInternal(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    file_data: []const u8,
+    import_ctx: ?*ImportContext,
+    flags: CompileFlags,
+) !struct { tree: ast_mod.Ast, lines: []tokenizer.Line, resolved: ?resolved_ast.ResolvedAst } {
+    const raw_lines = try splitLines(alloc, file_data);
+
+    // Resolve @import directives if requested
+    const imports_result = if (flags.resolve_imports and import_ctx != null)
+        try resolveImports(io, alloc, raw_lines, import_ctx.?)
+    else
+        null;
+
+    // Use processed lines (with imports stripped) or raw lines
+    const final_lines = if (imports_result) |r| r.processed_lines else raw_lines;
+
+    // Tokenize and parse
+    const result = try tokenizeAndParseWithLines(alloc, final_lines);
+
+    // Merge imported definitions if requested
+    var tree = result.tree;
+    if (imports_result) |imports| {
+        if (imports.templates.len > 0 or imports.tables.len > 0) {
+            tree = .{
+                .schema = tree.schema,
+                .templates = try concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
+                .tables = try concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
+                .views = if (flags.merge_imports)
+                    try concatSlices(alloc, ast_mod.View, tree.views, imports.views)
+                else
+                    tree.views,
+                .sql_comments = if (flags.merge_imports)
+                    try concatSlices(alloc, ast_mod.SqlComment, tree.sql_comments, imports.comments)
+                else
+                    tree.sql_comments,
+            };
+        }
+    }
+
+    // Run semantic analysis if requested
+    const resolved = if (flags.run_semantic) blk: {
+        var sa = semantic.SemanticAnalyzer.init(alloc);
+        break :blk sa.analyze(tree) catch |err| return err;
+    } else null;
+
+    return .{ .tree = tree, .lines = result.tokenized, .resolved = resolved };
+}
+
 /// Shared tokenizer → parser → semantic pipeline.
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
 pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
-    const lines = try splitLines(alloc, file_data);
-    const result = try tokenizeAndParseWithLines(alloc, lines);
-
-    var sa = semantic.SemanticAnalyzer.init(alloc);
-    const resolved = sa.analyze(result.tree) catch |err| {
-        return err;
-    };
-
-    return .{ .resolved = resolved, .lines = result.tokenized, .tree = result.tree };
+    const result = try compileInternal(undefined, alloc, file_data, null, .{});
+    return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
 }
 
 /// Compile pipeline with import resolution. Handles @import directives by
 /// recursively compiling imported files and merging their templates/tables.
 fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !PipelineResult {
-    const tokenized_lines = try splitLines(alloc, file_data);
-
-    // Resolve @import directives
-    const imports = try resolveImports(io, alloc, tokenized_lines, import_ctx);
-
-    // Tokenize and parse the processed lines
-    const result = try tokenizeAndParseWithLines(alloc, imports.processed_lines);
-
-    // Merge imported definitions into parsed tree
-    var tree = result.tree;
-    if (imports.templates.len > 0 or imports.tables.len > 0) {
-        tree = .{
-            .schema = tree.schema,
-            .templates = try concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
-            .tables = try concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
-            .views = try concatSlices(alloc, ast_mod.View, tree.views, imports.views),
-            .sql_comments = try concatSlices(alloc, ast_mod.SqlComment, tree.sql_comments, imports.comments),
-        };
-    }
-
-    var sa = semantic.SemanticAnalyzer.init(alloc);
-    const resolved = sa.analyze(tree) catch |err| {
-        return err;
-    };
-
-    return .{ .resolved = resolved, .lines = result.tokenized, .tree = tree };
+    const result = try compileInternal(io, alloc, file_data, import_ctx, .{
+        .resolve_imports = true,
+        .merge_imports = true,
+    });
+    return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
 }
 
 /// Tokenize and parse a .ss file, resolving @import directives recursively.
 /// Used for importing templates and tables from other files.
 fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !ast_mod.Ast {
-    const lines = try splitLines(alloc, file_data);
-
-    // Resolve @import directives
-    const imports = try resolveImports(io, alloc, lines, import_ctx);
-
-    // Tokenize and parse the processed lines
-    const result = try tokenizeAndParseWithLines(alloc, imports.processed_lines);
-
-    // Merge imported definitions (views and comments not merged at import level)
-    var tree = result.tree;
-    if (imports.templates.len > 0 or imports.tables.len > 0) {
-        tree = .{
-            .schema = tree.schema,
-            .templates = try concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
-            .tables = try concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
-            .views = tree.views,
-            .sql_comments = tree.sql_comments,
-        };
-    }
-
-    return tree;
+    const result = try compileInternal(io, alloc, file_data, import_ctx, .{
+        .resolve_imports = true,
+        .run_semantic = false,
+    });
+    return result.tree;
 }
 
 /// Concatenate two slices into a new arena-allocated slice.
@@ -317,7 +334,48 @@ fn traceForward(pipeline: PipelineResult) void {
 
 // ─── Output Handlers ───────────────────────────────────────────
 
-/// Compile .ss to SQL DDL (the default output path).
+/// Output format type.
+pub const OutputFormat = enum {
+    sql,
+    json_schema,
+};
+
+/// Unified compile handler for all combinations of input (stdin/file) and output (sql/json).
+pub fn handleCompileRequest(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    input: ?[]const u8, // null = stdin, else = file path
+    output_path: ?[]const u8,
+    trace: bool,
+    dialect: codegen.Dialect,
+    format: OutputFormat,
+) !void {
+    const pipeline = if (input) |path|
+        try compileFile(io, alloc, path)
+    else
+        try compilePipeline(alloc, try io_mod.readStdin(io, alloc));
+
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+
+    const output = switch (format) {
+        .sql => blk: {
+            var cg = codegen.Codegen.init(alloc, dialect);
+            break :blk try cg.generateFromTypedAst(typed);
+        },
+        .json_schema => blk: {
+            const json_schema = @import("../json_schema.zig");
+            break :blk try json_schema.generate(alloc, typed);
+        },
+    };
+
+    if (trace) {
+        if (format == .sql) traceWithTyped(pipeline, typed) else traceForward(pipeline);
+    }
+
+    try io_mod.writeOutput(io, output, output_path);
+}
+
+/// Compile .ss to SQL DDL from stdin.
 pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const pipeline = try compilePipeline(alloc, file_data);
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
