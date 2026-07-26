@@ -61,7 +61,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.17.0";
+const VERSION = "0.18.0";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -87,10 +87,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format);
         },
         .validate => |cmd| {
-            const file_data = if (cmd.input) |path|
-                try io_mod.readFileOrStdin(io, alloc, path)
-            else
-                try io_mod.readStdin(io, alloc);
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
             return forward.handleValidate(io, alloc, file_data);
         },
         .diff => |cmd| {
@@ -106,10 +103,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             };
         },
         .reverse => |cmd| {
-            const file_data = if (cmd.input) |path|
-                try io_mod.readFileOrStdin(io, alloc, path)
-            else
-                try io_mod.readStdin(io, alloc);
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
             const name = cmd.input orelse "<stdin>";
             return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace);
         },
