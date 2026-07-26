@@ -15,8 +15,32 @@ const jsonEscapeString = utils.jsonEscapeString;
 // Separated from diff.zig to allow alternative output formats
 // (JSON, machine-readable) without modifying the diff engine.
 
+const ast_mod = @import("../types/ast.zig");
+
 fn quoteChar(dialect: Dialect) u8 {
     return dialect_mod.getBackend(dialect).quoteChar;
+}
+
+/// Format TypeInfo to a user-friendly string representation.
+fn formatTypeInfo(info: ast_mod.TypeInfo, buf: []u8) []const u8 {
+    return switch (info) {
+        .none => "any",
+        .simple => |s| s,
+        .int_explicit => |n| {
+            const len = std.fmt.bufPrint(buf, "int({d})", .{n}) catch return "int";
+            return len;
+        },
+        .decimal_explicit => |ds| {
+            const len = std.fmt.bufPrint(buf, "decimal({d},{d})", .{ ds.precision, ds.scale }) catch return "decimal";
+            return len;
+        },
+        .varchar_explicit => |n| {
+            const len = std.fmt.bufPrint(buf, "varchar({d})", .{n}) catch return "varchar";
+            return len;
+        },
+        .enum_type => "enum",
+        .raw_sql => |s| s,
+    };
 }
 
 /// Core diff formatting logic — writes to any std.io.Writer.
@@ -71,8 +95,10 @@ fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8) !void {
                     if (fd.old_field) |old_f| {
                         if (fd.new_field) |new_f| {
                             // Check if type changed
-                            const old_type = @tagName(old_f.type_info);
-                            const new_type = @tagName(new_f.type_info);
+                            var old_buf: [64]u8 = undefined;
+                            var new_buf: [64]u8 = undefined;
+                            const old_type = formatTypeInfo(old_f.type_info, &old_buf);
+                            const new_type = formatTypeInfo(new_f.type_info, &new_buf);
                             if (!std.mem.eql(u8, old_type, new_type)) {
                                 try w.print("  ~ {s} (modify: {s} → {s})\n", .{ fd.name, old_type, new_type });
                             } else {

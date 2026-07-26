@@ -106,9 +106,9 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             };
         },
         .migrate => |cmd| {
-            return switch (parsed.target) {
-                .sql => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats, cmd.dry_run),
-                .json_schema => diff_pipe.handleMigrateDiffJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.stats),
+            return switch (cmd.format) {
+                .text => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats, cmd.dry_run),
+                .json => diff_pipe.handleMigrateDiffJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.stats),
             };
         },
         .reverse => |cmd| {

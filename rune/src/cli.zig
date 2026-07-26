@@ -11,7 +11,7 @@ pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool },
     validate: struct { input: ?[]const u8, stats: bool },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool },
     version,
     help,
@@ -159,7 +159,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run } }, .quiet = want_quiet, .strict = want_strict };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run, .format = diff_format } }, .quiet = want_quiet, .strict = want_strict };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {
