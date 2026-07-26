@@ -5,6 +5,7 @@ const ast_mod = @import("types/ast.zig");
 const semantic = @import("semantic/analyzer.zig");
 const codegen = @import("codegen/codegen.zig");
 const typed_ast = @import("types/typed_ast.zig");
+const TypeResolver = @import("types/type_resolver.zig").TypeResolver;
 const diag = @import("semantic/diagnostic.zig");
 
 // ─── Rune Benchmark ─────────────────────────────────────────
@@ -302,7 +303,7 @@ fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8)
 
     // Stage 3: Type Resolve
     sw_start = std.Io.Clock.Timestamp.now(io, .awake);
-    var tr = typed_ast.TypeResolver.init(alloc);
+    var tr = TypeResolver.init(alloc);
     const typed = try tr.resolve(resolved, .mysql);
     times.type_resolve = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
@@ -321,7 +322,7 @@ fn runPipeline(alloc: std.mem.Allocator, file_data: []const u8) ![]const u8 {
     var sa = semantic.SemanticAnalyzer.init(alloc);
     const resolved = try sa.analyze(tree);
 
-    var tr = typed_ast.TypeResolver.init(alloc);
+    var tr = TypeResolver.init(alloc);
     const typed = try tr.resolve(resolved, .mysql);
 
     var cg = codegen.Codegen.init(alloc, .mysql);

@@ -71,6 +71,13 @@ pub fn emitColumnDefEx(backend: dialect_mod.DialectBackend, w: *Writer, col: typ
     if (col.flags.is_enum) {
         try backend.emitEnumTypeCheck(w, col.name, col.enum_values);
     }
+    // Generated columns: type + GENERATED ALWAYS AS (expr) VIRTUAL/STORED
+    if (col.generated_expr) |expr| {
+        if (backend.emitGeneratedColumn) |emit| {
+            try w.writeAll(" ");
+            try emit(w, expr, col.flags.is_stored);
+        }
+    }
 }
 
 // ─── Unit Tests ─────────────────────────────────────────────

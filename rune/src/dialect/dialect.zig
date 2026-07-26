@@ -140,6 +140,8 @@ pub const DialectBackend = struct {
     emitConfidenceComment: ?*const fn (w: *Writer, confidence: []const u8) anyerror!void = null,
     /// Dialect-specific reverse lookup. Returns null to fall back to general logic in reverse/map.zig.
     reverseLookup: ?*const fn (sql_type: []const u8, col_name: []const u8, is_auto_inc: bool, is_default_ts: bool) ?ReverseResult = null,
+    /// Emit GENERATED ALWAYS AS (expr) [VIRTUAL|STORED] for generated columns. null = dialect doesn't support.
+    emitGeneratedColumn: ?*const fn (w: *Writer, expr: []const u8, is_stored: bool) anyerror!void = null,
 
     // ── Forward type mapping ──
 
@@ -166,6 +168,50 @@ pub fn getBackend(dialect: Dialect) DialectBackend {
         .pg => @import("../dialect/pg.zig").pg_backend,
         .sqlite => @import("../dialect/sqlite.zig").sqlite_backend,
     };
+}
+
+// ─── Comptime Dialect Validation ──────────────────────────────
+// Validates at compile time that each backend implements all required vtable methods.
+// Required fields are non-optional function pointers — their existence is guaranteed by the struct literal,
+// but this check ensures they are not accidentally set to undefined at comptime.
+
+fn validateBackend(comptime backend: DialectBackend) void {
+    comptime {
+        // Validate required function pointers are callable (non-null)
+        // This catches typos or missing fields in backend definitions at compile time.
+        if (@typeInfo(@TypeOf(backend.quoteIdent)) != .pointer) @compileError("quoteIdent must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitIndex)) != .pointer) @compileError("emitIndex must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitTimestampModifier)) != .pointer) @compileError("emitTimestampModifier must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitTableFooter)) != .pointer) @compileError("emitTableFooter must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitTableComment)) != .pointer) @compileError("emitTableComment must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitColumnComment)) != .pointer) @compileError("emitColumnComment must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitPrimaryKey)) != .pointer) @compileError("emitPrimaryKey must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitInlineIndex)) != .pointer) @compileError("emitInlineIndex must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitStandaloneIndex)) != .pointer) @compileError("emitStandaloneIndex must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitInlineColumnComment)) != .pointer) @compileError("emitInlineColumnComment must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitEnumTypeCheck)) != .pointer) @compileError("emitEnumTypeCheck must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitInlineColumnStandaloneIndex)) != .pointer) @compileError("emitInlineColumnStandaloneIndex must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAlterDropColumn)) != .pointer) @compileError("emitAlterDropColumn must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAlterModifyColumn)) != .pointer) @compileError("emitAlterModifyColumn must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAlterRenameColumn)) != .pointer) @compileError("emitAlterRenameColumn must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAlterAddIndex)) != .pointer) @compileError("emitAlterAddIndex must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAlterDropIndex)) != .pointer) @compileError("emitAlterDropIndex must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAlterDropFk)) != .pointer) @compileError("emitAlterDropFk must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.commentResult)) != .pointer) @compileError("commentResult must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAlterTableComment)) != .pointer) @compileError("emitAlterTableComment must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAlterEngine)) != .pointer) @compileError("emitAlterEngine must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitCreateView)) != .pointer) @compileError("emitCreateView must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.renderType)) != .pointer) @compileError("renderType must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitForeignKey)) != .pointer) @compileError("emitForeignKey must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.lookupSym)) != .pointer) @compileError("lookupSym must be a function pointer");
+    }
+}
+
+// Validate all dialect backends at comptime
+comptime {
+    validateBackend(@import("../dialect/mysql.zig").mysql_backend);
+    validateBackend(@import("../dialect/pg.zig").pg_backend);
+    validateBackend(@import("../dialect/sqlite.zig").sqlite_backend);
 }
 
 // ─── Shared helpers (dialect-independent) ──────────────────────

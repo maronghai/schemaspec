@@ -126,11 +126,14 @@ pub const TypeResolver = struct {
                 .is_datetime = is_dt,
                 .has_timestamp_default = flags.has_timestamp_mod,
                 .on_update_current_timestamp = flags.on_update_ts,
+                .is_virtual = flags.is_virtual,
+                .is_stored = flags.is_stored,
             },
             .default = if (field.default_val) |dv| dv.value else null,
             .check = field.check,
             .comment = field.comment,
             .enum_values = enum_vals,
+            .generated_expr = field.generated_expr,
             .line_no = field.line_no,
         };
     }
@@ -147,6 +150,8 @@ const ModifierFlags = struct {
     inline_index: bool = false,
     on_update_ts: bool = false,
     has_timestamp_mod: bool = false,
+    is_virtual: bool = false,
+    is_stored: bool = false,
 };
 
 /// Classifies a field's modifier list into boolean flags.
@@ -175,6 +180,8 @@ fn classifyModifiers(field: Field) ModifierFlags {
             .unsigned => flags.unsigned = true,
             .inline_unique => flags.inline_unique = true,
             .inline_index => flags.inline_index = true,
+            .virtual => flags.is_virtual = true,
+            .stored => flags.is_stored = true,
         }
     }
     return flags;

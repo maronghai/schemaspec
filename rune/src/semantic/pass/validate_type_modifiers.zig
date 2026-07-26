@@ -38,6 +38,8 @@ fn visitFieldCheckModifiers(ctx: *ModifierValidationCtx, field: *const Field, _:
             },
             .inline_unique => {},
             .inline_index => {},
+            .virtual => {},
+            .stored => {},
         }
     }
 }

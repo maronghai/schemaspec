@@ -250,6 +250,19 @@ fn mysqlLookupSym(sym: []const u8) ?SqlType {
     return common.lookupSymDefault(&.{}, sym);
 }
 
+// ─── Generated Columns ──────────────────────────────────────
+
+fn mysqlEmitGeneratedColumn(w: *Writer, expr: []const u8, is_stored: bool) anyerror!void {
+    try w.writeAll("GENERATED ALWAYS AS (");
+    try w.writeAll(expr);
+    try w.writeAll(") ");
+    if (is_stored) {
+        try w.writeAll("STORED");
+    } else {
+        try w.writeAll("VIRTUAL");
+    }
+}
+
 // ─── Backend Instance ──────────────────────────────────────
 
 pub const mysql_backend = DialectBackend{
@@ -281,6 +294,7 @@ pub const mysql_backend = DialectBackend{
     .emitCreateDatabase = mysqlEmitCreateDatabase,
     .emitUnsigned = mysqlEmitUnsigned,
     .emitAutoIncrement = mysqlEmitAutoIncrement,
+    .emitGeneratedColumn = mysqlEmitGeneratedColumn,
     // emitTypeMetadata and emitConfidenceComment default to null (no-op)
     .lookupSym = mysqlLookupSym,
     .quoteChar = '`',

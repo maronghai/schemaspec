@@ -221,6 +221,20 @@ fn sqliteLookupSym(sym: []const u8) ?SqlType {
     return common.lookupSymDefault(&common.SQLITE_SYM_MAP, sym);
 }
 
+// ─── Generated Columns ──────────────────────────────────────
+
+fn sqliteEmitGeneratedColumn(w: *Writer, expr: []const u8, is_stored: bool) anyerror!void {
+    // SQLite 3.31.0+ supports generated columns, but we emit a comment for clarity
+    try w.writeAll("GENERATED ALWAYS AS (");
+    try w.writeAll(expr);
+    try w.writeAll(") ");
+    if (is_stored) {
+        try w.writeAll("STORED");
+    } else {
+        try w.writeAll("VIRTUAL");
+    }
+}
+
 // ─── Backend Instance ──────────────────────────────────────
 
 pub const sqlite_backend = DialectBackend{
@@ -252,6 +266,7 @@ pub const sqlite_backend = DialectBackend{
     .emitTypeMetadata = sqliteEmitTypeMetadata,
     .emitConfidenceComment = sqliteEmitConfidenceComment,
     .reverseLookup = sqliteReverseLookup,
+    .emitGeneratedColumn = sqliteEmitGeneratedColumn,
     // emitCreateDatabase, emitUnsigned, emitAutoIncrement default to null (no-op)
     .lookupSym = sqliteLookupSym,
     .quoteChar = '"',

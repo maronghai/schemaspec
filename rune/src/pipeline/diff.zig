@@ -4,8 +4,10 @@ const diff = @import("../diff/engine.zig");
 const diff_types = @import("../diff/types.zig");
 const diff_format = @import("../diff/format.zig");
 const migrate = @import("../diff/migrate.zig");
+const migrate_json = @import("../diff/migrate_json.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const typed_ast = @import("../types/typed_ast.zig");
+const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const pipeline_forward = @import("../pipeline/forward.zig");
 const io_mod = @import("../io.zig");
 
@@ -40,7 +42,7 @@ pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8
 
 pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-    var tr = typed_ast.TypeResolver.init(alloc);
+    var tr = TypeResolver.init(alloc);
     const new_typed = try tr.resolve(result.new_ast, dialect);
     if (trace) traceDiffResult(result);
     const migration_sql = try migrate.generateFromDiff(alloc, result.schema_diff, new_typed, result.new_ast, dialect);
@@ -50,7 +52,7 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8,
 pub fn handleMigrateDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
-    const json_text = try migrate.generateMigrationJson(alloc, result.schema_diff, dialect);
+    const json_text = try migrate_json.generateMigrationJson(alloc, result.schema_diff, dialect);
     try io_mod.writeOutput(io, json_text, output_path);
 }
 

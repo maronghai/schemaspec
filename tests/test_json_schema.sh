@@ -26,7 +26,6 @@ for ss_file in "$TEST_DIR"/json-schema-*.ss; do
   fi
 
   tmp_file=$(mktemp)
-  trap 'rm -f "$tmp_file"' EXIT
 
   if ! "$COMPILER" "$ss_file" --target json-schema -o "$tmp_file" 2>/dev/null; then
     fail "$base" "compile failed"

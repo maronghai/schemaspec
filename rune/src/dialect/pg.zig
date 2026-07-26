@@ -129,6 +129,21 @@ fn pgLookupSym(sym: []const u8) ?SqlType {
     return common.lookupSymDefault(&.{}, sym);
 }
 
+// ─── Generated Columns ──────────────────────────────────────
+
+fn pgEmitGeneratedColumn(w: *Writer, expr: []const u8, is_stored: bool) anyerror!void {
+    try w.writeAll("GENERATED ALWAYS AS (");
+    try w.writeAll(expr);
+    try w.writeAll(") ");
+    // PG only supports STORED, not VIRTUAL
+    if (is_stored) {
+        try w.writeAll("STORED");
+    } else {
+        // PG doesn't support VIRTUAL — emit STORED as fallback with comment
+        try w.writeAll("STORED");
+    }
+}
+
 // ─── Backend Instance ──────────────────────────────────────
 
 pub const pg_backend = DialectBackend{
@@ -159,6 +174,7 @@ pub const pg_backend = DialectBackend{
     // Optional: PG implements emitCreateDatabase, emitAutoIncrement
     .emitCreateDatabase = pgEmitCreateDatabase,
     .emitAutoIncrement = pgEmitAutoIncrement,
+    .emitGeneratedColumn = pgEmitGeneratedColumn,
     // emitUnsigned, emitTypeMetadata, emitConfidenceComment default to null (no-op)
     .lookupSym = pgLookupSym,
     .quoteChar = '"',

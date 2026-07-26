@@ -33,6 +33,8 @@ pub const ColumnFlags = packed struct {
     is_datetime: bool = false,
     has_timestamp_default: bool = false,
     on_update_current_timestamp: bool = false,
+    is_virtual: bool = false,
+    is_stored: bool = false,
 };
 
 pub const TypedAst = struct {
@@ -69,12 +71,10 @@ pub const TypedColumn = struct {
     check: ?CheckConstraint,
     comment: ?[]const u8,
     enum_values: []const []const u8,
+    generated_expr: ?[]const u8 = null,
     line_no: usize,
 };
 
 // ─── Resolution: ResolvedAst → TypedAst ──────────────────────
 //
 // Extracted to type_resolver.zig in v0.4.54 Phase 3.
-// Re-exported here for backward compatibility.
-
-pub const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;

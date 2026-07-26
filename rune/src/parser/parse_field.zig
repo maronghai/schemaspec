@@ -260,6 +260,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
     var check: ?CheckConstraint = null;
     var inline_fk: ?FkDecl = null;
     var comment: ?[]const u8 = null;
+    var generated_expr: ?[]const u8 = null;
 
     var i: usize = 1;
     while (i < line.tokens.len) {
@@ -334,6 +335,47 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
             try modifiers.append(alloc, result.modifier);
             i = result.end_idx;
             continue;
+        }
+
+        // 5b. Generated column: AS (expr) [VIRTUAL|STORED] or GENERATED ALWAYS AS (expr) [VIRTUAL|STORED]
+        if (std.mem.eql(u8, tok, "AS") and i + 1 < line.tokens.len and std.mem.eql(u8, line.tokens[i + 1], "(")) {
+            // Collect expression between ( and )
+            const expr_start = i + 2;
+            var depth: usize = 1;
+            var j = expr_start;
+            while (j < line.tokens.len and depth > 0) {
+                if (std.mem.eql(u8, line.tokens[j], "(")) depth += 1;
+                if (std.mem.eql(u8, line.tokens[j], ")")) depth -= 1;
+                if (depth > 0) j += 1;
+            }
+            // Build expression string from tokens between parens
+            if (j > expr_start) {
+                // Calculate raw substring from first token start to last token end
+                const first_tok = line.tokens[expr_start];
+                const last_tok = line.tokens[j - 1];
+                const first_off = @intFromPtr(first_tok.ptr) - @intFromPtr(line.raw.ptr);
+                const last_end = (@intFromPtr(last_tok.ptr) - @intFromPtr(line.raw.ptr)) + last_tok.len;
+                generated_expr = line.raw[first_off..last_end];
+            }
+            i = j + 1; // skip past )
+            // Check for VIRTUAL or STORED after )
+            while (i < line.tokens.len) {
+                if (std.mem.eql(u8, line.tokens[i], "VIRTUAL")) {
+                    try modifiers.append(alloc, .{ .kind = .virtual, .line_no = line.line_no });
+                    i += 1;
+                } else if (std.mem.eql(u8, line.tokens[i], "STORED")) {
+                    try modifiers.append(alloc, .{ .kind = .stored, .line_no = line.line_no });
+                    i += 1;
+                } else {
+                    break;
+                }
+            }
+            continue;
+        }
+        // GENERATED ALWAYS AS — skip the "GENERATED ALWAYS" prefix, then parse AS (expr)
+        if (std.mem.eql(u8, tok, "GENERATED") and i + 1 < line.tokens.len and std.mem.eql(u8, line.tokens[i + 1], "ALWAYS")) {
+            i += 2; // skip GENERATED ALWAYS
+            continue; // will be caught by AS handler on next iteration
         }
 
         // 6. Inline FK: > table.field or table.field
@@ -419,6 +461,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
         .check = check,
         .fk = inline_fk,
         .comment = comment,
+        .generated_expr = generated_expr,
         .line_no = line.line_no,
         .loc = null,
     };

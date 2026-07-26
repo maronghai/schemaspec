@@ -50,6 +50,8 @@ pub const ModifierType = enum {
     unsigned,
     inline_unique,
     inline_index,
+    virtual,
+    stored,
 };
 
 pub const Modifier = struct {
@@ -86,6 +88,7 @@ pub const Field = struct {
     check: ?CheckConstraint,
     fk: ?FkDecl,
     comment: ?[]const u8,
+    generated_expr: ?[]const u8 = null,
     line_no: usize,
     loc: ?SourceLocation = null,
 };

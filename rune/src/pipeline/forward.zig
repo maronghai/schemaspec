@@ -6,6 +6,7 @@ const resolved_ast = @import("../types/resolved_ast.zig");
 const semantic = @import("../semantic/analyzer.zig");
 const codegen = @import("../codegen/codegen.zig");
 const typed_ast = @import("../types/typed_ast.zig");
+const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const diag = @import("../semantic/diagnostic.zig");
 const io_mod = @import("../io.zig");
 
@@ -71,7 +72,7 @@ pub fn compileToAst(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !res
 pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const pipeline = try compilePipeline(io, alloc, file_data);
 
-    var tr = typed_ast.TypeResolver.init(alloc);
+    var tr = TypeResolver.init(alloc);
     const typed = try tr.resolve(pipeline.resolved, dialect);
 
     var cg = codegen.Codegen.init(alloc, dialect);
@@ -93,7 +94,7 @@ pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: 
 
     const pipeline = try compilePipeline(io, alloc, file_data);
 
-    var tr = typed_ast.TypeResolver.init(alloc);
+    var tr = TypeResolver.init(alloc);
     const typed = try tr.resolve(pipeline.resolved, dialect);
 
     const output = try json_schema.generate(alloc, typed);

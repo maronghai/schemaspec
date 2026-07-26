@@ -44,6 +44,8 @@ pub fn fmtModifiers(mods: []const Modifier) void {
             .unsigned => std.debug.print(" +unsigned", .{}),
             .inline_unique => std.debug.print(" @u", .{}),
             .inline_index => std.debug.print(" @", .{}),
+            .virtual => std.debug.print(" VIRTUAL", .{}),
+            .stored => std.debug.print(" STORED", .{}),
         }
     }
 }
