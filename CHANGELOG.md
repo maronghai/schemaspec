@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.21.0] - 2026-07-27
+
+### Fixed
+- `--stats` flag now works for diff, migrate, reverse, and validate commands (previously only worked for compile)
+- Added missing error handlers for `--target` flag (UnknownTarget, MissingTargetValue)
+
+### Changed
+- Help text updated with examples for new flags
+
 ## [0.20.0] - 2026-07-27
 
 ### Features

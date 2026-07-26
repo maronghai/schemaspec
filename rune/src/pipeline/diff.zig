@@ -26,23 +26,41 @@ fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_p
     return .{ .old_ast = old_ast, .new_ast = new_ast, .schema_diff = schema_diff };
 }
 
-pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool) !void {
+pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool, stats: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
+    if (stats) {
+        const old_s = pipeline_forward.computeStats(result.old_ast);
+        const new_s = pipeline_forward.computeStats(result.new_ast);
+        std.debug.print("old: tables={d} fields={d} views={d}\n", .{ old_s.tables, old_s.fields, old_s.views });
+        std.debug.print("new: tables={d} fields={d} views={d}\n", .{ new_s.tables, new_s.fields, new_s.views });
+    }
     const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, dialect);
     try io_mod.writeOutput(io, diff_text, null, false);
 }
 
-pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
+pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, stats: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
+    if (stats) {
+        const old_s = pipeline_forward.computeStats(result.old_ast);
+        const new_s = pipeline_forward.computeStats(result.new_ast);
+        std.debug.print("old: tables={d} fields={d} views={d}\n", .{ old_s.tables, old_s.fields, old_s.views });
+        std.debug.print("new: tables={d} fields={d} views={d}\n", .{ new_s.tables, new_s.fields, new_s.views });
+    }
     const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
     try io_mod.writeOutput(io, json_text, output_path, false);
 }
 
-pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, rollback: bool) !void {
+pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, rollback: bool, stats: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
+    if (stats) {
+        const old_s = pipeline_forward.computeStats(result.old_ast);
+        const new_s = pipeline_forward.computeStats(result.new_ast);
+        std.debug.print("old: tables={d} fields={d} views={d}\n", .{ old_s.tables, old_s.fields, old_s.views });
+        std.debug.print("new: tables={d} fields={d} views={d}\n", .{ new_s.tables, new_s.fields, new_s.views });
+    }
     if (rollback) {
         const old_typed = try TypeResolver.resolve(alloc, result.old_ast, dialect);
         const rollback_sql = try migrate.generateRollback(alloc, result.schema_diff, old_typed, result.old_ast, dialect);
@@ -54,9 +72,15 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8,
     }
 }
 
-pub fn handleMigrateDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
+pub fn handleMigrateDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, stats: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
+    if (stats) {
+        const old_s = pipeline_forward.computeStats(result.old_ast);
+        const new_s = pipeline_forward.computeStats(result.new_ast);
+        std.debug.print("old: tables={d} fields={d} views={d}\n", .{ old_s.tables, old_s.fields, old_s.views });
+        std.debug.print("new: tables={d} fields={d} views={d}\n", .{ new_s.tables, new_s.fields, new_s.views });
+    }
     const json_text = try migrate_json.generateMigrationJson(alloc, result.schema_diff, dialect);
     try io_mod.writeOutput(io, json_text, output_path, false);
 }

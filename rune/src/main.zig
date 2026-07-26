@@ -36,6 +36,12 @@ pub fn main(init: std.process.Init) !void {
             error.MissingDialectValue => {
                 std.debug.print("error: --dialect requires a value (mysql, pg, postgres, sqlite)\n", .{});
             },
+            error.UnknownTarget => {
+                std.debug.print("error: unknown target (expected: sql, json-schema)\n", .{});
+            },
+            error.MissingTargetValue => {
+                std.debug.print("error: --target requires a value (sql, json-schema)\n", .{});
+            },
             error.DiffMissingArgs => {
                 std.debug.print("error: diff requires <old.ss> <new.ss>\n", .{});
             },
@@ -61,7 +67,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.20.0";
+const VERSION = "0.21.0";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -92,24 +98,24 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .validate => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
-            return forward.handleValidate(io, alloc, file_data);
+            return forward.handleValidate(io, alloc, file_data, cmd.stats);
         },
         .diff => |cmd| {
             return switch (parsed.target) {
-                .sql => diff_pipe.handleDiff(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace),
-                .json_schema => diff_pipe.handleDiffJson(io, alloc, cmd.old, cmd.new, null, parsed.dialect, cmd.trace),
+                .sql => diff_pipe.handleDiff(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace, cmd.stats),
+                .json_schema => diff_pipe.handleDiffJson(io, alloc, cmd.old, cmd.new, null, parsed.dialect, cmd.trace, cmd.stats),
             };
         },
         .migrate => |cmd| {
             return switch (parsed.target) {
-                .sql => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback),
-                .json_schema => diff_pipe.handleMigrateDiffJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace),
+                .sql => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats),
+                .json_schema => diff_pipe.handleMigrateDiffJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.stats),
             };
         },
         .reverse => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
             const name = cmd.input orelse "<stdin>";
-            return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace);
+            return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace, cmd.stats);
         },
     }
 }

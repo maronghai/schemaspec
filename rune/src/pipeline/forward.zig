@@ -421,8 +421,11 @@ pub fn handleCompileRequest(
 
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
 /// Returns error.DiagnosticsError if any errors are found (exit code 1).
-pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !void {
-    _ = try compilePipeline(alloc, file_data);
+pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool) !void {
+    const result = try compilePipeline(alloc, file_data);
+    if (stats) {
+        printStats(computeStats(result.resolved));
+    }
     std.debug.print("schema is valid\n", .{});
 }
 

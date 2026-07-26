@@ -7,7 +7,7 @@ pub const Target = enum { sql, json_schema };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool },
-    validate: struct { input: ?[]const u8 },
+    validate: struct { input: ?[]const u8, stats: bool },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool },
@@ -161,7 +161,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (std.mem.eql(u8, sub, "validate")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input, .stats = want_stats } }, .quiet = want_quiet };
     }
 
     // Default: compile
@@ -204,6 +204,14 @@ pub fn printUsage() void {
     std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("  -h, --help      Show this help message and exit\n", .{});
+    std.debug.print("\nExamples:\n", .{});
+    std.debug.print("  rune schema.ss                       # Compile to MySQL DDL\n", .{});
+    std.debug.print("  rune schema.ss -d pg                 # Compile to PostgreSQL\n", .{});
+    std.debug.print("  rune --stats schema.ss               # Show compilation stats\n", .{});
+    std.debug.print("  rune --check schema.ss               # Validate without output\n", .{});
+    std.debug.print("  rune diff old.ss new.ss              # Show schema differences\n", .{});
+    std.debug.print("  rune migrate old.ss new.ss -o m.sql  # Generate migration SQL\n", .{});
+    std.debug.print("  rune reverse schema.sql -T           # Reverse-engineer with templates\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});
