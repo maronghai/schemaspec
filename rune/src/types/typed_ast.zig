@@ -24,19 +24,6 @@ const Dialect = dialect_enum.Dialect;
 //
 // SqlType is defined in sql_type.zig and re-exported here for backward compat.
 
-pub const ColumnFlag = enum(u16) {
-    nullable = 0x0001,
-    primary_key = 0x0002,
-    auto_increment = 0x0004,
-    unsigned = 0x0008,
-    inline_unique = 0x0010,
-    inline_index = 0x0020,
-    is_enum = 0x0040,
-    is_datetime = 0x0080,
-    has_timestamp_default = 0x0100,
-    on_update_current_timestamp = 0x0200,
-};
-
 pub const ColumnFlags = packed struct {
     nullable: bool = false,
     primary_key: bool = false,
@@ -48,36 +35,6 @@ pub const ColumnFlags = packed struct {
     is_datetime: bool = false,
     has_timestamp_default: bool = false,
     on_update_current_timestamp: bool = false,
-
-    pub fn contains(self: ColumnFlags, comptime flag: ColumnFlag) bool {
-        return switch (flag) {
-            .nullable => self.nullable,
-            .primary_key => self.primary_key,
-            .auto_increment => self.auto_increment,
-            .unsigned => self.unsigned,
-            .inline_unique => self.inline_unique,
-            .inline_index => self.inline_index,
-            .is_enum => self.is_enum,
-            .is_datetime => self.is_datetime,
-            .has_timestamp_default => self.has_timestamp_default,
-            .on_update_current_timestamp => self.on_update_current_timestamp,
-        };
-    }
-
-    pub fn set(self: *ColumnFlags, flag: ColumnFlag, value: bool) void {
-        switch (flag) {
-            .nullable => self.nullable = value,
-            .primary_key => self.primary_key = value,
-            .auto_increment => self.auto_increment = value,
-            .unsigned => self.unsigned = value,
-            .inline_unique => self.inline_unique = value,
-            .inline_index => self.inline_index = value,
-            .is_enum => self.is_enum = value,
-            .is_datetime => self.is_datetime = value,
-            .has_timestamp_default => self.has_timestamp_default = value,
-            .on_update_current_timestamp => self.on_update_current_timestamp = value,
-        }
-    }
 };
 
 // ─── SqlType: Dialect-agnostic structured type representation ──

@@ -28,6 +28,30 @@ pub const ArgError = error{
     MigrateMissingArgs,
 };
 
+// ─── Shared Flag Parsers ───────────────────────────────────────
+
+/// Scan args for `-o <path>` and return the output path (or null).
+fn parseOutputFlag(args: []const []const u8, start: usize) ?[]const u8 {
+    var j: usize = start;
+    while (j < args.len) : (j += 1) {
+        if (std.mem.eql(u8, args[j], "-o") and j + 1 < args.len) {
+            return args[j + 1];
+        }
+    }
+    return null;
+}
+
+/// Scan args for `-t` or `--trace` and return true if found.
+fn parseTraceFlag(args: []const []const u8, start: usize) bool {
+    var j: usize = start;
+    while (j < args.len) : (j += 1) {
+        if (std.mem.eql(u8, args[j], "-t") or std.mem.eql(u8, args[j], "--trace")) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // ─── Argument Parsing ──────────────────────────────────────────
 
 pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !ParsedArgs {
@@ -80,65 +104,31 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (std.mem.eql(u8, sub, "diff")) {
         if (fargs.len < 3) return error.DiffMissingArgs;
-        var trace = false;
-        var j: usize = 2;
-        while (j < fargs.len) : (j += 1) {
-            if (std.mem.eql(u8, fargs[j], "-t")) trace = true;
-        }
-        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = trace } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3) } } };
     }
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
-        var output: ?[]const u8 = null;
-        var trace = false;
-        var j: usize = 3;
-        while (j < fargs.len) : (j += 1) {
-            if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
-                output = fargs[j + 1];
-                j += 1;
-            } else if (std.mem.eql(u8, fargs[j], "-t")) {
-                trace = true;
-            }
-        }
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = output, .trace = trace } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3) } } };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {
-        var output: ?[]const u8 = null;
         var with_templates = false;
-        var trace = false;
         var input: ?[]const u8 = null;
         var j: usize = 1;
         while (j < fargs.len) : (j += 1) {
-            if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
-                output = fargs[j + 1];
-                j += 1;
-            } else if (std.mem.eql(u8, fargs[j], "-t")) {
+            if (std.mem.eql(u8, fargs[j], "-T") or std.mem.eql(u8, fargs[j], "--template")) {
                 with_templates = true;
-            } else if (std.mem.eql(u8, fargs[j], "--trace")) {
-                trace = true;
             } else if (input == null) {
                 input = fargs[j];
             }
         }
-        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = output, .with_templates = with_templates, .trace = trace } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1) } } };
     }
 
     // Default: compile
-    var output: ?[]const u8 = null;
-    var trace = false;
-    var j: usize = 1;
-    while (j < fargs.len) : (j += 1) {
-        if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
-            output = fargs[j + 1];
-            j += 1;
-        } else if (std.mem.eql(u8, fargs[j], "-t")) {
-            trace = true;
-        }
-    }
     const input = if (fargs.len > 0) fargs[0] else null;
-    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = output, .trace = trace } } };
+    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1) } } };
 }
 
 fn parseDialect(s: []const u8) !dialect_enum.Dialect {
@@ -158,20 +148,21 @@ fn parseTarget(s: []const u8) !Target {
 
 pub fn printUsage() void {
     std.debug.print("Usage:\n", .{});
-    std.debug.print("  rune [input.ss] [-o output] [-t] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
+    std.debug.print("  rune [input.ss] [-o output] [--trace] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
     std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
-    std.debug.print("  rune diff <old.ss> <new.ss> [-d mysql|pg|sqlite]         Show schema differences\n", .{});
+    std.debug.print("  rune diff <old.ss> <new.ss> [-d mysql|pg|sqlite]     Show schema differences\n", .{});
     std.debug.print("  rune migrate <old.ss> <new.ss> [-o migration.sql] [-d mysql|pg|sqlite]\n", .{});
     std.debug.print("                                                       Generate ALTER TABLE migration SQL\n", .{});
-    std.debug.print("  rune reverse [input.sql] [-o output.ss] [-t] [-d mysql|pg|sqlite]\n", .{});
+    std.debug.print("  rune reverse [input.sql] [-o output.ss] [-T] [-d mysql|pg|sqlite]\n", .{});
     std.debug.print("                                                       Reverse SQL DDL to .ss schema\n", .{});
-    std.debug.print("                                                       -t: extract shared templates\n", .{});
+    std.debug.print("                                                       -T: extract shared templates\n", .{});
     std.debug.print("\nOptions:\n", .{});
     std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
+    std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});
-    std.debug.print("  cat schema.sql | rune reverse -t\n", .{});
+    std.debug.print("  cat schema.sql | rune reverse -T\n", .{});
 }

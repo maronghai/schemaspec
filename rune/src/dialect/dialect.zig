@@ -51,34 +51,86 @@ pub const CommentResult = enum {
 
 pub const DialectBackend = struct {
     // ── Core methods (all dialects must implement) ──
+
+    /// Quote an identifier (e.g. column/table name) with the dialect's quote character.
+    /// MySQL: `name`, PG/SQLite: "name".
     quoteIdent: *const fn (w: *Writer, name: []const u8) anyerror!void,
+
+    /// Emit a standalone INDEX definition (after all column definitions).
+    /// `needs_comma`: output param — set to true if a comma was emitted (caller manages comma state).
     emitIndex: *const fn (w: *Writer, idx: IndexDecl, needs_comma: *bool) anyerror!void,
+
+    /// Emit timestamp modifier: DEFAULT CURRENT_TIMESTAMP [ON UPDATE CURRENT_TIMESTAMP].
     emitTimestampModifier: *const fn (w: *Writer, with_on_update: bool) anyerror!void,
+
+    /// Emit the closing clause of CREATE TABLE (ENGINE, CHARSET, COMMENT, closing paren).
+    /// All params may be null — dialect decides what to emit.
     emitTableFooter: *const fn (w: *Writer, engine: ?[]const u8, charset: ?[]const u8, comment: ?[]const u8) anyerror!void,
+
+    /// Emit a standalone table comment (MySQL: inline, PG: COMMENT ON TABLE).
     emitTableComment: *const fn (w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void,
+
+    /// Emit a column comment. MySQL: inline after column def, PG: standalone COMMENT ON COLUMN.
     emitColumnComment: *const fn (w: *Writer, table_name: []const u8, col_name: []const u8, comment: []const u8) anyerror!void,
+
+    /// Emit PRIMARY KEY [AUTO_INCREMENT]. PG/SQLite omit AUTO_INCREMENT keyword.
     emitPrimaryKey: *const fn (w: *Writer, auto_increment: bool) anyerror!void,
+
+    /// Emit an inline UNIQUE/INDEX after column definition. `needs_comma`: output param.
     emitInlineIndex: *const fn (w: *Writer, col_name: []const u8, is_unique: bool, needs_comma: *bool) anyerror!void,
+
+    /// Emit a standalone (non-inline) INDEX definition.
     emitStandaloneIndex: *const fn (w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void,
+
+    /// Emit an inline column comment (MySQL only — PG uses standalone).
     emitInlineColumnComment: *const fn (w: *Writer, comment: []const u8) anyerror!void,
+
+    /// Emit a CHECK constraint for enum types (MySQL: ENUM literal, PG: CHECK(val IN (...))).
     emitEnumTypeCheck: *const fn (w: *Writer, col_name: []const u8, enum_values: []const []const u8) anyerror!void,
+
+    /// Emit a standalone index for an inline-indexed column (after column definitions).
     emitInlineColumnStandaloneIndex: *const fn (w: *Writer, table_name: []const u8, col_name: []const u8) anyerror!void,
+
+    // ── ALTER TABLE methods (for diff/migrate) ──
+
+    /// Emit ALTER TABLE ... DROP COLUMN.
     emitAlterDropColumn: *const fn (w: *Writer, col_name: []const u8) anyerror!void,
+
+    /// Emit ALTER TABLE ... MODIFY COLUMN (MySQL) / ALTER COLUMN (PG).
     emitAlterModifyColumn: *const fn (w: *Writer, col_name: []const u8) anyerror!void,
+
+    /// Emit ALTER TABLE ... CHANGE COLUMN (MySQL) / RENAME COLUMN (PG/SQLite).
     emitAlterRenameColumn: *const fn (w: *Writer, old_name: []const u8, new_name: []const u8) anyerror!void,
+
+    /// Emit ADD INDEX for ALTER TABLE.
     emitAlterAddIndex: *const fn (w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void,
+
+    /// Emit DROP INDEX for ALTER TABLE.
     emitAlterDropIndex: *const fn (w: *Writer, idx: IndexDecl) anyerror!void,
+
+    /// Emit DROP FOREIGN KEY for ALTER TABLE.
     emitAlterDropFk: *const fn (w: *Writer, fk: ast_mod.FkDecl) anyerror!void,
+
+    /// Returns how this dialect handles table comments in ALTER context.
     commentResult: *const fn () CommentResult,
+
+    /// Emit table comment in ALTER TABLE context. See CommentResult for dialect behavior.
     emitAlterTableComment: *const fn (w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void,
+
+    /// Emit ENGINE change in ALTER TABLE (MySQL only).
     emitAlterEngine: *const fn (w: *Writer, engine: ?[]const u8) anyerror!void,
+
+    /// Emit CREATE VIEW statement.
     emitCreateView: *const fn (w: *Writer, name: []const u8, query: []const u8) anyerror!void,
+
     /// Render a SqlType to dialect-specific SQL type string. Single source of truth for type rendering.
     renderType: *const fn (w: *Writer, sql_type: SqlType) anyerror!void,
+
     /// Render a FOREIGN KEY constraint (inline or standalone). Single source of truth for FK rendering.
     emitForeignKey: *const fn (w: *Writer, fk: ast_mod.FkDecl) anyerror!void,
 
     // ── Optional methods (null = no-op for this dialect) ──
+
     /// CREATE DATABASE — only MySQL/PG implement; SQLite has no concept of databases.
     emitCreateDatabase: ?*const fn (w: *Writer, name: []const u8, charset: ?[]const u8) anyerror!void = null,
     /// UNSIGNED modifier — only MySQL uses; PG/SQLite have no UNSIGNED.
@@ -89,15 +141,20 @@ pub const DialectBackend = struct {
     emitTypeMetadata: ?*const fn (w: *Writer, col_name: []const u8, sym_type: []const u8) anyerror!void = null,
     /// SQLite-specific confidence comment (e.g. ` -- [score:42]`).
     emitConfidenceComment: ?*const fn (w: *Writer, confidence: []const u8) anyerror!void = null,
-    /// Dialect-specific reverse lookup. Returns null to fall back to general logic.
+    /// Dialect-specific reverse lookup. Returns null to fall back to general logic in reverse/map.zig.
     reverseLookup: ?*const fn (sql_type: []const u8, col_name: []const u8, is_auto_inc: bool, is_default_ts: bool) ?ReverseResult = null,
+
+    // ── Forward type mapping ──
+
     /// Look up SqlType for a SS symbol (e.g. "n" → .int, "B" → .blob).
     /// Each dialect owns its own forward mapping — adding a new dialect is a local change.
     lookupSym: *const fn (sym: []const u8) ?SqlType,
+
     /// Quote character for identifiers in diff output (backtick for MySQL, double-quote for PG/SQLite).
     quoteChar: u8,
 
     // ── Behavioral flags (eliminate dialect checks in caller) ──
+
     /// MySQL CHANGE COLUMN requires the full column definition after the rename.
     rename_needs_column_def: bool,
     /// MODIFY COLUMN: MySQL/PG need column def, SQLite just emits a warning.
