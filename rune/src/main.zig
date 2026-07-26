@@ -62,7 +62,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.9.0";
+const VERSION = "0.9.1";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -81,6 +81,13 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .sql => forward.handleCompile(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
                 .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
             };
+        },
+        .validate => |cmd| {
+            const file_data = if (cmd.input) |path|
+                try io_mod.readFileOrStdin(io, alloc, path)
+            else
+                try io_mod.readStdin(io, alloc);
+            return forward.handleValidate(io, alloc, file_data);
         },
         .diff => |cmd| {
             return switch (parsed.target) {

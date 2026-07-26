@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.9.1] - 2026-07-26
+
+### Features
+- Add `validate` subcommand — standalone schema validation without SQL output (CI/CD use case). Reports diagnostics and exits with code 1 on errors.
+- Implement proper migration JSON output for `migrate --target json-schema` — produces structured `operations` array with typed entries (`drop_table`, `create_table`, `add_column`, `drop_column`, `modify_column`, `rename_column`, `add_index`, `drop_index`, `add_fk`, `drop_fk`, `create_view`, `drop_view`, `modify_view`, `alter_metadata`) plus `dialect` and `wrapped_in_transaction` metadata.
+
+### Bug Fixes
+- Fix VERSION file sync — was 0.8.3 while main.zig was 0.9.0; both now 0.9.1
+
+### Code Quality
+- Remove `handleMigrateDiffJson` TODO — migration JSON now produces proper migration structure instead of diff JSON
+
+### Documentation
+- Update README.md with `validate` subcommand and migration JSON output documentation
+
 ## [0.9.0] - 2026-07-26
 
 ### Bug Fixes

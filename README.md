@@ -278,9 +278,19 @@ Type differences: `n` → `INTEGER`, `N` → `INTEGER`, `t` → `TEXT`, `U` → 
 ```bash
 rune migrate old.ss new.ss                          # → ALTER TABLE SQL
 rune migrate old.ss new.ss -d pg -o migration.sql   # to file
+rune migrate old.ss new.ss --target json-schema     # → structured JSON
 ```
 
-Detects: new/dropped tables, added/dropped/modified/renamed columns, index changes, FK changes. All wrapped in transaction.
+Detects: new/dropped tables, added/dropped/modified/renamed columns, index changes, FK changes. All wrapped in transaction. JSON output produces an `operations` array with typed entries (`drop_table`, `create_table`, `add_column`, etc.) and dialect metadata.
+
+### Validate
+
+```bash
+rune validate schema.ss       # → exit 0 if valid, exit 1 if errors
+rune validate < schema.ss     # also works from stdin
+```
+
+Standalone schema validation — runs the full semantic pipeline and reports diagnostics without producing SQL output. Useful for CI/CD checks and editor integration.
 
 ### Reverse Engineering
 

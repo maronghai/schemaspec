@@ -47,11 +47,10 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8,
     try io_mod.writeOutput(io, migration_sql, output_path);
 }
 
-// TODO: Implement proper migration JSON output (currently produces diff JSON for migrate --json-schema)
 pub fn handleMigrateDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
-    const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
+    const json_text = try migrate.generateMigrationJson(alloc, result.schema_diff, dialect);
     try io_mod.writeOutput(io, json_text, output_path);
 }
 

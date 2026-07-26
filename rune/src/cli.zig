@@ -7,6 +7,7 @@ pub const Target = enum { sql, json_schema };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool },
+    validate: struct { input: ?[]const u8 },
     diff: struct { old: []const u8, new: []const u8, trace: bool },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool },
@@ -126,6 +127,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1) } } };
     }
 
+    if (std.mem.eql(u8, sub, "validate")) {
+        const input = if (fargs.len > 1) fargs[1] else null;
+        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input } } };
+    }
+
     // Default: compile
     const input = if (fargs.len > 0) fargs[0] else null;
     return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1) } } };
@@ -150,6 +156,7 @@ pub fn printUsage() void {
     std.debug.print("Usage:\n", .{});
     std.debug.print("  rune [input.ss] [-o output] [--trace] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
     std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
+    std.debug.print("  rune validate [input.ss]                             Validate .ss schema (no output)\n", .{});
     std.debug.print("  rune diff <old.ss> <new.ss> [-d mysql|pg|sqlite]     Show schema differences\n", .{});
     std.debug.print("  rune migrate <old.ss> <new.ss> [-o migration.sql] [-d mysql|pg|sqlite]\n", .{});
     std.debug.print("                                                       Generate ALTER TABLE migration SQL\n", .{});

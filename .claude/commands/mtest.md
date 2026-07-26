@@ -1,7 +1,7 @@
 ---
 description: 启动标准开发工作流：分析需求 → 查看代码 → 制定计划 → 创建分支
 argument-hint: [feature-description]
-allowed-tools: Bash(git *), Bash(ls *), Read, Glob
+allowed-tools: Bash(git *), Bash(ls *), Read, Glob, Bash(rg *)
 ---
 
 ## 任务

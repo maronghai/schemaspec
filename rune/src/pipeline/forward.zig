@@ -107,6 +107,14 @@ pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: 
     try io_mod.writeOutput(io, output, output_path);
 }
 
+/// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
+/// Returns error.DiagnosticsError if any errors are found (exit code 1).
+pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !void {
+    _ = try compilePipeline(io, alloc, file_data);
+    // If compilePipeline succeeded (no DiagnosticsError), the schema is valid.
+    std.debug.print("schema is valid\n", .{});
+}
+
 // ─── Unit Tests ──────────────────────────────────────────────
 
 const testing = std.testing;
