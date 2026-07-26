@@ -174,9 +174,10 @@ pub const Parser = struct {
                         try self.flushCurrentTable(&tables, &block);
                     }
 
+                    const pending_engine = block.engine;
                     const result = try parse_table.stripEngineTokens(self.alloc, line.tokens);
                     try block.reset(self.alloc);
-                    if (result.engine) |e| block.engine = e;
+                    block.engine = if (result.engine) |e| e else pending_engine;
                     const stripped_line = tk.Line{
                         .line_type = line.line_type,
                         .tokens = result.stripped,
