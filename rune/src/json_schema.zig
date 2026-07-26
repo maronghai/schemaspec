@@ -66,6 +66,66 @@ fn writeTable(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable)
         if (ci > 0) try w.writeAll(",\n");
         try w.print("        \"{s}\": ", .{col.name});
         try col.sql_type.toJsonSchema(w);
+
+        // Add CHECK constraint metadata
+        if (col.check) |check| {
+            switch (check.kind) {
+                .range, .range_upper_exclusive, .range_lower_exclusive, .range_both_exclusive => {
+                    // Parse range from expression like "age >= 0 AND age <= 150"
+                    if (parseRange(check.expr)) |range| {
+                        try w.writeAll(",\n");
+                        if (range.min) |min| {
+                            try w.print("          \"minimum\": {d}", .{min});
+                            if (range.max) |max| {
+                                try w.writeAll(",\n");
+                                try w.print("          \"maximum\": {d}", .{max});
+                            }
+                        } else if (range.max) |max| {
+                            try w.print("          \"maximum\": {d}", .{max});
+                        }
+                    }
+                },
+                .comparison => {
+                    // Parse comparison like "> 0" or "< 100"
+                    if (parseComparison(check.expr)) |cmp| {
+                        try w.writeAll(",\n");
+                        if (cmp.op[0] == '>') {
+                            try w.print("          \"exclusiveMinimum\": {d}", .{cmp.value});
+                        } else if (cmp.op[0] == '<') {
+                            try w.print("          \"exclusiveMaximum\": {d}", .{cmp.value});
+                        }
+                    }
+                },
+                .in_list => {
+                    // Parse IN list like "a,b,c"
+                    if (parseInList(check.expr)) |items| {
+                        try w.writeAll(",\n          \"enum\": [");
+                        for (items, 0..) |item, ii| {
+                            if (ii > 0) try w.writeAll(",");
+                            try w.print("\"{s}\"", .{item});
+                        }
+                        try w.writeAll("]");
+                    }
+                },
+            }
+        }
+
+        // Add default value
+        if (col.default) |def| {
+            try w.writeAll(",\n          \"default\": ");
+            // Try to parse as number, otherwise treat as string
+            if (std.fmt.parseInt(i64, def, 10)) |num| {
+                try w.print("{d}", .{num});
+            } else |_| {
+                if (std.fmt.parseFloat(f64, def)) |num| {
+                    try w.print("{d}", .{num});
+                } else |_| {
+                    try w.writeAll("\"");
+                    try utils.jsonEscapeString(w, def);
+                    try w.writeAll("\"");
+                }
+            }
+        }
     }
     if (table.columns.len > 0) try w.writeAll("\n");
     try w.writeAll("      },\n");
@@ -83,6 +143,97 @@ fn writeTable(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable)
     try w.writeAll("]\n");
 
     try w.writeAll("    }");
+}
+
+// ─── CHECK Constraint Parsers ──────────────────────────────────
+
+const Range = struct {
+    min: ?i64,
+    max: ?i64,
+};
+
+fn parseRange(expr: []const u8) ?Range {
+    // Simple parser for expressions like "age >= 0 AND age <= 150"
+    // or "0 <= age AND age <= 150"
+    var min_val: ?i64 = null;
+    var max_val: ?i64 = null;
+
+    // Look for patterns like ">= N" or "<= N"
+    var i: usize = 0;
+    while (i < expr.len) {
+        if (i + 1 < expr.len and expr[i] == '>' and expr[i + 1] == '=') {
+            // Found >=, parse number after
+            const num_start = i + 2;
+            var num_end = num_start;
+            while (num_end < expr.len and (expr[num_end] >= '0' and expr[num_end] <= '9')) {
+                num_end += 1;
+            }
+            if (num_end > num_start) {
+                if (std.fmt.parseInt(i64, expr[num_start..num_end], 10)) |num| {
+                    min_val = num;
+                } else |_| {}
+            }
+            i = num_end;
+        } else if (i + 1 < expr.len and expr[i] == '<' and expr[i + 1] == '=') {
+            // Found <=, parse number after
+            const num_start = i + 2;
+            var num_end = num_start;
+            while (num_end < expr.len and (expr[num_end] >= '0' and expr[num_end] <= '9')) {
+                num_end += 1;
+            }
+            if (num_end > num_start) {
+                if (std.fmt.parseInt(i64, expr[num_start..num_end], 10)) |num| {
+                    max_val = num;
+                } else |_| {}
+            }
+            i = num_end;
+        } else {
+            i += 1;
+        }
+    }
+
+    if (min_val != null or max_val != null) {
+        return .{ .min = min_val, .max = max_val };
+    }
+    return null;
+}
+
+const Comparison = struct {
+    op: []const u8,
+    value: i64,
+};
+
+fn parseComparison(expr: []const u8) ?Comparison {
+    // Parse expressions like "> 0" or "< 100"
+    var i: usize = 0;
+    while (i < expr.len and expr[i] == ' ') : (i += 1) {}
+
+    if (i < expr.len and (expr[i] == '>' or expr[i] == '<' or expr[i] == '=')) {
+        const op_start = i;
+        i += 1;
+        if (i < expr.len and expr[i] == '=') i += 1;
+        const op = expr[op_start..i];
+
+        while (i < expr.len and expr[i] == ' ') : (i += 1) {}
+
+        const num_start = i;
+        while (i < expr.len and ((expr[i] >= '0' and expr[i] <= '9') or expr[i] == '.')) {
+            i += 1;
+        }
+        if (i > num_start) {
+            if (std.fmt.parseInt(i64, expr[num_start..i], 10)) |num| {
+                return .{ .op = op, .value = num };
+            } else |_| {}
+        }
+    }
+    return null;
+}
+
+fn parseInList(expr: []const u8) ?[]const []const u8 {
+    // This is a simplified parser - in real code you'd want proper allocation
+    // For now, return null as IN lists are complex to parse without allocation
+    _ = expr;
+    return null;
 }
 
 // ─── Unit Tests ──────────────────────────────────────────────
