@@ -42,9 +42,8 @@ pub fn generateFromDiff(
     try emitViewDiffs(w, dialect_mod.getBackend(dialect), d.view_diffs, new_typed);
     if (d.view_diffs.len > 0) has_operations = true;
 
-    var tr = TypeResolver.init(alloc);
     var cg = codegen.Codegen.init(alloc, dialect);
-    try emitTableDiffs(alloc, w, d.table_diffs, new_resolved, dialect, &cg, &tr, &has_operations);
+    try emitTableDiffs(alloc, w, d.table_diffs, new_resolved, dialect, &cg, &has_operations);
 
     try w.writeAll("COMMIT;\n");
 
@@ -96,7 +95,6 @@ fn emitRollbackDroppedTables(
     dialect: Dialect,
     has_operations: *bool,
 ) !void {
-    var tr = TypeResolver.init(alloc);
     var cg = codegen.Codegen.init(alloc, dialect);
     for (dropped) |tname| {
         has_operations.* = true;
@@ -111,7 +109,7 @@ fn emitRollbackDroppedTables(
                 .views = &.{},
                 .sql_comments = &.{},
             };
-            const single_typed = try tr.resolve(single_resolved, dialect);
+            const single_typed = try TypeResolver.resolve(alloc, single_resolved, dialect);
             if (single_typed.tables.len > 0) {
                 try cg.generateTypedTable(w, single_typed.tables[0]);
             }
@@ -209,7 +207,6 @@ fn emitRollbackFieldDiffs(
     table_has_ops: *bool,
     sub_needs_comma: *bool,
 ) !void {
-    var tr = TypeResolver.init(alloc);
     var cg = codegen.Codegen.init(alloc, dialect);
     for (td.field_diffs) |fd| {
         switch (fd.action) {
@@ -225,7 +222,7 @@ fn emitRollbackFieldDiffs(
                     try emit.beginAlterTable(w, backend, td.name, table_has_ops);
                     try emit.emitComma(w, sub_needs_comma);
                     try w.writeAll("ADD COLUMN ");
-                    const typed_col = try tr.resolveColumn(of, dialect, old_resolved.custom_types);
+                    const typed_col = try TypeResolver.resolveColumn(alloc, of, dialect, old_resolved.custom_types);
                     try cg.emitColumnDef(w, typed_col);
                 }
             },
@@ -236,7 +233,7 @@ fn emitRollbackFieldDiffs(
                     try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterModifyColumn(w, of.name);
                     if (backend.modify_needs_column_def) {
-                        const typed_col = try tr.resolveColumn(of, dialect, old_resolved.custom_types);
+                        const typed_col = try TypeResolver.resolveColumn(alloc, of, dialect, old_resolved.custom_types);
                         try cg.emitColumnDefEx(w, typed_col, backend.modify_column_def_skips_name);
                     }
                 }
@@ -249,7 +246,7 @@ fn emitRollbackFieldDiffs(
                     try backend.emitAlterRenameColumn(w, fd.name, old_name);
                     if (backend.rename_needs_column_def) {
                         if (fd.old_field) |of| {
-                            const typed_col = try tr.resolveColumn(of, dialect, old_resolved.custom_types);
+                            const typed_col = try TypeResolver.resolveColumn(alloc, of, dialect, old_resolved.custom_types);
                             try cg.emitColumnDef(w, typed_col);
                         }
                     }
@@ -384,7 +381,6 @@ fn emitTableDiffs(
     new_resolved: resolved_ast.ResolvedAst,
     dialect: Dialect,
     cg: *codegen.Codegen,
-    tr: *TypeResolver,
     has_operations: *bool,
 ) !void {
     const backend = dialect_mod.getBackend(dialect);
@@ -404,7 +400,7 @@ fn emitTableDiffs(
                         .views = &.{},
                         .sql_comments = &.{},
                     };
-                    const single_typed = try tr.resolve(single_resolved, dialect);
+                    const single_typed = try TypeResolver.resolve(alloc, single_resolved, dialect);
                     if (single_typed.tables.len > 0) {
                         try cg.generateTypedTable(w, single_typed.tables[0]);
                     }
@@ -415,7 +411,7 @@ fn emitTableDiffs(
                 var table_has_ops = false;
                 var sub_needs_comma = false;
 
-                try emitFieldDiffs(w, backend, td, tr, cg, dialect, new_resolved, &table_has_ops, &sub_needs_comma);
+                try emitFieldDiffs(alloc, w, backend, td, cg, dialect, new_resolved, &table_has_ops, &sub_needs_comma);
                 try emitIndexDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
                 try emitMetadataDiffs(w, backend, td, &table_has_ops, &sub_needs_comma, has_operations);
                 try emitFkDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
@@ -430,10 +426,10 @@ fn emitTableDiffs(
 }
 
 fn emitFieldDiffs(
+    alloc: std.mem.Allocator,
     w: anytype,
     backend: dialect_mod.DialectBackend,
     td: diff_mod.TableDiff,
-    tr: *TypeResolver,
     cg: *codegen.Codegen,
     dialect: Dialect,
     new_resolved: resolved_ast.ResolvedAst,
@@ -447,7 +443,7 @@ fn emitFieldDiffs(
                 if (fd.new_field) |nf| {
                     try emit.emitComma(w, sub_needs_comma);
                     try w.writeAll("ADD COLUMN ");
-                    const typed_col = try tr.resolveColumn(nf, dialect, new_resolved.custom_types);
+                    const typed_col = try TypeResolver.resolveColumn(alloc, nf, dialect, new_resolved.custom_types);
                     try cg.emitColumnDef(w, typed_col);
                 }
             },
@@ -462,7 +458,7 @@ fn emitFieldDiffs(
                     try emit.emitComma(w, sub_needs_comma);
                     try backend.emitAlterModifyColumn(w, nf.name);
                     if (backend.modify_needs_column_def) {
-                        const typed_col = try tr.resolveColumn(nf, dialect, new_resolved.custom_types);
+                        const typed_col = try TypeResolver.resolveColumn(alloc, nf, dialect, new_resolved.custom_types);
                         try cg.emitColumnDefEx(w, typed_col, backend.modify_column_def_skips_name);
                     }
                 }
@@ -474,7 +470,7 @@ fn emitFieldDiffs(
                     try backend.emitAlterRenameColumn(w, old_name, fd.name);
                     if (backend.rename_needs_column_def) {
                         if (fd.new_field) |nf| {
-                            const typed_col = try tr.resolveColumn(nf, dialect, new_resolved.custom_types);
+                            const typed_col = try TypeResolver.resolveColumn(alloc, nf, dialect, new_resolved.custom_types);
                             try cg.emitColumnDef(w, typed_col);
                         }
                     }

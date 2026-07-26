@@ -146,7 +146,7 @@ rune/src/
 | | `sql_type.zig` | Self-contained SqlType union with toSql()/toJsonSchema() |
 | | `type_map.zig` | Helper functions (lookupCustomType, isNumericSymType) |
 | | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
-| | `type_resolver.zig` | ResolvedAst → TypedAst type resolution |
+| | `type_resolver.zig` | TypeResolver namespace — ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
 | `semantic/` | `analyzer.zig` | SemanticAnalyzer + diagnosticTrace |
 | | `pass_manager.zig` | PassContext + SemanticPass + DEFAULT_PASSES |

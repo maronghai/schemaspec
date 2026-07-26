@@ -312,6 +312,7 @@ Rune uses a three-layer type mapping system:
 ## Key Design Decisions
 
 1. **TypedAst IR layer**: Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
+2. **TypeResolver namespace**: Stateless functions (`TypeResolver.resolve`, `TypeResolver.resolveColumn`) that take `Allocator` directly. No struct instantiation — eliminates `init` boilerplate and per-loop allocation overhead in migrate.zig.
 2. **DialectBackend vtable**: 23 core + 6 optional function pointers + 3 behavioral flags cover all dialect differences. Adding a new dialect requires < 100 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect_common.zig:emitForeignKeyShared`.
 3. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
 4. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).

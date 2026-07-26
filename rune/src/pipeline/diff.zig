@@ -44,13 +44,11 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8,
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
     if (rollback) {
-        var tr = TypeResolver.init(alloc);
-        const old_typed = try tr.resolve(result.old_ast, dialect);
+        const old_typed = try TypeResolver.resolve(alloc, result.old_ast, dialect);
         const rollback_sql = try migrate.generateRollback(alloc, result.schema_diff, old_typed, result.old_ast, dialect);
         try io_mod.writeOutput(io, rollback_sql, output_path);
     } else {
-        var tr = TypeResolver.init(alloc);
-        const new_typed = try tr.resolve(result.new_ast, dialect);
+        const new_typed = try TypeResolver.resolve(alloc, result.new_ast, dialect);
         const migration_sql = try migrate.generateFromDiff(alloc, result.schema_diff, new_typed, result.new_ast, dialect);
         try io_mod.writeOutput(io, migration_sql, output_path);
     }

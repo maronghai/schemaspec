@@ -150,7 +150,7 @@ test "classifyCheck: single value → comparison" {
 
 test "parseCheckConstraint: returns null for non-bracket token" {
     const alloc = std.testing.allocator;
-    const tokens = [_][]const u8{ "hello" };
+    const tokens = [_][]const u8{"hello"};
     const result = try parseCheckConstraint(alloc, &tokens, 0, "", 1);
     try std.testing.expect(result == null);
 }

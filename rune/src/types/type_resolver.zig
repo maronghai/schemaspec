@@ -21,31 +21,25 @@ const FkDecl = ast_mod.FkDecl;
 // for backward compatibility.
 
 pub const TypeResolver = struct {
-    alloc: std.mem.Allocator,
-
-    pub fn init(alloc: std.mem.Allocator) TypeResolver {
-        return .{ .alloc = alloc };
-    }
-
-    pub fn resolve(self: *TypeResolver, resolved: resolved_ast.ResolvedAst, dialect: Dialect) !TypedAst {
-        var tables = try std.ArrayList(TypedTable).initCapacity(self.alloc, resolved.tables.len);
+    pub fn resolve(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst, dialect: Dialect) !TypedAst {
+        var tables = try std.ArrayList(TypedTable).initCapacity(alloc, resolved.tables.len);
         for (resolved.tables) |table| {
-            var columns = try std.ArrayList(TypedColumn).initCapacity(self.alloc, table.fields.len);
+            var columns = try std.ArrayList(TypedColumn).initCapacity(alloc, table.fields.len);
             // Collect inline FKs from fields + standalone FKs from table
-            var all_fks = try std.ArrayList(FkDecl).initCapacity(self.alloc, table.fks.len + 4);
-            for (table.fks) |fk| try all_fks.append(self.alloc, fk);
+            var all_fks = try std.ArrayList(FkDecl).initCapacity(alloc, table.fks.len + 4);
+            for (table.fks) |fk| try all_fks.append(alloc, fk);
             for (table.fields) |field| {
                 if (std.mem.eql(u8, field.name, "...")) continue;
-                const col = try self.resolveColumn(field, dialect, resolved.custom_types);
-                try columns.append(self.alloc, col);
-                if (field.fk) |fk| try all_fks.append(self.alloc, fk);
+                const col = try resolveColumn(alloc, field, dialect, resolved.custom_types);
+                try columns.append(alloc, col);
+                if (field.fk) |fk| try all_fks.append(alloc, fk);
             }
-            try tables.append(self.alloc, .{
+            try tables.append(alloc, .{
                 .name = table.name,
                 .comment = table.comment,
                 .engine = table.engine,
-                .columns = try columns.toOwnedSlice(self.alloc),
-                .fks = try all_fks.toOwnedSlice(self.alloc),
+                .columns = try columns.toOwnedSlice(alloc),
+                .fks = try all_fks.toOwnedSlice(alloc),
                 .indexes = table.indexes,
                 .line_no = table.line_no,
             });
@@ -53,30 +47,30 @@ pub const TypeResolver = struct {
         return .{
             .schema_name = resolved.schema_name,
             .schema_charset = resolved.schema_charset,
-            .tables = try tables.toOwnedSlice(self.alloc),
-            .views = try self.resolveViews(resolved.views),
+            .tables = try tables.toOwnedSlice(alloc),
+            .views = try resolveViews(alloc, resolved.views),
             .sql_comments = resolved.sql_comments,
         };
     }
 
-    fn resolveViews(self: *TypeResolver, views: []const ast_mod.View) ![]const TypedView {
-        var result = try std.ArrayList(TypedView).initCapacity(self.alloc, views.len);
+    fn resolveViews(alloc: std.mem.Allocator, views: []const ast_mod.View) ![]const TypedView {
+        var result = try std.ArrayList(TypedView).initCapacity(alloc, views.len);
         for (views) |v| {
-            try result.append(self.alloc, .{
+            try result.append(alloc, .{
                 .name = v.name,
                 .query = v.query,
                 .comment = v.comment,
                 .line_no = v.line_no,
             });
         }
-        return try result.toOwnedSlice(self.alloc);
+        return try result.toOwnedSlice(alloc);
     }
 
-    pub fn resolveColumn(self: *TypeResolver, field: Field, dialect: Dialect, custom_types: []const ast_mod.CustomType) !TypedColumn {
-        return self.resolveColumnInner(field, dialect, custom_types, 0);
+    pub fn resolveColumn(alloc: std.mem.Allocator, field: Field, dialect: Dialect, custom_types: []const ast_mod.CustomType) !TypedColumn {
+        return resolveColumnInner(alloc, field, dialect, custom_types, 0);
     }
 
-    fn resolveColumnInner(self: *TypeResolver, field: Field, dialect: Dialect, custom_types: []const ast_mod.CustomType, depth: u8) !TypedColumn {
+    fn resolveColumnInner(alloc: std.mem.Allocator, field: Field, dialect: Dialect, custom_types: []const ast_mod.CustomType, depth: u8) !TypedColumn {
         // Check custom types first (multi-char names)
         if (field.type_info == .simple and field.type_info.simple.len > 1) {
             if (type_map.lookupCustomType(custom_types, field.type_info.simple, dialect)) |ct_info| {
@@ -86,7 +80,7 @@ pub const TypeResolver = struct {
                     return error.CircularCustomType;
                 }
                 // Recursively resolve the custom type's base info
-                return self.resolveColumnInner(ast_mod.Field{
+                return resolveColumnInner(alloc, ast_mod.Field{
                     .name = field.name,
                     .type_info = ct_info,
                     .modifiers = field.modifiers,
@@ -109,7 +103,7 @@ pub const TypeResolver = struct {
         const enum_vals = if (is_enum) field.type_info.enum_type else &[_][]const u8{};
 
         // Compute original SS type string for roundtrip preservation
-        const sym_type = try buildSymType(self.alloc, field.type_info, flags.unsigned);
+        const sym_type = try buildSymType(alloc, field.type_info, flags.unsigned);
 
         return .{
             .name = field.name,

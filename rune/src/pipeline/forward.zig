@@ -38,33 +38,10 @@ pub const ImportContext = struct {
 /// Shared tokenizer → parser → semantic pipeline.
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
 pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
-    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
-
-    var line_it = std.mem.splitScalar(u8, file_data, '\n');
-    while (line_it.next()) |line| {
-        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
-    }
-
-    const tok = tokenizer.Tokenizer.init(try lines.toOwnedSlice(alloc));
+    const lines = try splitLines(alloc, file_data);
+    const tree = try tokenizeAndParse(alloc, lines);
+    const tok = tokenizer.Tokenizer.init(lines);
     const tokenized = try tok.tokenizeAll(alloc);
-
-    // Use DiagnosticCollector for multi-error recovery
-    var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    const tree = p.parse(tokenized) catch |err| {
-        // Allocation errors propagate; syntax errors are collected
-        if (!diagnostics.hasErrors()) {
-            std.debug.print("error: {s}\n", .{@errorName(err)});
-        }
-        return err;
-    };
-
-    // Print collected diagnostics and abort if any errors
-    if (diagnostics.hasErrors()) {
-        diagnostics.printAll();
-        diagnostics.printSummary();
-        return error.DiagnosticsError;
-    }
 
     var sa = semantic.SemanticAnalyzer.init(alloc);
     const resolved = sa.analyze(tree) catch |err| {
@@ -77,14 +54,7 @@ pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !Pipelin
 /// Compile pipeline with import resolution. Handles @import directives by
 /// recursively compiling imported files and merging their templates/tables.
 fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !PipelineResult {
-    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
-
-    var line_it = std.mem.splitScalar(u8, file_data, '\n');
-    while (line_it.next()) |line| {
-        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
-    }
-
-    const tokenized_lines = try lines.toOwnedSlice(alloc);
+    const tokenized_lines = try splitLines(alloc, file_data);
 
     // Process @import directives before tokenization
     var processed_lines = try std.ArrayList([]const u8).initCapacity(alloc, tokenized_lines.len);
@@ -218,18 +188,14 @@ fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: [
 /// Tokenize and parse a .ss file, resolving @import directives recursively.
 /// Used for importing templates and tables from other files.
 fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !ast_mod.Ast {
-    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
-    var line_it = std.mem.splitScalar(u8, file_data, '\n');
-    while (line_it.next()) |line| {
-        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
-    }
+    const lines = try splitLines(alloc, file_data);
 
     // Process @import directives
-    var processed_lines = try std.ArrayList([]const u8).initCapacity(alloc, lines.items.len);
+    var processed_lines = try std.ArrayList([]const u8).initCapacity(alloc, lines.len);
     var imported_templates = try std.ArrayList(ast_mod.Template).initCapacity(alloc, 8);
     var imported_tables = try std.ArrayList(ast_mod.Table).initCapacity(alloc, 8);
 
-    for (lines.items) |line| {
+    for (lines) |line| {
         const trimmed = std.mem.trim(u8, line, " \t");
         if (trimmed.len > 8 and std.mem.startsWith(u8, trimmed, "@import")) {
             if (import_ctx.depth >= import_ctx.max_depth) {
@@ -250,7 +216,10 @@ fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import
             if (import_ctx.imported.contains(resolved_path)) return error.ParseError;
 
             const imported_data = std.Io.Dir.cwd().readFileAlloc(
-                io, resolved_path, alloc, .unlimited,
+                io,
+                resolved_path,
+                alloc,
+                .unlimited,
             ) catch return error.ParseError;
 
             try import_ctx.imported.put(resolved_path, {});
@@ -315,6 +284,36 @@ fn computeBaseDir(alloc: std.mem.Allocator, file_path: []const u8) []const u8 {
     return if (last_sep > 0) alloc.dupe(u8, file_path[0..last_sep]) catch "" else "";
 }
 
+/// Split file data into lines, stripping trailing \r.
+fn splitLines(alloc: std.mem.Allocator, file_data: []const u8) ![]const []const u8 {
+    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
+    var line_it = std.mem.splitScalar(u8, file_data, '\n');
+    while (line_it.next()) |line| {
+        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
+    }
+    return try lines.toOwnedSlice(alloc);
+}
+
+/// Tokenize lines and parse into AST with diagnostic error handling.
+fn tokenizeAndParse(alloc: std.mem.Allocator, lines: []const []const u8) !ast_mod.Ast {
+    const tok = tokenizer.Tokenizer.init(lines);
+    const tokenized = try tok.tokenizeAll(alloc);
+    var diagnostics = try diag.DiagnosticCollector.init(alloc);
+    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
+    const tree = p.parse(tokenized) catch |err| {
+        if (!diagnostics.hasErrors()) {
+            std.debug.print("error: {s}\n", .{@errorName(err)});
+        }
+        return err;
+    };
+    if (diagnostics.hasErrors()) {
+        diagnostics.printAll();
+        diagnostics.printSummary();
+        return error.DiagnosticsError;
+    }
+    return tree;
+}
+
 // ─── Public API ────────────────────────────────────────────────
 
 /// Compile a .ss file by path, handling @import directives.
@@ -364,8 +363,7 @@ fn traceForward(pipeline: PipelineResult) void {
 /// Compile .ss to SQL DDL (the default output path).
 pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const pipeline = try compilePipeline(alloc, file_data);
-    var tr = TypeResolver.init(alloc);
-    const typed = try tr.resolve(pipeline.resolved, dialect);
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
     var cg = codegen.Codegen.init(alloc, dialect);
     const output = try cg.generateFromTypedAst(typed);
     if (trace) traceWithTyped(pipeline, typed);
@@ -375,8 +373,7 @@ pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
 /// Compile .ss from a file path, handling imports, to SQL DDL.
 pub fn handleCompileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const pipeline = try compileFile(io, alloc, file_path);
-    var tr = TypeResolver.init(alloc);
-    const typed = try tr.resolve(pipeline.resolved, dialect);
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
     var cg = codegen.Codegen.init(alloc, dialect);
     const output = try cg.generateFromTypedAst(typed);
     if (trace) traceWithTyped(pipeline, typed);
@@ -387,8 +384,7 @@ pub fn handleCompileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []cons
 pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const json_schema = @import("../json_schema.zig");
     const pipeline = try compilePipeline(alloc, file_data);
-    var tr = TypeResolver.init(alloc);
-    const typed = try tr.resolve(pipeline.resolved, dialect);
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
     const output = try json_schema.generate(alloc, typed);
     if (trace) traceForward(pipeline);
     try io_mod.writeOutput(io, output, output_path);
@@ -398,8 +394,7 @@ pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: 
 pub fn handleCompileJsonSchemaFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const json_schema = @import("../json_schema.zig");
     const pipeline = try compileFile(io, alloc, file_path);
-    var tr = TypeResolver.init(alloc);
-    const typed = try tr.resolve(pipeline.resolved, dialect);
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
     const output = try json_schema.generate(alloc, typed);
     if (trace) traceForward(pipeline);
     try io_mod.writeOutput(io, output, output_path);

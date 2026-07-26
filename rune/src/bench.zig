@@ -303,8 +303,7 @@ fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8)
 
     // Stage 3: Type Resolve
     sw_start = std.Io.Clock.Timestamp.now(io, .awake);
-    var tr = TypeResolver.init(alloc);
-    const typed = try tr.resolve(resolved, .mysql);
+    const typed = try TypeResolver.resolve(alloc, resolved, .mysql);
     times.type_resolve = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
     // Stage 4: Codegen
@@ -322,8 +321,7 @@ fn runPipeline(alloc: std.mem.Allocator, file_data: []const u8) ![]const u8 {
     var sa = semantic.SemanticAnalyzer.init(alloc);
     const resolved = try sa.analyze(tree);
 
-    var tr = TypeResolver.init(alloc);
-    const typed = try tr.resolve(resolved, .mysql);
+    const typed = try TypeResolver.resolve(alloc, resolved, .mysql);
 
     var cg = codegen.Codegen.init(alloc, .mysql);
     return try cg.generateFromTypedAst(typed);

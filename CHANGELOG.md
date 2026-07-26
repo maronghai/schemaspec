@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.13.0] - 2026-07-27
+
+### Code Quality
+- **Extract `splitLines` helper in `pipeline/forward.zig`**: Deduplicate 3 identical line-splitting blocks (compilePipeline, compilePipelineWithImports, parseOnly) into a shared helper function
+- **Convert `TypeResolver` from struct to namespace**: TypeResolver was a struct that only held an allocator — now uses namespace functions (`TypeResolver.resolve(alloc, ...)`, `TypeResolver.resolveColumn(alloc, ...)`) eliminating `init` boilerplate across 11 call sites
+- **Hoist `TypeResolver` out of loops in `diff/migrate.zig`**: Rollback functions no longer create `TypeResolver.init(alloc)` inside loops; direct namespace calls eliminate per-iteration allocation overhead
+- **Remove redundant `tr` parameter from `emitTableDiffs`/`emitFieldDiffs`**: These functions now call `TypeResolver.resolve`/`resolveColumn` directly instead of receiving a pre-initialized instance
+
+### Testing
+- Add 16 unit tests for `cli.zig` argument parsing: version flags, dialect selection, subcommand routing, error cases (unknown dialect, missing args), flag parsing (-o, -t, -T, --rollback)
+- All unit tests pass
+- All golden tests pass: MySQL (86), PostgreSQL (84), SQLite (25), Migration (34), Diff (12), Reverse (15), Error Recovery (12), JSON Schema (1), Roundtrip (20)
+
 ## [0.12.0] - 2026-07-27
 
 ### Code Quality
