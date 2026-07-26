@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.27.0] - 2026-07-27
+
+### Added
+- `--strict` flag: treat warnings as errors (useful for CI/CD pipelines)
+- Centralized version management via `version.zig` module
+
+### Changed
+- Version constant now lives in single `version.zig` module (single source of truth)
+
 ## [0.26.0] - 2026-07-27
 
 ### Added

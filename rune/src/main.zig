@@ -4,6 +4,7 @@ const forward = @import("pipeline/forward.zig");
 const diff_pipe = @import("pipeline/diff.zig");
 const reverse_pipe = @import("pipeline/reverse.zig");
 const io_mod = @import("io.zig");
+const version = @import("version.zig");
 
 // ─── Entry Point ───────────────────────────────────────────────
 
@@ -67,14 +68,12 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.26.0";
-
 // ─── Command Dispatch ──────────────────────────────────────────
 
 fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void {
     switch (parsed.command) {
         .version => {
-            std.debug.print("rune {s}\n", .{VERSION});
+            version.printVersion();
             return;
         },
         .help => {

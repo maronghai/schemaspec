@@ -22,6 +22,7 @@ pub const ParsedArgs = struct {
     target: Target,
     command: Command,
     quiet: bool,
+    strict: bool,
 };
 
 pub const ArgError = error{
@@ -83,6 +84,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_quiet = false;
     var want_check = false;
     var want_dry_run = false;
+    var want_strict = false;
     var diff_format: DiffFormat = .text;
     var want_validate_only = false;
     while (i < raw_args.len) : (i += 1) {
@@ -127,6 +129,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             }
         } else if (std.mem.eql(u8, raw_args[i], "--validate-only")) {
             want_validate_only = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--strict")) {
+            want_strict = true;
         } else {
             try filtered.append(alloc, raw_args[i]);
         }
@@ -134,28 +138,28 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     const fargs = try filtered.toOwnedSlice(alloc);
 
     if (want_version) {
-        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict };
     }
 
     if (want_help) {
-        return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet, .strict = want_strict };
     }
 
     // Pass 2: route subcommand
     if (fargs.len < 1) {
-        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = null, .trace = false, .stats = want_stats, .check = want_check } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = null, .trace = false, .stats = want_stats, .check = want_check } }, .quiet = want_quiet, .strict = want_strict };
     }
 
     const sub = fargs[0];
 
     if (std.mem.eql(u8, sub, "diff")) {
         if (fargs.len < 3) return error.DiffMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats, .format = diff_format } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats, .format = diff_format } }, .quiet = want_quiet, .strict = want_strict };
     }
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run } }, .quiet = want_quiet, .strict = want_strict };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {
@@ -169,17 +173,17 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 input = fargs[j];
             }
         }
-        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .validate_only = want_validate_only } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .validate_only = want_validate_only } }, .quiet = want_quiet, .strict = want_strict };
     }
 
     if (std.mem.eql(u8, sub, "validate")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input, .stats = want_stats } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input, .stats = want_stats } }, .quiet = want_quiet, .strict = want_strict };
     }
 
     // Default: compile
     const input = if (fargs.len > 0) fargs[0] else null;
-    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check } }, .quiet = want_quiet };
+    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check } }, .quiet = want_quiet, .strict = want_strict };
 }
 
 fn parseDialect(s: []const u8) !dialect_enum.Dialect {
@@ -216,6 +220,7 @@ pub fn printUsage() void {
     std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
     std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});
     std.debug.print("  --dry-run       Show migration SQL without writing to file\n", .{});
+    std.debug.print("  --strict        Treat warnings as errors (for CI/CD)\n", .{});
     std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("  -h, --help      Show this help message and exit\n", .{});
