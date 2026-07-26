@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.12.0] - 2026-07-27
+
+### Code Quality
+- **Consolidate pipeline handlers**: Extract shared `traceWithTyped` and `traceForward` helpers, reducing 4 near-identical `handleCompile*` functions from ~20 lines each to ~8 lines each (net -48 lines)
+- **Remove unused `std.Io` parameter from `compilePipeline`**: The parameter was immediately discarded (`_: std.Io`); all callers updated
+- **Fix hardcoded MySQL dialect in rollback view diffs**: `emitRollbackViewDiffs` in `diff/migrate.zig` now receives the actual dialect parameter instead of hardcoding `.mysql`
+- **Improve `parseOnly` error handling**: Parse errors in imported files now propagate diagnostics (matching `compilePipelineWithImports` pattern) instead of silently swallowing errors
+- **Extract `computeBaseDir` in `compileFile`**: Reuse existing helper instead of duplicating path-separator logic inline
+
+### Testing
+- All unit tests pass
+- All golden tests pass: MySQL (86), PostgreSQL (84), SQLite (25), Migration (34)
+
 ## [0.11.0] - 2026-07-26
 
 ### Features

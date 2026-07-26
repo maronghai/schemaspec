@@ -76,7 +76,7 @@ pub fn generateRollback(
     try emitRollbackTableDiffs(alloc, w, d.table_diffs, old_resolved, dialect, &has_operations);
 
     // 2. Reverse view diffs
-    try emitRollbackViewDiffs(w, d.view_diffs, old_typed, &has_operations);
+    try emitRollbackViewDiffs(w, d.view_diffs, old_typed, dialect, &has_operations);
 
     // 3. Reverse dropped tables (they become CREATE in rollback)
     try emitRollbackDroppedTables(alloc, w, d.dropped_tables, old_resolved, dialect, &has_operations);
@@ -124,10 +124,11 @@ fn emitRollbackViewDiffs(
     w: anytype,
     view_diffs: []const diff_mod.ViewDiff,
     old_typed: typed_ast.TypedAst,
+    dialect: Dialect,
     has_operations: *bool,
 ) !void {
     for (view_diffs) |vd| {
-        const backend = dialect_mod.getBackend(.mysql); // quoteChar is same across dialects
+        const backend = dialect_mod.getBackend(dialect);
         switch (vd.action) {
             .create => {
                 // Rollback create → drop

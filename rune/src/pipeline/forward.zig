@@ -37,7 +37,7 @@ pub const ImportContext = struct {
 
 /// Shared tokenizer → parser → semantic pipeline.
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
-pub fn compilePipeline(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
+pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
     var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
 
     var line_it = std.mem.splitScalar(u8, file_data, '\n');
@@ -273,7 +273,18 @@ fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import
     const tokenized = try tok.tokenizeAll(alloc);
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
     var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    var tree = try p.parse(tokenized);
+    var tree = p.parse(tokenized) catch |err| {
+        if (!diagnostics.hasErrors()) {
+            std.debug.print("error: {s}\n", .{@errorName(err)});
+        }
+        return err;
+    };
+
+    if (diagnostics.hasErrors()) {
+        diagnostics.printAll();
+        diagnostics.printSummary();
+        return error.DiagnosticsError;
+    }
 
     // Merge imported definitions
     if (imported_templates.items.len > 0 or imported_tables.items.len > 0) {
@@ -309,11 +320,7 @@ fn computeBaseDir(alloc: std.mem.Allocator, file_path: []const u8) []const u8 {
 /// Compile a .ss file by path, handling @import directives.
 pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8) !PipelineResult {
     const file_data = try std.Io.Dir.cwd().readFileAlloc(io, file_path, alloc, .unlimited);
-
-    // Extract base directory from file path
-    const last_sep = std.mem.lastIndexOfScalar(u8, file_path, '/') orelse
-        std.mem.lastIndexOfScalar(u8, file_path, '\\') orelse 0;
-    const base_dir = if (last_sep > 0) file_path[0..last_sep] else "";
+    const base_dir = computeBaseDir(alloc, file_path);
 
     var imported = ImportSet.init(alloc);
     defer imported.deinit();
@@ -335,91 +342,73 @@ pub fn compileToAst(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !res
     return pipeline.resolved;
 }
 
+// ─── Trace Helpers ─────────────────────────────────────────────
+
+/// Trace all forward pipeline stages including TypedAst (for SQL output).
+fn traceWithTyped(pipeline: PipelineResult, typed: typed_ast.TypedAst) void {
+    tokenizer.Tokenizer.diagnosticTrace(pipeline.lines);
+    parser.diagnosticTrace(pipeline.tree);
+    semantic.diagnosticTrace(pipeline.resolved);
+    codegen.diagnosticTrace(typed);
+}
+
+/// Trace forward pipeline stages only (for JSON Schema output, no TypedAst).
+fn traceForward(pipeline: PipelineResult) void {
+    tokenizer.Tokenizer.diagnosticTrace(pipeline.lines);
+    parser.diagnosticTrace(pipeline.tree);
+    semantic.diagnosticTrace(pipeline.resolved);
+}
+
+// ─── Output Handlers ───────────────────────────────────────────
+
 /// Compile .ss to SQL DDL (the default output path).
 pub fn handleCompile(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
-    const pipeline = try compilePipeline(io, alloc, file_data);
-
+    const pipeline = try compilePipeline(alloc, file_data);
     var tr = TypeResolver.init(alloc);
     const typed = try tr.resolve(pipeline.resolved, dialect);
-
     var cg = codegen.Codegen.init(alloc, dialect);
     const output = try cg.generateFromTypedAst(typed);
-
-    if (trace) {
-        tokenizer.Tokenizer.diagnosticTrace(pipeline.lines);
-        parser.diagnosticTrace(pipeline.tree);
-        semantic.diagnosticTrace(pipeline.resolved);
-        codegen.diagnosticTrace(typed);
-    }
-
+    if (trace) traceWithTyped(pipeline, typed);
     try io_mod.writeOutput(io, output, output_path);
 }
 
 /// Compile .ss from a file path, handling imports, to SQL DDL.
 pub fn handleCompileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const pipeline = try compileFile(io, alloc, file_path);
-
     var tr = TypeResolver.init(alloc);
     const typed = try tr.resolve(pipeline.resolved, dialect);
-
     var cg = codegen.Codegen.init(alloc, dialect);
     const output = try cg.generateFromTypedAst(typed);
-
-    if (trace) {
-        tokenizer.Tokenizer.diagnosticTrace(pipeline.lines);
-        parser.diagnosticTrace(pipeline.tree);
-        semantic.diagnosticTrace(pipeline.resolved);
-        codegen.diagnosticTrace(typed);
-    }
-
+    if (trace) traceWithTyped(pipeline, typed);
     try io_mod.writeOutput(io, output, output_path);
 }
 
 /// Compile .ss to JSON Schema (alternative output path).
 pub fn handleCompileJsonSchema(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const json_schema = @import("../json_schema.zig");
-
-    const pipeline = try compilePipeline(io, alloc, file_data);
-
+    const pipeline = try compilePipeline(alloc, file_data);
     var tr = TypeResolver.init(alloc);
     const typed = try tr.resolve(pipeline.resolved, dialect);
-
     const output = try json_schema.generate(alloc, typed);
-
-    if (trace) {
-        tokenizer.Tokenizer.diagnosticTrace(pipeline.lines);
-        parser.diagnosticTrace(pipeline.tree);
-        semantic.diagnosticTrace(pipeline.resolved);
-    }
-
+    if (trace) traceForward(pipeline);
     try io_mod.writeOutput(io, output, output_path);
 }
 
 /// Compile .ss from a file path, handling imports, to JSON Schema.
 pub fn handleCompileJsonSchemaFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, output_path: ?[]const u8, trace: bool, dialect: codegen.Dialect) !void {
     const json_schema = @import("../json_schema.zig");
-
     const pipeline = try compileFile(io, alloc, file_path);
-
     var tr = TypeResolver.init(alloc);
     const typed = try tr.resolve(pipeline.resolved, dialect);
-
     const output = try json_schema.generate(alloc, typed);
-
-    if (trace) {
-        tokenizer.Tokenizer.diagnosticTrace(pipeline.lines);
-        parser.diagnosticTrace(pipeline.tree);
-        semantic.diagnosticTrace(pipeline.resolved);
-    }
-
+    if (trace) traceForward(pipeline);
     try io_mod.writeOutput(io, output, output_path);
 }
 
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
 /// Returns error.DiagnosticsError if any errors are found (exit code 1).
-pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !void {
-    _ = try compilePipeline(io, alloc, file_data);
-    // If compilePipeline succeeded (no DiagnosticsError), the schema is valid.
+pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !void {
+    _ = try compilePipeline(alloc, file_data);
     std.debug.print("schema is valid\n", .{});
 }
 
@@ -440,8 +429,7 @@ test "compilePipeline: simple schema produces resolved tables" {
         \\id   n++
         \\name s
     ;
-    const io: std.Io = undefined;
-    const result = try compilePipeline(io, alloc, ss_input);
+    const result = try compilePipeline(alloc, ss_input);
     try testing.expect(result.resolved.tables.len > 0);
     try testing.expectEqualStrings("user", result.resolved.tables[0].name);
 }
@@ -452,7 +440,6 @@ test "compilePipeline: syntax error returns error" {
     const alloc = arena.allocator();
 
     const bad_input = "### invalid $$$";
-    const io: std.Io = undefined;
-    const result = compilePipeline(io, alloc, bad_input);
+    const result = compilePipeline(alloc, bad_input);
     try testing.expectError(error.ParseError, result);
 }
