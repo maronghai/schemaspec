@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.29.0] - 2026-07-27
+
+### Added
+- Validation for unknown `--format` values (returns error.UnknownFormat)
+- Updated help text with complete flag documentation for all commands
+
 ## [0.28.0] - 2026-07-27
 
 ### Added

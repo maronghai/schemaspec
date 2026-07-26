@@ -43,6 +43,9 @@ pub fn main(init: std.process.Init) !void {
             error.MissingTargetValue => {
                 std.debug.print("error: --target requires a value, expected one of: sql, json-schema\n", .{});
             },
+            error.UnknownFormat => {
+                std.debug.print("error: unknown format, expected one of: text, json\n", .{});
+            },
             error.DiffMissingArgs => {
                 std.debug.print("error: diff requires two arguments: <old.ss> <new.ss>\n", .{});
             },

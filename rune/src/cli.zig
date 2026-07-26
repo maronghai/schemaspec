@@ -30,6 +30,7 @@ pub const ArgError = error{
     MissingDialectValue,
     UnknownTarget,
     MissingTargetValue,
+    UnknownFormat,
     DiffMissingArgs,
     MigrateMissingArgs,
 };
@@ -124,6 +125,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             if (i + 1 < raw_args.len) {
                 if (std.mem.eql(u8, raw_args[i + 1], "json")) {
                     diff_format = .json;
+                } else if (!std.mem.eql(u8, raw_args[i + 1], "text")) {
+                    return error.UnknownFormat;
                 }
                 i += 1;
             }
@@ -206,10 +209,11 @@ pub fn printUsage() void {
     std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
     std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
     std.debug.print("  rune validate [input.ss]                             Validate .ss schema (no output)\n", .{});
-    std.debug.print("  rune diff <old.ss> <new.ss> [-d mysql|pg|sqlite]     Show schema differences\n", .{});
-    std.debug.print("  rune migrate <old.ss> <new.ss> [-o migration.sql] [-d mysql|pg|sqlite]\n", .{});
+    std.debug.print("  rune diff <old.ss> <new.ss> [-d mysql|pg|sqlite] [--format text|json]\n", .{});
+    std.debug.print("                                                       Show schema differences\n", .{});
+    std.debug.print("  rune migrate <old.ss> <new.ss> [-o migration.sql] [-d mysql|pg|sqlite] [--dry-run]\n", .{});
     std.debug.print("                                                       Generate ALTER TABLE migration SQL\n", .{});
-    std.debug.print("  rune reverse [input.sql] [-o output.ss] [-T] [-d mysql|pg|sqlite]\n", .{});
+    std.debug.print("  rune reverse [input.sql] [-o output.ss] [-T] [-d mysql|pg|sqlite] [--validate-only]\n", .{});
     std.debug.print("                                                       Reverse SQL DDL to .ss schema\n", .{});
     std.debug.print("                                                       -T: extract shared templates\n", .{});
     std.debug.print("\nOptions:\n", .{});

@@ -4,6 +4,12 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.29.0] - 2026-07-27
+
+### Added
+- Validation for unknown `--format` values (returns error.UnknownFormat)
+- Updated help text with complete flag documentation for all commands
+
 ## [0.28.0] - 2026-07-27
 
 ### Added
