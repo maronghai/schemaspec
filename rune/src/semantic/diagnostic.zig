@@ -123,6 +123,7 @@ pub const DiagnosticCollector = struct {
 
     /// Record a diagnostic (warning, error, or note).
     /// Stops recording when max_errors is exceeded.
+    /// Note: allocation failures are logged but not propagated to keep the API simple.
     pub fn push(self: *DiagnosticCollector, d: Diagnostic) void {
         if (self.overflow) return;
         if (d.severity == .@"error" and self.errorCount() >= self.max_errors) {
@@ -130,7 +131,9 @@ pub const DiagnosticCollector = struct {
             std.debug.print("error: too many errors ({d}), stopping\n", .{self.max_errors});
             return;
         }
-        self.diagnostics.append(self.alloc, d) catch {};
+        self.diagnostics.append(self.alloc, d) catch {
+            std.debug.print("warning: failed to record diagnostic (out of memory)\n", .{});
+        };
     }
 
     /// Record a diagnostic using the existing printDiagnostic + store pattern.

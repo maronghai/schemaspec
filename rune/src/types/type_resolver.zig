@@ -79,7 +79,8 @@ pub const TypeResolver = struct {
         // Check custom types first (multi-char names)
         if (field.type_info == .simple and field.type_info.simple.len > 1) {
             if (type_map.lookupCustomType(custom_types, field.type_info.simple, dialect)) |ct_info| {
-                // Detect circular custom type references (e.g., ~A B + ~B A)
+                // Detect circular custom type references (e.g., ~A B + ~B A).
+                // Max depth of 32 is generous — real schemas rarely exceed 3 levels.
                 if (depth >= 32) {
                     return error.CircularCustomType;
                 }

@@ -262,25 +262,12 @@ test "suffix inference: no suffix keeps explicit type" {
 
 // ─── Type Modifier Validation Tests ─────────────────────────
 
-fn makeTestFieldWithMods(name: []const u8, type_info: ast_mod_test.TypeInfo, mods: []const Modifier) Field {
-    return .{
-        .name = name,
-        .type_info = type_info,
-        .modifiers = mods,
-        .default_val = null,
-        .check = null,
-        .fk = null,
-        .comment = null,
-        .line_no = 1,
-    };
-}
-
 test "validate_type_modifiers: ++ on varchar produces warning" {
     const alloc = testing.allocator;
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .auto_inc_pk, .line_no = 3 };
     const fields = try alloc.alloc(Field, 1);
-    fields[0] = makeTestFieldWithMods("name", .{ .simple = "s" }, mods);
+    fields[0] = test_helpers.makeTestFieldWithMods("name", .{ .simple = "s" }, mods);
 
     var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
     try tables.append(alloc, .{
@@ -309,7 +296,7 @@ test "validate_type_modifiers: u on varchar produces warning" {
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .unsigned, .line_no = 2 };
     const fields = try alloc.alloc(Field, 1);
-    fields[0] = makeTestFieldWithMods("tag", .{ .simple = "s" }, mods);
+    fields[0] = test_helpers.makeTestFieldWithMods("tag", .{ .simple = "s" }, mods);
 
     var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
     try tables.append(alloc, .{
@@ -338,7 +325,7 @@ test "validate_type_modifiers: ++ on n produces no warning" {
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .auto_inc_pk, .line_no = 1 };
     const fields = try alloc.alloc(Field, 1);
-    fields[0] = makeTestFieldWithMods("id", .{ .simple = "n" }, mods);
+    fields[0] = test_helpers.makeTestFieldWithMods("id", .{ .simple = "n" }, mods);
 
     var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
     try tables.append(alloc, .{
@@ -367,7 +354,7 @@ test "validate_type_modifiers: + on t produces no warning" {
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .auto_inc, .line_no = 1 };
     const fields = try alloc.alloc(Field, 1);
-    fields[0] = makeTestFieldWithMods("created_at", .{ .simple = "t" }, mods);
+    fields[0] = test_helpers.makeTestFieldWithMods("created_at", .{ .simple = "t" }, mods);
 
     var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
     try tables.append(alloc, .{
@@ -396,7 +383,7 @@ test "validate_type_modifiers: u on n produces no warning" {
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .unsigned, .line_no = 1 };
     const fields = try alloc.alloc(Field, 1);
-    fields[0] = makeTestFieldWithMods("count", .{ .simple = "n" }, mods);
+    fields[0] = test_helpers.makeTestFieldWithMods("count", .{ .simple = "n" }, mods);
 
     var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
     try tables.append(alloc, .{

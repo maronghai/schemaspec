@@ -15,6 +15,20 @@ pub fn makeTestField(name: []const u8, type_info: ast_mod.TypeInfo) ast_mod.Fiel
     };
 }
 
+/// Shared test helper: create a Field with explicit modifiers.
+pub fn makeTestFieldWithMods(name: []const u8, type_info: ast_mod.TypeInfo, mods: []const ast_mod.Modifier) ast_mod.Field {
+    return .{
+        .name = name,
+        .type_info = type_info,
+        .modifiers = mods,
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+}
+
 /// Shared test helper: create a minimal Ast with no schema or comments.
 pub fn makeTestAst(_: std.mem.Allocator, tables: []const ast_mod.Table, templates: []const ast_mod.Template) ast_mod.Ast {
     return .{

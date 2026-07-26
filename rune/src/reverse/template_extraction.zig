@@ -23,7 +23,8 @@ pub fn findTemplates(alloc: std.mem.Allocator, schema: sp.SqlSchema) ![]Template
     var candidates = try std.ArrayList(TemplateCandidate).initCapacity(alloc, 4);
     var covered_fields = try std.ArrayList([]const u8).initCapacity(alloc, 32);
 
-    // Find templates greedily, each must introduce at least one new field
+    // Find templates greedily, each must introduce at least one new field.
+    // Max templates = max(1, tables/3) — heuristic to prevent excessive template extraction.
     var template_idx: usize = 0;
     const max_templates = @max(1, schema.tables.len / 3);
     while (template_idx < max_templates) {
