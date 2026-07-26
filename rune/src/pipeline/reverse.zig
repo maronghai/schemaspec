@@ -8,7 +8,7 @@ const io_mod = @import("../io.zig");
 
 // ─── Reverse Pipeline: SQL → .ss ─────────────────────────────
 
-pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, with_templates: bool, dialect: codegen.Dialect, trace: bool, stats: bool) !void {
+pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, with_templates: bool, dialect: codegen.Dialect, trace: bool, stats: bool, validate_only: bool) !void {
     // Auto-detect dialect from SQL content when not explicitly specified
     const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect.detectSqlDialect(file_data) else dialect;
 
@@ -65,6 +65,11 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
             col_count += table.columns.len;
         }
         std.debug.print("tables: {d}  columns: {d}\n", .{ schema.tables.len, col_count });
+    }
+
+    if (validate_only) {
+        std.debug.print("SQL is valid\n", .{});
+        return;
     }
 
     var rcg = reverse_codegen.ReverseCodegen.init(alloc, sql_dialect);

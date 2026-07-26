@@ -4,6 +4,12 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.26.0] - 2026-07-27
+
+### Added
+- `--format json` flag for diff command: output diff as JSON for programmatic consumption
+- `--validate-only` flag for reverse command: validate SQL without generating .ss output
+
 ## [0.25.0] - 2026-07-27
 
 ### Added

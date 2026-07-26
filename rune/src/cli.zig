@@ -5,12 +5,14 @@ const dialect_enum = @import("dialect/enum.zig");
 
 pub const Target = enum { sql, json_schema };
 
+pub const DiffFormat = enum { text, json };
+
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool },
     validate: struct { input: ?[]const u8, stats: bool },
-    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool },
+    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool },
-    reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool },
+    reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool },
     version,
     help,
 };
@@ -81,6 +83,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_quiet = false;
     var want_check = false;
     var want_dry_run = false;
+    var diff_format: DiffFormat = .text;
+    var want_validate_only = false;
     while (i < raw_args.len) : (i += 1) {
         if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
             want_version = true;
@@ -115,8 +119,14 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 return error.MissingTargetValue;
             }
         } else if (std.mem.eql(u8, raw_args[i], "--format")) {
-            // consumed but currently only supports text (default)
-            if (i + 1 < raw_args.len) i += 1;
+            if (i + 1 < raw_args.len) {
+                if (std.mem.eql(u8, raw_args[i + 1], "json")) {
+                    diff_format = .json;
+                }
+                i += 1;
+            }
+        } else if (std.mem.eql(u8, raw_args[i], "--validate-only")) {
+            want_validate_only = true;
         } else {
             try filtered.append(alloc, raw_args[i]);
         }
@@ -140,7 +150,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (std.mem.eql(u8, sub, "diff")) {
         if (fargs.len < 3) return error.DiffMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats, .format = diff_format } }, .quiet = want_quiet };
     }
 
     if (std.mem.eql(u8, sub, "migrate")) {
@@ -159,7 +169,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 input = fargs[j];
             }
         }
-        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .validate_only = want_validate_only } }, .quiet = want_quiet };
     }
 
     if (std.mem.eql(u8, sub, "validate")) {
@@ -201,6 +211,7 @@ pub fn printUsage() void {
     std.debug.print("\nOptions:\n", .{});
     std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
+    std.debug.print("  --format        Output format: text (default), json (for diff)\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
     std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
     std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});
