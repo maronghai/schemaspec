@@ -95,10 +95,14 @@ fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8) !void {
                     try w.print("-- ALTER TABLE {c}{s}{c}\n", .{ q, td.name, q });
                     table_has_changes = true;
                 }
-                if (md.new_comment) |nc| {
-                    try w.print("  ~ comment → '{s}'\n", .{nc});
-                } else {
-                    try w.print("  - comment (removed)\n", .{});
+                if (md.old_comment) |oc| {
+                    if (md.new_comment) |nc| {
+                        try w.print("  ~ comment: '{s}' → '{s}'\n", .{ oc, nc });
+                    } else {
+                        try w.print("  - comment (removed): '{s}'\n", .{oc});
+                    }
+                } else if (md.new_comment) |nc| {
+                    try w.print("  + comment: '{s}'\n", .{nc});
                 }
             }
             if (!optionalStrEq(md.old_engine, md.new_engine)) {
@@ -106,10 +110,14 @@ fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8) !void {
                     try w.print("-- ALTER TABLE {c}{s}{c}\n", .{ q, td.name, q });
                     table_has_changes = true;
                 }
-                if (md.new_engine) |ne| {
-                    try w.print("  ~ engine → '{s}'\n", .{ne});
-                } else {
-                    try w.print("  - engine (removed)\n", .{});
+                if (md.old_engine) |oe| {
+                    if (md.new_engine) |ne| {
+                        try w.print("  ~ engine: '{s}' → '{s}'\n", .{ oe, ne });
+                    } else {
+                        try w.print("  - engine (removed): '{s}'\n", .{oe});
+                    }
+                } else if (md.new_engine) |ne| {
+                    try w.print("  + engine: '{s}'\n", .{ne});
                 }
             }
         }

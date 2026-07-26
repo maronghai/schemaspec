@@ -31,22 +31,22 @@ pub fn main(init: std.process.Init) !void {
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
         switch (err) {
             error.UnknownDialect => {
-                std.debug.print("error: unknown dialect (expected: mysql, pg, postgres, sqlite)\n", .{});
+                std.debug.print("error: unknown dialect, expected one of: mysql, pg, postgres, sqlite\n", .{});
             },
             error.MissingDialectValue => {
-                std.debug.print("error: --dialect requires a value (mysql, pg, postgres, sqlite)\n", .{});
+                std.debug.print("error: --dialect requires a value, expected one of: mysql, pg, postgres, sqlite\n", .{});
             },
             error.UnknownTarget => {
-                std.debug.print("error: unknown target (expected: sql, json-schema)\n", .{});
+                std.debug.print("error: unknown target, expected one of: sql, json-schema\n", .{});
             },
             error.MissingTargetValue => {
-                std.debug.print("error: --target requires a value (sql, json-schema)\n", .{});
+                std.debug.print("error: --target requires a value, expected one of: sql, json-schema\n", .{});
             },
             error.DiffMissingArgs => {
-                std.debug.print("error: diff requires <old.ss> <new.ss>\n", .{});
+                std.debug.print("error: diff requires two arguments: <old.ss> <new.ss>\n", .{});
             },
             error.MigrateMissingArgs => {
-                std.debug.print("error: migrate requires <old.ss> <new.ss>\n", .{});
+                std.debug.print("error: migrate requires two arguments: <old.ss> <new.ss>\n", .{});
             },
             else => {
                 std.debug.print("error: {s}\n", .{@errorName(err)});
@@ -67,7 +67,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.23.0";
+const VERSION = "0.24.0";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 

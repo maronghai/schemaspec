@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.24.0] - 2026-07-27
+
+### Added
+- Diff output now shows old and new values for comment and engine changes
+- Diff output now shows added/removed metadata with context
+
+### Changed
+- Optimized diff engine with pre-allocated hashmaps for better performance
+- Standardized CLI error messages with consistent format
+
 ## [0.23.0] - 2026-07-27
 
 ### Added
