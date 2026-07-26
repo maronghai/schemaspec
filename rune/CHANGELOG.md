@@ -4,6 +4,12 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.25.0] - 2026-07-27
+
+### Added
+- `--dry-run` flag for migrate command: show migration SQL without writing to file
+- JSON Schema now handles negative numbers in CHECK constraints
+
 ## [0.24.0] - 2026-07-27
 
 ### Added

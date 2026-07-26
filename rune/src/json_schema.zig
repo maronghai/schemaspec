@@ -174,6 +174,8 @@ fn parseRange(expr: []const u8) ?Range {
             // Found >=, parse number after
             const num_start = i + 2;
             var num_end = num_start;
+            // Handle negative sign
+            if (num_end < expr.len and expr[num_end] == '-') num_end += 1;
             while (num_end < expr.len and (expr[num_end] >= '0' and expr[num_end] <= '9')) {
                 num_end += 1;
             }
@@ -187,6 +189,8 @@ fn parseRange(expr: []const u8) ?Range {
             // Found <=, parse number after
             const num_start = i + 2;
             var num_end = num_start;
+            // Handle negative sign
+            if (num_end < expr.len and expr[num_end] == '-') num_end += 1;
             while (num_end < expr.len and (expr[num_end] >= '0' and expr[num_end] <= '9')) {
                 num_end += 1;
             }
@@ -213,7 +217,7 @@ const Comparison = struct {
 };
 
 fn parseComparison(expr: []const u8) ?Comparison {
-    // Parse expressions like "> 0" or "< 100"
+    // Parse expressions like "> 0" or "< 100" or ">= -1000"
     var i: usize = 0;
     while (i < expr.len and expr[i] == ' ') : (i += 1) {}
 
@@ -226,6 +230,8 @@ fn parseComparison(expr: []const u8) ?Comparison {
         while (i < expr.len and expr[i] == ' ') : (i += 1) {}
 
         const num_start = i;
+        // Handle negative sign
+        if (i < expr.len and expr[i] == '-') i += 1;
         while (i < expr.len and ((expr[i] >= '0' and expr[i] <= '9') or expr[i] == '.')) {
             i += 1;
         }

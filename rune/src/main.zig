@@ -67,7 +67,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.24.0";
+const VERSION = "0.25.0";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -108,7 +108,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .migrate => |cmd| {
             return switch (parsed.target) {
-                .sql => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats),
+                .sql => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats, cmd.dry_run),
                 .json_schema => diff_pipe.handleMigrateDiffJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.stats),
             };
         },

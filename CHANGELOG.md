@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.25.0] - 2026-07-27
+
+### Added
+- `--dry-run` flag for migrate command: show migration SQL without writing to file
+- JSON Schema now handles negative numbers in CHECK constraints
+
 ## [0.24.0] - 2026-07-27
 
 ### Added

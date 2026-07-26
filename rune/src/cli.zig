@@ -9,7 +9,7 @@ pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool },
     validate: struct { input: ?[]const u8, stats: bool },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool },
     version,
     help,
@@ -80,6 +80,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_stats = false;
     var want_quiet = false;
     var want_check = false;
+    var want_dry_run = false;
     while (i < raw_args.len) : (i += 1) {
         if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
             want_version = true;
@@ -91,6 +92,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             want_quiet = true;
         } else if (std.mem.eql(u8, raw_args[i], "--check")) {
             want_check = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--dry-run")) {
+            want_dry_run = true;
         } else if (std.mem.eql(u8, raw_args[i], "--dialect") or std.mem.eql(u8, raw_args[i], "-d")) {
             if (i + 1 < raw_args.len) {
                 dialect = parseDialect(raw_args[i + 1]) catch |e| {
@@ -142,7 +145,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats } }, .quiet = want_quiet };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run } }, .quiet = want_quiet };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {
@@ -201,6 +204,7 @@ pub fn printUsage() void {
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
     std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
     std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});
+    std.debug.print("  --dry-run       Show migration SQL without writing to file\n", .{});
     std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("  -h, --help      Show this help message and exit\n", .{});
