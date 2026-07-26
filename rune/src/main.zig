@@ -25,7 +25,7 @@ pub fn main(init: std.process.Init) !void {
             cli.printUsage();
             std.process.exit(1);
         }
-        return forward.handleCompileRequest(init.io, alloc, null, null, false, .mysql, .sql);
+        return forward.handleCompileRequest(init.io, alloc, null, null, false, .mysql, .sql, false, false, false);
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
@@ -61,7 +61,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.19.0";
+const VERSION = "0.20.0";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -88,7 +88,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .json_schema => .json_schema,
             };
 
-            return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format);
+            return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format, cmd.stats, cmd.check, parsed.quiet);
         },
         .validate => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");

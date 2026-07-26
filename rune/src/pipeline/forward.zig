@@ -334,6 +334,35 @@ fn traceForward(pipeline: PipelineResult) void {
     semantic.diagnosticTrace(pipeline.resolved);
 }
 
+// ─── Stats ──────────────────────────────────────────────────────
+
+/// Compilation statistics.
+pub const Stats = struct {
+    tables: usize,
+    fields: usize,
+    views: usize,
+};
+
+/// Compute stats from a ResolvedAst.
+pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
+    var field_count: usize = 0;
+    for (resolved.tables) |table| {
+        field_count += table.fields.len;
+    }
+    return .{
+        .tables = resolved.tables.len,
+        .fields = field_count,
+        .views = resolved.views.len,
+    };
+}
+
+/// Print stats to stderr.
+pub fn printStats(stats: Stats) void {
+    std.debug.print("tables: {d}  fields: {d}  views: {d}\n", .{
+        stats.tables, stats.fields, stats.views,
+    });
+}
+
 // ─── Output Handlers ───────────────────────────────────────────
 
 /// Output format type.
@@ -351,6 +380,9 @@ pub fn handleCompileRequest(
     trace: bool,
     dialect: codegen.Dialect,
     format: OutputFormat,
+    stats: bool,
+    check: bool,
+    quiet: bool,
 ) !void {
     const pipeline = if (input) |path|
         try compileFile(io, alloc, path)
@@ -373,7 +405,18 @@ pub fn handleCompileRequest(
         if (format == .sql) traceWithTyped(pipeline, typed) else traceForward(pipeline);
     }
 
-    try io_mod.writeOutput(io, output, output_path);
+    if (stats) {
+        printStats(computeStats(pipeline.resolved));
+    }
+
+    if (check) {
+        if (!quiet) {
+            std.debug.print("schema is valid\n", .{});
+        }
+        return;
+    }
+
+    try io_mod.writeOutput(io, output, output_path, quiet);
 }
 
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.

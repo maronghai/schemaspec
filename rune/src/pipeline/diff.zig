@@ -30,14 +30,14 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, ne
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
     const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, dialect);
-    try io_mod.writeOutput(io, diff_text, null);
+    try io_mod.writeOutput(io, diff_text, null, false);
 }
 
 pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
     const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
-    try io_mod.writeOutput(io, json_text, output_path);
+    try io_mod.writeOutput(io, json_text, output_path, false);
 }
 
 pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, rollback: bool) !void {
@@ -46,11 +46,11 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8,
     if (rollback) {
         const old_typed = try TypeResolver.resolve(alloc, result.old_ast, dialect);
         const rollback_sql = try migrate.generateRollback(alloc, result.schema_diff, old_typed, result.old_ast, dialect);
-        try io_mod.writeOutput(io, rollback_sql, output_path);
+        try io_mod.writeOutput(io, rollback_sql, output_path, false);
     } else {
         const new_typed = try TypeResolver.resolve(alloc, result.new_ast, dialect);
         const migration_sql = try migrate.generateFromDiff(alloc, result.schema_diff, new_typed, result.new_ast, dialect);
-        try io_mod.writeOutput(io, migration_sql, output_path);
+        try io_mod.writeOutput(io, migration_sql, output_path, false);
     }
 }
 
@@ -58,7 +58,7 @@ pub fn handleMigrateDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []c
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
     const json_text = try migrate_json.generateMigrationJson(alloc, result.schema_diff, dialect);
-    try io_mod.writeOutput(io, json_text, output_path);
+    try io_mod.writeOutput(io, json_text, output_path, false);
 }
 
 // ─── Trace Helpers ──────────────────────────────────────────────

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.20.0] - 2026-07-27
+
+### Features
+- **`--stats` / `-s` flag**: Print compilation statistics (table/field/view counts) to stderr after compilation
+- **`--check` flag**: Dry-run mode — validate schema without writing output, prints "schema is valid" on success
+- **`--quiet` / `-q` flag**: Suppress non-essential output (e.g. "Written to ..." messages)
+
+### Testing
+- Add 11 unit tests for new CLI flags (--stats, -s, --quiet, -q, --check, diff --stats, migrate --stats, reverse --stats)
+- All unit tests pass
+- All golden tests pass: MySQL (86), PostgreSQL (84), SQLite (25), Migration (34), Diff (12), Reverse (15), Error Recovery (12), JSON Schema (1), Roundtrip (20)
+
 ## [0.13.0] - 2026-07-27
 
 ### Code Quality

@@ -6,11 +6,11 @@ const dialect_enum = @import("dialect/enum.zig");
 pub const Target = enum { sql, json_schema };
 
 pub const Command = union(enum) {
-    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool },
+    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool },
     validate: struct { input: ?[]const u8 },
-    diff: struct { old: []const u8, new: []const u8, trace: bool },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool },
-    reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool },
+    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool },
+    reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool },
     version,
     help,
 };
@@ -19,6 +19,7 @@ pub const ParsedArgs = struct {
     dialect: dialect_enum.Dialect,
     target: Target,
     command: Command,
+    quiet: bool,
 };
 
 pub const ArgError = error{
@@ -72,15 +73,24 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var target: Target = .sql;
     var filtered = try std.ArrayList([]const u8).initCapacity(alloc, raw_args.len);
 
-    // Pass 1: extract --dialect / -d / --target / --version / -v / --help / -h from all args
+    // Pass 1: extract global flags from all args
     var i: usize = 1; // skip argv[0]
     var want_version = false;
     var want_help = false;
+    var want_stats = false;
+    var want_quiet = false;
+    var want_check = false;
     while (i < raw_args.len) : (i += 1) {
         if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
             want_version = true;
         } else if (std.mem.eql(u8, raw_args[i], "--help") or std.mem.eql(u8, raw_args[i], "-h")) {
             want_help = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--stats") or std.mem.eql(u8, raw_args[i], "-s")) {
+            want_stats = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--quiet") or std.mem.eql(u8, raw_args[i], "-q")) {
+            want_quiet = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--check")) {
+            want_check = true;
         } else if (std.mem.eql(u8, raw_args[i], "--dialect") or std.mem.eql(u8, raw_args[i], "-d")) {
             if (i + 1 < raw_args.len) {
                 dialect = parseDialect(raw_args[i + 1]) catch |e| {
@@ -101,6 +111,9 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             } else {
                 return error.MissingTargetValue;
             }
+        } else if (std.mem.eql(u8, raw_args[i], "--format")) {
+            // consumed but currently only supports text (default)
+            if (i + 1 < raw_args.len) i += 1;
         } else {
             try filtered.append(alloc, raw_args[i]);
         }
@@ -108,28 +121,28 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     const fargs = try filtered.toOwnedSlice(alloc);
 
     if (want_version) {
-        return .{ .dialect = dialect, .target = target, .command = .version };
+        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet };
     }
 
     if (want_help) {
-        return .{ .dialect = dialect, .target = target, .command = .help };
+        return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet };
     }
 
     // Pass 2: route subcommand
     if (fargs.len < 1) {
-        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = null, .trace = false } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = null, .trace = false, .stats = want_stats, .check = want_check } }, .quiet = want_quiet };
     }
 
     const sub = fargs[0];
 
     if (std.mem.eql(u8, sub, "diff")) {
         if (fargs.len < 3) return error.DiffMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3) } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats } }, .quiet = want_quiet };
     }
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3) } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats } }, .quiet = want_quiet };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {
@@ -143,17 +156,17 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 input = fargs[j];
             }
         }
-        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1) } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats } }, .quiet = want_quiet };
     }
 
     if (std.mem.eql(u8, sub, "validate")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input } }, .quiet = want_quiet };
     }
 
     // Default: compile
     const input = if (fargs.len > 0) fargs[0] else null;
-    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1) } } };
+    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check } }, .quiet = want_quiet };
 }
 
 fn parseDialect(s: []const u8) !dialect_enum.Dialect {
@@ -173,7 +186,7 @@ fn parseTarget(s: []const u8) !Target {
 
 pub fn printUsage() void {
     std.debug.print("Usage:\n", .{});
-    std.debug.print("  rune [input.ss] [-o output] [--trace] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
+    std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
     std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
     std.debug.print("  rune validate [input.ss]                             Validate .ss schema (no output)\n", .{});
     std.debug.print("  rune diff <old.ss> <new.ss> [-d mysql|pg|sqlite]     Show schema differences\n", .{});
@@ -186,6 +199,9 @@ pub fn printUsage() void {
     std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
+    std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
+    std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});
+    std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("  -h, --help      Show this help message and exit\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
@@ -407,4 +423,106 @@ test "parseArgs: -h returns help command" {
     const args = makeArgs(2, .{ "rune", "-h" });
     const result = try parseArgs(alloc, &args);
     try testing.expectEqual(Command.help, result.command);
+}
+
+test "parseArgs: --stats flag" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "schema.ss", "--stats" });
+    const result = try parseArgs(alloc, &args);
+    switch (result.command) {
+        .compile => |cmd| {
+            try testing.expect(cmd.stats);
+        },
+        else => try testing.expect(false),
+    }
+}
+
+test "parseArgs: -s short flag for stats" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "schema.ss", "-s" });
+    const result = try parseArgs(alloc, &args);
+    switch (result.command) {
+        .compile => |cmd| {
+            try testing.expect(cmd.stats);
+        },
+        else => try testing.expect(false),
+    }
+}
+
+test "parseArgs: --quiet flag" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "schema.ss", "--quiet" });
+    const result = try parseArgs(alloc, &args);
+    try testing.expect(result.quiet);
+}
+
+test "parseArgs: -q short flag for quiet" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "schema.ss", "-q" });
+    const result = try parseArgs(alloc, &args);
+    try testing.expect(result.quiet);
+}
+
+test "parseArgs: --check flag" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "schema.ss", "--check" });
+    const result = try parseArgs(alloc, &args);
+    switch (result.command) {
+        .compile => |cmd| {
+            try testing.expect(cmd.check);
+        },
+        else => try testing.expect(false),
+    }
+}
+
+test "parseArgs: diff --stats" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(5, .{ "rune", "diff", "old.ss", "new.ss", "--stats" });
+    const result = try parseArgs(alloc, &args);
+    switch (result.command) {
+        .diff => |cmd| {
+            try testing.expect(cmd.stats);
+        },
+        else => try testing.expect(false),
+    }
+}
+
+test "parseArgs: migrate --stats" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(5, .{ "rune", "migrate", "old.ss", "new.ss", "--stats" });
+    const result = try parseArgs(alloc, &args);
+    switch (result.command) {
+        .migrate => |cmd| {
+            try testing.expect(cmd.stats);
+        },
+        else => try testing.expect(false),
+    }
+}
+
+test "parseArgs: reverse --stats" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(4, .{ "rune", "reverse", "schema.sql", "--stats" });
+    const result = try parseArgs(alloc, &args);
+    switch (result.command) {
+        .reverse => |cmd| {
+            try testing.expect(cmd.stats);
+        },
+        else => try testing.expect(false),
+    }
 }

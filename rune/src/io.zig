@@ -20,13 +20,15 @@ pub fn readFileOrStdin(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !
     return try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited);
 }
 
-pub fn writeOutput(io: std.Io, data: []const u8, output_path: ?[]const u8) !void {
+pub fn writeOutput(io: std.Io, data: []const u8, output_path: ?[]const u8, quiet: bool) !void {
     if (output_path) |opath| {
         try std.Io.Dir.cwd().writeFile(io, .{
             .sub_path = opath,
             .data = data,
         });
-        std.debug.print("Written to {s}\n", .{opath});
+        if (!quiet) {
+            std.debug.print("Written to {s}\n", .{opath});
+        }
     } else {
         var buf: [8192]u8 = undefined;
         const stdout_file = std.Io.File.stdout();

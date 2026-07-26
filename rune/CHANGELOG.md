@@ -4,6 +4,13 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.20.0] - 2026-07-27
+
+### Added
+- `--stats` / `-s` flag: print compilation statistics (table/field/template/view counts) after compilation
+- `--check` flag: dry-run mode — validate schema without writing output, prints "schema is valid" on success
+- `--quiet` / `-q` flag: suppress non-essential output (e.g. "Written to ..." messages)
+
 ## [0.19.0] - 2026-07-27
 
 ### Added

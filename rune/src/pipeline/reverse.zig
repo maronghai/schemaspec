@@ -65,7 +65,7 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
     else
         try rcg.generate(schema);
 
-    try io_mod.writeOutput(io, ss_text, output_path);
+    try io_mod.writeOutput(io, ss_text, output_path, false);
 }
 
 // ─── Trace Helper ──────────────────────────────────────────────
