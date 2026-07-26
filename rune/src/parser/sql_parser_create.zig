@@ -251,6 +251,9 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
     var default_val: ?[]const u8 = null;
     var check_expr: ?[]const u8 = null;
     var comment: ?[]const u8 = null;
+    var generated_expr: ?[]const u8 = null;
+    var is_stored = false;
+    var is_virtual = false;
 
     self.skipSpaces();
     while (self.pos < self.src.len) {
@@ -297,6 +300,7 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
                 if (self.matchKeyword("IDENTITY")) {
                     auto_increment = true;
                 } else if (self.peek() == '(') {
+                    const expr_start = self.pos;
                     self.advance();
                     var depth: usize = 1;
                     while (self.pos < self.src.len and depth > 0) {
@@ -305,9 +309,14 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
                         if (depth > 0) self.advance();
                     }
                     if (self.peek() == ')') self.advance();
+                    const expr_end = self.pos;
+                    generated_expr = self.src[expr_start..expr_end];
                     self.skipSpaces();
-                    _ = self.matchKeyword("STORED");
-                    _ = self.matchKeyword("VIRTUAL");
+                    if (self.matchKeyword("STORED")) {
+                        is_stored = true;
+                    } else if (self.matchKeyword("VIRTUAL")) {
+                        is_virtual = true;
+                    }
                 }
             }
         } else if (self.matchKeyword("PRIMARY")) {
@@ -344,6 +353,28 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
                 while (self.peek() != ')' and self.pos < self.src.len) self.advance();
                 if (self.peek() == ')') self.advance();
             }
+        } else if (self.matchKeyword("AS")) {
+            // Short form: col_name type AS (expr) [STORED|VIRTUAL]
+            self.skipSpaces();
+            if (self.peek() == '(') {
+                const expr_start = self.pos;
+                self.advance();
+                var depth: usize = 1;
+                while (self.pos < self.src.len and depth > 0) {
+                    const c = self.peek();
+                    if (c == '(') depth += 1 else if (c == ')') depth -= 1;
+                    if (depth > 0) self.advance();
+                }
+                if (self.peek() == ')') self.advance();
+                const expr_end = self.pos;
+                generated_expr = self.src[expr_start..expr_end];
+                self.skipSpaces();
+                if (self.matchKeyword("STORED")) {
+                    is_stored = true;
+                } else if (self.matchKeyword("VIRTUAL")) {
+                    is_virtual = true;
+                }
+            }
         } else {
             break;
         }
@@ -361,6 +392,9 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
         .default_val = default_val,
         .check_expr = check_expr,
         .comment = comment,
+        .generated_expr = generated_expr,
+        .is_stored = is_stored,
+        .is_virtual = is_virtual,
     };
 }
 

@@ -12,6 +12,7 @@ pub const LineType = enum {
     CompositePK,
     Engine,
     TypeDef,
+    Import,
     SQLComment,
     SpecComment,
     Empty,
@@ -75,6 +76,7 @@ pub const Tokenizer = struct {
         if (line[0] == '^') return .Engine;
         if (line.len >= 3 and line[0] == '.' and line[1] == '.' and line[2] == '.') return .Slot;
         if (line[0] == '~') return .TypeDef;
+        if (line.len >= 7 and line[0] == '@' and std.mem.eql(u8, line[0..7], "@import")) return .Import;
         if (line[0] == '@') return .Index;
         return .Field;
     }

@@ -33,12 +33,13 @@ pub fn parseSqlCheckExpr(alloc: std.mem.Allocator, sql_expr: []const u8, col_nam
     return reverse_check.parseSqlCheckExpr(alloc, sql_expr, col_name);
 }
 
-/// Write SS column suffix: type + modifiers + default + check + comment + confidence
+/// Write SS column suffix: type + modifiers + default + check + generated + comment + confidence
 pub fn writeColumnSuffix(w: anytype, col: sp.SqlColumn, indexes: []const sp.SqlIndex, check_expr: ?[]const u8, dialect: Dialect) !void {
     const tr = try writeColumnType(w, col, dialect);
     const has_inline_index = try writeColumnModifiers(w, col, indexes, tr);
     try writeColumnDefault(w, col, tr);
     try writeColumnCheck(w, check_expr);
+    try writeColumnGenerated(w, col);
     try writeColumnComment(w, col);
     try writeColumnConfidence(w, col, tr, dialect, has_inline_index);
 }
@@ -158,6 +159,19 @@ fn writeColumnComment(w: anytype, col: sp.SqlColumn) !void {
         if (c.len > 0) {
             try w.writeAll(" : ");
             try w.writeAll(c);
+        }
+    }
+}
+
+/// Write generated column expression: AS (expr) [VIRTUAL|STORED].
+fn writeColumnGenerated(w: anytype, col: sp.SqlColumn) !void {
+    if (col.generated_expr) |expr| {
+        try w.writeAll(" AS ");
+        try w.writeAll(expr);
+        if (col.is_stored) {
+            try w.writeAll(" STORED");
+        } else if (col.is_virtual) {
+            try w.writeAll(" VIRTUAL");
         }
     }
 }

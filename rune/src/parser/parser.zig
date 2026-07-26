@@ -315,6 +315,9 @@ pub const Parser = struct {
                         });
                     }
                 },
+                .Import => {
+                    // @import lines are handled at the pipeline level, not here
+                },
             }
         }
 

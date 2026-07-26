@@ -9,7 +9,7 @@ pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool },
     validate: struct { input: ?[]const u8 },
     diff: struct { old: []const u8, new: []const u8, trace: bool },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool },
     version,
 };
@@ -30,6 +30,17 @@ pub const ArgError = error{
 };
 
 // ─── Shared Flag Parsers ───────────────────────────────────────
+
+/// Scan args for `--rollback` and return true if found.
+fn parseRollbackFlag(args: []const []const u8, start: usize) bool {
+    var j: usize = start;
+    while (j < args.len) : (j += 1) {
+        if (std.mem.eql(u8, args[j], "--rollback")) {
+            return true;
+        }
+    }
+    return false;
+}
 
 /// Scan args for `-o <path>` and return the output path (or null).
 fn parseOutputFlag(args: []const []const u8, start: usize) ?[]const u8 {
@@ -110,7 +121,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3) } } };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3) } } };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {

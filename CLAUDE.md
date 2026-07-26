@@ -42,6 +42,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune schema.ss -d pg                  # PostgreSQL output
 ./rune/zig-out/bin/rune schema.ss -d sqlite              # SQLite output
 ./rune/zig-out/bin/rune migrate old.ss new.ss           # Migration SQL
+./rune/zig-out/bin/rune migrate old.ss new.ss --rollback # Rollback SQL
 ./rune/zig-out/bin/rune reverse schema.sql -t             # Reverse-engineer with template extraction
 ```
 
@@ -73,9 +74,9 @@ rune/src/
 
 ### Three Pipelines
 
-1. **Forward**: `.ss` → Tokenizer → Parser → Template Resolution → Semantic Analyzer → Type Resolver → Codegen → SQL
+1. **Forward**: `.ss` → (Import Resolution) → Tokenizer → Parser → Template Resolution → Semantic Analyzer → Type Resolver → Codegen → SQL
 2. **Reverse**: SQL DDL → SqlParser → ReverseCodegen (with optional template extraction) → `.ss`
-3. **Diff/Migrate**: Two `.ss` files each compile to `ResolvedAst` → DiffEngine produces `SchemaDiff` → MigrationGenerator outputs ALTER TABLE SQL
+3. **Diff/Migrate**: Two `.ss` files each compile to `ResolvedAst` → DiffEngine produces `SchemaDiff` → MigrationGenerator outputs ALTER TABLE SQL (or rollback SQL with `--rollback`)
 
 ### IR Boundaries
 

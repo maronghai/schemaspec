@@ -22,6 +22,9 @@ pub const SqlColumn = struct {
     check_expr: ?[]const u8,
     comment: ?[]const u8,
     sym_override: ?[]const u8 = null,
+    generated_expr: ?[]const u8 = null,
+    is_stored: bool = false,
+    is_virtual: bool = false,
 };
 
 pub const SqlIndex = struct {

@@ -62,7 +62,7 @@ pub fn main(init: std.process.Init) !void {
     };
 }
 
-const VERSION = "0.10.0";
+const VERSION = "0.11.0";
 
 // ─── Command Dispatch ──────────────────────────────────────────
 
@@ -73,14 +73,26 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return;
         },
         .compile => |cmd| {
-            const file_data = if (cmd.input) |path|
-                try io_mod.readFileOrStdin(io, alloc, path)
-            else
-                try io_mod.readStdin(io, alloc);
-            return switch (parsed.target) {
-                .sql => forward.handleCompile(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
-                .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
-            };
+            if (cmd.input) |path| {
+                if (std.mem.eql(u8, path, "-")) {
+                    // "-" means read from stdin
+                    const file_data = try io_mod.readStdin(io, alloc);
+                    return switch (parsed.target) {
+                        .sql => forward.handleCompile(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
+                        .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
+                    };
+                }
+                return switch (parsed.target) {
+                    .sql => forward.handleCompileFile(io, alloc, path, cmd.output, cmd.trace, parsed.dialect),
+                    .json_schema => forward.handleCompileJsonSchemaFile(io, alloc, path, cmd.output, cmd.trace, parsed.dialect),
+                };
+            } else {
+                const file_data = try io_mod.readStdin(io, alloc);
+                return switch (parsed.target) {
+                    .sql => forward.handleCompile(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
+                    .json_schema => forward.handleCompileJsonSchema(io, alloc, file_data, cmd.output, cmd.trace, parsed.dialect),
+                };
+            }
         },
         .validate => |cmd| {
             const file_data = if (cmd.input) |path|
@@ -97,7 +109,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .migrate => |cmd| {
             return switch (parsed.target) {
-                .sql => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace),
+                .sql => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback),
                 .json_schema => diff_pipe.handleMigrateDiffJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace),
             };
         },

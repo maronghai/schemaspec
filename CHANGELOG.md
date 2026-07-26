@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.11.0] - 2026-07-26
+
+### Features
+- **Schema import/include**: Add `@import("other.ss")` syntax for multi-file schema composition. Supports relative path resolution, circular dependency detection (max depth 8), and nested imports. Imported templates and tables are merged into the current schema namespace.
+- **Migration rollback**: Add `--rollback` flag to `migrate` subcommand. Generates inverse SQL operations (CREATE→DROP, ADD COLUMN→DROP COLUMN, etc.) for reverting migrations. Handles tables, views, indexes, and foreign keys.
+
+### Architecture
+- **Pipeline-level import handling**: `@import` directives are processed at the pipeline level before tokenization, using recursive `parseOnly` for imported files (no semantic analysis on imports).
+- **New `compileFile` API**: `pipeline/forward.zig` adds `compileFile` for path-based compilation with import resolution, used by `handleCompileFile` and `handleCompileJsonSchemaFile`.
+
+### Testing
+- Add unit tests for parser sub-modules: `parse_fk.zig` (8 tests), `parse_check.zig` (11 tests), `parse_index.zig` (9 tests), `parse_table.zig` (10 tests)
+- Add reverse engineering tests for generated columns across all 3 dialects (MySQL, PostgreSQL, SQLite)
+- Add golden test files for schema import (simple table import, template import, nested imports)
+
+### Documentation
+- Update VERSION to 0.11.0
+
 ## [0.10.0] - 2026-07-26
 
 ### Features
