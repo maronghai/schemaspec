@@ -347,6 +347,7 @@ fn emitRollbackFkDiffs(
                     try backend.emitAlterDropFk(w, new_fk);
                 }
                 if (fk_diff.old_fk) |old_fk| {
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
                     try emit.emitComma(w, sub_needs_comma);
                     try w.writeAll("ADD ");
                     try backend.emitForeignKey(w, old_fk);
@@ -637,6 +638,7 @@ fn emitFkDiffs(
                     try backend.emitAlterDropFk(w, old_fk);
                 }
                 if (fk_diff.new_fk) |new_fk| {
+                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
                     try emit.emitComma(w, sub_needs_comma);
                     try w.writeAll("ADD ");
                     try backend.emitForeignKey(w, new_fk);

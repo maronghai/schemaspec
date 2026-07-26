@@ -54,14 +54,102 @@ pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !Pipelin
 fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !PipelineResult {
     const tokenized_lines = try splitLines(alloc, file_data);
 
-    // Process @import directives before tokenization
-    var processed_lines = try std.ArrayList([]const u8).initCapacity(alloc, tokenized_lines.len);
+    // Resolve @import directives
+    const imports = try resolveImports(io, alloc, tokenized_lines, import_ctx);
+
+    // Tokenize and parse the processed lines
+    const result = try tokenizeAndParseWithLines(alloc, imports.processed_lines);
+
+    // Merge imported definitions into parsed tree
+    var tree = result.tree;
+    if (imports.templates.len > 0 or imports.tables.len > 0) {
+        tree = .{
+            .schema = tree.schema,
+            .templates = try concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
+            .tables = try concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
+            .views = try concatSlices(alloc, ast_mod.View, tree.views, imports.views),
+            .sql_comments = try concatSlices(alloc, ast_mod.SqlComment, tree.sql_comments, imports.comments),
+        };
+    }
+
+    var sa = semantic.SemanticAnalyzer.init(alloc);
+    const resolved = sa.analyze(tree) catch |err| {
+        return err;
+    };
+
+    return .{ .resolved = resolved, .lines = result.tokenized, .tree = tree };
+}
+
+/// Tokenize and parse a .ss file, resolving @import directives recursively.
+/// Used for importing templates and tables from other files.
+fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !ast_mod.Ast {
+    const lines = try splitLines(alloc, file_data);
+
+    // Resolve @import directives
+    const imports = try resolveImports(io, alloc, lines, import_ctx);
+
+    // Tokenize and parse the processed lines
+    const result = try tokenizeAndParseWithLines(alloc, imports.processed_lines);
+
+    // Merge imported definitions (views and comments not merged at import level)
+    var tree = result.tree;
+    if (imports.templates.len > 0 or imports.tables.len > 0) {
+        tree = .{
+            .schema = tree.schema,
+            .templates = try concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
+            .tables = try concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
+            .views = tree.views,
+            .sql_comments = tree.sql_comments,
+        };
+    }
+
+    return tree;
+}
+
+/// Concatenate two slices into a new arena-allocated slice.
+fn concatSlices(alloc: std.mem.Allocator, comptime T: type, a: []const T, b: []const T) ![]const T {
+    var result = try std.ArrayList(T).initCapacity(alloc, a.len + b.len);
+    try result.appendSlice(alloc, a);
+    try result.appendSlice(alloc, b);
+    return try result.toOwnedSlice(alloc);
+}
+
+/// Extract the directory portion of a file path.
+fn computeBaseDir(alloc: std.mem.Allocator, file_path: []const u8) []const u8 {
+    const last_sep = std.mem.lastIndexOfScalar(u8, file_path, '/') orelse
+        std.mem.lastIndexOfScalar(u8, file_path, '\\') orelse 0;
+    return if (last_sep > 0) alloc.dupe(u8, file_path[0..last_sep]) catch "" else "";
+}
+
+/// Split file data into lines, stripping trailing \r.
+fn splitLines(alloc: std.mem.Allocator, file_data: []const u8) ![]const []const u8 {
+    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
+    var line_it = std.mem.splitScalar(u8, file_data, '\n');
+    while (line_it.next()) |line| {
+        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
+    }
+    return try lines.toOwnedSlice(alloc);
+}
+
+/// Result of resolving @import directives from a set of lines.
+const ImportResult = struct {
+    processed_lines: []const []const u8,
+    templates: []const ast_mod.Template,
+    tables: []const ast_mod.Table,
+    views: []const ast_mod.View,
+    comments: []const ast_mod.SqlComment,
+};
+
+/// Shared import resolution logic: iterates lines, resolves @import directives
+/// recursively, and returns filtered lines plus accumulated definitions.
+fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u8, import_ctx: *ImportContext) !ImportResult {
+    var processed_lines = try std.ArrayList([]const u8).initCapacity(alloc, lines.len);
     var imported_templates = try std.ArrayList(ast_mod.Template).initCapacity(alloc, 8);
     var imported_tables = try std.ArrayList(ast_mod.Table).initCapacity(alloc, 8);
     var imported_views = try std.ArrayList(ast_mod.View).initCapacity(alloc, 8);
     var imported_comments = try std.ArrayList(ast_mod.SqlComment).initCapacity(alloc, 8);
 
-    for (tokenized_lines) |line| {
+    for (lines) |line| {
         const trimmed = std.mem.trim(u8, line, " \t");
         if (trimmed.len > 8 and std.mem.startsWith(u8, trimmed, "@import")) {
             if (import_ctx.depth >= import_ctx.max_depth) {
@@ -122,174 +210,43 @@ fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: [
             // Track this import
             try import_ctx.imported.put(resolved_path, {});
 
-            // Parse imported file (templates + tables only, no semantic analysis)
-            const imported_tree = try parseOnly(io, alloc, imported_data, import_ctx);
-
-            // Merge templates, tables, views, and SQL comments (skip schema)
-            for (imported_tree.templates) |t| {
-                try imported_templates.append(alloc, t);
-            }
-            for (imported_tree.tables) |t| {
-                try imported_tables.append(alloc, t);
-            }
-            for (imported_tree.views) |v| {
-                try imported_views.append(alloc, v);
-            }
-            for (imported_tree.sql_comments) |c| {
-                try imported_comments.append(alloc, c);
-            }
-        } else {
-            try processed_lines.append(alloc, line);
-        }
-    }
-
-    // Tokenize processed lines (imports removed)
-    const tok = tokenizer.Tokenizer.init(try processed_lines.toOwnedSlice(alloc));
-    const tokenized = try tok.tokenizeAll(alloc);
-
-    // Use DiagnosticCollector for multi-error recovery
-    var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    var tree = p.parse(tokenized) catch |err| {
-        if (!diagnostics.hasErrors()) {
-            std.debug.print("error: {s}\n", .{@errorName(err)});
-        }
-        return err;
-    };
-
-    // Print collected diagnostics and abort if any errors
-    if (diagnostics.hasErrors()) {
-        diagnostics.printAll();
-        diagnostics.printSummary();
-        return error.DiagnosticsError;
-    }
-
-    // Merge imported definitions into parsed tree
-    if (imported_templates.items.len > 0 or imported_tables.items.len > 0) {
-        tree = .{
-            .schema = tree.schema,
-            .templates = try concatSlices(alloc, ast_mod.Template, tree.templates, try imported_templates.toOwnedSlice(alloc)),
-            .tables = try concatSlices(alloc, ast_mod.Table, tree.tables, try imported_tables.toOwnedSlice(alloc)),
-            .views = try concatSlices(alloc, ast_mod.View, tree.views, try imported_views.toOwnedSlice(alloc)),
-            .sql_comments = try concatSlices(alloc, ast_mod.SqlComment, tree.sql_comments, try imported_comments.toOwnedSlice(alloc)),
-        };
-    }
-
-    var sa = semantic.SemanticAnalyzer.init(alloc);
-    const resolved = sa.analyze(tree) catch |err| {
-        return err;
-    };
-
-    return .{ .resolved = resolved, .lines = tokenized, .tree = tree };
-}
-
-/// Tokenize and parse a .ss file, resolving @import directives recursively.
-/// Used for importing templates and tables from other files.
-fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !ast_mod.Ast {
-    const lines = try splitLines(alloc, file_data);
-
-    // Process @import directives
-    var processed_lines = try std.ArrayList([]const u8).initCapacity(alloc, lines.len);
-    var imported_templates = try std.ArrayList(ast_mod.Template).initCapacity(alloc, 8);
-    var imported_tables = try std.ArrayList(ast_mod.Table).initCapacity(alloc, 8);
-
-    for (lines) |line| {
-        const trimmed = std.mem.trim(u8, line, " \t");
-        if (trimmed.len > 8 and std.mem.startsWith(u8, trimmed, "@import")) {
-            if (import_ctx.depth >= import_ctx.max_depth) {
-                return error.ParseError;
-            }
-            const rest = std.mem.trimStart(u8, trimmed[7..], " ");
-            const import_path = if (rest.len >= 2 and rest[0] == '"' and rest[rest.len - 1] == '"')
-                rest[1 .. rest.len - 1]
-            else
-                rest;
-            if (import_path.len == 0) return error.ParseError;
-
-            const resolved_path = if (import_ctx.base_dir.len > 0)
-                try std.fmt.allocPrint(alloc, "{s}/{s}", .{ import_ctx.base_dir, import_path })
-            else
-                try alloc.dupe(u8, import_path);
-
-            if (import_ctx.imported.contains(resolved_path)) return error.ParseError;
-
-            const imported_data = std.Io.Dir.cwd().readFileAlloc(
-                io,
-                resolved_path,
-                alloc,
-                .unlimited,
-            ) catch return error.ParseError;
-
-            try import_ctx.imported.put(resolved_path, {});
-
+            // Parse imported file: recursively resolve its imports, then tokenize+parse
             var child_ctx = ImportContext{
                 .base_dir = computeBaseDir(alloc, resolved_path),
                 .imported = import_ctx.imported,
                 .depth = import_ctx.depth + 1,
             };
+            const child_lines = try splitLines(alloc, imported_data);
+            const child_imports = try resolveImports(io, alloc, child_lines, &child_ctx);
+            const child_result = try tokenizeAndParseWithLines(alloc, child_imports.processed_lines);
+            var child_tree = child_result.tree;
+            if (child_imports.templates.len > 0 or child_imports.tables.len > 0) {
+                child_tree = .{
+                    .schema = child_tree.schema,
+                    .templates = try concatSlices(alloc, ast_mod.Template, child_tree.templates, child_imports.templates),
+                    .tables = try concatSlices(alloc, ast_mod.Table, child_tree.tables, child_imports.tables),
+                    .views = child_tree.views,
+                    .sql_comments = child_tree.sql_comments,
+                };
+            }
 
-            const child_tree = try parseOnly(io, alloc, imported_data, &child_ctx);
+            // Merge all definition types
             for (child_tree.templates) |t| try imported_templates.append(alloc, t);
             for (child_tree.tables) |t| try imported_tables.append(alloc, t);
+            for (child_tree.views) |v| try imported_views.append(alloc, v);
+            for (child_tree.sql_comments) |c| try imported_comments.append(alloc, c);
         } else {
             try processed_lines.append(alloc, line);
         }
     }
 
-    const tok = tokenizer.Tokenizer.init(try processed_lines.toOwnedSlice(alloc));
-    const tokenized = try tok.tokenizeAll(alloc);
-    var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    var tree = p.parse(tokenized) catch |err| {
-        if (!diagnostics.hasErrors()) {
-            std.debug.print("error: {s}\n", .{@errorName(err)});
-        }
-        return err;
+    return .{
+        .processed_lines = try processed_lines.toOwnedSlice(alloc),
+        .templates = try imported_templates.toOwnedSlice(alloc),
+        .tables = try imported_tables.toOwnedSlice(alloc),
+        .views = try imported_views.toOwnedSlice(alloc),
+        .comments = try imported_comments.toOwnedSlice(alloc),
     };
-
-    if (diagnostics.hasErrors()) {
-        diagnostics.printAll();
-        diagnostics.printSummary();
-        return error.DiagnosticsError;
-    }
-
-    // Merge imported definitions
-    if (imported_templates.items.len > 0 or imported_tables.items.len > 0) {
-        tree = .{
-            .schema = tree.schema,
-            .templates = try concatSlices(alloc, ast_mod.Template, tree.templates, try imported_templates.toOwnedSlice(alloc)),
-            .tables = try concatSlices(alloc, ast_mod.Table, tree.tables, try imported_tables.toOwnedSlice(alloc)),
-            .views = tree.views,
-            .sql_comments = tree.sql_comments,
-        };
-    }
-
-    return tree;
-}
-
-/// Concatenate two slices into a new arena-allocated slice.
-fn concatSlices(alloc: std.mem.Allocator, comptime T: type, a: []const T, b: []const T) ![]const T {
-    var result = try std.ArrayList(T).initCapacity(alloc, a.len + b.len);
-    try result.appendSlice(alloc, a);
-    try result.appendSlice(alloc, b);
-    return try result.toOwnedSlice(alloc);
-}
-
-/// Extract the directory portion of a file path.
-fn computeBaseDir(alloc: std.mem.Allocator, file_path: []const u8) []const u8 {
-    const last_sep = std.mem.lastIndexOfScalar(u8, file_path, '/') orelse
-        std.mem.lastIndexOfScalar(u8, file_path, '\\') orelse 0;
-    return if (last_sep > 0) alloc.dupe(u8, file_path[0..last_sep]) catch "" else "";
-}
-
-/// Split file data into lines, stripping trailing \r.
-fn splitLines(alloc: std.mem.Allocator, file_data: []const u8) ![]const []const u8 {
-    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
-    var line_it = std.mem.splitScalar(u8, file_data, '\n');
-    while (line_it.next()) |line| {
-        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
-    }
-    return try lines.toOwnedSlice(alloc);
 }
 
 /// Tokenize and parse a .ss file into AST and tokenized lines.
@@ -312,12 +269,6 @@ fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []const u8
         return error.DiagnosticsError;
     }
     return .{ .tree = tree, .tokenized = tokenized };
-}
-
-/// Tokenize lines and parse into AST with diagnostic error handling.
-fn tokenizeAndParse(alloc: std.mem.Allocator, lines: []const []const u8) !ast_mod.Ast {
-    const result = try tokenizeAndParseWithLines(alloc, lines);
-    return result.tree;
 }
 
 // ─── Public API ────────────────────────────────────────────────
