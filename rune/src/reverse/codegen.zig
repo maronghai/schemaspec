@@ -1,6 +1,5 @@
 const std = @import("std");
 const sp = @import("../parser/sql_parser.zig");
-const reverse_map = @import("../reverse/map.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const Dialect = sp.Dialect;
 const template_ext = @import("../reverse/template_extraction.zig");

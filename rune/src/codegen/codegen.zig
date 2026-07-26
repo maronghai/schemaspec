@@ -1,11 +1,9 @@
 const std = @import("std");
-const ast_mod = @import("../types/ast.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
 const columns_mod = @import("columns.zig");
 const indexes_mod = @import("indexes.zig");
-const CheckConstraint = ast_mod.CheckConstraint;
 const Writer = std.Io.Writer;
 
 pub const Dialect = dialect_enum.Dialect;
@@ -67,15 +65,6 @@ pub const Codegen = struct {
             }
         }
 
-        try w.flush();
-        var out = aw.toArrayList();
-        return try out.toOwnedSlice(self.alloc);
-    }
-
-    pub fn generateSingleTypedTable(self: *Codegen, table: typed_ast_mod.TypedTable) ![]const u8 {
-        var aw = std.Io.Writer.Allocating.init(self.alloc);
-        const w = &aw.writer;
-        try self.generateTypedTable(w, table);
         try w.flush();
         var out = aw.toArrayList();
         return try out.toOwnedSlice(self.alloc);
@@ -158,11 +147,6 @@ pub const Codegen = struct {
     pub fn emitColumnDefEx(self: Codegen, w: *Writer, col: typed_ast_mod.TypedColumn, skip_name: bool) !void {
         return columns_mod.emitColumnDefEx(self.backend, w, col, skip_name);
     }
-
-    pub fn generateCheckExpr(self: Codegen, w: *Writer, field_name: []const u8, ck: CheckConstraint) !void {
-        _ = self;
-        try dialect_mod.emitCheckExpr(w, field_name, ck);
-    }
 };
 
 // ─── Diagnostic ──────────────────────────────────────────────
@@ -186,4 +170,3 @@ pub fn diagnosticTrace(typed: typed_ast_mod.TypedAst) void {
     std.debug.print("FKs:       {d}\n", .{fk_count});
     std.debug.print("Indexes:   {d}\n\n", .{index_count});
 }
-

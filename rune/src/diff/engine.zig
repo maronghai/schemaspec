@@ -8,9 +8,6 @@ const diff_types = @import("../diff/types.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const utils = @import("../utils.zig");
 const Field = ast_mod.Field;
-const TypeInfo = ast_mod.TypeInfo;
-const IndexDecl = ast_mod.IndexDecl;
-const FkDecl = ast_mod.FkDecl;
 const Dialect = dialect_enum.Dialect;
 
 // ─── Re-export sub-module types ────────────────────────────

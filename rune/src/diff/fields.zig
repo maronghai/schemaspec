@@ -6,7 +6,6 @@ const dialect_enum = @import("../dialect/enum.zig");
 const Field = ast_mod.Field;
 const TypeInfo = ast_mod.TypeInfo;
 const DefaultVal = ast_mod.DefaultVal;
-const Modifier = ast_mod.Modifier;
 const CheckConstraint = ast_mod.CheckConstraint;
 const Dialect = dialect_enum.Dialect;
 pub const FieldDiff = diff_types.FieldDiff;

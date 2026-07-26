@@ -17,7 +17,7 @@ fn visitFieldCheckModifiers(ctx: *ModifierValidationCtx, field: *const Field, _:
         switch (mod.kind) {
             .auto_inc_pk, .auto_inc => {
                 if (!type_map.isNumericSymType(field.type_info) and !type_map.isDatetimeSymType(field.type_info)) {
-                    const mod_name = if (mod.kind == .auto_inc_pk) "auto_increment" else "auto_increment";
+                    const mod_name = if (mod.kind == .auto_inc_pk) "auto_increment_primary_key" else "auto_increment";
                     ctx.diagnostics.push(.{
                         .severity = .warning,
                         .line_no = mod.line_no,

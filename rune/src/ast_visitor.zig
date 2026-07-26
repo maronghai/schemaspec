@@ -134,7 +134,6 @@ pub fn AstVisitor(comptime Context: type) type {
                 }
             }
         }
-
     };
 }
 

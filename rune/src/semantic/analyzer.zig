@@ -7,7 +7,6 @@ const pm = @import("../semantic/pass_manager.zig");
 pub const PassContext = pm.PassContext;
 pub const SemanticPass = pm.SemanticPass;
 pub const DEFAULT_PASSES = pm.DEFAULT_PASSES;
-const ast = ast_mod.Ast;
 const Ast = ast_mod.Ast;
 const ResolvedTable = resolved_ast.ResolvedTable;
 const ResolvedAst = resolved_ast.ResolvedAst;

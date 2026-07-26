@@ -21,26 +21,20 @@ fn quoteChar(dialect: Dialect) u8 {
 
 /// Core diff formatting logic — writes to any std.io.Writer.
 fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8) !void {
-    var has_changes = false;
-
     for (d.dropped_tables) |tname| {
         try w.print("-- DROP TABLE {c}{s}{c}\n", .{ q, tname, q });
-        has_changes = true;
     }
 
     for (d.view_diffs) |vd| {
         switch (vd.action) {
             .create => {
                 try w.print("-- CREATE VIEW {c}{s}{c}\n", .{ q, vd.name, q });
-                has_changes = true;
             },
             .drop => {
                 try w.print("-- DROP VIEW {c}{s}{c}\n", .{ q, vd.name, q });
-                has_changes = true;
             },
             .modify => {
                 try w.print("-- ALTER VIEW {c}{s}{c} (query changed)\n", .{ q, vd.name, q });
-                has_changes = true;
             },
         }
     }
@@ -48,7 +42,6 @@ fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8) !void {
     for (d.table_diffs) |td| {
         if (td.action == .create) {
             try w.print("-- CREATE TABLE {c}{s}{c}\n", .{ q, td.name, q });
-            has_changes = true;
             for (td.field_diffs) |fd| {
                 try w.print("  + {s}\n", .{fd.name});
             }
@@ -136,7 +129,6 @@ fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8) !void {
                 },
             }
         }
-        if (table_has_changes) has_changes = true;
     }
 }
 

@@ -7,6 +7,7 @@ const migrate = @import("../diff/migrate.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const pipeline_forward = @import("../pipeline/forward.zig");
+const io_mod = @import("../io.zig");
 
 // ─── Diff/Migrate Pipeline ────────────────────────────────────
 
@@ -27,14 +28,14 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, ne
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
     const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, dialect);
-    try @import("../io.zig").writeOutput(io, diff_text, null);
+    try io_mod.writeOutput(io, diff_text, null);
 }
 
 pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
     const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
-    try @import("../io.zig").writeOutput(io, json_text, output_path);
+    try io_mod.writeOutput(io, json_text, output_path);
 }
 
 pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
@@ -43,14 +44,15 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8,
     const new_typed = try tr.resolve(result.new_ast, dialect);
     if (trace) traceDiffResult(result);
     const migration_sql = try migrate.generateFromDiff(alloc, result.schema_diff, new_typed, result.new_ast, dialect);
-    try @import("../io.zig").writeOutput(io, migration_sql, output_path);
+    try io_mod.writeOutput(io, migration_sql, output_path);
 }
 
-pub fn handleMigrateJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
+// TODO: Implement proper migration JSON output (currently produces diff JSON for migrate --json-schema)
+pub fn handleMigrateDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     if (trace) traceDiffResult(result);
     const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
-    try @import("../io.zig").writeOutput(io, json_text, output_path);
+    try io_mod.writeOutput(io, json_text, output_path);
 }
 
 // ─── Trace Helpers ──────────────────────────────────────────────

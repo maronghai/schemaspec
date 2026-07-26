@@ -322,7 +322,7 @@ Rune uses a three-layer type mapping system:
 9. **Template/Semantic separation**: Template resolution (inheritance, slot merging) is independent of semantic passes (autofk, suffix_inference, validation). Each can be modified without affecting the other.
 10. **Custom type system**: Users can define named type aliases via `~` directives in the schema block. Custom types support dialect-specific overrides and are resolved during type resolution (not parsing).
 11. **SQLite roundtrip preservation**: `-- @sym col_name type` metadata comments preserve original SS types through lossy SQLite type affinity. Forward compiler emits comments; reverse compiler parses them for exact type restoration.
-12. **Unified ReverseResult**: `dialect.zig` defines the single `ReverseResult` struct (`sym`, `omit`, `score`, `is_parameterized`). Both `type_registry.zig` and `reverse_column.zig` re-export it — zero type duplication across the reverse pipeline.
+12. **Unified ReverseResult**: `dialect.zig` defines the single `ReverseResult` struct (`sym`, `omit`, `score`). Both `reverse/map.zig` and `reverse/column.zig` re-export it — zero type duplication across the reverse pipeline.
 
 ## Custom Type System
 
