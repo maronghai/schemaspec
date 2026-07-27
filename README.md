@@ -229,8 +229,9 @@ Three IR boundaries: `Line[]` → `Ast` → `ResolvedAst` → `TypedAst` → SQL
 
 ### Key Design
 
-- **DialectBackend vtable**: 26+6 function pointers + 1 data field (`quoteChar`). Zero `switch(dialect)` in codegen or type mapping. Adding a dialect = new `dialect_<name>.zig` (~200 lines, self-contained type mapping).
-- **Semantic Pass Manager**: 8 dependency-ordered passes. New pass = new `pass/<name>.zig`.
+- **DialectBackend vtable**: 26+6 function pointers + 1 data field (`quoteChar`). Zero `switch(dialect)` in codegen or type mapping. Adding a dialect = new `dialect_<name>.zig` (~200 lines, self-contained type mapping). Vtable organized into 6 logical sections: Shared, Forward, Alter, TypeMapping, Optional, and Behavioral flags.
+- **Semantic Pass Manager**: 8 dependency-ordered passes with access pattern declarations (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). New pass = new `pass/<name>.zig`. `canRunConcurrently()` detects parallelization opportunities.
+- **Import Cache**: Memoized import resolution prevents re-parsing the same file when imported by multiple parents.
 - **AST-level diff**: Semantic comparison, not text diff. Detects renames, type changes, structural differences.
 
 ### Type Mapping

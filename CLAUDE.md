@@ -21,15 +21,18 @@ cd rune && zig build bench -- --check          # Check for regressions vs baseli
 ### Golden File Tests (shell-based, compare compiler output against .sql golden files)
 
 ```bash
-bash tests/test.sh                  # MySQL (85 tests)
+bash tests/test.sh                  # MySQL (86 tests)
 bash tests/test_postgres.sh         # PostgreSQL (83 tests)
 bash tests/test_sqlite.sh           # SQLite (24 tests)
 bash tests/test_migrate.sh          # Migration (34 tests)
 bash tests/test_reverse.sh          # Reverse engineering (15 tests)
 bash tests/test_diff.sh             # Schema diff (12 tests)
 bash tests/test_error_recovery.sh   # Error recovery (12 tests)
-bash tests/test_json_schema.sh      # JSON Schema (1 test)
+bash tests/test_json_schema.sh      # JSON Schema (3 tests)
 bash tests/test_roundtrip.sh        # Round-trip (20 tests)
+bash tests/test_imports.sh          # Import system (6 tests)
+bash tests/test_stdin.sh            # Stdin pipeline (4 tests)
+bash tests/test_bench.sh            # Benchmark regression (--save/--check)
 ```
 
 Run a single golden test by filter: `bash tests/test.sh 01` (matches test name substring).
@@ -84,9 +87,9 @@ rune/src/
 
 ### Key Design Patterns
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping).
+- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping). The vtable is organized into 6 logical sections: Shared, Forward, Alter, TypeMapping, Optional, and Behavioral flags.
 
-- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (8 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
+- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (8 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`) for conflict detection. `canRunConcurrently()` checks if two passes can run in parallel (no dependency, no write-write conflict). New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
 
 - **ResolvedAst IR** (`types/resolved_ast.zig`): `ResolvedTable` + `ResolvedAst` — output of template resolution + semantic passes. Separated from `types/ast.zig` (parser output) for clean IR boundary. Re-exported from `ast.zig` for backward compatibility.
 
@@ -163,7 +166,7 @@ rune/src/
 ### Testing
 
 - **Unit tests**: Zig `test` blocks — inline in production files, or in dedicated `*_test.zig` files (`diff_test.zig`, `codegen_test.zig`, `diff/migrate_test.zig`, `ast_visitor_test.zig`, `diff_fields_test.zig`, `parser/sql_parser_test.zig`, `semantic/analyzer.zig`). Each semantic pass has direct unit tests in `semantic/pass/*.zig`. Dialect backends (`mysql.zig`, `pg.zig`, `sqlite.zig`) have `renderType` + `quoteChar` tests. Pipeline tests in `pipeline/forward.zig` and `pipeline/diff.zig`. Pass manager tests in `semantic/pass_manager.zig`. Run via `zig build test`
-- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. 9 scripts: `test.sh` (MySQL, 85), `test_postgres.sh` (PG, 83), `test_sqlite.sh` (SQLite, 24), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (15), `test_error_recovery.sh` (12), `test_json_schema.sh` (1), `test_roundtrip.sh` (24). Run a single test by filter: `bash tests/test.sh 01`
+- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. 12 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 83), `test_sqlite.sh` (SQLite, 24), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (15), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_roundtrip.sh` (24), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
 ## Conventions

@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.30.0] - 2026-07-27
+
+### Architecture
+- **DialectBackend vtable reorganization**: Split into 6 logical sections (Shared/Forward/Alter/TypeMapping/Optional/Behavioral) with clear SECTION comments. Updated `validateBackend` to validate methods by section.
+- **PassContext read/write isolation**: Added `PassAccess` struct with `reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types` fields. Added `canRunConcurrently()` function to detect if two passes can run in parallel. Added 4 unit tests for concurrency detection.
+- **Import parse cache**: Added `ImportCache` memoization (`StringHashMap(CachedImport)`) in `pipeline/forward.zig`. Imported files are now cached to avoid re-parsing when the same file is imported by multiple parents.
+
+### Bug Fixes
+- **Fix `undefined` io parameter**: Changed `compileInternal` in `pipeline/forward.zig` to accept `?std.Io` instead of `std.Io`. Callers now pass `null` when imports are disabled, preventing potential crashes from undefined behavior.
+- **Fix DiagnosticCollector double-printing**: `record()` now aliases `push()` instead of calling `printDiagnostic()` + `push()`. This eliminates duplicate diagnostic output when callers also use `printAll()`.
+- **Fix CLI `-o` flag with stdin**: When using `rune -o output.sql` (no input file), the `-o` flag was not being parsed correctly. The compiler now detects when the first positional arg starts with `-` and treats it as the default compile command from stdin.
+
+### Code Quality
+- **Extract `emitTraceAndStats` helper**: Deduplicated 4 identical trace/stats blocks in `pipeline/diff.zig` into a single helper function.
+- **DialectBackend vtable reorganized**: Methods grouped into Shared (4), Forward (11), Alter (9), TypeMapping (2), Optional (7), Behavioral (3) sections with clear documentation.
+
+### Testing
+- **Import system tests**: Added `tests/test_imports.sh` with 6 test cases: basic import, template import, nested imports (A→B→C), circular import detection, missing file detection, and dialect-specific imports.
+- **Stdin pipeline tests**: Added `tests/test_stdin.sh` with 4 test cases: basic stdin, stdin with dialect flag, stdin with output flag, stdin with check mode.
+- **Benchmark regression test**: Added `tests/test_bench.sh` with `--save` and `--check` modes. Compares current build performance against saved baseline with 20% regression threshold.
+- **JSON Schema golden tests**: Added 2 new test files (`json-schema-fk.ss`, `json-schema-template.ss`) with corresponding golden files for FK/enum and template inheritance scenarios.
+- **Pass manager unit tests**: Added 4 tests for `canRunConcurrently()`: independent passes, dependent passes, write-write conflict, and read-write compatibility.
+
 ## [0.29.0] - 2026-07-27
 
 ### Added

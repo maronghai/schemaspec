@@ -136,9 +136,8 @@ pub const DiagnosticCollector = struct {
         };
     }
 
-    /// Record a diagnostic using the existing printDiagnostic + store pattern.
+    /// Record a diagnostic (alias for push). Prefer push() for new code.
     pub fn record(self: *DiagnosticCollector, d: Diagnostic) void {
-        printDiagnostic(d);
         self.push(d);
     }
 

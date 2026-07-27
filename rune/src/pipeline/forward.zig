@@ -28,10 +28,22 @@ pub const PipelineResult = struct {
 /// Set of imported file paths for circular dependency detection.
 const ImportSet = std.StringHashMap(void);
 
+/// Cached parse result for a previously imported file.
+const CachedImport = struct {
+    templates: []const ast_mod.Template,
+    tables: []const ast_mod.Table,
+    views: []const ast_mod.View,
+    comments: []const ast_mod.SqlComment,
+};
+
+/// Cache of parsed import files — keyed by resolved path.
+const ImportCache = std.StringHashMap(CachedImport);
+
 /// Context for resolving @import directives during parsing.
 pub const ImportContext = struct {
     base_dir: []const u8,
     imported: *ImportSet,
+    cache: ?*ImportCache = null,
     depth: u8 = 0,
     max_depth: u8 = 8,
 };
@@ -47,9 +59,9 @@ const CompileFlags = struct {
 
 /// Unified internal compilation pipeline.
 /// Handles tokenize → parse → (optional imports) → (optional semantic) → ResolvedAst.
-/// `io` is only used when `resolve_imports` is true; pass `undefined` safely when imports are disabled.
+/// `io` is only used when `resolve_imports` is true; pass null when imports are disabled.
 fn compileInternal(
-    io: std.Io,
+    io: ?std.Io,
     alloc: std.mem.Allocator,
     file_data: []const u8,
     import_ctx: ?*ImportContext,
@@ -58,8 +70,8 @@ fn compileInternal(
     const raw_lines = try splitLines(alloc, file_data);
 
     // Resolve @import directives only when enabled and io is available
-    const imports_result = if (flags.resolve_imports and import_ctx != null)
-        try resolveImports(io, alloc, raw_lines, import_ctx.?)
+    const imports_result = if (flags.resolve_imports and import_ctx != null and io != null)
+        try resolveImports(io.?, alloc, raw_lines, import_ctx.?)
     else
         null;
 
@@ -101,7 +113,7 @@ fn compileInternal(
 /// Shared tokenizer → parser → semantic pipeline.
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
 pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
-    const result = try compileInternal(undefined, alloc, file_data, null, .{});
+    const result = try compileInternal(null, alloc, file_data, null, .{});
     return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
 }
 
@@ -229,31 +241,61 @@ fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u
             // Track this import
             try import_ctx.imported.put(resolved_path, {});
 
-            // Parse imported file: recursively resolve its imports, then tokenize+parse
-            var child_ctx = ImportContext{
-                .base_dir = computeBaseDir(alloc, resolved_path),
-                .imported = import_ctx.imported,
-                .depth = import_ctx.depth + 1,
-            };
-            const child_lines = try splitLines(alloc, imported_data);
-            const child_imports = try resolveImports(io, alloc, child_lines, &child_ctx);
-            const child_result = try tokenizeAndParseWithLines(alloc, child_imports.processed_lines);
-            var child_tree = child_result.tree;
-            if (child_imports.templates.len > 0 or child_imports.tables.len > 0) {
-                child_tree = .{
-                    .schema = child_tree.schema,
-                    .templates = try concatSlices(alloc, ast_mod.Template, child_tree.templates, child_imports.templates),
-                    .tables = try concatSlices(alloc, ast_mod.Table, child_tree.tables, child_imports.tables),
-                    .views = child_tree.views,
-                    .sql_comments = child_tree.sql_comments,
-                };
+            // Check cache before parsing
+            var child_tree: ast_mod.Ast = undefined;
+            var child_imports: ImportResult = undefined;
+            var cache_hit = false;
+
+            if (import_ctx.cache) |cache| {
+                if (cache.get(resolved_path)) |cached| {
+                    // Cache hit — use stored definitions, skip re-parsing
+                    for (cached.templates) |t| try imported_templates.append(alloc, t);
+                    for (cached.tables) |t| try imported_tables.append(alloc, t);
+                    for (cached.views) |v| try imported_views.append(alloc, v);
+                    for (cached.comments) |c| try imported_comments.append(alloc, c);
+                    cache_hit = true;
+                }
             }
 
-            // Merge all definition types
-            for (child_tree.templates) |t| try imported_templates.append(alloc, t);
-            for (child_tree.tables) |t| try imported_tables.append(alloc, t);
-            for (child_tree.views) |v| try imported_views.append(alloc, v);
-            for (child_tree.sql_comments) |c| try imported_comments.append(alloc, c);
+            if (!cache_hit) {
+                // Parse imported file: recursively resolve its imports, then tokenize+parse
+                var child_ctx = ImportContext{
+                    .base_dir = computeBaseDir(alloc, resolved_path),
+                    .imported = import_ctx.imported,
+                    .cache = import_ctx.cache,
+                    .depth = import_ctx.depth + 1,
+                };
+                const child_lines = try splitLines(alloc, imported_data);
+                child_imports = try resolveImports(io, alloc, child_lines, &child_ctx);
+                const child_result = try tokenizeAndParseWithLines(alloc, child_imports.processed_lines);
+                child_tree = child_result.tree;
+                if (child_imports.templates.len > 0 or child_imports.tables.len > 0) {
+                    child_tree = .{
+                        .schema = child_tree.schema,
+                        .templates = try concatSlices(alloc, ast_mod.Template, child_tree.templates, child_imports.templates),
+                        .tables = try concatSlices(alloc, ast_mod.Table, child_tree.tables, child_imports.tables),
+                        .views = child_tree.views,
+                        .sql_comments = child_tree.sql_comments,
+                    };
+                }
+
+                // Merge all definition types
+                for (child_tree.templates) |t| try imported_templates.append(alloc, t);
+                for (child_tree.tables) |t| try imported_tables.append(alloc, t);
+                for (child_tree.views) |v| try imported_views.append(alloc, v);
+                for (child_tree.sql_comments) |c| try imported_comments.append(alloc, c);
+
+                // Store in cache for future imports of the same file
+                if (import_ctx.cache) |cache| {
+                    const cached = CachedImport{
+                        .templates = try concatSlices(alloc, ast_mod.Template, child_tree.templates, child_imports.templates),
+                        .tables = try concatSlices(alloc, ast_mod.Table, child_tree.tables, child_imports.tables),
+                        .views = child_tree.views,
+                        .comments = child_tree.sql_comments,
+                    };
+                    try cache.put(resolved_path, cached);
+                }
+            }
         } else {
             try processed_lines.append(alloc, line);
         }
@@ -300,12 +342,17 @@ pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8) 
     var imported = ImportSet.init(alloc);
     defer imported.deinit();
 
+    // Cache for memoizing parsed imports (avoids re-parsing the same file)
+    var cache = ImportCache.init(alloc);
+    defer cache.deinit();
+
     // Track the initial file to prevent self-import
     try imported.put(file_path, {});
 
     var ctx = ImportContext{
         .base_dir = base_dir,
         .imported = &imported,
+        .cache = &cache,
     };
 
     return compilePipelineWithImports(io, alloc, file_data, &ctx);

@@ -47,11 +47,26 @@ pub const CommentResult = enum {
 };
 
 pub const DialectBackend = struct {
-    // ── Core methods (all dialects must implement) ──
+    // ══════════════════════════════════════════════════════════════
+    // SECTION 1: Shared Methods (used by multiple subsystems)
+    // ══════════════════════════════════════════════════════════════
 
     /// Quote an identifier (e.g. column/table name) with the dialect's quote character.
     /// MySQL: `name`, PG/SQLite: "name".
     quoteIdent: *const fn (w: *Writer, name: []const u8) anyerror!void,
+
+    /// Render a SqlType to dialect-specific SQL type string. Single source of truth for type rendering.
+    renderType: *const fn (w: *Writer, sql_type: SqlType) anyerror!void,
+
+    /// Render a FOREIGN KEY constraint (inline or standalone). Single source of truth for FK rendering.
+    emitForeignKey: *const fn (w: *Writer, fk: ast_mod.FkDecl) anyerror!void,
+
+    /// Emit CREATE VIEW statement.
+    emitCreateView: *const fn (w: *Writer, name: []const u8, query: []const u8) anyerror!void,
+
+    // ══════════════════════════════════════════════════════════════
+    // SECTION 2: Forward Methods (CREATE TABLE codegen)
+    // ══════════════════════════════════════════════════════════════
 
     /// Emit a standalone INDEX definition (after all column definitions).
     /// `needs_comma`: output param — set to true if a comma was emitted (caller manages comma state).
@@ -88,7 +103,9 @@ pub const DialectBackend = struct {
     /// Emit a standalone index for an inline-indexed column (after column definitions).
     emitInlineColumnStandaloneIndex: *const fn (w: *Writer, table_name: []const u8, col_name: []const u8) anyerror!void,
 
-    // ── ALTER TABLE methods (for diff/migrate) ──
+    // ══════════════════════════════════════════════════════════════
+    // SECTION 3: Alter Methods (diff/migrate operations)
+    // ══════════════════════════════════════════════════════════════
 
     /// Emit ALTER TABLE ... DROP COLUMN.
     emitAlterDropColumn: *const fn (w: *Writer, col_name: []const u8) anyerror!void,
@@ -117,16 +134,20 @@ pub const DialectBackend = struct {
     /// Emit ENGINE change in ALTER TABLE (MySQL only).
     emitAlterEngine: *const fn (w: *Writer, engine: ?[]const u8) anyerror!void,
 
-    /// Emit CREATE VIEW statement.
-    emitCreateView: *const fn (w: *Writer, name: []const u8, query: []const u8) anyerror!void,
+    // ══════════════════════════════════════════════════════════════
+    // SECTION 4: Type Mapping (SS symbol → SqlType)
+    // ══════════════════════════════════════════════════════════════
 
-    /// Render a SqlType to dialect-specific SQL type string. Single source of truth for type rendering.
-    renderType: *const fn (w: *Writer, sql_type: SqlType) anyerror!void,
+    /// Look up SqlType for a SS symbol (e.g. "n" → .int, "B" → .blob).
+    /// Each dialect owns its own forward mapping — adding a new dialect is a local change.
+    lookupSym: *const fn (sym: []const u8) ?SqlType,
 
-    /// Render a FOREIGN KEY constraint (inline or standalone). Single source of truth for FK rendering.
-    emitForeignKey: *const fn (w: *Writer, fk: ast_mod.FkDecl) anyerror!void,
+    /// Quote character for identifiers in diff output (backtick for MySQL, double-quote for PG/SQLite).
+    quoteChar: u8,
 
-    // ── Optional methods (null = no-op for this dialect) ──
+    // ══════════════════════════════════════════════════════════════
+    // SECTION 5: Optional Methods (null = no-op for this dialect)
+    // ══════════════════════════════════════════════════════════════
 
     /// CREATE DATABASE — only MySQL/PG implement; SQLite has no concept of databases.
     emitCreateDatabase: ?*const fn (w: *Writer, name: []const u8, charset: ?[]const u8) anyerror!void = null,
@@ -143,16 +164,9 @@ pub const DialectBackend = struct {
     /// Emit GENERATED ALWAYS AS (expr) [VIRTUAL|STORED] for generated columns. null = dialect doesn't support.
     emitGeneratedColumn: ?*const fn (w: *Writer, expr: []const u8, is_stored: bool) anyerror!void = null,
 
-    // ── Forward type mapping ──
-
-    /// Look up SqlType for a SS symbol (e.g. "n" → .int, "B" → .blob).
-    /// Each dialect owns its own forward mapping — adding a new dialect is a local change.
-    lookupSym: *const fn (sym: []const u8) ?SqlType,
-
-    /// Quote character for identifiers in diff output (backtick for MySQL, double-quote for PG/SQLite).
-    quoteChar: u8,
-
-    // ── Behavioral flags (eliminate dialect checks in caller) ──
+    // ══════════════════════════════════════════════════════════════
+    // SECTION 6: Behavioral Flags (eliminate dialect checks in caller)
+    // ══════════════════════════════════════════════════════════════
 
     /// MySQL CHANGE COLUMN requires the full column definition after the rename.
     rename_needs_column_def: bool,
@@ -177,9 +191,13 @@ pub fn getBackend(dialect: Dialect) DialectBackend {
 
 fn validateBackend(comptime backend: DialectBackend) void {
     comptime {
-        // Validate required function pointers are callable (non-null)
-        // This catches typos or missing fields in backend definitions at compile time.
+        // ── Section 1: Shared methods ──
         if (@typeInfo(@TypeOf(backend.quoteIdent)) != .pointer) @compileError("quoteIdent must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.renderType)) != .pointer) @compileError("renderType must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitForeignKey)) != .pointer) @compileError("emitForeignKey must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitCreateView)) != .pointer) @compileError("emitCreateView must be a function pointer");
+
+        // ── Section 2: Forward methods ──
         if (@typeInfo(@TypeOf(backend.emitIndex)) != .pointer) @compileError("emitIndex must be a function pointer");
         if (@typeInfo(@TypeOf(backend.emitTimestampModifier)) != .pointer) @compileError("emitTimestampModifier must be a function pointer");
         if (@typeInfo(@TypeOf(backend.emitTableFooter)) != .pointer) @compileError("emitTableFooter must be a function pointer");
@@ -191,6 +209,8 @@ fn validateBackend(comptime backend: DialectBackend) void {
         if (@typeInfo(@TypeOf(backend.emitInlineColumnComment)) != .pointer) @compileError("emitInlineColumnComment must be a function pointer");
         if (@typeInfo(@TypeOf(backend.emitEnumTypeCheck)) != .pointer) @compileError("emitEnumTypeCheck must be a function pointer");
         if (@typeInfo(@TypeOf(backend.emitInlineColumnStandaloneIndex)) != .pointer) @compileError("emitInlineColumnStandaloneIndex must be a function pointer");
+
+        // ── Section 3: Alter methods ──
         if (@typeInfo(@TypeOf(backend.emitAlterDropColumn)) != .pointer) @compileError("emitAlterDropColumn must be a function pointer");
         if (@typeInfo(@TypeOf(backend.emitAlterModifyColumn)) != .pointer) @compileError("emitAlterModifyColumn must be a function pointer");
         if (@typeInfo(@TypeOf(backend.emitAlterRenameColumn)) != .pointer) @compileError("emitAlterRenameColumn must be a function pointer");
@@ -200,9 +220,8 @@ fn validateBackend(comptime backend: DialectBackend) void {
         if (@typeInfo(@TypeOf(backend.commentResult)) != .pointer) @compileError("commentResult must be a function pointer");
         if (@typeInfo(@TypeOf(backend.emitAlterTableComment)) != .pointer) @compileError("emitAlterTableComment must be a function pointer");
         if (@typeInfo(@TypeOf(backend.emitAlterEngine)) != .pointer) @compileError("emitAlterEngine must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitCreateView)) != .pointer) @compileError("emitCreateView must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.renderType)) != .pointer) @compileError("renderType must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitForeignKey)) != .pointer) @compileError("emitForeignKey must be a function pointer");
+
+        // ── Section 4: Type mapping ──
         if (@typeInfo(@TypeOf(backend.lookupSym)) != .pointer) @compileError("lookupSym must be a function pointer");
     }
 }

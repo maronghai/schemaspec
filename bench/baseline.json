@@ -1,0 +1,7 @@
+{
+  "file": "03-all-types.ss",
+  "iterations": 3,
+  "avg_us": 87913,
+  "min_us": 87225,
+  "max_us": 88786
+}

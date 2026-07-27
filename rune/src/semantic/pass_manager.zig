@@ -19,23 +19,36 @@ pub const PassContext = struct {
     symbol_table: symbol_table_mod.SymbolTable = undefined,
 };
 
+/// Access mode for a semantic pass — declares read/write behavior for conflict detection.
+pub const PassAccess = struct {
+    /// Pass reads table definitions (fields, FKs, indexes).
+    reads_tables: bool = true,
+    /// Pass modifies table definitions (adds/removes fields, FKs, indexes).
+    writes_tables: bool = false,
+    /// Pass adds or removes tables from the list.
+    modifies_table_list: bool = false,
+    /// Pass modifies field type inference (suffix_inference, type modifiers).
+    writes_types: bool = false,
+};
+
 /// A semantic analysis pass that transforms the tables in PassContext.
 pub const SemanticPass = struct {
     name: []const u8,
     run: *const fn (ctx: *PassContext) anyerror!void,
     depends_on: []const []const u8 = &.{},
+    access: PassAccess = .{},
 };
 
 /// Default pass pipeline — order matters!
 pub const DEFAULT_PASSES = [_]SemanticPass{
-    .{ .name = "validate_template_types", .run = @import("pass/validate_template_types.zig").run, .depends_on = &.{} },
-    .{ .name = "resolve_names", .run = @import("pass/resolve_names.zig").run, .depends_on = &.{"validate_template_types"} },
-    .{ .name = "autofk", .run = @import("pass/autofk.zig").run, .depends_on = &.{} },
-    .{ .name = "suffix_inference", .run = @import("pass/suffix_inference.zig").run, .depends_on = &.{"autofk"} },
-    .{ .name = "validate", .run = @import("pass/validate.zig").run, .depends_on = &.{ "autofk", "suffix_inference" } },
-    .{ .name = "validate_type_modifiers", .run = @import("pass/validate_type_modifiers.zig").run, .depends_on = &.{"suffix_inference"} },
-    .{ .name = "validate_indexes", .run = @import("pass/validate_indexes.zig").run, .depends_on = &.{"autofk"} },
-    .{ .name = "validate_schema", .run = @import("pass/validate_schema.zig").run, .depends_on = &.{ "validate", "resolve_names" } },
+    .{ .name = "validate_template_types", .run = @import("pass/validate_template_types.zig").run, .depends_on = &.{}, .access = .{ .writes_tables = true } },
+    .{ .name = "resolve_names", .run = @import("pass/resolve_names.zig").run, .depends_on = &.{"validate_template_types"}, .access = .{ .writes_tables = true } },
+    .{ .name = "autofk", .run = @import("pass/autofk.zig").run, .depends_on = &.{}, .access = .{ .modifies_table_list = true } },
+    .{ .name = "suffix_inference", .run = @import("pass/suffix_inference.zig").run, .depends_on = &.{"autofk"}, .access = .{ .writes_types = true } },
+    .{ .name = "validate", .run = @import("pass/validate.zig").run, .depends_on = &.{ "autofk", "suffix_inference" }, .access = .{ .reads_tables = true } },
+    .{ .name = "validate_type_modifiers", .run = @import("pass/validate_type_modifiers.zig").run, .depends_on = &.{"suffix_inference"}, .access = .{ .reads_tables = true } },
+    .{ .name = "validate_indexes", .run = @import("pass/validate_indexes.zig").run, .depends_on = &.{"autofk"}, .access = .{ .reads_tables = true } },
+    .{ .name = "validate_schema", .run = @import("pass/validate_schema.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
 };
 
 /// Validate dependency ordering at runtime (comptime safety check).
@@ -55,6 +68,33 @@ pub fn validateDependencyOrder() void {
     }
 }
 
+/// Detect write-write conflicts between passes that could break reordering.
+/// Two passes conflict if both write to the same resource and neither depends on the other.
+pub fn detectConflicts() []const [2][]const u8 {
+    // For now, return empty — conflicts are detected at comptime via depends_on.
+    // This function exists as an extension point for future parallelization.
+    return &.{};
+}
+
+/// Check if two passes can run concurrently (no dependency, no write-write conflict).
+pub fn canRunConcurrently(a: SemanticPass, b: SemanticPass) bool {
+    // Check dependency
+    for (a.depends_on) |dep| {
+        if (std.mem.eql(u8, dep, b.name)) return false;
+    }
+    for (b.depends_on) |dep| {
+        if (std.mem.eql(u8, dep, a.name)) return false;
+    }
+    // Check write-write conflict on tables
+    if ((a.access.writes_tables and b.access.writes_tables) or
+        (a.access.modifies_table_list and b.access.modifies_table_list) or
+        (a.access.writes_types and b.access.writes_types))
+    {
+        return false;
+    }
+    return true;
+}
+
 // ─── Unit Tests ──────────────────────────────────────────────
 
 const testing = std.testing;
@@ -65,4 +105,28 @@ test "DEFAULT_PASSES: dependency order is valid" {
 
 test "DEFAULT_PASSES: expected count" {
     try testing.expectEqual(@as(usize, 8), DEFAULT_PASSES.len);
+}
+
+test "canRunConcurrently: independent passes can run together" {
+    const a = SemanticPass{ .name = "a", .run = undefined };
+    const b = SemanticPass{ .name = "b", .run = undefined };
+    try testing.expect(canRunConcurrently(a, b));
+}
+
+test "canRunConcurrently: dependent passes cannot run together" {
+    const a = SemanticPass{ .name = "a", .run = undefined, .depends_on = &.{"b"} };
+    const b = SemanticPass{ .name = "b", .run = undefined };
+    try testing.expect(!canRunConcurrently(a, b));
+}
+
+test "canRunConcurrently: write-write conflict prevents concurrency" {
+    const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .writes_tables = true } };
+    const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
+    try testing.expect(!canRunConcurrently(a, b));
+}
+
+test "canRunConcurrently: read-write is fine" {
+    const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .reads_tables = true } };
+    const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
+    try testing.expect(canRunConcurrently(a, b));
 }

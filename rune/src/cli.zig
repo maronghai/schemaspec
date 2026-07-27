@@ -149,8 +149,9 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     }
 
     // Pass 2: route subcommand
-    if (fargs.len < 1) {
-        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = null, .trace = false, .stats = want_stats, .check = want_check } }, .quiet = want_quiet, .strict = want_strict };
+    if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
+        // No positional args, or first arg is a flag (e.g. `-o output.sql`) → default compile from stdin
+        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = parseOutputFlag(fargs, 0), .trace = parseTraceFlag(fargs, 0), .stats = want_stats, .check = want_check } }, .quiet = want_quiet, .strict = want_strict };
     }
 
     const sub = fargs[0];
