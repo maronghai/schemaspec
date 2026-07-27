@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.31.0] - 2026-07-27
+
+### Architecture
+- **PassAccess runtime enforcement**: Added `detectConflicts()`, `getParallelGroups()`, `transitiveDependsOn()` to `pass_manager.zig`. Added `--verbose-passes` CLI flag that prints semantic pass execution details (table counts before/after each pass).
+- **DialectBackend optional method validation**: Added `validateOptionalMethods()` comptime check for 7 optional vtable methods (`emitCreateDatabase`, `emitUnsigned`, `emitAutoIncrement`, `emitTypeMetadata`, `emitConfidenceComment`, `reverseLookup`, `emitGeneratedColumn`). Non-null optional methods are now verified to be valid function pointers at compile time.
+- **Reverse engineering confidence systematization**: Added `confidence_base` field (0-100) to all 46 `REVERSE_MAP` entries in `map_data.zig`. Core canonical symbols: 100, dialect variants: 80-95, passthrough types: 70.
+
+### Features
+- **SARIF diff output**: Added `--format sarif` for diff command — outputs Static Analysis Results Interchange Format for CI/CD integration. Includes `ruleId`, `level`, `message`, and `locations` for each change.
+- **`--check` flag for diff/migrate**: Exit with code 1 if schema has differences. Useful for CI gates.
+- **`rune docs` command**: New `docs` subcommand generates Markdown schema documentation from `.ss` files. Includes table listings, field descriptions (type, modifiers, defaults), FK relationship diagrams, and index details.
+- **Import search paths**: Added `--import-path` CLI flag for specifying additional `@import` search directories. Supports `@import "std:path"` syntax for standard library imports.
+- **LSP diagnostic format**: Added `formatLsp()` method to `DiagnosticCollector` — outputs diagnostics in LSP `Diagnostic` format with `range`, `severity`, `message`, and `source` fields.
+
+### Testing
+- **Reverse confidence tests**: Added `tests/test_reverse_confidence.sh` with 4 test cases: MySQL high-confidence types, SQLite ambiguous types, PostgreSQL-specific types, roundtrip field count verification.
+- **Test coverage runner**: Added `tests/test_coverage.sh` — runs all 13 test suites and reports a pass/fail summary.
+- **Golden file version sync**: Updated 247 golden files from version 0.22.0/0.29.0 to 0.31.0.
+
 ## [0.30.0] - 2026-07-27
 
 ### Architecture

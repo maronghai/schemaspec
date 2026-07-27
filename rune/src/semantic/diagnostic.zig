@@ -238,6 +238,55 @@ pub const DiagnosticCollector = struct {
             try writer.print("\n{d} error(s), {d} warning(s)\n", .{ errs, warns });
         }
     }
+
+    /// Format all diagnostics as LSP Diagnostic objects to the given writer.
+    /// Each diagnostic includes range (start/end), severity, message, and source.
+    pub fn formatLsp(self: *const DiagnosticCollector, writer: anytype) !void {
+        try writer.writeAll("[\n");
+        for (self.diagnostics.items, 0..) |d, i| {
+            if (i > 0) try writer.writeAll(",\n");
+            try writer.writeAll("  {\n");
+            // range
+            try writer.writeAll("    \"range\": {\n");
+            try writer.writeAll("      \"start\": {\"line\": ");
+            try writer.print("{d}", .{if (d.line_no > 0) d.line_no - 1 else 0});
+            try writer.writeAll(", \"character\": ");
+            try writer.print("{d}", .{if (d.col) |c| c -| 1 else 0});
+            try writer.writeAll("},\n");
+            try writer.writeAll("      \"end\": {\"line\": ");
+            try writer.print("{d}", .{if (d.line_no > 0) d.line_no - 1 else 0});
+            try writer.writeAll(", \"character\": ");
+            try writer.print("{d}", .{if (d.col) |c| c -| 1 else 0});
+            try writer.writeAll("}\n");
+            try writer.writeAll("    },\n");
+            // severity (1=Error, 2=Warning, 3=Information)
+            try writer.writeAll("    \"severity\": ");
+            switch (d.severity) {
+                .@"error" => try writer.writeAll("1"),
+                .warning => try writer.writeAll("2"),
+                .note => try writer.writeAll("3"),
+            }
+            try writer.writeAll(",\n");
+            // message
+            try writer.writeAll("    \"message\": \"");
+            // Escape JSON in message
+            for (d.message) |ch| {
+                switch (ch) {
+                    '"' => try writer.writeAll("\\\""),
+                    '\\' => try writer.writeAll("\\\\"),
+                    '\n' => try writer.writeAll("\\n"),
+                    '\r' => try writer.writeAll("\\r"),
+                    '\t' => try writer.writeAll("\\t"),
+                    else => try writer.writeByte(ch),
+                }
+            }
+            try writer.writeAll("\",\n");
+            // source
+            try writer.writeAll("    \"source\": \"rune\"\n");
+            try writer.writeAll("  }");
+        }
+        try writer.writeAll("\n]\n");
+    }
 };
 
 // ─── Unit Tests ─────────────────────────────────────────────
@@ -324,6 +373,27 @@ test "DiagnosticCollector: formatJson with expected/actual" {
 
     try testing.expect(std.mem.indexOf(u8, json, "\"expected\":\"integer\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"actual\":\"string\"") != null);
+}
+
+test "DiagnosticCollector: formatLsp produces LSP-compatible output" {
+    var dc = try DiagnosticCollector.init(testing.allocator);
+    dc.push(.{ .severity = .@"error", .line_no = 10, .col = 5, .message = "syntax error" });
+    dc.push(.{ .severity = .warning, .line_no = 20, .col = 1, .message = "unused variable" });
+
+    var buf = try std.ArrayList(u8).initCapacity(testing.allocator, 512);
+    defer buf.deinit();
+
+    try dc.formatLsp(buf.writer());
+    const lsp = try buf.toOwnedSlice(testing.allocator);
+    defer testing.allocator.free(lsp);
+
+    // Verify LSP structure
+    try testing.expect(std.mem.indexOf(u8, lsp, "\"range\"") != null);
+    try testing.expect(std.mem.indexOf(u8, lsp, "\"severity\": 1") != null); // Error
+    try testing.expect(std.mem.indexOf(u8, lsp, "\"severity\": 2") != null); // Warning
+    try testing.expect(std.mem.indexOf(u8, lsp, "\"source\": \"rune\"") != null);
+    try testing.expect(std.mem.indexOf(u8, lsp, "\"message\": \"syntax error\"") != null);
+    try testing.expect(std.mem.indexOf(u8, lsp, "\"message\": \"unused variable\"") != null);
 }
 
 test "DiagnosticCollector: formatJson empty" {

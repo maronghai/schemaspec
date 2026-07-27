@@ -46,6 +46,8 @@ pub const ImportContext = struct {
     cache: ?*ImportCache = null,
     depth: u8 = 0,
     max_depth: u8 = 8,
+    /// Additional search paths for imports (from --import-path flag).
+    import_paths: []const []const u8 = &.{},
 };
 
 // ─── Unified Pipeline ──────────────────────────────────────────
@@ -55,6 +57,7 @@ const CompileFlags = struct {
     resolve_imports: bool = false,
     run_semantic: bool = true,
     merge_imports: bool = false,
+    verbose_passes: bool = false,
 };
 
 /// Unified internal compilation pipeline.
@@ -103,7 +106,7 @@ fn compileInternal(
 
     // Run semantic analysis if requested
     const resolved = if (flags.run_semantic) blk: {
-        var sa = semantic.SemanticAnalyzer.init(alloc);
+        var sa = if (flags.verbose_passes) semantic.SemanticAnalyzer.initVerbose(alloc) else semantic.SemanticAnalyzer.init(alloc);
         break :blk sa.analyze(tree) catch |err| return err;
     } else null;
 
@@ -114,6 +117,12 @@ fn compileInternal(
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
 pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
     const result = try compileInternal(null, alloc, file_data, null, .{});
+    return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
+}
+
+/// Shared tokenizer → parser → semantic pipeline with verbose pass tracking.
+pub fn compilePipelineVerbose(alloc: std.mem.Allocator, file_data: []const u8, verbose: bool) !PipelineResult {
+    const result = try compileInternal(null, alloc, file_data, null, .{ .verbose_passes = verbose });
     return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
 }
 
@@ -210,8 +219,21 @@ fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u
                 return error.ParseError;
             }
 
-            // Resolve path relative to base directory
-            const resolved_path = if (import_ctx.base_dir.len > 0)
+            // Handle std: prefix — search in import_paths
+            const resolved_path = if (std.mem.startsWith(u8, import_path, "std:")) blk: {
+                const rel_path = import_path[4..];
+                // Search in import_paths for the std: relative path
+                var found: ?[]const u8 = null;
+                for (import_ctx.import_paths) |search_path| {
+                    const candidate = std.fmt.allocPrint(alloc, "{s}/{s}", .{ search_path, rel_path }) catch break :blk import_path;
+                    // Try reading the file to check if it exists
+                    if (std.Io.Dir.cwd().readFileAlloc(io, candidate, alloc, .unlimited)) |_| {
+                        found = candidate;
+                        break;
+                    } else |_| {}
+                }
+                break :blk found orelse import_path;
+            } else if (import_ctx.base_dir.len > 0)
                 try std.fmt.allocPrint(alloc, "{s}/{s}", .{ import_ctx.base_dir, import_path })
             else
                 try alloc.dupe(u8, import_path);
@@ -336,6 +358,11 @@ fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []const u8
 
 /// Compile a .ss file by path, handling @import directives.
 pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8) !PipelineResult {
+    return compileFileWithPaths(io, alloc, file_path, &.{});
+}
+
+/// Compile a .ss file by path with additional import search paths.
+pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, import_paths: []const []const u8) !PipelineResult {
     const file_data = try std.Io.Dir.cwd().readFileAlloc(io, file_path, alloc, .unlimited);
     const base_dir = computeBaseDir(alloc, file_path);
 
@@ -353,6 +380,7 @@ pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8) 
         .base_dir = base_dir,
         .imported = &imported,
         .cache = &cache,
+        .import_paths = import_paths,
     };
 
     return compilePipelineWithImports(io, alloc, file_data, &ctx);
@@ -430,11 +458,13 @@ pub fn handleCompileRequest(
     stats: bool,
     check: bool,
     quiet: bool,
+    verbose_passes: bool,
+    import_paths: []const []const u8,
 ) !void {
     const pipeline = if (input) |path|
-        try compileFile(io, alloc, path)
+        try compileFileWithPaths(io, alloc, path, import_paths)
     else
-        try compilePipeline(alloc, try io_mod.readStdin(io, alloc));
+        try compilePipelineVerbose(alloc, try io_mod.readStdin(io, alloc), verbose_passes);
 
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
 
@@ -468,8 +498,8 @@ pub fn handleCompileRequest(
 
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
 /// Returns error.DiagnosticsError if any errors are found (exit code 1).
-pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool) !void {
-    const result = try compilePipeline(alloc, file_data);
+pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool) !void {
+    const result = try compilePipelineVerbose(alloc, file_data, verbose_passes);
     if (stats) {
         printStats(computeStats(result.resolved));
     }

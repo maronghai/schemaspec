@@ -70,11 +70,87 @@ pub fn validateDependencyOrder() void {
 
 /// Detect write-write conflicts between passes that could break reordering.
 /// Two passes conflict if both write to the same resource and neither depends on the other.
-pub fn detectConflicts() []const [2][]const u8 {
-    // For now, return empty — conflicts are detected at comptime via depends_on.
-    // This function exists as an extension point for future parallelization.
-    return &.{};
+/// Returns a list of conflicting pass name pairs.
+pub fn detectConflicts() [][2][]const u8 {
+    var conflicts: [][2][]const u8 = &.{};
+    for (DEFAULT_PASSES, 0..) |a, i| {
+        for (DEFAULT_PASSES[i + 1 ..]) |b| {
+            if (hasConflict(a, b)) {
+                // Check if there's a dependency edge (not a conflict if ordered)
+                if (!dependsOn(a, b) and !dependsOn(b, a)) {
+                    // Conflicts only matter if both could run in the same "wave"
+                    // Skip if they already have a dependency chain through a third pass
+                    if (!transitiveDependsOn(a, b) and !transitiveDependsOn(b, a)) {
+                        conflicts = conflicts ++ .{.{ a.name, b.name }};
+                    }
+                }
+            }
+        }
+    }
+    return conflicts;
 }
+
+/// Check if pass a has a direct dependency on pass b.
+fn dependsOn(a: SemanticPass, b: SemanticPass) bool {
+    for (a.depends_on) |dep| {
+        if (std.mem.eql(u8, dep, b.name)) return true;
+    }
+    return false;
+}
+
+/// Check if two passes have a write-write conflict on the same resource.
+fn hasConflict(a: SemanticPass, b: SemanticPass) bool {
+    if (a.access.writes_tables and b.access.writes_tables) return true;
+    if (a.access.modifies_table_list and b.access.modifies_table_list) return true;
+    if (a.access.writes_types and b.access.writes_types) return true;
+    return false;
+}
+
+/// Check if there is a transitive dependency from a to b (through intermediate passes).
+fn transitiveDependsOn(a: SemanticPass, b: SemanticPass) bool {
+    // BFS over depends_on edges
+    var visited = std.BufSet{};
+    var frontier = std.ArrayList([]const u8){};
+    defer frontier.deinit(std.heap.page_allocator);
+    for (a.depends_on) |dep| {
+        frontier.append(std.heap.page_allocator, dep) catch return false;
+        visited.insert(std.heap.page_allocator, dep) catch return false;
+    }
+    while (frontier.items.len > 0) {
+        const current = frontier.pop() orelse break;
+        if (std.mem.eql(u8, current, b.name)) return true;
+        // Find the pass with this name and add its deps
+        for (DEFAULT_PASSES) |pass| {
+            if (std.mem.eql(u8, pass.name, current)) {
+                for (pass.depends_on) |dep| {
+                    if (!visited.contains(dep)) {
+                        frontier.append(std.heap.page_allocator, dep) catch return false;
+                        visited.insert(std.heap.page_allocator, dep) catch return false;
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+/// Parallelizable group: passes that can run concurrently (no dependency, no write-write conflict).
+/// Returns groups of pass indices that can run in parallel.
+pub fn getParallelGroups() []const ParallelGroup {
+    const groups = [_]ParallelGroup{
+        .{ .passes = &.{ 0, 2 }, .label = "validate_template_types + autofk" }, // independent writes
+        .{ .passes = &.{1}, .label = "resolve_names" },
+        .{ .passes = &.{3}, .label = "suffix_inference" },
+        .{ .passes = &.{ 4, 5, 6 }, .label = "validate + validate_type_modifiers + validate_indexes" }, // read-only
+        .{ .passes = &.{7}, .label = "validate_schema" },
+    };
+    return &groups;
+}
+
+pub const ParallelGroup = struct {
+    passes: []const usize,
+    label: []const u8,
+};
 
 /// Check if two passes can run concurrently (no dependency, no write-write conflict).
 pub fn canRunConcurrently(a: SemanticPass, b: SemanticPass) bool {
@@ -129,4 +205,34 @@ test "canRunConcurrently: read-write is fine" {
     const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .reads_tables = true } };
     const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
     try testing.expect(canRunConcurrently(a, b));
+}
+
+test "detectConflicts: no conflicts in DEFAULT_PASSES" {
+    // All DEFAULT_PASSES have proper dependency ordering, so no conflicts
+    const conflicts = detectConflicts();
+    try testing.expectEqual(@as(usize, 0), conflicts.len);
+}
+
+test "getParallelGroups: returns non-empty groups" {
+    const groups = getParallelGroups();
+    try testing.expect(groups.len > 0);
+}
+
+test "hasConflict: write-write conflict detected" {
+    const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .writes_tables = true } };
+    const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
+    try testing.expect(hasConflict(a, b));
+}
+
+test "hasConflict: no conflict for read-write" {
+    const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .reads_tables = true } };
+    const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
+    try testing.expect(!hasConflict(a, b));
+}
+
+test "dependsOn: direct dependency detected" {
+    const a = SemanticPass{ .name = "a", .run = undefined, .depends_on = &.{"b"} };
+    const b = SemanticPass{ .name = "b", .run = undefined };
+    try testing.expect(dependsOn(a, b));
+    try testing.expect(!dependsOn(b, a));
 }

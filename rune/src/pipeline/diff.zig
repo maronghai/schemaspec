@@ -26,18 +26,43 @@ fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_p
     return .{ .old_ast = old_ast, .new_ast = new_ast, .schema_diff = schema_diff };
 }
 
-pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool, stats: bool) !void {
+pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);
     const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, dialect);
+    if (check) {
+        const has_changes = result.schema_diff.dropped_tables.len > 0 or result.schema_diff.table_diffs.len > 0 or result.schema_diff.view_diffs.len > 0;
+        if (has_changes) {
+            try io_mod.writeOutput(io, diff_text, null, false);
+            return error.CheckFailed;
+        }
+        return;
+    }
     try io_mod.writeOutput(io, diff_text, null, false);
 }
 
-pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, stats: bool) !void {
+pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);
+    if (check) {
+        const has_changes = result.schema_diff.dropped_tables.len > 0 or result.schema_diff.table_diffs.len > 0 or result.schema_diff.view_diffs.len > 0;
+        if (has_changes) return error.CheckFailed;
+        return;
+    }
     const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
     try io_mod.writeOutput(io, json_text, output_path, false);
+}
+
+pub fn handleDiffSarif(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
+    const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
+    emitTraceAndStats(result, trace, stats);
+    if (check) {
+        const has_changes = result.schema_diff.dropped_tables.len > 0 or result.schema_diff.table_diffs.len > 0 or result.schema_diff.view_diffs.len > 0;
+        if (has_changes) return error.CheckFailed;
+        return;
+    }
+    const sarif_text = try diff_format.formatDiffSarif(alloc, result.schema_diff, dialect);
+    try io_mod.writeOutput(io, sarif_text, null, false);
 }
 
 pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, rollback: bool, stats: bool, dry_run: bool) !void {

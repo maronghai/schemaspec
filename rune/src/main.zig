@@ -5,6 +5,7 @@ const diff_pipe = @import("pipeline/diff.zig");
 const reverse_pipe = @import("pipeline/reverse.zig");
 const io_mod = @import("io.zig");
 const version = @import("version.zig");
+const docs = @import("docs.zig");
 
 // ─── Entry Point ───────────────────────────────────────────────
 
@@ -26,7 +27,7 @@ pub fn main(init: std.process.Init) !void {
             cli.printUsage();
             std.process.exit(1);
         }
-        return forward.handleCompileRequest(init.io, alloc, null, null, false, .mysql, .sql, false, false, false);
+        return forward.handleCompileRequest(init.io, alloc, null, null, false, .mysql, .sql, false, false, false, false, &.{});
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
@@ -63,6 +64,12 @@ pub fn main(init: std.process.Init) !void {
             error.DiagnosticsError, error.SemanticError, error.SqlParseError, error.ReverseDiagnosticsError => {
                 // Error already printed by the compiler module
             },
+            error.CheckFailed => {
+                if (!parsed.quiet) {
+                    std.debug.print("check failed: schema has differences\n", .{});
+                }
+                std.process.exit(1);
+            },
             else => {
                 std.debug.print("error: {s}\n", .{@errorName(err)});
             },
@@ -96,28 +103,36 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .json_schema => .json_schema,
             };
 
-            return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format, cmd.stats, cmd.check, parsed.quiet);
+            return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format, cmd.stats, cmd.check, parsed.quiet, cmd.verbose_passes, parsed.import_paths);
         },
         .validate => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
-            return forward.handleValidate(io, alloc, file_data, cmd.stats);
+            return forward.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes);
         },
         .diff => |cmd| {
             return switch (cmd.format) {
-                .text => diff_pipe.handleDiff(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace, cmd.stats),
-                .json => diff_pipe.handleDiffJson(io, alloc, cmd.old, cmd.new, null, parsed.dialect, cmd.trace, cmd.stats),
+                .text => diff_pipe.handleDiff(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace, cmd.stats, cmd.check),
+                .json => diff_pipe.handleDiffJson(io, alloc, cmd.old, cmd.new, null, parsed.dialect, cmd.trace, cmd.stats, cmd.check),
+                .sarif => diff_pipe.handleDiffSarif(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace, cmd.stats, cmd.check),
             };
         },
         .migrate => |cmd| {
             return switch (cmd.format) {
                 .text => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats, cmd.dry_run),
                 .json => diff_pipe.handleMigrateDiffJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.stats),
+                .sarif => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats, cmd.dry_run),
             };
         },
         .reverse => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
             const name = cmd.input orelse "<stdin>";
             return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace, cmd.stats, cmd.validate_only);
+        },
+        .docs => |cmd| {
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const pipeline = try forward.compilePipeline(alloc, file_data);
+            const markdown = try docs.generate(alloc, pipeline.resolved);
+            try io_mod.writeOutput(io, markdown, cmd.output, parsed.quiet);
         },
     }
 }

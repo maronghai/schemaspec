@@ -1,8 +1,8 @@
 # orders
-id int ++ * -- [score:50]
+id n ++ *
 status s32 =pending
-amount decimal(10, 2) =0.00 -- [score:50]
-discount decimal(5, 2) =-1.00 -- [score:50]
-created_at datetime + -- [score:50]
-updated_at datetime -- [score:50]
+amount 10, 2 =0.00
+discount 5, 2 =-1.00
+created_at t +
+updated_at
 note S

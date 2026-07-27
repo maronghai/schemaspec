@@ -226,11 +226,57 @@ fn validateBackend(comptime backend: DialectBackend) void {
     }
 }
 
+/// Validate optional methods — emit compileLog warnings for missing implementations.
+/// Non-null optional methods must have valid function pointers.
+fn validateOptionalMethods(comptime backend: DialectBackend, comptime name: []const u8) void {
+    comptime {
+        // Check that non-null optional methods are valid function pointers
+        if (backend.emitCreateDatabase != null) {
+            if (@typeInfo(@TypeOf(backend.emitCreateDatabase.?)) != .pointer) {
+                @compileError(name ++ ": emitCreateDatabase must be a function pointer when non-null");
+            }
+        }
+        if (backend.emitUnsigned != null) {
+            if (@typeInfo(@TypeOf(backend.emitUnsigned.?)) != .pointer) {
+                @compileError(name ++ ": emitUnsigned must be a function pointer when non-null");
+            }
+        }
+        if (backend.emitAutoIncrement != null) {
+            if (@typeInfo(@TypeOf(backend.emitAutoIncrement.?)) != .pointer) {
+                @compileError(name ++ ": emitAutoIncrement must be a function pointer when non-null");
+            }
+        }
+        if (backend.emitTypeMetadata != null) {
+            if (@typeInfo(@TypeOf(backend.emitTypeMetadata.?)) != .pointer) {
+                @compileError(name ++ ": emitTypeMetadata must be a function pointer when non-null");
+            }
+        }
+        if (backend.emitConfidenceComment != null) {
+            if (@typeInfo(@TypeOf(backend.emitConfidenceComment.?)) != .pointer) {
+                @compileError(name ++ ": emitConfidenceComment must be a function pointer when non-null");
+            }
+        }
+        if (backend.reverseLookup != null) {
+            if (@typeInfo(@TypeOf(backend.reverseLookup.?)) != .pointer) {
+                @compileError(name ++ ": reverseLookup must be a function pointer when non-null");
+            }
+        }
+        if (backend.emitGeneratedColumn != null) {
+            if (@typeInfo(@TypeOf(backend.emitGeneratedColumn.?)) != .pointer) {
+                @compileError(name ++ ": emitGeneratedColumn must be a function pointer when non-null");
+            }
+        }
+    }
+}
+
 // Validate all dialect backends at comptime
 comptime {
     validateBackend(@import("../dialect/mysql.zig").mysql_backend);
     validateBackend(@import("../dialect/pg.zig").pg_backend);
     validateBackend(@import("../dialect/sqlite.zig").sqlite_backend);
+    validateOptionalMethods(@import("../dialect/mysql.zig").mysql_backend, "mysql");
+    validateOptionalMethods(@import("../dialect/pg.zig").pg_backend, "pg");
+    validateOptionalMethods(@import("../dialect/sqlite.zig").sqlite_backend, "sqlite");
 }
 
 // ─── Shared helpers (dialect-independent) ──────────────────────

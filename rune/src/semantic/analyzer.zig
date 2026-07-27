@@ -15,9 +15,14 @@ const ResolvedAst = resolved_ast.ResolvedAst;
 
 pub const SemanticAnalyzer = struct {
     alloc: std.mem.Allocator,
+    verbose: bool,
 
     pub fn init(alloc: std.mem.Allocator) SemanticAnalyzer {
-        return .{ .alloc = alloc };
+        return .{ .alloc = alloc, .verbose = false };
+    }
+
+    pub fn initVerbose(alloc: std.mem.Allocator) SemanticAnalyzer {
+        return .{ .alloc = alloc, .verbose = true };
     }
 
     pub fn analyze(self: *SemanticAnalyzer, tree: Ast) !ResolvedAst {
@@ -40,7 +45,14 @@ pub const SemanticAnalyzer = struct {
             .diagnostics = &diagnostics,
         };
         for (DEFAULT_PASSES) |pass| {
+            if (self.verbose) {
+                const table_count = ctx.tables.items.len;
+                std.debug.print("  pass: {s} (tables={d}) ...\n", .{ pass.name, table_count });
+            }
             try pass.run(&ctx);
+            if (self.verbose) {
+                std.debug.print("  pass: {s} done (tables={d})\n", .{ pass.name, ctx.tables.items.len });
+            }
         }
 
         diagnostics.printAll();

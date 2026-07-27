@@ -5,14 +5,15 @@ const dialect_enum = @import("dialect/enum.zig");
 
 pub const Target = enum { sql, json_schema };
 
-pub const DiffFormat = enum { text, json };
+pub const DiffFormat = enum { text, json, sarif };
 
 pub const Command = union(enum) {
-    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool },
-    validate: struct { input: ?[]const u8, stats: bool },
-    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat },
+    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool },
+    validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
+    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool },
+    docs: struct { input: ?[]const u8, output: ?[]const u8 },
     version,
     help,
 };
@@ -23,6 +24,7 @@ pub const ParsedArgs = struct {
     command: Command,
     quiet: bool,
     strict: bool,
+    import_paths: []const []const u8 = &.{},
 };
 
 pub const ArgError = error{
@@ -86,7 +88,9 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_check = false;
     var want_dry_run = false;
     var want_strict = false;
+    var want_verbose_passes = false;
     var diff_format: DiffFormat = .text;
+    var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var want_validate_only = false;
     while (i < raw_args.len) : (i += 1) {
         if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
@@ -125,6 +129,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             if (i + 1 < raw_args.len) {
                 if (std.mem.eql(u8, raw_args[i + 1], "json")) {
                     diff_format = .json;
+                } else if (std.mem.eql(u8, raw_args[i + 1], "sarif")) {
+                    diff_format = .sarif;
                 } else if (!std.mem.eql(u8, raw_args[i + 1], "text")) {
                     return error.UnknownFormat;
                 }
@@ -134,36 +140,44 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             want_validate_only = true;
         } else if (std.mem.eql(u8, raw_args[i], "--strict")) {
             want_strict = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--verbose-passes")) {
+            want_verbose_passes = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--import-path")) {
+            if (i + 1 < raw_args.len) {
+                try import_paths.append(alloc, raw_args[i + 1]);
+                i += 1;
+            }
         } else {
             try filtered.append(alloc, raw_args[i]);
         }
     }
     const fargs = try filtered.toOwnedSlice(alloc);
+    const import_path_list = try import_paths.toOwnedSlice(alloc);
 
     if (want_version) {
-        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict };
+        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
     }
 
     if (want_help) {
-        return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet, .strict = want_strict };
+        return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
     }
 
     // Pass 2: route subcommand
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
         // No positional args, or first arg is a flag (e.g. `-o output.sql`) → default compile from stdin
-        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = parseOutputFlag(fargs, 0), .trace = parseTraceFlag(fargs, 0), .stats = want_stats, .check = want_check } }, .quiet = want_quiet, .strict = want_strict };
+        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = parseOutputFlag(fargs, 0), .trace = parseTraceFlag(fargs, 0), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
     }
 
     const sub = fargs[0];
 
     if (std.mem.eql(u8, sub, "diff")) {
         if (fargs.len < 3) return error.DiffMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats, .format = diff_format } }, .quiet = want_quiet, .strict = want_strict };
+        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats, .format = diff_format, .check = want_check } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
     }
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run, .format = diff_format } }, .quiet = want_quiet, .strict = want_strict };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run, .format = diff_format, .check = want_check } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {
@@ -177,17 +191,22 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 input = fargs[j];
             }
         }
-        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .validate_only = want_validate_only } }, .quiet = want_quiet, .strict = want_strict };
+        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .validate_only = want_validate_only } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
     }
 
     if (std.mem.eql(u8, sub, "validate")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input, .stats = want_stats } }, .quiet = want_quiet, .strict = want_strict };
+        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+    }
+
+    if (std.mem.eql(u8, sub, "docs")) {
+        const input = if (fargs.len > 1) fargs[1] else null;
+        return .{ .dialect = dialect, .target = target, .command = .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
     }
 
     // Default: compile
     const input = if (fargs.len > 0) fargs[0] else null;
-    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check } }, .quiet = want_quiet, .strict = want_strict };
+    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
 }
 
 fn parseDialect(s: []const u8) !dialect_enum.Dialect {
@@ -217,15 +236,18 @@ pub fn printUsage() void {
     std.debug.print("  rune reverse [input.sql] [-o output.ss] [-T] [-d mysql|pg|sqlite] [--validate-only]\n", .{});
     std.debug.print("                                                       Reverse SQL DDL to .ss schema\n", .{});
     std.debug.print("                                                       -T: extract shared templates\n", .{});
+    std.debug.print("  rune docs [input.ss] [-o output.md]                  Generate Markdown documentation\n", .{});
     std.debug.print("\nOptions:\n", .{});
     std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
-    std.debug.print("  --format        Output format: text (default), json (for diff)\n", .{});
+    std.debug.print("  --format        Output format: text (default), json, sarif (for diff)\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
     std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
     std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});
     std.debug.print("  --dry-run       Show migration SQL without writing to file\n", .{});
     std.debug.print("  --strict        Treat warnings as errors (for CI/CD)\n", .{});
+    std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
+    std.debug.print("  --import-path   Additional search path for @import directives\n", .{});
     std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("  -h, --help      Show this help message and exit\n", .{});
