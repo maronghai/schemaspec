@@ -72,8 +72,10 @@ rune/src/
                pg.zig, sqlite.zig, common.zig, sqlite_hints.zig
   reverse/     codegen.zig, column.zig, map.zig,          # reverse engineering (7 files)
                map_data.zig, fk.zig, check.zig, template_extraction.zig
-  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (10 files)
-               fks.zig, indexes.zig, format.zig, semantic.zig, migrate.zig
+  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (13 files)
+               fks.zig, indexes.zig, semantic.zig, migrate.zig
+               format.zig, format/text.zig,              # format re-export + sub-modules
+               format/json.zig, format/sarif.zig
                diff_test.zig, fields_test.zig             # colocated tests
   types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (9 files)
                sql_type.zig, type_map.zig, type_registry.zig,
@@ -150,7 +152,10 @@ rune/src/
 | | `fields.zig` | Field-level diffing + rename detection |
 | | `fks.zig` | FK diffing — two-pass matching |
 | | `indexes.zig` | Index diffing |
-| | `format.zig` | Diff output formatting (text, JSON, SARIF) |
+| | `format.zig` | Diff output formatting — re-exports from sub-modules |
+| | `format/text.zig` | Text diff output (human-readable `-- ALTER TABLE` format) |
+| | `format/json.zig` | JSON diff output (structured, machine-readable) |
+| | `format/sarif.zig` | SARIF diff output (CI/CD integration, versioned from `version.zig`) |
 | | `semantic.zig` | Dialect-aware type equivalence (`typeInfoEquiv` + `semanticEquiv`) |
 | | `migrate.zig` | Migration SQL generation |
 | `types/` | `ast.zig` | AST type definitions (Schema, Table, Field, Template, etc.) |

@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.34.0] - 2026-07-27
+
+### Architecture
+- **Diff format module split**: Refactored monolithic `diff/format.zig` (518 lines) into 4 files: `format.zig` (re-export, 36 lines), `format/text.zig` (text, 260 lines), `format/json.zig` (JSON, 130 lines), `format/sarif.zig` (SARIF, 180 lines). Each format is now independently maintainable.
+- **SARIF version from source**: `format/sarif.zig` now reads `version.VERSION` from `version.zig` instead of hardcoding `"0.30.0"`.
+
+### Testing
+- **Golden file version sync**: Updated 247 golden test files from version 0.32.0 to 0.34.0.
+
+## [0.32.0] - 2026-07-27
+
+### Architecture
+- **Implicit global state eliminated**: Removed `threadlocal global_allocator` / `global_backend` from `codegen/codegen.zig`. All dialect backend and allocator access now goes through `Codegen` struct fields (`self.alloc`, `self.backend`).
+- **Type resolution clean separation**: Verified `SqlType.fromTypeInfo` only maps `TypeInfo` → `SqlType` without string parsing. Parameterized type parsing correctly lives in `parser/parse_field.zig` (forward) and `reverse/map.zig` (reverse).
+
+### Testing
+- All test suites pass: MySQL 86/86, PostgreSQL 84/84, SQLite 25/25, Diff 12/12, Migration 34/34.
+
 ## [0.31.0] - 2026-07-27
 
 ### Architecture

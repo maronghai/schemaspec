@@ -1,0 +1,116 @@
+const std = @import("std");
+const diff_types = @import("../../diff/types.zig");
+const utils = @import("../../utils.zig");
+const SchemaDiff = diff_types.SchemaDiff;
+
+const jsonEscapeString = utils.jsonEscapeString;
+
+/// Format SchemaDiff as a JSON string for programmatic consumption.
+pub fn formatDiffJson(alloc: std.mem.Allocator, d: SchemaDiff) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+
+    try w.writeAll("{\n");
+
+    // dropped_tables
+    try w.writeAll("  \"dropped_tables\": [");
+    for (d.dropped_tables, 0..) |tname, i| {
+        if (i > 0) try w.writeAll(", ");
+        try w.writeByte('"');
+        try jsonEscapeString(w, tname);
+        try w.writeByte('"');
+    }
+    try w.writeAll("],\n");
+
+    // view_diffs
+    try w.writeAll("  \"view_diffs\": [");
+    for (d.view_diffs, 0..) |vd, i| {
+        if (i > 0) try w.writeAll(", ");
+        try w.writeAll("{\"name\": \"");
+        try jsonEscapeString(w, vd.name);
+        try w.print("\", \"action\": \"{s}\"}}", .{@tagName(vd.action)});
+    }
+    try w.writeAll("],\n");
+
+    // table_diffs
+    try w.writeAll("  \"table_diffs\": [");
+    for (d.table_diffs, 0..) |td, ti| {
+        if (ti > 0) try w.writeAll(", ");
+        try w.writeAll("{\n");
+        try w.writeAll("    \"name\": \"");
+        try jsonEscapeString(w, td.name);
+        try w.writeAll("\",\n");
+        try w.print("    \"action\": \"{s}\",\n", .{@tagName(td.action)});
+
+        // field_diffs
+        try w.writeAll("    \"field_diffs\": [");
+        for (td.field_diffs, 0..) |fd, fi| {
+            if (fi > 0) try w.writeAll(", ");
+            try w.writeAll("{\"name\": \"");
+            try jsonEscapeString(w, fd.name);
+            try w.writeAll("\", \"action\": \"");
+            try w.writeAll(@tagName(fd.action));
+            try w.writeAll("\"");
+            if (fd.rename_from) |rf| {
+                try w.writeAll(", \"from\": \"");
+                try jsonEscapeString(w, rf);
+                try w.writeByte('"');
+            }
+            try w.writeAll("}");
+        }
+        try w.writeAll("],\n");
+
+        // index_diffs
+        try w.writeAll("    \"index_diffs\": [");
+        for (td.index_diffs, 0..) |idx, ii| {
+            if (ii > 0) try w.writeAll(", ");
+            try w.writeAll("{\"name\": \"");
+            try jsonEscapeString(w, idx.name);
+            try w.print("\", \"action\": \"{s}\"}}", .{@tagName(idx.action)});
+        }
+        try w.writeAll("],\n");
+
+        // fk_diffs
+        try w.writeAll("    \"fk_diffs\": [");
+        for (td.fk_diffs, 0..) |fk, fi| {
+            if (fi > 0) try w.writeAll(", ");
+            try w.writeAll("{\"action\": \"");
+            try w.writeAll(@tagName(fk.action));
+            try w.writeAll("\"");
+            if (fk.new_fk) |nfk| {
+                try w.writeAll(", \"ref_table\": \"");
+                try jsonEscapeString(w, nfk.ref_table);
+                try w.writeByte('"');
+            }
+            try w.writeAll("}");
+        }
+        try w.writeAll("]");
+
+        try w.writeAll("\n  }");
+    }
+    try w.writeAll("]\n");
+
+    try w.writeAll("}\n");
+
+    try w.flush();
+    var out = aw.toArrayList();
+    return try out.toOwnedSlice(alloc);
+}
+
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "formatDiffJson: produces valid structure" {
+    const d = SchemaDiff{
+        .dropped_tables = &.{"old_table"},
+        .view_diffs = &.{},
+        .table_diffs = &.{},
+    };
+    const json = try formatDiffJson(testing.allocator, d);
+    defer testing.allocator.free(json);
+    try testing.expect(std.mem.indexOf(u8, json, "\"dropped_tables\"") != null);
+    try testing.expect(std.mem.indexOf(u8, json, "\"table_diffs\"") != null);
+    try testing.expect(std.mem.indexOf(u8, json, "\"view_diffs\"") != null);
+    try testing.expect(std.mem.indexOf(u8, json, "old_table") != null);
+}
