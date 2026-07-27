@@ -19,7 +19,13 @@ pub const ColumnRule = struct {
 
 /// Canonical rule table. Add new hints here — no code changes needed.
 pub const COLUMN_RULES = [_]ColumnRule{
-    // Boolean patterns
+    // Boolean patterns — exact first, then prefix/suffix
+    .{ .pattern = "deleted", .kind = .exact, .hint = .boolean },
+    .{ .pattern = "is_deleted", .kind = .exact, .hint = .boolean },
+    .{ .pattern = "is_removed", .kind = .exact, .hint = .boolean },
+    .{ .pattern = "is_enabled", .kind = .exact, .hint = .boolean },
+    .{ .pattern = "is_active", .kind = .exact, .hint = .boolean },
+    .{ .pattern = "is_valid", .kind = .exact, .hint = .boolean },
     .{ .pattern = "is_", .kind = .prefix, .hint = .boolean },
     .{ .pattern = "has_", .kind = .prefix, .hint = .boolean },
     .{ .pattern = "can_", .kind = .prefix, .hint = .boolean },
@@ -28,12 +34,6 @@ pub const COLUMN_RULES = [_]ColumnRule{
     .{ .pattern = "did_", .kind = .prefix, .hint = .boolean },
     .{ .pattern = "enable", .kind = .prefix, .hint = .boolean },
     .{ .pattern = "active", .kind = .prefix, .hint = .boolean },
-    .{ .pattern = "deleted", .kind = .exact, .hint = .boolean },
-    .{ .pattern = "is_deleted", .kind = .exact, .hint = .boolean },
-    .{ .pattern = "is_removed", .kind = .exact, .hint = .boolean },
-    .{ .pattern = "is_enabled", .kind = .exact, .hint = .boolean },
-    .{ .pattern = "is_active", .kind = .exact, .hint = .boolean },
-    .{ .pattern = "is_valid", .kind = .exact, .hint = .boolean },
     // JSON patterns
     .{ .pattern = "settings", .kind = .exact, .hint = .json },
     .{ .pattern = "data", .kind = .exact, .hint = .json },

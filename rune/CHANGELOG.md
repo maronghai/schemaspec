@@ -4,6 +4,29 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.35.0] - 2026-07-28
+
+### Fixed
+- Re-enabled colocated test files (`diff/diff_test.zig`, `diff/fields_test.zig`, `codegen/codegen_test.zig`) that were disabled since v0.28.0 SqlType refactor
+- Fixed 9 compilation errors across colocated test files: string→SqlType type mismatches, missing struct fields, deprecated `getWritten()` API, wrong namespace references
+- Fixed test memory leaks in colocated tests using arena allocators
+- Fixed golden file naming inconsistency: `view-basic-pg.sql` → `view-basic.pg.sql`, `view-basic-sqlite.sql` → `view-basic.sqlite.sql`
+- Fixed `diff/indexes.zig` test using wrong `IndexDecl.IndexType` namespace
+- Fixed `sqlite_hints.zig` COLUMN_RULES ordering: exact rules now precede prefix rules, so `is_active` matches with score 90 (exact) instead of 85 (prefix)
+- Fixed `diff/semantic.zig` test: MySQL `tinyint` (→ `n`) and PG `smallint` (→ `i`) are correctly NOT semantically equivalent
+- Fixed `reverse/map.zig` test: MySQL `int` correctly maps to symbol `n` (not `int`)
+- Fixed `reverse/map.zig` decimal/numeric parameterized extraction: removed REVERSE_MAP entries that intercepted `decimal(P,S)`/`numeric(P,S)` before parameterized extraction code; added internal space removal for `decimal(16, 2)` → `16,2`
+- Fixed `types/reverse_map.zig` passthrough entries: added `rev_priority = 10` so passthrough types (uuid, real, float4, etc.) don't incorrectly beat canonical entries
+- Updated data validation tests to account for passthrough entries with `rev_priority = 10` and `confidence_base = 70`
+
+### Added
+- `tests.zig` test module index for colocated test files
+- Second test step in `build.zig` for colocated test compilation
+- Comptime RenderEntry table length validation in `dialect/dialect.zig` (reverted — not applicable to tagged unions)
+
+### Changed
+- Updated `rune/ARCHITECTURE.md` testing table with correct test counts (MySQL 86, PG 85, SQLite 25, JSON Schema 3)
+
 ## [0.33.0] - 2026-07-27
 
 ### Changed

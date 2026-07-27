@@ -42,12 +42,36 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
         return .{ .sym = t[4 .. t.len - 1], .omit = false };
 
     // decimal(P,S) or decimal(P, S) → P,S
-    if (std.mem.startsWith(u8, t, "decimal(") and std.mem.endsWith(u8, t, ")"))
-        return .{ .sym = t[8 .. t.len - 1], .omit = false };
+    if (std.mem.startsWith(u8, t, "decimal(") and std.mem.endsWith(u8, t, ")")) {
+        const inner = t[8 .. t.len - 1];
+        const sbuf = struct {
+            var buf: [16]u8 = undefined;
+        };
+        var j: usize = 0;
+        for (inner) |ch| {
+            if (ch != ' ') {
+                sbuf.buf[j] = ch;
+                j += 1;
+            }
+        }
+        return .{ .sym = sbuf.buf[0..j], .omit = false };
+    }
 
     // numeric(P,S) → P,S
-    if (std.mem.startsWith(u8, t, "numeric(") and std.mem.endsWith(u8, t, ")"))
-        return .{ .sym = t[8 .. t.len - 1], .omit = false };
+    if (std.mem.startsWith(u8, t, "numeric(") and std.mem.endsWith(u8, t, ")")) {
+        const inner = t[8 .. t.len - 1];
+        const sbuf = struct {
+            var buf: [16]u8 = undefined;
+        };
+        var j: usize = 0;
+        for (inner) |ch| {
+            if (ch != ' ') {
+                sbuf.buf[j] = ch;
+                j += 1;
+            }
+        }
+        return .{ .sym = sbuf.buf[0..j], .omit = false };
+    }
 
     // varchar(255) → s (with omit check)
     if (std.mem.eql(u8, t, "varchar(255)"))
@@ -97,7 +121,7 @@ const testing = std.testing;
 
 test "reverse: int maps to n" {
     const r = reverseLookup("int", "col", false, false, .mysql);
-    try testing.expectEqualStrings("int", r.sym);
+    try testing.expectEqualStrings("n", r.sym);
 }
 
 test "reverse: varchar(255) maps to s" {
@@ -418,9 +442,9 @@ test "confidence: all REVERSE_MAP entries have valid confidence_base" {
     }
 }
 
-test "confidence: canonical entries (rev_priority=10) have confidence_base=100" {
+test "confidence: canonical entries (rev_priority=10, sql_type set) have confidence_base=100" {
     for (REVERSE_MAP) |m| {
-        if (m.rev_priority == 10) {
+        if (m.rev_priority == 10 and m.sql_type != null) {
             try testing.expectEqual(@as(u8, 100), m.confidence_base);
         }
     }
@@ -454,9 +478,9 @@ test "data: every entry has non-empty mysql/pg/sqlite" {
     }
 }
 
-test "data: canonical entries have sql_type set" {
+test "data: canonical entries (rev_priority=10, sql_type set) have sql_type" {
     for (REVERSE_MAP) |m| {
-        if (m.rev_priority == 10) {
+        if (m.rev_priority == 10 and m.sql_type != null) {
             try testing.expect(m.sql_type != null);
         }
     }

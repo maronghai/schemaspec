@@ -38,6 +38,19 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
+    // Colocated test files (diff_test, fields_test, codegen_test)
+    const colocated_mod = b.createModule(.{
+        .root_source_file = b.path("src/tests.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const colocated_tests = b.addTest(.{
+        .root_module = colocated_mod,
+    });
+    const run_colocated_tests = b.addRunArtifact(colocated_tests);
+    run_colocated_tests.step.dependOn(b.getInstallStep());
+    test_step.dependOn(&run_colocated_tests.step);
+
     // ─── Benchmark ────────────────────────────────────────────────
     const bench_exe = b.addExecutable(.{
         .name = "bench",

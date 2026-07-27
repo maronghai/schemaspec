@@ -2,6 +2,7 @@ const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const diff_types = @import("../diff/types.zig");
 const IndexDecl = ast_mod.IndexDecl;
+const IndexType = ast_mod.IndexType;
 pub const IndexDiff = diff_types.IndexDiff;
 pub const IndexAction = diff_types.IndexAction;
 
@@ -77,7 +78,7 @@ pub fn indexesEqual(a: IndexDecl, b: IndexDecl) bool {
 
 // ─── Inline Tests ─────────────────────────────────────────────
 
-fn makeIdx(kind: IndexDecl.IndexType, name: []const u8, fields: []const []const u8) IndexDecl {
+fn makeIdx(kind: IndexType, name: []const u8, fields: []const []const u8) IndexDecl {
     return .{
         .kind = kind,
         .name = name,

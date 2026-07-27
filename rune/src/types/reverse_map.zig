@@ -34,7 +34,6 @@ pub const REVERSE_MAP = [_]ReverseMapping{
     // ─── Core single-char symbols (used by SQLite reverse) ───
     .{ .sym = "n", .mysql = "int", .pg = "integer", .sqlite = "INTEGER", .rev_priority = 10, .sql_type = .int, .confidence_base = 100 },
     .{ .sym = "N", .mysql = "bigint", .pg = "bigint", .sqlite = "INTEGER", .rev_priority = 10, .sql_type = .bigint, .confidence_base = 100 },
-    .{ .sym = "m", .mysql = "decimal(16, 2)", .pg = "numeric(16, 2)", .sqlite = "NUMERIC", .rev_priority = 10, .sql_type = .{ .decimal = .{ .precision = 16, .scale = 2 } }, .confidence_base = 100 },
     .{ .sym = "M", .mysql = "decimal(20, 6)", .pg = "numeric(20, 6)", .sqlite = "NUMERIC", .rev_priority = 10, .sql_type = .{ .decimal = .{ .precision = 20, .scale = 6 } }, .confidence_base = 100 },
     .{ .sym = "S", .mysql = "text", .pg = "text", .sqlite = "TEXT", .rev_priority = 10, .sql_type = .text, .confidence_base = 100 },
     .{ .sym = "b", .mysql = "boolean", .pg = "boolean", .sqlite = "INTEGER", .rev_priority = 10, .sql_type = .boolean, .confidence_base = 100 },
@@ -61,8 +60,6 @@ pub const REVERSE_MAP = [_]ReverseMapping{
 
     // ─── MySQL-specific → reverse to core types ───
     .{ .sym = "b", .mysql = "bit(1)", .pg = "boolean", .sqlite = "INTEGER", .rev_priority = 15, .confidence_base = 90 },
-    .{ .sym = "m", .mysql = "decimal(16,2)", .pg = "numeric(16, 2)", .sqlite = "NUMERIC", .rev_priority = 15, .confidence_base = 90 },
-    .{ .sym = "M", .mysql = "decimal(20,6)", .pg = "numeric(20, 6)", .sqlite = "NUMERIC", .rev_priority = 15, .confidence_base = 90 },
 
     // ─── PostgreSQL types → reverse to core types ───
     .{ .sym = "n", .mysql = "serial", .pg = "serial", .sqlite = "INTEGER", .rev_priority = 20, .confidence_base = 85 },
@@ -82,10 +79,10 @@ pub const REVERSE_MAP = [_]ReverseMapping{
     .{ .sym = "t", .mysql = "timestamp with time zone", .pg = "timestamp with time zone", .sqlite = "TEXT", .rev_priority = 25, .confidence_base = 80 },
 
     // ─── Passthrough types (not in Rune DSL, emitted as-is) ───
-    .{ .sym = "uuid", .mysql = "uuid", .pg = "uuid", .sqlite = "TEXT", .confidence_base = 70 },
-    .{ .sym = "real", .mysql = "real", .pg = "real", .sqlite = "REAL", .confidence_base = 70 },
-    .{ .sym = "float4", .mysql = "float4", .pg = "float4", .sqlite = "REAL", .confidence_base = 70 },
-    .{ .sym = "float8", .mysql = "float8", .pg = "float8", .sqlite = "REAL", .confidence_base = 70 },
-    .{ .sym = "float8", .mysql = "double precision", .pg = "double precision", .sqlite = "REAL", .confidence_base = 70 },
-    .{ .sym = "s", .mysql = "character", .pg = "character", .sqlite = "TEXT", .confidence_base = 70 },
+    .{ .sym = "uuid", .mysql = "uuid", .pg = "uuid", .sqlite = "TEXT", .rev_priority = 10, .confidence_base = 70 },
+    .{ .sym = "real", .mysql = "real", .pg = "real", .sqlite = "REAL", .rev_priority = 10, .confidence_base = 70 },
+    .{ .sym = "float4", .mysql = "float4", .pg = "float4", .sqlite = "REAL", .rev_priority = 10, .confidence_base = 70 },
+    .{ .sym = "float8", .mysql = "float8", .pg = "float8", .sqlite = "REAL", .rev_priority = 10, .confidence_base = 70 },
+    .{ .sym = "float8", .mysql = "double precision", .pg = "double precision", .sqlite = "REAL", .rev_priority = 10, .confidence_base = 70 },
+    .{ .sym = "s", .mysql = "character", .pg = "character", .sqlite = "TEXT", .rev_priority = 10, .confidence_base = 70 },
 };

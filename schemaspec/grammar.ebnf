@@ -1,6 +1,6 @@
 (* ── Top Level ── *)
 
-spec             = { blank_line | schema_decl | template_def | table_decl } ;
+spec             = { blank_line | schema_decl | import_decl | template_def | view_decl | table_decl } ;
 blank_line       = newline ;
 
 (* ── Schema ── *)
@@ -9,6 +9,12 @@ schema_decl      = "$", WS, schema_name, [ WS, charset_name ], { WS, schema_flag
 schema_name      = word ;
 schema_flag      = "autofk" ;  (* auto-infer FK from _id suffix *)
 charset_name     = word ;
+
+(* ── Import ── *)
+
+import_decl      = "@import", WS, string_literal, newline ;
+string_literal   = DQUOTE, { char - DQUOTE | DQUOTE DQUOTE }, DQUOTE
+                 | SQUOTE, { char - SQUOTE | SQUOTE SQUOTE }, SQUOTE ;
 
 (* ── Template ── *)
 
@@ -23,6 +29,12 @@ parent_name      = word ;
 table_decl       = "#", [ template_ref ], WS, table_name, [ WS, comment_trailing ], newline, field_list ;
 template_ref     = template_name ;
 table_name       = word ;
+
+(* ── View ── *)
+
+view_decl        = "&", WS, view_name, WS, "=", WS, query, newline ;
+view_name        = word ;
+query            = { char } - newline ;  (* everything after = until end of line *)
 
 (* ── Field List ── *)
 

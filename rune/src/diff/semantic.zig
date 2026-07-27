@@ -154,8 +154,8 @@ test "semanticEquiv: MySQL boolean ↔ PG boolean → true (same name)" {
     try testing.expect(semanticEquiv("boolean", "flag", .mysql, "boolean", "flag", .pg));
 }
 
-test "semanticEquiv: MySQL tinyint ↔ PG smallint → true (both → n)" {
-    try testing.expect(semanticEquiv("tinyint", "age", .mysql, "smallint", "age", .pg));
+test "semanticEquiv: MySQL tinyint ↔ PG smallint → false (n vs i)" {
+    try testing.expect(!semanticEquiv("tinyint", "age", .mysql, "smallint", "age", .pg));
 }
 
 test "semanticEquiv: MySQL text ↔ PG text → true" {

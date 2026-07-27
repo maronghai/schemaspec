@@ -567,7 +567,31 @@ CREATE TABLE `user` (
 
 ---
 
-## 9. Grammar & Diagnostics
+## 9. Views
+
+Views define virtual tables using SQL SELECT queries.
+
+**Syntax:**
+```
+& view_name = SELECT ...
+```
+
+**Example:**
+```
+& active_users = SELECT * FROM users WHERE status = 'active'
+& user_summary = SELECT u.name, COUNT(o.id) AS order_count FROM users u LEFT JOIN orders o ON u.id = o.user_id GROUP BY u.id
+```
+
+**Dialect differences:**
+- **MySQL**: `CREATE OR REPLACE VIEW`
+- **PostgreSQL**: `CREATE OR REPLACE VIEW`
+- **SQLite**: `CREATE VIEW` (no OR REPLACE)
+
+Views are emitted in source order (by line number) interleaved with tables.
+
+---
+
+## 10. Grammar & Diagnostics
 
 The full EBNF grammar is in [`grammar.ebnf`](grammar.ebnf). Key notes:
 

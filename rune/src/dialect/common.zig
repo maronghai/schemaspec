@@ -270,7 +270,7 @@ test "emitIndex: unique" {
     defer aw.deinit();
     const w = &aw.writer;
     var needs_comma = false;
-    try emitIndex(w, .{ .kind = .unique, .name = "uk_email", .fields = &.{"email"} }, &needs_comma);
+    try emitIndex(w, .{ .kind = .unique, .name = "uk_email", .fields = &.{"email"}, .descending = &.{}, .line_no = 0 }, &needs_comma);
     try w.flush();
     const out = try aw.toOwnedSlice();
     defer testing.allocator.free(out);
@@ -283,7 +283,7 @@ test "emitIndex: regular is no-op" {
     defer aw.deinit();
     const w = &aw.writer;
     var needs_comma = false;
-    try emitIndex(w, .{ .kind = .regular, .name = "idx_foo", .fields = &.{"col"} }, &needs_comma);
+    try emitIndex(w, .{ .kind = .regular, .name = "idx_foo", .fields = &.{"col"}, .descending = &.{}, .line_no = 0 }, &needs_comma);
     try w.flush();
     const out = try aw.toOwnedSlice();
     defer testing.allocator.free(out);

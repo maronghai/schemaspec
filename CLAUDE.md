@@ -22,8 +22,8 @@ cd rune && zig build bench -- --check          # Check for regressions vs baseli
 
 ```bash
 bash tests/test.sh                  # MySQL (86 tests)
-bash tests/test_postgres.sh         # PostgreSQL (83 tests)
-bash tests/test_sqlite.sh           # SQLite (24 tests)
+bash tests/test_postgres.sh         # PostgreSQL (85 tests)
+bash tests/test_sqlite.sh           # SQLite (25 tests)
 bash tests/test_migrate.sh          # Migration (34 tests)
 bash tests/test_reverse.sh          # Reverse engineering (15 tests)
 bash tests/test_diff.sh             # Schema diff (12 tests)

@@ -197,40 +197,57 @@ const testing = std.testing;
 
 test "pg: renderType maps common types" {
     const alloc = testing.allocator;
-    var aw = std.Io.Writer.Allocating.init(alloc);
-    const w = &aw.writer;
 
-    try pgRenderType(w, .int);
-    try w.flush();
-    try testing.expectEqualStrings("integer", aw.getWritten());
-
-    aw.deinit();
-    var aw2 = std.Io.Writer.Allocating.init(alloc);
-    const w2 = &aw2.writer;
-    try pgRenderType(w2, .blob);
-    try w2.flush();
-    try testing.expectEqualStrings("bytea", aw2.getWritten());
-
-    aw2.deinit();
-    var aw3 = std.Io.Writer.Allocating.init(alloc);
-    const w3 = &aw3.writer;
-    try pgRenderType(w3, .{ .decimal = .{ .precision = 10, .scale = 2 } });
-    try w3.flush();
-    try testing.expectEqualStrings("numeric(10, 2)", aw3.getWritten());
-
-    aw3.deinit();
-    var aw4 = std.Io.Writer.Allocating.init(alloc);
-    const w4 = &aw4.writer;
-    try pgRenderType(w4, .boolean);
-    try w4.flush();
-    try testing.expectEqualStrings("boolean", aw4.getWritten());
-
-    aw4.deinit();
-    var aw5 = std.Io.Writer.Allocating.init(alloc);
-    const w5 = &aw5.writer;
-    try pgRenderType(w5, .timestamptz);
-    try w5.flush();
-    try testing.expectEqualStrings("timestamptz", aw5.getWritten());
+    // int → integer
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try pgRenderType(w, .int);
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("integer", result);
+    }
+    // blob → bytea
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try pgRenderType(w, .blob);
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("bytea", result);
+    }
+    // decimal → numeric(10, 2)
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try pgRenderType(w, .{ .decimal = .{ .precision = 10, .scale = 2 } });
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("numeric(10, 2)", result);
+    }
+    // boolean
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try pgRenderType(w, .boolean);
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("boolean", result);
+    }
+    // timestamptz
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try pgRenderType(w, .timestamptz);
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("timestamptz", result);
+    }
 }
 
 test "pg: quoteChar is double-quote" {

@@ -38,52 +38,57 @@ fn makeFieldFull(name: []const u8, ti: TypeInfo, mods: []const Modifier, dv: ?De
 }
 
 test "diffFields identical — no diffs" {
-    const alloc = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old = [_]Field{ makeField("id", .{ .simple = "n" }), makeField("name", .{ .simple = "s" }) };
     const new_ = [_]Field{ makeField("id", .{ .simple = "n" }), makeField("name", .{ .simple = "s" }) };
     const diffs = try diffFields(alloc, &old, &new_, null);
-    defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 0), diffs.len);
 }
 
 test "diffFields added field" {
-    const alloc = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old = [_]Field{makeField("id", .{ .simple = "n" })};
     const new_ = [_]Field{ makeField("id", .{ .simple = "n" }), makeField("email", .{ .simple = "s" }) };
     const diffs = try diffFields(alloc, &old, &new_, null);
-    defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(FieldAction.add, diffs[0].action);
     try std.testing.expectEqualStrings("email", diffs[0].name);
 }
 
 test "diffFields dropped field" {
-    const alloc = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old = [_]Field{ makeField("id", .{ .simple = "n" }), makeField("name", .{ .simple = "s" }) };
     const new_ = [_]Field{makeField("id", .{ .simple = "n" })};
     const diffs = try diffFields(alloc, &old, &new_, null);
-    defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(FieldAction.drop, diffs[0].action);
     try std.testing.expectEqualStrings("name", diffs[0].name);
 }
 
 test "diffFields modified field" {
-    const alloc = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old = [_]Field{makeField("id", .{ .simple = "n" })};
     const new_ = [_]Field{makeField("id", .{ .simple = "N" })};
     const diffs = try diffFields(alloc, &old, &new_, null);
-    defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(FieldAction.modify, diffs[0].action);
 }
 
 test "diffFields rename detection" {
-    const alloc = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old = [_]Field{ makeField("id", .{ .simple = "n" }), makeField("old_name", .{ .simple = "s" }) };
     const new_ = [_]Field{ makeField("id", .{ .simple = "n" }), makeField("new_name", .{ .simple = "s" }) };
     const diffs = try diffFields(alloc, &old, &new_, null);
-    defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(FieldAction.rename, diffs[0].action);
     try std.testing.expectEqualStrings("new_name", diffs[0].name);
@@ -91,11 +96,12 @@ test "diffFields rename detection" {
 }
 
 test "diffFields rename not detected when type changes" {
-    const alloc = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old = [_]Field{ makeField("id", .{ .simple = "n" }), makeField("a", .{ .simple = "n" }) };
     const new_ = [_]Field{ makeField("id", .{ .simple = "n" }), makeField("b", .{ .simple = "s" }) };
     const diffs = try diffFields(alloc, &old, &new_, null);
-    defer alloc.free(diffs);
     var has_drop = false;
     var has_add = false;
     for (diffs) |d| {
@@ -107,11 +113,12 @@ test "diffFields rename not detected when type changes" {
 }
 
 test "diffFields slot markers ignored" {
-    const alloc = std.testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old = [_]Field{ makeField("...", .none), makeField("id", .{ .simple = "n" }) };
     const new_ = [_]Field{ makeField("...", .none), makeField("id", .{ .simple = "n" }) };
     const diffs = try diffFields(alloc, &old, &new_, null);
-    defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 0), diffs.len);
 }
 

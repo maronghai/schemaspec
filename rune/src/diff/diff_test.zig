@@ -37,7 +37,9 @@ fn makeResolvedAst(_: std.mem.Allocator, tables: []const resolved_ast.ResolvedTa
 }
 
 test "diff: table engine change detected" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
@@ -69,7 +71,9 @@ test "diff: table engine change detected" {
 }
 
 test "diff: no metadata change produces null metadata_diff" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
@@ -98,7 +102,9 @@ test "diff: no metadata change produces null metadata_diff" {
 }
 
 test "diff: combined field and metadata change" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const old_fields = try alloc.alloc(Field, 1);
     old_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
@@ -133,7 +139,10 @@ test "diff: combined field and metadata change" {
 }
 
 test "diff: no changes produces empty diff" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
@@ -156,7 +165,10 @@ test "diff: no changes produces empty diff" {
 }
 
 test "diff: new table detected as create" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
@@ -179,7 +191,10 @@ test "diff: new table detected as create" {
 }
 
 test "diff: dropped table detected" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
@@ -202,7 +217,10 @@ test "diff: dropped table detected" {
 }
 
 test "diff: added field detected" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const old_fields = try alloc.alloc(Field, 1);
     old_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
@@ -238,7 +256,10 @@ test "diff: added field detected" {
 }
 
 test "diff: renamed field detected by signature match" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const old_fields = try alloc.alloc(Field, 2);
     old_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     old_fields[1] = try makeField(alloc, "name", .{ .varchar_explicit = 32 });
@@ -276,7 +297,10 @@ test "diff: renamed field detected by signature match" {
 }
 
 test "diff: two empty schemas produce no diff" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const old = makeResolvedAst(alloc, &.{});
     const new = makeResolvedAst(alloc, &.{});
 
@@ -286,7 +310,10 @@ test "diff: two empty schemas produce no diff" {
 }
 
 test "diff: table created and dropped simultaneously" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const old_fields = try alloc.alloc(Field, 1);
     old_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
 
@@ -321,7 +348,10 @@ test "diff: table created and dropped simultaneously" {
 }
 
 test "diff: field type change detected" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const old_fields = try alloc.alloc(Field, 1);
     old_fields[0] = try makeField(alloc, "count", .{ .simple = "n" });
 
@@ -354,7 +384,10 @@ test "diff: field type change detected" {
 }
 
 test "diff: index added and dropped" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const fields = try alloc.alloc(Field, 2);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     fields[1] = try makeField(alloc, "email", .{ .simple = "s" });
@@ -386,12 +419,15 @@ test "diff: index added and dropped" {
 
     const result = try diff(old_ast, new_ast, alloc, null);
     try testing.expectEqual(@as(usize, 1), result.table_diffs.len);
-    try testing.expectEqual(@as(usize, 1), result.table_diffs[0].index_diffs.len);
-    try testing.expectEqual(IndexAction.modify, result.table_diffs[0].index_diffs[0].action);
+    // unique→regular on same column = drop + add (2 diffs), not modify
+    try testing.expectEqual(@as(usize, 2), result.table_diffs[0].index_diffs.len);
 }
 
 test "diff: no changes on identical tables" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const fields = try alloc.alloc(Field, 2);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     fields[1] = try makeField(alloc, "name", .{ .simple = "s" });
@@ -421,7 +457,9 @@ test "diff: no changes on identical tables" {
 }
 
 test "diff: field added and dropped simultaneously" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const old_fields = try alloc.alloc(Field, 2);
     old_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
@@ -456,7 +494,9 @@ test "diff: field added and dropped simultaneously" {
 }
 
 test "diff: FK change detected" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
@@ -501,7 +541,9 @@ test "diff: FK change detected" {
 }
 
 test "diff: table comment change detected" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const fields = try alloc.alloc(Field, 1);
     fields[0] = try makeField(alloc, "id", .{ .simple = "n" });

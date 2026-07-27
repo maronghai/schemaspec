@@ -296,40 +296,57 @@ const testing = std.testing;
 
 test "sqlite: renderType maps common types" {
     const alloc = testing.allocator;
-    var aw = std.Io.Writer.Allocating.init(alloc);
-    const w = &aw.writer;
 
-    try sqliteRenderType(w, .int);
-    try w.flush();
-    try testing.expectEqualStrings("INTEGER", aw.getWritten());
-
-    aw.deinit();
-    var aw2 = std.Io.Writer.Allocating.init(alloc);
-    const w2 = &aw2.writer;
-    try sqliteRenderType(w2, .text);
-    try w2.flush();
-    try testing.expectEqualStrings("TEXT", aw2.getWritten());
-
-    aw2.deinit();
-    var aw3 = std.Io.Writer.Allocating.init(alloc);
-    const w3 = &aw3.writer;
-    try sqliteRenderType(w3, .{ .decimal = .{ .precision = 10, .scale = 2 } });
-    try w3.flush();
-    try testing.expectEqualStrings("NUMERIC(10, 2)", aw3.getWritten());
-
-    aw3.deinit();
-    var aw4 = std.Io.Writer.Allocating.init(alloc);
-    const w4 = &aw4.writer;
-    try sqliteRenderType(w4, .boolean);
-    try w4.flush();
-    try testing.expectEqualStrings("INTEGER", aw4.getWritten());
-
-    aw4.deinit();
-    var aw5 = std.Io.Writer.Allocating.init(alloc);
-    const w5 = &aw5.writer;
-    try sqliteRenderType(w5, .blob);
-    try w5.flush();
-    try testing.expectEqualStrings("BLOB", aw5.getWritten());
+    // int → INTEGER
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try sqliteRenderType(w, .int);
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("INTEGER", result);
+    }
+    // text → TEXT
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try sqliteRenderType(w, .text);
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("TEXT", result);
+    }
+    // decimal → NUMERIC(10, 2)
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try sqliteRenderType(w, .{ .decimal = .{ .precision = 10, .scale = 2 } });
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("NUMERIC(10, 2)", result);
+    }
+    // boolean → INTEGER
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try sqliteRenderType(w, .boolean);
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("INTEGER", result);
+    }
+    // blob → BLOB
+    {
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try sqliteRenderType(w, .blob);
+        try w.flush();
+        const result = try aw.toOwnedSlice();
+        defer alloc.free(result);
+        try testing.expectEqualStrings("BLOB", result);
+    }
 }
 
 test "sqlite: quoteChar is double-quote" {

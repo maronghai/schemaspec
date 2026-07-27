@@ -406,14 +406,14 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | `type_map.zig`, `type_registry.zig`, `sql_type.zig`, `tokenizer.zig`, `parser.zig`, `diff.zig`, `diff_semantic.zig`, `semantic.zig`, `template.zig`, `reverse_column.zig`, `sql_parser_test.zig`, `pipeline/forward.zig`, `pipeline/diff.zig`, `semantic/pass_manager.zig` | ~170 | Core logic + pipeline |
-| MySQL golden | `tests/test.sh` | 85 | Full pipeline |
-| PG golden | `tests/test_postgres.sh` | 83 | Full pipeline |
-| SQLite golden | `tests/test_sqlite.sh` | 24 | Full pipeline |
+| Unit tests | `type_map.zig`, `type_registry.zig`, `sql_type.zig`, `tokenizer.zig`, `parser.zig`, `diff.zig`, `diff_semantic.zig`, `semantic.zig`, `template.zig`, `reverse_column.zig`, `sql_parser_test.zig`, `pipeline/forward.zig`, `pipeline/diff.zig`, `semantic/pass_manager.zig` + colocated (`diff_test.zig`, `fields_test.zig`, `codegen_test.zig`) | ~191 | Core logic + pipeline + colocated |
+| MySQL golden | `tests/test.sh` | 86 | Full pipeline |
+| PG golden | `tests/test_postgres.sh` | 85 | Full pipeline |
+| SQLite golden | `tests/test_sqlite.sh` | 25 | Full pipeline |
 | Migrate golden | `tests/test_migrate.sh` | 34 | Diff + migration SQL |
 | Reverse golden | `tests/test_reverse.sh` | 15 | SQL → .ss |
 | Diff golden | `tests/test_diff.sh` | 12 | Schema comparison |
 | Error recovery | `tests/test_error_recovery.sh` | 12 | Parse error handling + schema-level validation |
-| JSON Schema | `tests/test_json_schema.sh` | 1 | JSON Schema output |
+| JSON Schema | `tests/test_json_schema.sh` | 3 | JSON Schema output |
 | Roundtrip | `tests/test_roundtrip.sh` | 20 | Forward → reverse fidelity |
-| **Total** | | **~450+** | |
+| **Total** | | **~480+** | |

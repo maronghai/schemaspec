@@ -21,7 +21,10 @@ fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast_mo
 }
 
 test "codegen: simple MySQL table" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 2);
     cols[0] = makeTestColumn("id", .int);
     cols[0].flags.primary_key = true;
@@ -60,7 +63,10 @@ test "codegen: simple MySQL table" {
 }
 
 test "codegen: PostgreSQL table uses double quotes" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("id", .{ .passthrough = "integer" });
     cols[0].flags.primary_key = true;
@@ -94,7 +100,10 @@ test "codegen: PostgreSQL table uses double quotes" {
 }
 
 test "codegen: SQLite AUTOINCREMENT in PRIMARY KEY" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("id", .{ .passthrough = "INTEGER" });
     cols[0].flags.primary_key = true;
@@ -127,7 +136,10 @@ test "codegen: SQLite AUTOINCREMENT in PRIMARY KEY" {
 }
 
 test "codegen: PG standalone COMMENT ON TABLE" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("id", .{ .passthrough = "integer" });
     cols[0].flags.primary_key = true;
@@ -159,7 +171,10 @@ test "codegen: PG standalone COMMENT ON TABLE" {
 }
 
 test "codegen: SQLite COMMENT uses -- style" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("id", .{ .passthrough = "INTEGER" });
     cols[0].flags.primary_key = true;
@@ -191,7 +206,10 @@ test "codegen: SQLite COMMENT uses -- style" {
 }
 
 test "codegen: check expression BETWEEN" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
@@ -205,7 +223,10 @@ test "codegen: check expression BETWEEN" {
 }
 
 test "codegen: check expression IN list" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
@@ -220,7 +241,10 @@ test "codegen: check expression IN list" {
 }
 
 test "codegen: PG uses double quotes, no backticks" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 2);
     cols[0] = makeTestColumn("id", .serial);
     cols[0].flags.primary_key = true;
@@ -254,7 +278,10 @@ test "codegen: PG uses double quotes, no backticks" {
 }
 
 test "codegen: MySQL ENGINE in table footer" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("id", .int);
     cols[0].flags.primary_key = true;
@@ -286,7 +313,10 @@ test "codegen: MySQL ENGINE in table footer" {
 }
 
 test "codegen: MySQL UNSIGNED column" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("amount", .int);
     cols[0].flags.unsigned = true;
@@ -320,10 +350,13 @@ test "codegen: MySQL UNSIGNED column" {
 }
 
 test "codegen: PG COMMENT ON TABLE and COLUMN" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("id", .{ .passthrough = "integer" });
-    cols[0].comment = "primary identifier";
+    cols[0].comment = ":primary identifier";
 
     const table = typed_ast_mod.TypedTable{
         .name = "items",
@@ -351,7 +384,10 @@ test "codegen: PG COMMENT ON TABLE and COLUMN" {
 }
 
 test "codegen: SQLite uses -- comments" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("id", .{ .passthrough = "INTEGER" });
     cols[0].flags.primary_key = true;
@@ -383,7 +419,10 @@ test "codegen: SQLite uses -- comments" {
 }
 
 test "codegen: multiple tables separated by blank line" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 1);
     cols[0] = makeTestColumn("id", .int);
     cols[0].flags.primary_key = true;

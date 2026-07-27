@@ -1,14 +1,16 @@
 const std = @import("std");
-const indexes_mod = @import("codegen/indexes.zig");
-const codegen_mod = @import("codegen/codegen.zig");
-const typed_ast_mod = @import("types/typed_ast.zig");
-const ast_mod = @import("types/ast.zig");
-const dialect_mod = @import("dialect/dialect.zig");
+const indexes_mod = @import("indexes.zig");
+const codegen_mod = @import("codegen.zig");
+const typed_ast_mod = @import("../types/typed_ast.zig");
+const ast_mod = @import("../types/ast.zig");
+const dialect_mod = @import("../dialect/dialect.zig");
 const Codegen = codegen_mod.Codegen;
+
+const sql_type_mod = @import("../types/sql_type.zig");
 
 const testing = std.testing;
 
-fn makeTestColumn(name: []const u8, sql_type: []const u8) typed_ast_mod.TypedColumn {
+fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast_mod.TypedColumn {
     return .{
         .name = name,
         .sql_type = sql_type,
@@ -37,7 +39,7 @@ test "indexes: emitInlineIndexes emits UNIQUE for inline_unique columns" {
     const w = &aw.writer;
     const backend = dialect_mod.getBackend(.mysql);
 
-    var col = makeTestColumn("email", "varchar(255)");
+    var col = makeTestColumn("email", .{ .varchar = 255 });
     col.flags.inline_unique = true;
 
     const table = typed_ast_mod.TypedTable{
@@ -67,7 +69,7 @@ test "indexes: emitInlineIndexes skips when explicit index dominates" {
     const w = &aw.writer;
     const backend = dialect_mod.getBackend(.mysql);
 
-    var col = makeTestColumn("email", "varchar(255)");
+    var col = makeTestColumn("email", .{ .varchar = 255 });
     col.flags.inline_unique = true;
 
     // Explicit unique index on the same column should suppress inline
@@ -129,7 +131,7 @@ test "indexes: emitInlineColumnStandaloneIndexes emits for inline_index columns"
     const w = &aw.writer;
     const backend = dialect_mod.getBackend(.mysql);
 
-    var col = makeTestColumn("created_at", "timestamp");
+    var col = makeTestColumn("created_at", .datetime);
     col.flags.inline_index = true;
 
     const table = typed_ast_mod.TypedTable{
@@ -158,7 +160,7 @@ test "indexes: emitInlineColumnStandaloneIndexes skips when explicit index domin
     const w = &aw.writer;
     const backend = dialect_mod.getBackend(.mysql);
 
-    var col = makeTestColumn("created_at", "timestamp");
+    var col = makeTestColumn("created_at", .datetime);
     col.flags.inline_index = true;
 
     const idx = makeTestIndex(.regular, "idx_created", &.{"created_at"});

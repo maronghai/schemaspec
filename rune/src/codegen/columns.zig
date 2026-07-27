@@ -100,7 +100,7 @@ test "emitColumnDef: MySQL table" {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    const col = makeTestColumn("balance", "decimal(16, 2)");
+    var col = makeTestColumn("balance", .{ .decimal = .{ .precision = 16, .scale = 2 } });
     col.flags.nullable = false;
     col.flags.unsigned = true;
     col.default = "0";
@@ -111,6 +111,7 @@ test "emitColumnDef: MySQL table" {
 
     var out = aw.toArrayList();
     const result = try out.toOwnedSlice(alloc);
+    defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "`balance`") != null);
     try testing.expect(std.mem.indexOf(u8, result, "decimal(16, 2)") != null);
@@ -124,7 +125,7 @@ test "emitColumnDef: PG omits UNSIGNED" {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    const col = makeTestColumn("count", "integer");
+    var col = makeTestColumn("count", .int);
     col.flags.unsigned = true;
 
     const backend = dialect_mod.getBackend(.pg);
@@ -133,6 +134,7 @@ test "emitColumnDef: PG omits UNSIGNED" {
 
     var out = aw.toArrayList();
     const result = try out.toOwnedSlice(alloc);
+    defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "UNSIGNED") == null);
     try testing.expect(std.mem.indexOf(u8, result, "\"count\"") != null);
