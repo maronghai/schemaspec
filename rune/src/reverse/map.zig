@@ -18,10 +18,8 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
 
     // Check if dialect has a custom reverse lookup (e.g. SQLite)
     const backend = dialect_mod.getBackend(dialect);
-    if (backend.reverseLookup) |customLookup| {
-        if (customLookup(t, col_name, is_auto_inc, is_default_ts)) |result| {
-            return result;
-        }
+    if (backend.reverseLookup(t, col_name, is_auto_inc, is_default_ts)) |result| {
+        return result;
     }
 
     // General path: MySQL/PG exact match from REVERSE_MAP + parameterized types

@@ -108,7 +108,9 @@ pub const Parser = struct {
 
         var block = try BlockState.init(self.alloc);
 
-        for (lines) |line| {
+        var line_idx: usize = 0;
+        while (line_idx < lines.len) : (line_idx += 1) {
+            const line = lines[line_idx];
             switch (line.line_type) {
                 .Empty, .SpecComment => {},
                 .Schema => {
@@ -153,6 +155,10 @@ pub const Parser = struct {
                     const tmpl = parse_template.parseTemplateHeader(self.alloc, line) catch |err| {
                         if (!self.handleParseError(err, line, "failed to parse template declaration")) return err;
                         block.mode = .none;
+                        // Sync to next block boundary to avoid orphaned field warnings
+                        if (parse_recovery.findNextBlockBoundary(lines, line_idx + 1)) |next| {
+                            line_idx = next - 1; // -1 because while loop increments
+                        }
                         continue;
                     };
                     try block.reset(self.alloc);
@@ -189,6 +195,10 @@ pub const Parser = struct {
                     const hdr = parse_table.parseTableHeader(self.alloc, stripped_line) catch |err| {
                         if (!self.handleParseError(err, line, "failed to parse table declaration")) return err;
                         block.mode = .none;
+                        // Sync to next block boundary to avoid orphaned field warnings
+                        if (parse_recovery.findNextBlockBoundary(lines, line_idx + 1)) |next| {
+                            line_idx = next - 1; // -1 because while loop increments
+                        }
                         continue;
                     };
                     block.name = hdr.name;

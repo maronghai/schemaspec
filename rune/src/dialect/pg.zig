@@ -83,33 +83,45 @@ fn pgEmitAutoIncrement(w: *Writer) anyerror!void {
 
 // ─── Type Rendering ────────────────────────────────────────
 
+fn pgRenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
+    try w.print("numeric({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
+}
+
+fn pgRenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
+    if (sql_type.varchar > 0) {
+        try w.print("varchar({d})", .{sql_type.varchar});
+    } else {
+        try w.writeAll("varchar(255)");
+    }
+}
+
+const PG_RENDER_TABLE = [_]dialect.RenderEntry{
+    .{ .comptime_str = "integer" }, // int → integer
+    .{ .comptime_str = "bigint" }, // bigint
+    .{ .comptime_str = "smallint" }, // smallint
+    .{ .render_fn = pgRenderDecimal }, // decimal → numeric
+    .{ .render_fn = pgRenderVarchar }, // varchar
+    .{ .comptime_str = "text" }, // text
+    .{ .comptime_str = "bytea" }, // blob → bytea
+    .{ .comptime_str = "json" }, // json
+    .{ .comptime_str = "jsonb" }, // jsonb
+    .{ .comptime_str = "timestamp" }, // datetime → timestamp
+    .{ .comptime_str = "date" }, // date
+    .{ .comptime_str = "timestamptz" }, // timestamptz
+    .{ .comptime_str = "boolean" }, // boolean
+    .{ .comptime_str = "uuid" }, // uuid
+    .{ .comptime_str = "inet" }, // inet
+    .{ .comptime_str = "serial" }, // serial
+    .{ .comptime_str = "TEXT" }, // enum_values → TEXT
+    .{ .comptime_str = "" }, // raw_sql
+    .{ .comptime_str = "" }, // passthrough
+};
+
 fn pgRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
     switch (sql_type) {
-        .int => try w.writeAll("integer"),
-        .bigint => try w.writeAll("bigint"),
-        .smallint => try w.writeAll("smallint"),
-        .decimal => |ds| try w.print("numeric({d}, {d})", .{ ds.precision, ds.scale }),
-        .varchar => |n| {
-            if (n > 0) {
-                try w.print("varchar({d})", .{n});
-            } else {
-                try w.writeAll("varchar(255)");
-            }
-        },
-        .text => try w.writeAll("text"),
-        .blob => try w.writeAll("bytea"),
-        .json => try w.writeAll("json"),
-        .jsonb => try w.writeAll("jsonb"),
-        .datetime => try w.writeAll("timestamp"),
-        .date => try w.writeAll("date"),
-        .timestamptz => try w.writeAll("timestamptz"),
-        .boolean => try w.writeAll("boolean"),
-        .uuid => try w.writeAll("uuid"),
-        .inet => try w.writeAll("inet"),
-        .serial => try w.writeAll("serial"),
-        .enum_values => try w.writeAll("TEXT"),
         .raw_sql => |sql| try w.writeAll(sql),
         .passthrough => |t| try w.writeAll(t),
+        else => try dialect.renderFromTable(w, sql_type, &PG_RENDER_TABLE),
     }
 }
 
@@ -135,13 +147,9 @@ fn pgEmitGeneratedColumn(w: *Writer, expr: []const u8, is_stored: bool) anyerror
     try w.writeAll("GENERATED ALWAYS AS (");
     try w.writeAll(expr);
     try w.writeAll(") ");
-    // PG only supports STORED, not VIRTUAL
-    if (is_stored) {
-        try w.writeAll("STORED");
-    } else {
-        // PG doesn't support VIRTUAL — emit STORED as fallback with comment
-        try w.writeAll("STORED");
-    }
+    // PG only supports STORED, not VIRTUAL — always emit STORED regardless of is_stored
+    _ = is_stored;
+    try w.writeAll("STORED");
 }
 
 // ─── Backend Instance ──────────────────────────────────────
@@ -175,7 +183,7 @@ pub const pg_backend = DialectBackend{
     .emitCreateDatabase = pgEmitCreateDatabase,
     .emitAutoIncrement = pgEmitAutoIncrement,
     .emitGeneratedColumn = pgEmitGeneratedColumn,
-    // emitUnsigned, emitTypeMetadata, emitConfidenceComment default to null (no-op)
+    // emitUnsigned, emitTypeMetadata, emitConfidenceComment use noop defaults
     .lookupSym = pgLookupSym,
     .quoteChar = '"',
     .rename_needs_column_def = false,

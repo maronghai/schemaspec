@@ -22,10 +22,17 @@ pub fn generate(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst) ![
     try w.writeAll("## Overview\n\n");
     try w.print("- **Tables:** {d}\n", .{resolved.tables.len});
     var total_fields: usize = 0;
+    var total_checks: usize = 0;
     for (resolved.tables) |table| {
         total_fields += table.fields.len;
+        for (table.fields) |field| {
+            if (field.check != null) total_checks += 1;
+        }
     }
     try w.print("- **Total Fields:** {d}\n", .{total_fields});
+    if (total_checks > 0) {
+        try w.print("- **CHECK Constraints:** {d}\n", .{total_checks});
+    }
     try w.print("- **Views:** {d}\n\n", .{resolved.views.len});
 
     // Tables
@@ -159,6 +166,12 @@ fn writeTable(_: std.mem.Allocator, w: anytype, table: resolved_ast.ResolvedTabl
         // Comment
         if (field.comment) |c| {
             try w.print("{s}", .{c});
+        }
+
+        // CHECK constraint
+        if (field.check) |ck| {
+            if (field.comment != null) try w.writeAll(" ");
+            try w.print("CHECK: {s}", .{ck.expr});
         }
 
         try w.writeAll(" |\n");

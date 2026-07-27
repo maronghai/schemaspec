@@ -3,11 +3,13 @@ const tk = @import("tokenizer.zig");
 const diag = @import("../semantic/diagnostic.zig");
 const ast_mod = @import("../types/ast.zig");
 const SourceLocation = ast_mod.SourceLocation;
+const LineType = tk.LineType;
 
 // ─── Parse Recovery: error handling ──────────────────────────
 //
 // Extracted from parser.zig in v0.4.74 Phase 1.
-// Provides error recording for the forward parser.
+// Provides error recording and synchronizing-token recovery
+// for the forward parser.
 
 /// Record a parse error via DiagnosticCollector.
 /// Returns true if error was recorded (caller should continue),
@@ -30,6 +32,26 @@ pub fn handleParseError(
         return true;
     }
     return false;
+}
+
+/// Check if a LineType starts a new block (template, table, view, schema, typedef).
+/// Used for synchronizing-token recovery: after a header parse error,
+/// skip lines until we hit the next block boundary.
+pub fn isBlockBoundary(lt: LineType) bool {
+    return switch (lt) {
+        .Schema, .Template, .Table, .View, .TypeDef => true,
+        else => false,
+    };
+}
+
+/// Find the index of the next block boundary in the lines array starting from `start`.
+/// Returns null if no boundary is found (end of input).
+pub fn findNextBlockBoundary(lines: []const tk.Line, start: usize) ?usize {
+    var i = start;
+    while (i < lines.len) : (i += 1) {
+        if (isBlockBoundary(lines[i].line_type)) return i;
+    }
+    return null;
 }
 
 /// Compute SourceLocation from a tokenized line and a token within it.

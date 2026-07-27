@@ -46,6 +46,17 @@ pub const CommentResult = enum {
     unsupported, // SQLite: warning comment emitted; no state change needed
 };
 
+// ─── Noop defaults for optional vtable methods ──────────────
+
+fn noopWriteEmpty(_: *Writer) anyerror!void {}
+fn noopEmitCreateDatabase(_: *Writer, _: []const u8, _: ?[]const u8) anyerror!void {}
+fn noopEmitTypeMetadata(_: *Writer, _: []const u8, _: []const u8) anyerror!void {}
+fn noopEmitConfidenceComment(_: *Writer, _: []const u8) anyerror!void {}
+fn noopReverseLookup(_: []const u8, _: []const u8, _: bool, _: bool) ?ReverseResult {
+    return null;
+}
+fn noopEmitGeneratedColumn(_: *Writer, _: []const u8, _: bool) anyerror!void {}
+
 pub const DialectBackend = struct {
     // ══════════════════════════════════════════════════════════════
     // SECTION 1: Shared Methods (used by multiple subsystems)
@@ -146,23 +157,23 @@ pub const DialectBackend = struct {
     quoteChar: u8,
 
     // ══════════════════════════════════════════════════════════════
-    // SECTION 5: Optional Methods (null = no-op for this dialect)
+    // SECTION 5: Optional Methods (noop defaults — callers can call directly)
     // ══════════════════════════════════════════════════════════════
 
     /// CREATE DATABASE — only MySQL/PG implement; SQLite has no concept of databases.
-    emitCreateDatabase: ?*const fn (w: *Writer, name: []const u8, charset: ?[]const u8) anyerror!void = null,
+    emitCreateDatabase: *const fn (w: *Writer, name: []const u8, charset: ?[]const u8) anyerror!void = noopEmitCreateDatabase,
     /// UNSIGNED modifier — only MySQL uses; PG/SQLite have no UNSIGNED.
-    emitUnsigned: ?*const fn (w: *Writer) anyerror!void = null,
+    emitUnsigned: *const fn (w: *Writer) anyerror!void = noopWriteEmpty,
     /// AUTO_INCREMENT keyword — only MySQL uses; PG uses GENERATED AS IDENTITY, SQLite uses PRIMARY KEY AUTOINCREMENT.
-    emitAutoIncrement: ?*const fn (w: *Writer) anyerror!void = null,
+    emitAutoIncrement: *const fn (w: *Writer) anyerror!void = noopWriteEmpty,
     /// SQLite-specific SS type metadata comment (e.g. `-- @sym col_type`).
-    emitTypeMetadata: ?*const fn (w: *Writer, col_name: []const u8, sym_type: []const u8) anyerror!void = null,
+    emitTypeMetadata: *const fn (w: *Writer, col_name: []const u8, sym_type: []const u8) anyerror!void = noopEmitTypeMetadata,
     /// SQLite-specific confidence comment (e.g. ` -- [score:42]`).
-    emitConfidenceComment: ?*const fn (w: *Writer, confidence: []const u8) anyerror!void = null,
+    emitConfidenceComment: *const fn (w: *Writer, confidence: []const u8) anyerror!void = noopEmitConfidenceComment,
     /// Dialect-specific reverse lookup. Returns null to fall back to general logic in reverse/map.zig.
-    reverseLookup: ?*const fn (sql_type: []const u8, col_name: []const u8, is_auto_inc: bool, is_default_ts: bool) ?ReverseResult = null,
-    /// Emit GENERATED ALWAYS AS (expr) [VIRTUAL|STORED] for generated columns. null = dialect doesn't support.
-    emitGeneratedColumn: ?*const fn (w: *Writer, expr: []const u8, is_stored: bool) anyerror!void = null,
+    reverseLookup: *const fn (sql_type: []const u8, col_name: []const u8, is_auto_inc: bool, is_default_ts: bool) ?ReverseResult = noopReverseLookup,
+    /// Emit GENERATED ALWAYS AS (expr) [VIRTUAL|STORED] for generated columns. noop = dialect doesn't support.
+    emitGeneratedColumn: *const fn (w: *Writer, expr: []const u8, is_stored: bool) anyerror!void = noopEmitGeneratedColumn,
 
     // ══════════════════════════════════════════════════════════════
     // SECTION 6: Behavioral Flags (eliminate dialect checks in caller)
@@ -226,46 +237,16 @@ fn validateBackend(comptime backend: DialectBackend) void {
     }
 }
 
-/// Validate optional methods — emit compileLog warnings for missing implementations.
-/// Non-null optional methods must have valid function pointers.
+/// Validate optional methods — ensure all function pointers are valid.
 fn validateOptionalMethods(comptime backend: DialectBackend, comptime name: []const u8) void {
     comptime {
-        // Check that non-null optional methods are valid function pointers
-        if (backend.emitCreateDatabase != null) {
-            if (@typeInfo(@TypeOf(backend.emitCreateDatabase.?)) != .pointer) {
-                @compileError(name ++ ": emitCreateDatabase must be a function pointer when non-null");
-            }
-        }
-        if (backend.emitUnsigned != null) {
-            if (@typeInfo(@TypeOf(backend.emitUnsigned.?)) != .pointer) {
-                @compileError(name ++ ": emitUnsigned must be a function pointer when non-null");
-            }
-        }
-        if (backend.emitAutoIncrement != null) {
-            if (@typeInfo(@TypeOf(backend.emitAutoIncrement.?)) != .pointer) {
-                @compileError(name ++ ": emitAutoIncrement must be a function pointer when non-null");
-            }
-        }
-        if (backend.emitTypeMetadata != null) {
-            if (@typeInfo(@TypeOf(backend.emitTypeMetadata.?)) != .pointer) {
-                @compileError(name ++ ": emitTypeMetadata must be a function pointer when non-null");
-            }
-        }
-        if (backend.emitConfidenceComment != null) {
-            if (@typeInfo(@TypeOf(backend.emitConfidenceComment.?)) != .pointer) {
-                @compileError(name ++ ": emitConfidenceComment must be a function pointer when non-null");
-            }
-        }
-        if (backend.reverseLookup != null) {
-            if (@typeInfo(@TypeOf(backend.reverseLookup.?)) != .pointer) {
-                @compileError(name ++ ": reverseLookup must be a function pointer when non-null");
-            }
-        }
-        if (backend.emitGeneratedColumn != null) {
-            if (@typeInfo(@TypeOf(backend.emitGeneratedColumn.?)) != .pointer) {
-                @compileError(name ++ ": emitGeneratedColumn must be a function pointer when non-null");
-            }
-        }
+        if (@typeInfo(@TypeOf(backend.emitCreateDatabase)) != .pointer) @compileError(name ++ ": emitCreateDatabase must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitUnsigned)) != .pointer) @compileError(name ++ ": emitUnsigned must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitAutoIncrement)) != .pointer) @compileError(name ++ ": emitAutoIncrement must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitTypeMetadata)) != .pointer) @compileError(name ++ ": emitTypeMetadata must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitConfidenceComment)) != .pointer) @compileError(name ++ ": emitConfidenceComment must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.reverseLookup)) != .pointer) @compileError(name ++ ": reverseLookup must be a function pointer");
+        if (@typeInfo(@TypeOf(backend.emitGeneratedColumn)) != .pointer) @compileError(name ++ ": emitGeneratedColumn must be a function pointer");
     }
 }
 
@@ -277,6 +258,32 @@ comptime {
     validateOptionalMethods(@import("../dialect/mysql.zig").mysql_backend, "mysql");
     validateOptionalMethods(@import("../dialect/pg.zig").pg_backend, "pg");
     validateOptionalMethods(@import("../dialect/sqlite.zig").sqlite_backend, "sqlite");
+}
+
+// ─── Table-Driven Type Rendering ────────────────────────────
+// Shared data structure for renderType implementations.
+// Each dialect defines a comptime table of RenderEntry values,
+// one per SqlType variant. Simple types use comptime_str;
+// complex types (decimal, varchar, enum_values) use render_fn.
+
+pub const RenderEntry = struct {
+    /// Static string output for simple types. Used when render_fn is null.
+    comptime_str: []const u8 = "",
+    /// Custom render function for parameterized types (decimal, varchar, enum_values).
+    /// If null, comptime_str is written instead.
+    render_fn: ?*const fn (w: *Writer, sql_type: SqlType) anyerror!void = null,
+};
+
+/// Render a SqlType using a comptime dispatch table.
+/// Looks up the active tag in the table, calls render_fn if set, else writes comptime_str.
+pub fn renderFromTable(w: *Writer, sql_type: SqlType, comptime table: []const RenderEntry) anyerror!void {
+    const tag = @intFromEnum(sql_type);
+    const entry = if (tag < table.len) table[tag] else RenderEntry{};
+    if (entry.render_fn) |fn_ptr| {
+        try fn_ptr(w, sql_type);
+    } else {
+        try w.writeAll(entry.comptime_str);
+    }
 }
 
 // ─── Shared helpers (dialect-independent) ──────────────────────

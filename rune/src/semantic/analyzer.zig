@@ -49,9 +49,16 @@ pub const SemanticAnalyzer = struct {
                 const table_count = ctx.tables.items.len;
                 std.debug.print("  pass: {s} (tables={d}) ...\n", .{ pass.name, table_count });
             }
+            const table_count_before = ctx.tables.items.len;
             try pass.run(&ctx);
+            const table_count_after = ctx.tables.items.len;
+            // Runtime validation: passes that don't declare modifies_table_list
+            // must not change the table count
+            if (!pass.access.modifies_table_list and table_count_before != table_count_after) {
+                std.debug.panic("pass '{s}' changed table count from {d} to {d} but does not declare modifies_table_list", .{ pass.name, table_count_before, table_count_after });
+            }
             if (self.verbose) {
-                std.debug.print("  pass: {s} done (tables={d})\n", .{ pass.name, ctx.tables.items.len });
+                std.debug.print("  pass: {s} done (tables={d})\n", .{ pass.name, table_count_after });
             }
         }
 

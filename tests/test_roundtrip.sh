@@ -3,20 +3,23 @@
 # Tests: .ss → SQL → reverse → .ss → SQL produces semantically equivalent output.
 # Usage: ./test_roundtrip.sh [test-filter]
 
-set -euo pipefail
+set -uo pipefail
 
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 FILTER="${1:-}"
 
-# Test schemas: .ss files that roundtrip cleanly
-# NOTE: 20-index-types / 39-index-autoname excluded — MySQL FULLTEXT index name
-# double-prefixes on roundtrip (ft_content → ft_ft_content).
+# Test schemas: .ss files that roundtrip cleanly across all 3 dialects.
+# Excluded: 20-index-types/39-index-autoname (FULLTEXT name double-prefix),
+# 03-all-types (decimal roundtrip lossy), 60-enum-type (ENUM→TEXT),
+# view-basic (CREATE OR REPLACE not reversible).
 ROUNDTRIP_TESTS=(
   "01-schema-only"
+  "05-defaults"
   "14-fk-full"
   "10-template-basic"
   "21-index-composite"
+  "22-check-constraints"
   "65-inline-unique"
   "75-composite-index-auto"
   "81-inline-index"
@@ -41,21 +44,20 @@ for test_name in "${ROUNDTRIP_TESTS[@]}"; do
     }
 
     # Step 2: SQL → .ss (reverse)
-    reversed=$("$COMPILER" reverse - -d "$dialect" <<< "$sql1" 2>/dev/null) || {
-      # Some SQL may not be perfectly reversible; skip if reverse fails
+    reversed=$(echo "$sql1" | timeout 10 "$COMPILER" reverse - -d "$dialect" 2>/dev/null) || {
       skip "$test_name ($dialect)" "reverse failed"
       continue
     }
 
     # Step 3: reversed .ss → SQL (roundtrip)
-    sql2=$("$COMPILER" - -d "$dialect" <<< "$reversed" 2>/dev/null) || {
+    sql2=$(echo "$reversed" | timeout 10 "$COMPILER" - -d "$dialect" 2>/dev/null) || {
       fail "$test_name ($dialect): step 3" "re-compile failed"
       continue
     }
 
     # Step 4: Semantic comparison (strip comments, normalize whitespace)
-    strip1=$(echo "$sql1" | grep -v '^--' | sed '/^$/d' | sed 's/[[:space:]]*$//' | sort)
-    strip2=$(echo "$sql2" | grep -v '^--' | sed '/^$/d' | sed 's/[[:space:]]*$//' | sort)
+    strip1=$(echo "$sql1" | grep -v '^--' | sed '/^$/d' | sed 's/[[:space:]]*$//')
+    strip2=$(echo "$sql2" | grep -v '^--' | sed '/^$/d' | sed 's/[[:space:]]*$//')
 
     if [ "$strip1" = "$strip2" ]; then
       pass "$test_name ($dialect)"

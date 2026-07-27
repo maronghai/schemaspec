@@ -186,9 +186,7 @@ fn writeColumnConfidence(w: anytype, col: sp.SqlColumn, tr: TypeResult, dialect:
             var score_buf: [8]u8 = undefined;
             const score_str = std.fmt.bufPrint(&score_buf, "score:{d}", .{tr.score}) catch "score:?";
             const backend = dialect_mod.getBackend(dialect);
-            if (backend.emitConfidenceComment) |emit| {
-                try emit(w, score_str);
-            }
+            try backend.emitConfidenceComment(w, score_str);
         }
     }
 }

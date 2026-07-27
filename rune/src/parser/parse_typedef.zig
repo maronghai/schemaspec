@@ -2,7 +2,16 @@ const std = @import("std");
 const tk = @import("tokenizer.zig");
 const ast_mod = @import("../types/ast.zig");
 const parse_field = @import("parse_field.zig");
+const dialect_enum = @import("../dialect/enum.zig");
 const TypeInfo = ast_mod.TypeInfo;
+
+/// Parse a dialect name string into a Dialect enum. Returns null for unrecognized names.
+fn parseDialect(s: []const u8) ?dialect_enum.Dialect {
+    if (std.mem.eql(u8, s, "mysql")) return .mysql;
+    if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
+    if (std.mem.eql(u8, s, "sqlite") or std.mem.eql(u8, s, "sq")) return .sqlite;
+    return null;
+}
 
 // ─── TypeDef Parsing ───────────────────────────────────────
 // Extracted from parser.zig for single-responsibility.
@@ -34,10 +43,12 @@ pub fn parseTypeDef(alloc: std.mem.Allocator, line: tk.Line) !ast_mod.CustomType
     while (i < line.tokens.len) : (i += 1) {
         const tok = line.tokens[i];
         if (std.mem.indexOfScalar(u8, tok, '=')) |eq_pos| {
-            const dialect = try alloc.dupe(u8, tok[0..eq_pos]);
+            const dialect_str = tok[0..eq_pos];
             const type_str = try alloc.dupe(u8, tok[eq_pos + 1 ..]);
             const type_info: TypeInfo = parse_field.tryParseType(type_str) orelse .{ .raw_sql = type_str };
-            try overrides.append(alloc, .{ .dialect = dialect, .type_info = type_info });
+            if (parseDialect(dialect_str)) |dialect| {
+                try overrides.append(alloc, .{ .dialect = dialect, .type_info = type_info });
+            }
         }
     }
 

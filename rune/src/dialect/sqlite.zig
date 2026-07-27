@@ -97,30 +97,45 @@ fn sqliteEmitConfidenceComment(w: *Writer, confidence: []const u8) anyerror!void
 
 // ─── Type Rendering ────────────────────────────────────────
 
+fn sqliteRenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
+    try w.print("NUMERIC({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
+}
+
+fn sqliteRenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
+    if (sql_type.varchar > 0) {
+        try w.print("varchar({d})", .{sql_type.varchar});
+    } else {
+        try w.writeAll("TEXT");
+    }
+}
+
+const SQLITE_RENDER_TABLE = [_]dialect.RenderEntry{
+    .{ .comptime_str = "INTEGER" }, // int → INTEGER
+    .{ .comptime_str = "INTEGER" }, // bigint → INTEGER
+    .{ .comptime_str = "INTEGER" }, // smallint → INTEGER
+    .{ .render_fn = sqliteRenderDecimal }, // decimal → NUMERIC
+    .{ .render_fn = sqliteRenderVarchar }, // varchar
+    .{ .comptime_str = "TEXT" }, // text
+    .{ .comptime_str = "BLOB" }, // blob
+    .{ .comptime_str = "TEXT" }, // json → TEXT
+    .{ .comptime_str = "TEXT" }, // jsonb → TEXT
+    .{ .comptime_str = "TEXT" }, // datetime → TEXT
+    .{ .comptime_str = "TEXT" }, // date → TEXT
+    .{ .comptime_str = "TEXT" }, // timestamptz → TEXT
+    .{ .comptime_str = "INTEGER" }, // boolean → INTEGER
+    .{ .comptime_str = "TEXT" }, // uuid → TEXT
+    .{ .comptime_str = "TEXT" }, // inet → TEXT
+    .{ .comptime_str = "INTEGER" }, // serial → INTEGER
+    .{ .comptime_str = "TEXT" }, // enum_values → TEXT
+    .{ .comptime_str = "" }, // raw_sql
+    .{ .comptime_str = "" }, // passthrough
+};
+
 fn sqliteRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
     switch (sql_type) {
-        .int, .bigint, .smallint, .serial => try w.writeAll("INTEGER"),
-        .decimal => |ds| try w.print("NUMERIC({d}, {d})", .{ ds.precision, ds.scale }),
-        .varchar => |n| {
-            if (n > 0) {
-                try w.print("varchar({d})", .{n});
-            } else {
-                try w.writeAll("TEXT");
-            }
-        },
-        .text => try w.writeAll("TEXT"),
-        .blob => try w.writeAll("BLOB"),
-        .json => try w.writeAll("TEXT"),
-        .jsonb => try w.writeAll("TEXT"),
-        .datetime => try w.writeAll("TEXT"),
-        .date => try w.writeAll("TEXT"),
-        .timestamptz => try w.writeAll("TEXT"),
-        .boolean => try w.writeAll("INTEGER"),
-        .uuid => try w.writeAll("TEXT"),
-        .inet => try w.writeAll("TEXT"),
-        .enum_values => try w.writeAll("TEXT"),
         .raw_sql => |sql| try w.writeAll(sql),
         .passthrough => |t| try w.writeAll(t),
+        else => try dialect.renderFromTable(w, sql_type, &SQLITE_RENDER_TABLE),
     }
 }
 
@@ -267,7 +282,7 @@ pub const sqlite_backend = DialectBackend{
     .emitConfidenceComment = sqliteEmitConfidenceComment,
     .reverseLookup = sqliteReverseLookup,
     .emitGeneratedColumn = sqliteEmitGeneratedColumn,
-    // emitCreateDatabase, emitUnsigned, emitAutoIncrement default to null (no-op)
+    // emitCreateDatabase, emitUnsigned, emitAutoIncrement use noop defaults
     .lookupSym = sqliteLookupSym,
     .quoteChar = '"',
     .rename_needs_column_def = false,

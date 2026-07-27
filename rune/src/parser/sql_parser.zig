@@ -33,50 +33,55 @@ pub const SqlParser = struct {
     pos: usize,
     diagnostics: diag.DiagnosticCollector,
     dialect: Dialect,
+    /// Pre-computed line start offsets for O(log n) line/col lookup.
+    line_offsets: []const usize,
 
     pub fn init(alloc: std.mem.Allocator, src: []const u8, dialect: Dialect) !SqlParser {
+        // Build line offset table: line_offsets[i] = byte offset where line (i+1) starts
+        var offsets = try std.ArrayList(usize).initCapacity(alloc, 64);
+        try offsets.append(alloc, 0); // line 1 starts at offset 0
+        for (src, 0..) |ch, i| {
+            if (ch == '\n' and i + 1 < src.len) {
+                try offsets.append(alloc, i + 1);
+            }
+        }
         return .{
             .alloc = alloc,
             .src = src,
             .pos = 0,
             .diagnostics = try diag.DiagnosticCollector.init(alloc),
             .dialect = dialect,
+            .line_offsets = try offsets.toOwnedSlice(alloc),
         };
     }
 
     pub fn lineColAt(self: *SqlParser, pos: usize) struct { line: usize, col: usize } {
-        var line: usize = 1;
-        var col: usize = 1;
-        var i: usize = 0;
-        while (i < pos and i < self.src.len) : (i += 1) {
-            if (self.src[i] == '\n') {
-                line += 1;
-                col = 1;
+        // Binary search for the line containing `pos`
+        var lo: usize = 0;
+        var hi: usize = self.line_offsets.len;
+        while (lo < hi) {
+            const mid = lo + (hi - lo) / 2;
+            if (self.line_offsets[mid] <= pos) {
+                lo = mid + 1;
             } else {
-                col += 1;
+                hi = mid;
             }
         }
+        // lo is now the 1-based line number (line_offsets[lo-1] <= pos < line_offsets[lo] or end)
+        const line = lo; // 1-based
+        const col = pos - self.line_offsets[lo - 1] + 1; // 1-based column
         return .{ .line = line, .col = col };
     }
 
     pub fn getSourceLine(self: *SqlParser, line_no: usize) ?[]const u8 {
-        var line: usize = 1;
-        var start: usize = 0;
-        var i: usize = 0;
-        while (i < self.src.len) : (i += 1) {
-            if (line == line_no) {
-                var end = i;
-                while (end < self.src.len and self.src[end] != '\n') end += 1;
-                var trimmed_end = end;
-                while (trimmed_end > start and self.src[trimmed_end - 1] == '\r') trimmed_end -= 1;
-                return self.src[start..trimmed_end];
-            }
-            if (self.src[i] == '\n') {
-                line += 1;
-                start = i + 1;
-            }
-        }
-        return null;
+        if (line_no < 1 or line_no > self.line_offsets.len) return null;
+        const start = self.line_offsets[line_no - 1];
+        var end = start;
+        while (end < self.src.len and self.src[end] != '\n') end += 1;
+        // Strip trailing \r
+        var trimmed_end = end;
+        while (trimmed_end > start and self.src[trimmed_end - 1] == '\r') trimmed_end -= 1;
+        return self.src[start..trimmed_end];
     }
 
     pub fn reportError(self: *SqlParser, comptime fmt: []const u8, args: anytype) void {

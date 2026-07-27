@@ -42,13 +42,13 @@ pub fn emitColumnDefEx(backend: dialect_mod.DialectBackend, w: *Writer, col: typ
     try backend.renderType(w, col.sql_type);
 
     if (col.flags.unsigned) {
-        if (backend.emitUnsigned) |emit| try emit(w);
+        try backend.emitUnsigned(w);
     }
 
     if (!col.flags.nullable) try w.writeAll(" NOT NULL");
 
     if (col.flags.auto_increment) {
-        if (backend.emitAutoIncrement) |emit| try emit(w);
+        try backend.emitAutoIncrement(w);
     }
 
     if (col.flags.has_timestamp_default) {
@@ -73,10 +73,8 @@ pub fn emitColumnDefEx(backend: dialect_mod.DialectBackend, w: *Writer, col: typ
     }
     // Generated columns: type + GENERATED ALWAYS AS (expr) VIRTUAL/STORED
     if (col.generated_expr) |expr| {
-        if (backend.emitGeneratedColumn) |emit| {
-            try w.writeAll(" ");
-            try emit(w, expr, col.flags.is_stored);
-        }
+        try w.writeAll(" ");
+        try backend.emitGeneratedColumn(w, expr, col.flags.is_stored);
     }
 }
 

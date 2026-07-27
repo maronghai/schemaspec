@@ -53,6 +53,9 @@ pub fn main(init: std.process.Init) !void {
             error.MigrateMissingArgs => {
                 std.debug.print("error: migrate requires two arguments: <old.ss> <new.ss>\n", .{});
             },
+            error.UnknownCommand => {
+                std.debug.print("error: unknown command. Run 'rune --help' for usage.\n", .{});
+            },
             else => {
                 std.debug.print("error: {s}\n", .{@errorName(err)});
             },

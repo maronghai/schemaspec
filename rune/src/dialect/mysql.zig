@@ -197,40 +197,54 @@ fn mysqlEmitAlterEngine(w: *Writer, engine: ?[]const u8) anyerror!void {
 
 // ─── Type Rendering ────────────────────────────────────────
 
+fn mysqlRenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
+    try w.print("decimal({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
+}
+
+fn mysqlRenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
+    if (sql_type.varchar > 0) {
+        try w.print("varchar({d})", .{sql_type.varchar});
+    } else {
+        try w.writeAll("varchar(255)");
+    }
+}
+
+fn mysqlRenderEnumValues(w: *Writer, sql_type: SqlType) anyerror!void {
+    try w.writeAll("ENUM(");
+    for (sql_type.enum_values, 0..) |v, vi| {
+        if (vi > 0) try w.writeAll(", ");
+        try w.print("'{s}'", .{v});
+    }
+    try w.writeAll(")");
+}
+
+const MYSQL_RENDER_TABLE = [_]dialect.RenderEntry{
+    .{ .comptime_str = "int" }, // int
+    .{ .comptime_str = "bigint" }, // bigint
+    .{ .comptime_str = "smallint" }, // smallint
+    .{ .render_fn = mysqlRenderDecimal }, // decimal
+    .{ .render_fn = mysqlRenderVarchar }, // varchar
+    .{ .comptime_str = "text" }, // text
+    .{ .comptime_str = "blob" }, // blob
+    .{ .comptime_str = "json" }, // json
+    .{ .comptime_str = "json" }, // jsonb → json
+    .{ .comptime_str = "datetime" }, // datetime
+    .{ .comptime_str = "date" }, // date
+    .{ .comptime_str = "timestamp" }, // timestamptz → timestamp
+    .{ .comptime_str = "boolean" }, // boolean
+    .{ .comptime_str = "char(36)" }, // uuid
+    .{ .comptime_str = "varchar(45)" }, // inet
+    .{ .comptime_str = "int" }, // serial → int
+    .{ .render_fn = mysqlRenderEnumValues }, // enum_values
+    .{ .comptime_str = "" }, // raw_sql — handled by passthrough fallback
+    .{ .comptime_str = "" }, // passthrough — written from variant
+};
+
 fn mysqlRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
     switch (sql_type) {
-        .int => try w.writeAll("int"),
-        .bigint => try w.writeAll("bigint"),
-        .smallint => try w.writeAll("smallint"),
-        .decimal => |ds| try w.print("decimal({d}, {d})", .{ ds.precision, ds.scale }),
-        .varchar => |n| {
-            if (n > 0) {
-                try w.print("varchar({d})", .{n});
-            } else {
-                try w.writeAll("varchar(255)");
-            }
-        },
-        .text => try w.writeAll("text"),
-        .blob => try w.writeAll("blob"),
-        .json => try w.writeAll("json"),
-        .jsonb => try w.writeAll("json"),
-        .datetime => try w.writeAll("datetime"),
-        .date => try w.writeAll("date"),
-        .timestamptz => try w.writeAll("timestamp"),
-        .boolean => try w.writeAll("boolean"),
-        .uuid => try w.writeAll("char(36)"),
-        .inet => try w.writeAll("varchar(45)"),
-        .serial => try w.writeAll("int"),
-        .enum_values => |vals| {
-            try w.writeAll("ENUM(");
-            for (vals, 0..) |v, vi| {
-                if (vi > 0) try w.writeAll(", ");
-                try w.print("'{s}'", .{v});
-            }
-            try w.writeAll(")");
-        },
         .raw_sql => |sql| try w.writeAll(sql),
         .passthrough => |t| try w.writeAll(t),
+        else => try dialect.renderFromTable(w, sql_type, &MYSQL_RENDER_TABLE),
     }
 }
 
@@ -295,7 +309,7 @@ pub const mysql_backend = DialectBackend{
     .emitUnsigned = mysqlEmitUnsigned,
     .emitAutoIncrement = mysqlEmitAutoIncrement,
     .emitGeneratedColumn = mysqlEmitGeneratedColumn,
-    // emitTypeMetadata and emitConfidenceComment default to null (no-op)
+    // emitTypeMetadata and emitConfidenceComment use noop defaults
     .lookupSym = mysqlLookupSym,
     .quoteChar = '`',
     .rename_needs_column_def = true,

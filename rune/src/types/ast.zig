@@ -1,4 +1,6 @@
 const std = @import("std");
+const dialect_enum = @import("../dialect/enum.zig");
+const Dialect = dialect_enum.Dialect;
 
 // ─── Source Location ─────────────────────────────────────────
 
@@ -168,7 +170,7 @@ pub const CustomType = struct {
 };
 
 pub const DialectOverride = struct {
-    dialect: []const u8,
+    dialect: Dialect,
     type_info: TypeInfo,
 };
 

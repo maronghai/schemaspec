@@ -33,6 +33,7 @@ pub const ArgError = error{
     UnknownTarget,
     MissingTargetValue,
     UnknownFormat,
+    UnknownCommand,
     DiffMissingArgs,
     MigrateMissingArgs,
 };
@@ -204,6 +205,14 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         return .{ .dialect = dialect, .target = target, .command = .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
     }
 
+    // Unknown command detection: if first arg looks like a command (no file extension)
+    // but isn't recognized, report an error instead of silently treating it as input.
+    if (fargs.len > 0 and std.mem.indexOfScalar(u8, fargs[0], '.') == null) {
+        if (!isKnownCommand(fargs[0]) and !std.mem.eql(u8, fargs[0], "-")) {
+            return error.UnknownCommand;
+        }
+    }
+
     // Default: compile
     const input = if (fargs.len > 0) fargs[0] else null;
     return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
@@ -222,25 +231,46 @@ fn parseTarget(s: []const u8) !Target {
     return error.UnknownTarget;
 }
 
+// ─── Command Registry ─────────────────────────────────────────
+// Table-driven command definitions for auto-generated help and unknown command detection.
+// To add a new command: add an entry here + a branch in the routing below.
+
+const CommandInfo = struct {
+    name: []const u8,
+    args: []const u8, // argument syntax (e.g. "<old.ss> <new.ss>")
+    description: []const u8,
+};
+
+const COMMAND_REGISTRY = [_]CommandInfo{
+    .{ .name = "validate", .args = "[input.ss]", .description = "Validate .ss schema (no output)" },
+    .{ .name = "diff", .args = "<old.ss> <new.ss>", .description = "Show schema differences" },
+    .{ .name = "migrate", .args = "<old.ss> <new.ss>", .description = "Generate ALTER TABLE migration SQL" },
+    .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
+    .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
+};
+
+/// Check if a string is a known subcommand name.
+fn isKnownCommand(name: []const u8) bool {
+    for (COMMAND_REGISTRY) |cmd| {
+        if (std.mem.eql(u8, name, cmd.name)) return true;
+    }
+    return false;
+}
+
 // ─── Usage ─────────────────────────────────────────────────────
 
 pub fn printUsage() void {
     std.debug.print("Usage:\n", .{});
     std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
     std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
-    std.debug.print("  rune validate [input.ss]                             Validate .ss schema (no output)\n", .{});
-    std.debug.print("  rune diff <old.ss> <new.ss> [-d mysql|pg|sqlite] [--format text|json]\n", .{});
-    std.debug.print("                                                       Show schema differences\n", .{});
-    std.debug.print("  rune migrate <old.ss> <new.ss> [-o migration.sql] [-d mysql|pg|sqlite] [--dry-run]\n", .{});
-    std.debug.print("                                                       Generate ALTER TABLE migration SQL\n", .{});
-    std.debug.print("  rune reverse [input.sql] [-o output.ss] [-T] [-d mysql|pg|sqlite] [--validate-only]\n", .{});
-    std.debug.print("                                                       Reverse SQL DDL to .ss schema\n", .{});
-    std.debug.print("                                                       -T: extract shared templates\n", .{});
-    std.debug.print("  rune docs [input.ss] [-o output.md]                  Generate Markdown documentation\n", .{});
+    inline for (COMMAND_REGISTRY) |cmd| {
+        std.debug.print("  rune {s:<32}{s}\n", .{cmd.name ++ " " ++ cmd.args, cmd.description});
+    }
+    std.debug.print("                                                       -T: extract shared templates (reverse only)\n", .{});
     std.debug.print("\nOptions:\n", .{});
     std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
-    std.debug.print("  --format        Output format: text (default), json, sarif (for diff)\n", .{});
+    std.debug.print("  --format        Output format: text (default), json, sarif (for diff/migrate)\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
     std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
     std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});

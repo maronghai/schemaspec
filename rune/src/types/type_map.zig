@@ -42,12 +42,7 @@ pub fn lookupCustomType(
         if (std.mem.eql(u8, ct.name, type_name)) {
             // Check dialect-specific overrides first
             for (ct.dialect_overrides) |ov| {
-                const dname = switch (dialect) {
-                    .mysql => "mysql",
-                    .pg => "postgres",
-                    .sqlite => "sqlite",
-                };
-                if (std.mem.eql(u8, ov.dialect, dname)) {
+                if (ov.dialect == dialect) {
                     return ov.type_info;
                 }
             }
