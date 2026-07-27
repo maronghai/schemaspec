@@ -44,6 +44,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
 - `type_map.zig`: Helper functions (`lookupCustomType`, `isNumericSymType`, etc.) + `SqlType` re-export
 - `type_registry.zig`: SS symbol → `SqlType` direct mapping (`lookupSqlTypeDirect`) and reverse lookup. 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
+- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (46 entries) + `ReverseMapping` struct. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
 ### Extracted Sub-Modules
 
@@ -75,6 +76,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `reverse/codegen.zig` | `reverse/column.zig` | Column reverse engineering (type mapping, suffix, inline index detection) |
 | `reverse/codegen.zig` | `reverse/fk.zig` | FK reverse classification |
 | `reverse/codegen.zig` | `reverse/check.zig` | CHECK constraint reverse engineering |
+| `reverse/map.zig` | `types/reverse_map.zig` | Shared REVERSE_MAP data + ReverseMapping struct (canonical location) |
 
 ## Forward Pipeline
 

@@ -62,19 +62,23 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig                           # CLI + glue
   bench.zig, json_schema.zig, ast_visitor.zig, docs.zig          # standalone modules
+  tests.zig                                                       # colocated test index
   pipeline/    forward.zig, reverse.zig, diff.zig        # pipeline orchestration
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig, sql_parser_test.zig
   codegen/     codegen.zig, columns.zig, indexes.zig     # SQL code generation
+               codegen_test.zig, indexes_test.zig        # colocated tests
   dialect/     dialect.zig, enum.zig, mysql.zig,          # dialect backends (7 files)
                pg.zig, sqlite.zig, common.zig, sqlite_hints.zig
   reverse/     codegen.zig, column.zig, map.zig,          # reverse engineering (7 files)
                map_data.zig, fk.zig, check.zig, template_extraction.zig
-  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (9 files)
+  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (10 files)
                fks.zig, indexes.zig, format.zig, semantic.zig, migrate.zig
-  types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (8 files)
+               diff_test.zig, fields_test.zig             # colocated tests
+  types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (9 files)
                sql_type.zig, type_map.zig, type_registry.zig,
-               type_resolver.zig, symbol_table.zig
+               type_resolver.zig, symbol_table.zig,
+               reverse_map.zig                            # shared REVERSE_MAP data
   semantic/    analyzer.zig, pass_manager.zig,            # semantic analysis (6 files)
                trace.zig, diagnostic.zig, template.zig,
                test_helpers.zig, pass/*.zig               # 8 pass implementations
@@ -108,7 +112,7 @@ rune/src/
 
 - **Two-Pass FK Diffing** (`diff/fks.zig`): First pass matches identical FKs (structure + actions). Second pass matches structurally identical FKs with different actions → `modify`. Remaining unmatched FKs → `drop`/`add`.
 
-- **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null.
+- **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null. Reverse mapping data lives in `types/reverse_map.zig` (canonical location), consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
 - **Unified ReverseResult** (`dialect/dialect.zig`): Single `ReverseResult` struct shared by dialect backends and `reverse/column.zig` — zero duplication across the reverse pipeline.
 
@@ -137,7 +141,8 @@ rune/src/
 | | `sqlite_hints.zig` | SQLite type affinity hints + column heuristics |
 | `reverse/` | `codegen.zig` | SQL → `.ss` orchestration |
 | | `column.zig` | Column reverse engineering |
-| | `map.zig`, `map_data.zig` | Reverse lookup logic + REVERSE_MAP data (46 entries, each with `confidence_base`) |
+| | `map.zig` | Reverse lookup logic (imports shared data from `types/reverse_map.zig`) |
+| | `map_data.zig` | Re-exports `types/reverse_map.zig` (backward-compatible shim) |
 | | `fk.zig`, `check.zig` | FK/Check constraint reverse engineering |
 | | `template_extraction.zig` | Template extraction from SQL |
 | `diff/` | `engine.zig` | Table-level diff engine |
@@ -156,6 +161,7 @@ rune/src/
 | | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
 | | `type_resolver.zig` | TypeResolver namespace — ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
+| | `reverse_map.zig` | Shared REVERSE_MAP data (46 entries) + ReverseMapping struct (canonical location) |
 | `semantic/` | `analyzer.zig` | SemanticAnalyzer + diagnosticTrace |
 | | `pass_manager.zig` | PassContext + SemanticPass + DEFAULT_PASSES + detectConflicts + getParallelGroups |
 | | `trace.zig` | Shared AST trace formatting |
@@ -171,7 +177,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks — inline in production files, or in dedicated `*_test.zig` files (`diff_test.zig`, `codegen_test.zig`, `diff/migrate_test.zig`, `ast_visitor_test.zig`, `diff_fields_test.zig`, `parser/sql_parser_test.zig`, `semantic/analyzer.zig`). Each semantic pass has direct unit tests in `semantic/pass/*.zig`. Dialect backends (`mysql.zig`, `pg.zig`, `sqlite.zig`) have `renderType` + `quoteChar` tests. Pipeline tests in `pipeline/forward.zig` and `pipeline/diff.zig`. Pass manager tests in `semantic/pass_manager.zig`. Run via `zig build test`
+- **Unit tests**: Zig `test` blocks — inline in production files, or in dedicated `*_test.zig` files. Colocated test files (moved alongside their modules): `diff/diff_test.zig`, `diff/fields_test.zig`, `codegen/codegen_test.zig`. Root-level test files: `ast_visitor_test.zig`. Module-inline tests: `parser/sql_parser_test.zig`, `parser/parser_test.zig`, `diff/migrate_test.zig`, `codegen/indexes_test.zig`, `reverse/map.zig` (25 tests). Each semantic pass has direct unit tests in `semantic/pass/*.zig`. Dialect backends (`mysql.zig`, `pg.zig`, `sqlite.zig`) have `renderType` + `quoteChar` tests. Pipeline tests in `pipeline/forward.zig` and `pipeline/diff.zig`. Pass manager tests in `semantic/pass_manager.zig`. Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. 14 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 83), `test_sqlite.sh` (SQLite, 24), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (15), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_roundtrip.sh` (24), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

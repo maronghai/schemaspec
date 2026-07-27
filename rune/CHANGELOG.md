@@ -4,6 +4,17 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.33.0] - 2026-07-27
+
+### Changed
+- Extracted shared reverse mapping data to `types/reverse_map.zig` (canonical location for `REVERSE_MAP` and `ReverseMapping`)
+- `reverse/map_data.zig` now re-exports from `types/reverse_map.zig` (backward-compatible)
+
+### Added
+- 25 new unit tests in `reverse/map.zig`: round-trip tests (SS symbol → SQL type per dialect), confidence score range validation, data integrity checks
+- `tests.zig` test module index for colocated test files (commented out pending pre-existing test fixes)
+- Colocated test files moved to module directories: `diff/diff_test.zig`, `diff/fields_test.zig`, `codegen/codegen_test.zig`
+
 ## [0.29.0] - 2026-07-27
 
 ### Added

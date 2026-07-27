@@ -264,7 +264,7 @@ pub fn printUsage() void {
     std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
     std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
     inline for (COMMAND_REGISTRY) |cmd| {
-        std.debug.print("  rune {s:<32}{s}\n", .{cmd.name ++ " " ++ cmd.args, cmd.description});
+        std.debug.print("  rune {s:<32}{s}\n", .{ cmd.name ++ " " ++ cmd.args, cmd.description });
     }
     std.debug.print("                                                       -T: extract shared templates (reverse only)\n", .{});
     std.debug.print("\nOptions:\n", .{});

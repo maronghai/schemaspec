@@ -323,6 +323,145 @@ test "score: SQLite TEXT fallback returns 50" {
     try testing.expectEqual(@as(u8, 50), r.score);
 }
 
+// ─── Round-trip tests: sym → toSql → reverseLookup → sym ──────
+
+test "round-trip: MySQL int → n" {
+    const r = reverseLookup("int", "id", false, false, .mysql);
+    try testing.expectEqualStrings("n", r.sym);
+}
+
+test "round-trip: MySQL bigint → N" {
+    const r = reverseLookup("bigint", "id", false, false, .mysql);
+    try testing.expectEqualStrings("N", r.sym);
+}
+
+test "round-trip: MySQL text → S" {
+    const r = reverseLookup("text", "col", false, false, .mysql);
+    try testing.expectEqualStrings("S", r.sym);
+}
+
+test "round-trip: MySQL boolean → b" {
+    const r = reverseLookup("boolean", "flag", false, false, .mysql);
+    try testing.expectEqualStrings("b", r.sym);
+}
+
+test "round-trip: MySQL blob → B" {
+    const r = reverseLookup("blob", "data", false, false, .mysql);
+    try testing.expectEqualStrings("B", r.sym);
+}
+
+test "round-trip: MySQL json → j" {
+    const r = reverseLookup("json", "meta", false, false, .mysql);
+    try testing.expectEqualStrings("j", r.sym);
+}
+
+test "round-trip: MySQL date → d" {
+    const r = reverseLookup("date", "col", false, false, .mysql);
+    try testing.expectEqualStrings("d", r.sym);
+}
+
+test "round-trip: MySQL datetime → t" {
+    const r = reverseLookup("datetime", "col", false, false, .mysql);
+    try testing.expectEqualStrings("t", r.sym);
+}
+
+test "round-trip: PG integer → n" {
+    const r = reverseLookup("integer", "id", false, false, .pg);
+    try testing.expectEqualStrings("n", r.sym);
+}
+
+test "round-trip: PG smallint → i" {
+    const r = reverseLookup("smallint", "id", false, false, .pg);
+    try testing.expectEqualStrings("i", r.sym);
+}
+
+test "round-trip: PG bytea → B" {
+    const r = reverseLookup("bytea", "data", false, false, .pg);
+    try testing.expectEqualStrings("B", r.sym);
+}
+
+test "round-trip: PG timestamptz → T" {
+    const r = reverseLookup("timestamptz", "col", false, false, .pg);
+    try testing.expectEqualStrings("T", r.sym);
+}
+
+test "round-trip: PG uuid → U" {
+    const r = reverseLookup("uuid", "col", false, false, .pg);
+    try testing.expectEqualStrings("U", r.sym);
+}
+
+test "round-trip: PG jsonb → J" {
+    const r = reverseLookup("jsonb", "col", false, false, .pg);
+    try testing.expectEqualStrings("J", r.sym);
+}
+
+test "round-trip: PG inet → I" {
+    const r = reverseLookup("inet", "col", false, false, .pg);
+    try testing.expectEqualStrings("I", r.sym);
+}
+
+test "round-trip: PG serial → p" {
+    const r = reverseLookup("serial", "id", false, false, .pg);
+    try testing.expectEqualStrings("p", r.sym);
+}
+
+test "round-trip: PG bigserial → N" {
+    const r = reverseLookup("bigserial", "id", false, false, .pg);
+    try testing.expectEqualStrings("N", r.sym);
+}
+
+// ─── Confidence score range tests ───────────────────────────
+
+test "confidence: all REVERSE_MAP entries have valid confidence_base" {
+    for (REVERSE_MAP) |m| {
+        try testing.expect(m.confidence_base <= 100);
+    }
+}
+
+test "confidence: canonical entries (rev_priority=10) have confidence_base=100" {
+    for (REVERSE_MAP) |m| {
+        if (m.rev_priority == 10) {
+            try testing.expectEqual(@as(u8, 100), m.confidence_base);
+        }
+    }
+}
+
+test "confidence: passthrough entries have confidence_base=70" {
+    for (REVERSE_MAP) |m| {
+        if (m.sym.len > 1) { // passthrough types have multi-char sym
+            try testing.expectEqual(@as(u8, 70), m.confidence_base);
+        }
+    }
+}
+
+// ─── Reverse map data integrity tests ───────────────────────
+
+test "data: REVERSE_MAP has expected minimum size" {
+    try testing.expect(REVERSE_MAP.len >= 40);
+}
+
+test "data: every entry has non-empty sym" {
+    for (REVERSE_MAP) |m| {
+        try testing.expect(m.sym.len > 0);
+    }
+}
+
+test "data: every entry has non-empty mysql/pg/sqlite" {
+    for (REVERSE_MAP) |m| {
+        try testing.expect(m.mysql.len > 0);
+        try testing.expect(m.pg.len > 0);
+        try testing.expect(m.sqlite.len > 0);
+    }
+}
+
+test "data: canonical entries have sql_type set" {
+    for (REVERSE_MAP) |m| {
+        if (m.rev_priority == 10) {
+            try testing.expect(m.sql_type != null);
+        }
+    }
+}
+
 // ─── Buffer overflow guard tests ────────────────────────────────
 
 test "reverse: varchar with long N falls back to raw" {
