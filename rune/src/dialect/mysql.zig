@@ -178,7 +178,8 @@ fn mysqlEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
 
 fn mysqlEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
     try w.writeAll("DROP FOREIGN KEY fk_");
-    for (fk.fields) |f| {
+    for (fk.fields, 0..) |f, i| {
+        if (i > 0) try w.writeAll("_");
         try w.writeAll(f);
     }
 }

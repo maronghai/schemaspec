@@ -28,7 +28,7 @@ fn pgEmitAlterModifyColumn(w: *Writer, col_name: []const u8) anyerror!void {
     try w.print("ALTER COLUMN \"{s}\" TYPE ", .{col_name});
 }
 
-fn pgEmitAlterAddIndex(w: *Writer, _: []const u8, idx: IndexDecl) anyerror!void {
+fn pgEmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void {
     switch (idx.kind) {
         .unique => {
             try w.writeAll("ADD UNIQUE (");
@@ -41,14 +41,25 @@ fn pgEmitAlterAddIndex(w: *Writer, _: []const u8, idx: IndexDecl) anyerror!void 
             try w.writeAll(")");
         },
         else => {
-            try w.print("-- NOTE: CREATE INDEX needed for '{s}' (not supported via ALTER TABLE in PG)\n", .{idx.name});
+            // PG doesn't support adding regular indexes via ALTER TABLE.
+            // Close the current ALTER TABLE and emit a standalone CREATE INDEX.
+            try w.writeAll(";\n\nCREATE INDEX ");
+            try common.quoteIdentDoubleQuote(w, idx.name);
+            try w.writeAll(" ON ");
+            try common.quoteIdentDoubleQuote(w, table_name);
+            try w.writeAll(" (");
+            try common.emitIndexFields(w, idx);
+            try w.writeAll(");\n\nALTER TABLE ");
+            try common.quoteIdentDoubleQuote(w, table_name);
+            try w.writeAll("\n");
         },
     }
 }
 
 fn pgEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
     try w.writeAll("DROP CONSTRAINT \"fk_");
-    for (fk.fields) |f| {
+    for (fk.fields, 0..) |f, i| {
+        if (i > 0) try w.writeAll("_");
         try w.writeAll(f);
     }
     try w.writeAll("\"");

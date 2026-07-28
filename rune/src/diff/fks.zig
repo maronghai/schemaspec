@@ -10,8 +10,10 @@ pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []con
     var diffs = try std.ArrayList(FkDiff).initCapacity(alloc, 4);
 
     var old_matched = try std.ArrayList(bool).initCapacity(alloc, old_fks.len);
+    defer old_matched.deinit(alloc);
     for (old_fks) |_| try old_matched.append(alloc, false);
     var new_matched = try std.ArrayList(bool).initCapacity(alloc, new_fks.len);
+    defer new_matched.deinit(alloc);
     for (new_fks) |_| try new_matched.append(alloc, false);
 
     // Pass 1: exact match (same structure + same actions) → unchanged
@@ -28,10 +30,11 @@ pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []con
     // Pass 1.5: rename-aware matching — adjust FK fields for renames, then match
     for (old_fks, 0..) |old_fk, oi| {
         if (old_matched.items[oi]) continue;
-        const adjusted = adjustFkForRenames(old_fk, field_diffs);
+        const adjusted_result = try adjustFkForRenames(old_fk, field_diffs, alloc);
+        defer adjusted_result.deinit(alloc);
         for (new_fks, 0..) |new_fk, ni| {
             if (!new_matched.items[ni]) {
-                if (fksStructurallyEqual(adjusted, new_fk)) {
+                if (fksStructurallyEqual(adjusted_result.fk, new_fk)) {
                     old_matched.items[oi] = true;
                     new_matched.items[ni] = true;
                     try diffs.append(alloc, .{
@@ -87,20 +90,28 @@ pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []con
     return try diffs.toOwnedSlice(alloc);
 }
 
+/// Result of adjustFkForRenames — contains the adjusted FK and allocated memory.
+/// Caller must free `fields_buf` and `ref_fields_buf` after use.
+pub const AdjustedFk = struct {
+    fk: FkDecl,
+    fields_buf: []const []const u8,
+    ref_fields_buf: []const []const u8,
+
+    pub fn deinit(self: AdjustedFk, alloc: std.mem.Allocator) void {
+        if (self.fields_buf.len > 0) alloc.free(self.fields_buf);
+        if (self.ref_fields_buf.len > 0) alloc.free(self.ref_fields_buf);
+    }
+};
+
 /// Create a copy of an FK with fields adjusted according to field renames.
-/// Returns a stack-local FkDecl — valid for the duration of the calling function.
-fn adjustFkForRenames(fk: FkDecl, field_diffs: []const FieldDiff) FkDecl {
-    var local_fields: [8][]const u8 = undefined;
-    var local_ref_fields: [8][]const u8 = undefined;
-    var fields_len: usize = 0;
-    var ref_fields_len: usize = 0;
+/// Returns the adjusted FK and allocated buffers that the caller must free.
+fn adjustFkForRenames(fk: FkDecl, field_diffs: []const FieldDiff, alloc: std.mem.Allocator) !AdjustedFk {
     var modified = false;
 
     for (field_diffs) |fd| {
         if (fd.action != .rename) continue;
         const old_name = fd.rename_from orelse continue;
 
-        // Check if any FK fields or ref_fields are affected by this rename
         for (fk.fields) |f| {
             if (std.mem.eql(u8, f, old_name)) modified = true;
         }
@@ -109,10 +120,19 @@ fn adjustFkForRenames(fk: FkDecl, field_diffs: []const FieldDiff) FkDecl {
         }
     }
 
-    if (!modified) return fk;
+    if (!modified) return .{
+        .fk = fk,
+        .fields_buf = &.{},
+        .ref_fields_buf = &.{},
+    };
 
-    // Copy fields into local buffers, applying renames
-    for (fk.fields) |f| {
+    // Allocate buffers for renamed fields
+    var fields_buf = try alloc.alloc([]const u8, fk.fields.len);
+    errdefer alloc.free(fields_buf);
+    var ref_fields_buf = try alloc.alloc([]const u8, fk.ref_fields.len);
+    errdefer alloc.free(ref_fields_buf);
+
+    for (fk.fields, 0..) |f, i| {
         var replaced = f;
         for (field_diffs) |fd| {
             if (fd.action == .rename and fd.rename_from != null and std.mem.eql(u8, f, fd.rename_from.?)) {
@@ -120,10 +140,9 @@ fn adjustFkForRenames(fk: FkDecl, field_diffs: []const FieldDiff) FkDecl {
                 break;
             }
         }
-        local_fields[fields_len] = replaced;
-        fields_len += 1;
+        fields_buf[i] = replaced;
     }
-    for (fk.ref_fields) |f| {
+    for (fk.ref_fields, 0..) |f, i| {
         var replaced = f;
         for (field_diffs) |fd| {
             if (fd.action == .rename and fd.rename_from != null and std.mem.eql(u8, f, fd.rename_from.?)) {
@@ -131,16 +150,19 @@ fn adjustFkForRenames(fk: FkDecl, field_diffs: []const FieldDiff) FkDecl {
                 break;
             }
         }
-        local_ref_fields[ref_fields_len] = replaced;
-        ref_fields_len += 1;
+        ref_fields_buf[i] = replaced;
     }
 
     return .{
-        .fields = local_fields[0..fields_len],
-        .ref_table = fk.ref_table,
-        .ref_fields = local_ref_fields[0..ref_fields_len],
-        .actions = fk.actions,
-        .line_no = fk.line_no,
+        .fk = .{
+            .fields = fields_buf,
+            .ref_table = fk.ref_table,
+            .ref_fields = ref_fields_buf,
+            .actions = fk.actions,
+            .line_no = fk.line_no,
+        },
+        .fields_buf = fields_buf,
+        .ref_fields_buf = ref_fields_buf,
     };
 }
 

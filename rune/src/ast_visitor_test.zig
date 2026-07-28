@@ -17,8 +17,12 @@ const SqlComment = ast_mod.SqlComment;
 const testing = std.testing;
 const makeTestField = @import("semantic/test_helpers.zig").makeTestField;
 
-fn countVisitSchema(_: *VisitCounts, _: Schema) void {}
-fn countVisitTemplate(_: *VisitCounts, _: Template) void {}
+fn countVisitSchema(ctx: *VisitCounts, _: Schema) void {
+    ctx.schemas += 1;
+}
+fn countVisitTemplate(ctx: *VisitCounts, _: Template) void {
+    ctx.templates += 1;
+}
 fn countVisitTable(ctx: *VisitCounts, _: Table) void {
     ctx.tables += 1;
 }
@@ -31,12 +35,15 @@ fn countVisitFk(ctx: *VisitCounts, _: FkDecl, _: ?[]const u8) void {
 fn countVisitIndex(ctx: *VisitCounts, _: IndexDecl, _: ?[]const u8) void {
     ctx.indexes += 1;
 }
-fn countVisitSqlComment(_: *VisitCounts, _: SqlComment) void {}
+fn countVisitSqlComment(ctx: *VisitCounts, _: SqlComment) void {
+    ctx.sql_comments += 1;
+}
 
 test "visitor: count all AST nodes" {
     const alloc = testing.allocator;
 
     const fields = try alloc.alloc(Field, 2);
+    defer alloc.free(fields);
     fields[0] = makeTestField("id", .{ .simple = "n" });
     fields[1] = makeTestField("name", .{ .simple = "s" });
 
@@ -52,8 +59,10 @@ test "visitor: count all AST nodes" {
     };
 
     const tables = try alloc.dupe(Table, &.{table});
+    defer alloc.free(tables);
 
     const tmpl_fields = try alloc.alloc(Field, 1);
+    defer alloc.free(tmpl_fields);
     tmpl_fields[0] = makeTestField("created_at", .none);
 
     const template = Template{
@@ -65,6 +74,7 @@ test "visitor: count all AST nodes" {
     };
 
     const templates = try alloc.dupe(Template, &.{template});
+    defer alloc.free(templates);
 
     const schema = Schema{
         .name = "testdb",
@@ -153,21 +163,29 @@ test "visitor: walk FKs and indexes" {
         .line_no = 1,
     };
 
+    const fk_slice = try alloc.dupe(FkDecl, &.{fk});
+    defer alloc.free(fk_slice);
+    const idx_slice = try alloc.dupe(IndexDecl, &.{idx});
+    defer alloc.free(idx_slice);
+
     const table = Table{
         .name = "orders",
         .template_ref = null,
         .comment = null,
         .engine = null,
         .fields = &.{makeTestField("id", .{ .simple = "n" })},
-        .fks = try alloc.dupe(FkDecl, &.{fk}),
-        .indexes = try alloc.dupe(IndexDecl, &.{idx}),
+        .fks = fk_slice,
+        .indexes = idx_slice,
         .line_no = 1,
     };
+
+    const tables = try alloc.dupe(Table, &.{table});
+    defer alloc.free(tables);
 
     const ast = Ast{
         .schema = null,
         .templates = &.{},
-        .tables = try alloc.dupe(Table, &.{table}),
+        .tables = tables,
         .views = &.{},
         .sql_comments = &.{},
     };
@@ -192,6 +210,18 @@ test "visitor: walk FKs and indexes" {
 test "visitor: selective callbacks" {
     const alloc = testing.allocator;
 
+    const tables = try alloc.dupe(Table, &.{.{
+        .name = "t",
+        .template_ref = null,
+        .comment = null,
+        .engine = null,
+        .fields = &.{makeTestField("id", .{ .simple = "n" })},
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    }});
+    defer alloc.free(tables);
+
     const ast = Ast{
         .schema = .{
             .name = "test",
@@ -201,16 +231,7 @@ test "visitor: selective callbacks" {
             .line_no = 1,
         },
         .templates = &.{},
-        .tables = try alloc.dupe(Table, &.{.{
-            .name = "t",
-            .template_ref = null,
-            .comment = null,
-            .engine = null,
-            .fields = &.{makeTestField("id", .{ .simple = "n" })},
-            .fks = &.{},
-            .indexes = &.{},
-            .line_no = 1,
-        }}),
+        .tables = tables,
         .views = &.{},
         .sql_comments = &.{},
     };
@@ -245,6 +266,7 @@ test "visitor: walkResolvedTables" {
         .indexes = &.{},
         .line_no = 1,
     };
+    defer alloc.free(table.fields);
 
     var counts = VisitCounts{};
     const visitor = AstVisitor(*VisitCounts){
@@ -253,7 +275,9 @@ test "visitor: walkResolvedTables" {
         .visitField = countVisitField,
     };
 
-    visitor.walkResolvedTables(try alloc.dupe(ResolvedTable, &.{table}));
+    const resolved_tables = try alloc.dupe(ResolvedTable, &.{table});
+    defer alloc.free(resolved_tables);
+    visitor.walkResolvedTables(resolved_tables);
 
     try testing.expectEqual(@as(usize, 1), counts.tables);
     try testing.expectEqual(@as(usize, 2), counts.fields);

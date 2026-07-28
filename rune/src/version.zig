@@ -1,7 +1,7 @@
 const std = @import("std");
 
 /// Rune version constant. Single source of truth for all modules.
-pub const VERSION = "0.37.0";
+pub const VERSION = "0.38.0";
 
 /// Print version to stderr.
 pub fn printVersion() void {

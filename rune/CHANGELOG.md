@@ -4,6 +4,18 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.38.0] - 2026-07-28
+
+### Fixed
+- **`ast_visitor_test.zig` broken callbacks**: Test defined no-op `countVisitSchema`/`countVisitTemplate`/`countVisitSqlComment` callbacks but expected counters to increment, causing 24 test failures + 3 crashes + 592 memory leaks. Fixed callbacks to actually increment counters and added proper memory cleanup with `defer alloc.free()`.
+- **FK rename buffer overflow**: `diff/fks.zig:adjustFkForRenames` used fixed-size `[8][]const u8` stack buffers. FKs with >8 fields would silently overflow. Replaced with allocator-based dynamic arrays (`AdjustedFk` struct with proper cleanup via `deinit()`).
+- **`diffFks` memory leak**: `old_matched` and `new_matched` ArrayLists were never freed. Added `defer` cleanup.
+- **PG ALTER TABLE index emission**: `pgEmitAlterAddIndex` emitted a comment (`-- NOTE: CREATE INDEX needed`) for regular indexes instead of actual SQL. Now emits standalone `CREATE INDEX` statement, closing the ALTER TABLE and reopening it for subsequent operations.
+- **FK constraint name separator**: `mysqlEmitAlterDropFk` and `pgEmitAlterDropFk` concatenated field names without separator (e.g., `fk_user_idorg_id`). Now adds `_` separator (e.g., `fk_user_id_org_id`).
+
+### Changed
+- Updated golden test files for version 0.38.0.
+
 ## [0.37.0] - 2026-07-28
 
 ### Fixed

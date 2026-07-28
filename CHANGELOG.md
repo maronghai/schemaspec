@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.38.0] - 2026-07-28
+
+### Fixed
+- Fixed broken `ast_visitor_test.zig` — test defined no-op callbacks but expected counters to increment, causing 24 test failures + 3 crashes + 592 memory leaks
+- Fixed memory safety issue in `diff/fks.zig:adjustFkForRenames` — replaced fixed-size `[8]` stack buffers with allocator-based dynamic arrays to handle FKs with >8 fields
+- Fixed pre-existing memory leak in `diff/fks.zig:diffFks` — `old_matched` and `new_matched` ArrayLists were never freed
+- Fixed PG `emitAlterAddIndex` — regular indexes now emit standalone `CREATE INDEX` statement instead of a comment, preventing silent migration failures
+- Fixed FK constraint name separator in MySQL and PostgreSQL `DROP FOREIGN KEY` — field names now use `_` separator (e.g., `fk_user_id_org_id` instead of `fk_user_idorg_id`)
+
 ## [0.37.0] - 2026-07-28
 
 ### Fixed
