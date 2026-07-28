@@ -22,13 +22,13 @@ fn countVisitTemplate(_: *VisitCounts, _: Template) void {}
 fn countVisitTable(ctx: *VisitCounts, _: Table) void {
     ctx.tables += 1;
 }
-fn countVisitField(ctx: *VisitCounts, _: Field) void {
+fn countVisitField(ctx: *VisitCounts, _: *const Field, _: ?[]const u8) void {
     ctx.fields += 1;
 }
-fn countVisitFk(ctx: *VisitCounts, _: FkDecl) void {
+fn countVisitFk(ctx: *VisitCounts, _: FkDecl, _: ?[]const u8) void {
     ctx.fks += 1;
 }
-fn countVisitIndex(ctx: *VisitCounts, _: IndexDecl) void {
+fn countVisitIndex(ctx: *VisitCounts, _: IndexDecl, _: ?[]const u8) void {
     ctx.indexes += 1;
 }
 fn countVisitSqlComment(_: *VisitCounts, _: SqlComment) void {}

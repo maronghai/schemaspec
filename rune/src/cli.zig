@@ -10,6 +10,7 @@ pub const DiffFormat = enum { text, json, sarif };
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool },
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
+    check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool },
@@ -24,6 +25,7 @@ pub const ParsedArgs = struct {
     command: Command,
     quiet: bool,
     strict: bool,
+    json_errors: bool = false,
     import_paths: []const []const u8 = &.{},
 };
 
@@ -90,6 +92,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_dry_run = false;
     var want_strict = false;
     var want_verbose_passes = false;
+    var want_json_errors = false;
     var diff_format: DiffFormat = .text;
     var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var want_validate_only = false;
@@ -141,6 +144,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             want_validate_only = true;
         } else if (std.mem.eql(u8, raw_args[i], "--strict")) {
             want_strict = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--json-errors")) {
+            want_json_errors = true;
         } else if (std.mem.eql(u8, raw_args[i], "--verbose-passes")) {
             want_verbose_passes = true;
         } else if (std.mem.eql(u8, raw_args[i], "--import-path")) {
@@ -156,29 +161,29 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     const import_path_list = try import_paths.toOwnedSlice(alloc);
 
     if (want_version) {
-        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     if (want_help) {
-        return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     // Pass 2: route subcommand
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
         // No positional args, or first arg is a flag (e.g. `-o output.sql`) → default compile from stdin
-        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = parseOutputFlag(fargs, 0), .trace = parseTraceFlag(fargs, 0), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = parseOutputFlag(fargs, 0), .trace = parseTraceFlag(fargs, 0), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     const sub = fargs[0];
 
     if (std.mem.eql(u8, sub, "diff")) {
         if (fargs.len < 3) return error.DiffMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats, .format = diff_format, .check = want_check } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats, .format = diff_format, .check = want_check } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     if (std.mem.eql(u8, sub, "migrate")) {
         if (fargs.len < 3) return error.MigrateMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run, .format = diff_format, .check = want_check } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run, .format = diff_format, .check = want_check } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     if (std.mem.eql(u8, sub, "reverse")) {
@@ -192,17 +197,22 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 input = fargs[j];
             }
         }
-        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .validate_only = want_validate_only } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .validate_only = want_validate_only } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     if (std.mem.eql(u8, sub, "validate")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+    }
+
+    if (std.mem.eql(u8, sub, "check")) {
+        const input = if (fargs.len > 1) fargs[1] else null;
+        return .{ .dialect = dialect, .target = target, .command = .{ .check = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     if (std.mem.eql(u8, sub, "docs")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     // Unknown command detection: if first arg looks like a command (no file extension)
@@ -215,7 +225,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     // Default: compile
     const input = if (fargs.len > 0) fargs[0] else null;
-    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .import_paths = import_path_list };
+    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
 }
 
 fn parseDialect(s: []const u8) !dialect_enum.Dialect {
@@ -243,6 +253,7 @@ const CommandInfo = struct {
 
 const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "validate", .args = "[input.ss]", .description = "Validate .ss schema (no output)" },
+    .{ .name = "check", .args = "[input.ss]", .description = "Check schema validity (exit 1 on error)" },
     .{ .name = "diff", .args = "<old.ss> <new.ss>", .description = "Show schema differences" },
     .{ .name = "migrate", .args = "<old.ss> <new.ss>", .description = "Generate ALTER TABLE migration SQL" },
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
@@ -276,6 +287,7 @@ pub fn printUsage() void {
     std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});
     std.debug.print("  --dry-run       Show migration SQL without writing to file\n", .{});
     std.debug.print("  --strict        Treat warnings as errors (for CI/CD)\n", .{});
+    std.debug.print("  --json-errors   Output diagnostics as JSON (machine-readable)\n", .{});
     std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
     std.debug.print("  --import-path   Additional search path for @import directives\n", .{});
     std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});

@@ -113,6 +113,7 @@ pub const DiagnosticCollector = struct {
     alloc: std.mem.Allocator,
     max_errors: usize = 100,
     overflow: bool = false,
+    json_errors: bool = false,
 
     pub fn init(alloc: std.mem.Allocator) !DiagnosticCollector {
         return .{
@@ -160,6 +161,16 @@ pub const DiagnosticCollector = struct {
 
     /// Print all collected diagnostics.
     pub fn printAll(self: *const DiagnosticCollector) void {
+        if (self.json_errors) {
+            var aw = std.Io.Writer.Allocating.init(std.heap.page_allocator);
+            self.formatJson(&aw.writer) catch return;
+            aw.writer.flush() catch return;
+            if (aw.toOwnedSlice()) |json| {
+                defer std.heap.page_allocator.free(json);
+                std.debug.print("{s}\n", .{json});
+            } else |_| {}
+            return;
+        }
         for (self.diagnostics.items) |d| {
             printDiagnostic(d);
         }

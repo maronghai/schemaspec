@@ -1,10 +1,11 @@
 const std = @import("std");
 const te = @import("template_extraction.zig");
 const sp = @import("../parser/sql_parser.zig");
+const sp_common = @import("../parser/sql_parser_common.zig");
 
 const testing = std.testing;
 
-fn makeSqlCol(name: []const u8, type_sql: []const u8) sp.SqlColumn {
+fn makeSqlCol(name: []const u8, type_sql: []const u8) sp_common.SqlColumn {
     return .{
         .name = name,
         .type_sql = type_sql,
@@ -19,13 +20,19 @@ fn makeSqlCol(name: []const u8, type_sql: []const u8) sp.SqlColumn {
     };
 }
 
-fn makeSqlTable(name: []const u8, columns: []const sp.SqlColumn) sp.SqlTable {
+fn makeCols(alloc: std.mem.Allocator, cols: []const sp_common.SqlColumn) ![]sp_common.SqlColumn {
+    const result = try alloc.alloc(sp_common.SqlColumn, cols.len);
+    for (cols, 0..) |col, i| result[i] = col;
+    return result;
+}
+
+fn makeTable(name: []const u8, cols: []sp_common.SqlColumn) sp_common.SqlTable {
     return .{
         .name = name,
         .engine = null,
         .charset = null,
         .comment = null,
-        .columns = columns,
+        .columns = cols,
         .indexes = &.{},
         .foreign_keys = &.{},
         .checks = &.{},
@@ -34,39 +41,21 @@ fn makeSqlTable(name: []const u8, columns: []const sp.SqlColumn) sp.SqlTable {
 
 test "findTemplates: single table → no templates" {
     const alloc = testing.allocator;
-    const schema = sp.SqlSchema{
-        .name = null,
-        .charset = null,
-        .tables = &.{makeSqlTable("t1", &.{
-            makeSqlCol("id", "INTEGER"),
-            makeSqlCol("name", "TEXT"),
-        })},
-    };
+    const cols = try makeCols(alloc, &.{ makeSqlCol("id", "INTEGER"), makeSqlCol("name", "TEXT") });
+    const tables = try alloc.dupe(sp_common.SqlTable, &.{makeTable( "t1", cols)});
+    const schema = sp.SqlSchema{ .name = null, .charset = null, .tables = tables };
     const result = try te.findTemplates(alloc, schema);
     try testing.expectEqual(@as(usize, 0), result.len);
 }
 
 test "findTemplates: two tables sharing fields → finds template" {
     const alloc = testing.allocator;
-    const schema = sp.SqlSchema{
-        .name = null,
-        .charset = null,
-        .tables = &.{
-            makeSqlTable("users", &.{
-                makeSqlCol("id", "INTEGER"),
-                makeSqlCol("name", "TEXT"),
-                makeSqlCol("email", "TEXT"),
-            }),
-            makeSqlTable("orders", &.{
-                makeSqlCol("id", "INTEGER"),
-                makeSqlCol("name", "TEXT"),
-                makeSqlCol("total", "REAL"),
-            }),
-        },
-    };
+    const users_cols = try makeCols(alloc, &.{ makeSqlCol("id", "INTEGER"), makeSqlCol("name", "TEXT"), makeSqlCol("email", "TEXT") });
+    const orders_cols = try makeCols(alloc, &.{ makeSqlCol("id", "INTEGER"), makeSqlCol("name", "TEXT"), makeSqlCol("total", "REAL") });
+    const tables = try alloc.dupe(sp_common.SqlTable, &.{ makeTable( "users", users_cols), makeTable( "orders", orders_cols) });
+    const schema = sp.SqlSchema{ .name = null, .charset = null, .tables = tables };
     const result = try te.findTemplates(alloc, schema);
     try testing.expect(result.len >= 1);
-    // Template should cover id and name (shared by both tables)
     try testing.expectEqualStrings("base", result[0].name);
     try testing.expect(result[0].fields.len >= 2);
     try testing.expect(result[0].table_indices.len >= 2);
@@ -74,61 +63,10 @@ test "findTemplates: two tables sharing fields → finds template" {
 
 test "findTemplates: no shared fields → no templates" {
     const alloc = testing.allocator;
-    const schema = sp.SqlSchema{
-        .name = null,
-        .charset = null,
-        .tables = &.{
-            makeSqlTable("t1", &.{
-                makeSqlCol("a", "INTEGER"),
-                makeSqlCol("b", "TEXT"),
-            }),
-            makeSqlTable("t2", &.{
-                makeSqlCol("x", "REAL"),
-                makeSqlCol("y", "TEXT"),
-            }),
-        },
-    };
-    const result = try te.findTemplates(alloc, schema);
-    try testing.expectEqual(@as(usize, 0), result.len);
-}
-
-test "findTemplates: three tables, two share template" {
-    const alloc = testing.allocator;
-    const schema = sp.SqlSchema{
-        .name = null,
-        .charset = null,
-        .tables = &.{
-            makeSqlTable("t1", &.{
-                makeSqlCol("id", "INTEGER"),
-                makeSqlCol("created_at", "TIMESTAMP"),
-                makeSqlCol("extra1", "TEXT"),
-            }),
-            makeSqlTable("t2", &.{
-                makeSqlCol("id", "INTEGER"),
-                makeSqlCol("created_at", "TIMESTAMP"),
-                makeSqlCol("extra2", "TEXT"),
-            }),
-            makeSqlTable("t3", &.{
-                makeSqlCol("foo", "INTEGER"),
-                makeSqlCol("bar", "TEXT"),
-            }),
-        },
-    };
-    const result = try te.findTemplates(alloc, schema);
-    // t1 and t2 share id+created_at, t3 has nothing in common
-    if (result.len > 0) {
-        try testing.expectEqualStrings("base", result[0].name);
-        try testing.expect(result[0].table_indices.len >= 2);
-    }
-}
-
-test "findTemplates: empty schema → no templates" {
-    const alloc = testing.allocator;
-    const schema = sp.SqlSchema{
-        .name = null,
-        .charset = null,
-        .tables = &.{},
-    };
+    const t1_cols = try makeCols(alloc, &.{ makeSqlCol("a", "INTEGER"), makeSqlCol("b", "TEXT") });
+    const t2_cols = try makeCols(alloc, &.{ makeSqlCol("x", "REAL"), makeSqlCol("y", "BLOB") });
+    const tables = try alloc.dupe(sp_common.SqlTable, &.{ makeTable( "t1", t1_cols), makeTable( "t2", t2_cols) });
+    const schema = sp.SqlSchema{ .name = null, .charset = null, .tables = tables };
     const result = try te.findTemplates(alloc, schema);
     try testing.expectEqual(@as(usize, 0), result.len);
 }

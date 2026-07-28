@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.37.0] - 2026-07-28
+
+### Fixed
+- Fixed broken colocated test compilation (72 errors) from v0.36.1 test extraction
+- Fixed API mismatches across 30+ test files (function signatures, struct fields, Zig 0.16 API changes)
+
+### Added
+- `--json-errors` flag for machine-readable diagnostic output (CI/CD integration)
+- `rune check` standalone subcommand for schema validation
+
 ## [0.36.0] - 2026-07-28
 
 ### Architecture

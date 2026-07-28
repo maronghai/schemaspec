@@ -58,6 +58,7 @@ const CompileFlags = struct {
     run_semantic: bool = true,
     merge_imports: bool = false,
     verbose_passes: bool = false,
+    json_errors: bool = false,
 };
 
 /// Unified internal compilation pipeline.
@@ -82,7 +83,7 @@ fn compileInternal(
     const final_lines = if (imports_result) |r| r.processed_lines else raw_lines;
 
     // Tokenize and parse
-    const result = try tokenizeAndParseWithLines(alloc, final_lines);
+    const result = try tokenizeAndParseWithLines(alloc, final_lines, flags.json_errors);
 
     // Merge imported definitions if requested
     var tree = result.tree;
@@ -121,17 +122,18 @@ pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !Pipelin
 }
 
 /// Shared tokenizer → parser → semantic pipeline with verbose pass tracking.
-pub fn compilePipelineVerbose(alloc: std.mem.Allocator, file_data: []const u8, verbose: bool) !PipelineResult {
-    const result = try compileInternal(null, alloc, file_data, null, .{ .verbose_passes = verbose });
+pub fn compilePipelineVerbose(alloc: std.mem.Allocator, file_data: []const u8, verbose: bool, json_errors: bool) !PipelineResult {
+    const result = try compileInternal(null, alloc, file_data, null, .{ .verbose_passes = verbose, .json_errors = json_errors });
     return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
 }
 
 /// Compile pipeline with import resolution. Handles @import directives by
 /// recursively compiling imported files and merging their templates/tables.
-fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !PipelineResult {
+fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext, json_errors: bool) !PipelineResult {
     const result = try compileInternal(io, alloc, file_data, import_ctx, .{
         .resolve_imports = true,
         .merge_imports = true,
+        .json_errors = json_errors,
     });
     return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
 }
@@ -289,7 +291,7 @@ fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u
                 };
                 const child_lines = try splitLines(alloc, imported_data);
                 child_imports = try resolveImports(io, alloc, child_lines, &child_ctx);
-                const child_result = try tokenizeAndParseWithLines(alloc, child_imports.processed_lines);
+                const child_result = try tokenizeAndParseWithLines(alloc, child_imports.processed_lines, false);
                 child_tree = child_result.tree;
                 if (child_imports.templates.len > 0 or child_imports.tables.len > 0) {
                     child_tree = .{
@@ -335,10 +337,11 @@ fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u
 /// Tokenize and parse a .ss file into AST and tokenized lines.
 /// Returns both the parsed tree and the tokenized lines so callers
 /// don't need to re-tokenize for trace output.
-fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []const u8) !struct { tree: ast_mod.Ast, tokenized: []tokenizer.Line } {
+fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []const u8, json_errors: bool) !struct { tree: ast_mod.Ast, tokenized: []tokenizer.Line } {
     const tok = tokenizer.Tokenizer.init(lines);
     const tokenized = try tok.tokenizeAll(alloc);
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
+    diagnostics.json_errors = json_errors;
     var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
     const tree = p.parse(tokenized) catch |err| {
         if (!diagnostics.hasErrors()) {
@@ -357,12 +360,12 @@ fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []const u8
 // ─── Public API ────────────────────────────────────────────────
 
 /// Compile a .ss file by path, handling @import directives.
-pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8) !PipelineResult {
-    return compileFileWithPaths(io, alloc, file_path, &.{});
+pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, json_errors: bool) !PipelineResult {
+    return compileFileWithPaths(io, alloc, file_path, &.{}, json_errors);
 }
 
 /// Compile a .ss file by path with additional import search paths.
-pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, import_paths: []const []const u8) !PipelineResult {
+pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, import_paths: []const []const u8, json_errors: bool) !PipelineResult {
     const file_data = try std.Io.Dir.cwd().readFileAlloc(io, file_path, alloc, .unlimited);
     const base_dir = computeBaseDir(alloc, file_path);
 
@@ -383,12 +386,12 @@ pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []c
         .import_paths = import_paths,
     };
 
-    return compilePipelineWithImports(io, alloc, file_data, &ctx);
+    return compilePipelineWithImports(io, alloc, file_data, &ctx, json_errors);
 }
 
 /// Compile a .ss file path to ResolvedAst (used by diff/migrate pipelines).
 pub fn compileToAst(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !resolved_ast.ResolvedAst {
-    const pipeline = try compileFile(io, alloc, path);
+    const pipeline = try compileFile(io, alloc, path, false);
     return pipeline.resolved;
 }
 
@@ -459,12 +462,13 @@ pub fn handleCompileRequest(
     check: bool,
     quiet: bool,
     verbose_passes: bool,
+    json_errors: bool,
     import_paths: []const []const u8,
 ) !void {
     const pipeline = if (input) |path|
-        try compileFileWithPaths(io, alloc, path, import_paths)
+        try compileFileWithPaths(io, alloc, path, import_paths, json_errors)
     else
-        try compilePipelineVerbose(alloc, try io_mod.readStdin(io, alloc), verbose_passes);
+        try compilePipelineVerbose(alloc, try io_mod.readStdin(io, alloc), verbose_passes, json_errors);
 
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
 
@@ -498,8 +502,8 @@ pub fn handleCompileRequest(
 
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
 /// Returns error.DiagnosticsError if any errors are found (exit code 1).
-pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool) !void {
-    const result = try compilePipelineVerbose(alloc, file_data, verbose_passes);
+pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool) !void {
+    const result = try compilePipelineVerbose(alloc, file_data, verbose_passes, json_errors);
     if (stats) {
         printStats(computeStats(result.resolved));
     }

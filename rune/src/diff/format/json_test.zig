@@ -8,13 +8,15 @@ const SchemaDiff = diff_types.SchemaDiff;
 const testing = std.testing;
 
 test "formatDiffJson: produces valid structure" {
+    const alloc = testing.allocator;
+    const dropped = try alloc.dupe([]const u8, &.{"old_table"});
     const d = SchemaDiff{
-        .dropped_tables = &.{"old_table"},
+        .dropped_tables = dropped,
         .view_diffs = &.{},
         .table_diffs = &.{},
     };
-    const result = try json.formatDiffJson(testing.allocator, d);
-    defer testing.allocator.free(result);
+    const result = try json.formatDiffJson(alloc, d);
+    defer alloc.free(result);
     try testing.expect(std.mem.indexOf(u8, result, "\"dropped_tables\"") != null);
     try testing.expect(std.mem.indexOf(u8, result, "\"table_diffs\"") != null);
     try testing.expect(std.mem.indexOf(u8, result, "\"view_diffs\"") != null);

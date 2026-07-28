@@ -26,7 +26,7 @@ pub fn lookupSqlType(sym: []const u8, dialect: Dialect, alloc: std.mem.Allocator
     const sql_type = lookupSqlTypeDirect(sym, dialect) orelse return null;
     var aw = std.Io.Writer.Allocating.init(alloc);
     sql_type.toSql(dialect, &aw.writer) catch return null;
-    return aw.toOwnedSlice(alloc) catch null;
+    return aw.toOwnedSlice() catch null;
 }
 
 /// Check if a SS symbol is a known core type.

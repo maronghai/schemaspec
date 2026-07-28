@@ -1,6 +1,6 @@
 const std = @import("std");
-const pg = @import("pg.zig");
 const dialect = @import("dialect.zig");
+const SqlType = @import("../types/sql_type.zig").SqlType;
 
 // ─── Unit Tests ──────────────────────────────────────────────
 
@@ -8,12 +8,13 @@ const testing = std.testing;
 
 test "pg: renderType maps common types" {
     const alloc = testing.allocator;
+    const backend = dialect.getBackend(.pg);
 
     // int → integer
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try pg.pgRenderType(w, .int);
+        try backend.renderType(w, .int);
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -23,7 +24,7 @@ test "pg: renderType maps common types" {
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try pg.pgRenderType(w, .blob);
+        try backend.renderType(w, .blob);
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -33,7 +34,7 @@ test "pg: renderType maps common types" {
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try pg.pgRenderType(w, .{ .decimal = .{ .precision = 10, .scale = 2 } });
+        try backend.renderType(w, .{ .decimal = .{ .precision = 10, .scale = 2 } });
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -43,7 +44,7 @@ test "pg: renderType maps common types" {
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try pg.pgRenderType(w, .boolean);
+        try backend.renderType(w, .boolean);
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -53,7 +54,7 @@ test "pg: renderType maps common types" {
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try pg.pgRenderType(w, .timestamptz);
+        try backend.renderType(w, .timestamptz);
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -62,5 +63,5 @@ test "pg: renderType maps common types" {
 }
 
 test "pg: quoteChar is double-quote" {
-    try testing.expectEqual(@as(u8, '"'), pg.pg_backend.quoteChar);
+    try testing.expectEqual(@as(u8, '"'), dialect.getBackend(.pg).quoteChar);
 }

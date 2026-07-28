@@ -72,22 +72,19 @@ pub fn validateDependencyOrder() void {
 /// Two passes conflict if both write to the same resource and neither depends on the other.
 /// Returns a list of conflicting pass name pairs.
 pub fn detectConflicts() [][2][]const u8 {
-    var conflicts: [][2][]const u8 = &.{};
+    var result = std.ArrayList([2][]const u8).initCapacity(std.heap.page_allocator, 8) catch return &.{};
     for (DEFAULT_PASSES, 0..) |a, i| {
         for (DEFAULT_PASSES[i + 1 ..]) |b| {
             if (hasConflict(a, b)) {
-                // Check if there's a dependency edge (not a conflict if ordered)
                 if (!dependsOn(a, b) and !dependsOn(b, a)) {
-                    // Conflicts only matter if both could run in the same "wave"
-                    // Skip if they already have a dependency chain through a third pass
                     if (!transitiveDependsOn(a, b) and !transitiveDependsOn(b, a)) {
-                        conflicts = conflicts ++ .{.{ a.name, b.name }};
+                        result.append(std.heap.page_allocator, .{ a.name, b.name }) catch return &.{};
                     }
                 }
             }
         }
     }
-    return conflicts;
+    return result.toOwnedSlice(std.heap.page_allocator) catch return &.{};
 }
 
 /// Check if pass a has a direct dependency on pass b.
@@ -108,24 +105,21 @@ pub fn hasConflict(a: SemanticPass, b: SemanticPass) bool {
 
 /// Check if there is a transitive dependency from a to b (through intermediate passes).
 fn transitiveDependsOn(a: SemanticPass, b: SemanticPass) bool {
-    // BFS over depends_on edges
-    var visited = std.BufSet{};
-    var frontier = std.ArrayList([]const u8){};
-    defer frontier.deinit(std.heap.page_allocator);
+    var visited = std.BufSet.init(std.heap.page_allocator);
+    var frontier = std.ArrayList([]const u8).initCapacity(std.heap.page_allocator, 8) catch return false;
     for (a.depends_on) |dep| {
         frontier.append(std.heap.page_allocator, dep) catch return false;
-        visited.insert(std.heap.page_allocator, dep) catch return false;
+        visited.insert(dep) catch return false;
     }
     while (frontier.items.len > 0) {
         const current = frontier.pop() orelse break;
         if (std.mem.eql(u8, current, b.name)) return true;
-        // Find the pass with this name and add its deps
         for (DEFAULT_PASSES) |pass| {
             if (std.mem.eql(u8, pass.name, current)) {
                 for (pass.depends_on) |dep| {
                     if (!visited.contains(dep)) {
                         frontier.append(std.heap.page_allocator, dep) catch return false;
-                        visited.insert(std.heap.page_allocator, dep) catch return false;
+                        visited.insert(dep) catch return false;
                     }
                 }
             }

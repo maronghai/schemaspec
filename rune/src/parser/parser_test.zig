@@ -56,28 +56,28 @@ test "parseFusedTypeModifier: auto-inc pk (n++)" {
     const result = parse_field.parseFusedTypeModifier("n++", 1) orelse return error.UnexpectedNull;
     try testing.expect(result.type_info != null);
     try testing.expect(result.modifier != null);
-    try testing.expectEqual(@as(?ast_mod.ModifierKind, .auto_inc_pk), result.modifier.?.kind);
+    try testing.expectEqual(@as(?ast_mod.ModifierType, .auto_inc_pk), result.modifier.?.kind);
 }
 
 test "parseFusedTypeModifier: not-null (s*)" {
     const result = parse_field.parseFusedTypeModifier("s*", 1) orelse return error.UnexpectedNull;
     try testing.expect(result.type_info != null);
     try testing.expect(result.modifier != null);
-    try testing.expectEqual(@as(?ast_mod.ModifierKind, .not_null), result.modifier.?.kind);
+    try testing.expectEqual(@as(?ast_mod.ModifierType, .not_null), result.modifier.?.kind);
 }
 
 test "parseFusedTypeModifier: primary key (n!)" {
     const result = parse_field.parseFusedTypeModifier("n!", 1) orelse return error.UnexpectedNull;
     try testing.expect(result.type_info != null);
     try testing.expect(result.modifier != null);
-    try testing.expectEqual(@as(?ast_mod.ModifierKind, .primary_key), result.modifier.?.kind);
+    try testing.expectEqual(@as(?ast_mod.ModifierType, .primary_key), result.modifier.?.kind);
 }
 
 test "parseFusedTypeModifier: not-null + default (*=0)" {
     const result = parse_field.parseFusedTypeModifier("*=0", 1) orelse return error.UnexpectedNull;
     try testing.expectEqual(@as(?ast_mod.TypeInfo, null), result.type_info);
     try testing.expect(result.modifier != null);
-    try testing.expectEqual(@as(?ast_mod.ModifierKind, .not_null), result.modifier.?.kind);
+    try testing.expectEqual(@as(?ast_mod.ModifierType, .not_null), result.modifier.?.kind);
     try testing.expect(result.default_val != null);
 }
 
@@ -91,39 +91,39 @@ test "parseFusedTypeModifier: plain type returns null" {
 test "parseStandaloneModifier: auto_inc_pk (++)" {
     const tokens = [_][]const u8{"++"};
     const result = parse_field.parseStandaloneModifier(&tokens, 0, "++", 1) orelse return error.UnexpectedNull;
-    try testing.expectEqual(@as(ast_mod.ModifierKind, .auto_inc_pk), result.modifier.kind);
+    try testing.expectEqual(@as(ast_mod.ModifierType, .auto_inc_pk), result.modifier.kind);
     try testing.expectEqual(@as(usize, 1), result.end_idx);
 }
 
 test "parseStandaloneModifier: auto_inc (+)" {
     const tokens = [_][]const u8{"+"};
     const result = parse_field.parseStandaloneModifier(&tokens, 0, "+", 1) orelse return error.UnexpectedNull;
-    try testing.expectEqual(@as(ast_mod.ModifierKind, .auto_inc), result.modifier.kind);
+    try testing.expectEqual(@as(ast_mod.ModifierType, .auto_inc), result.modifier.kind);
 }
 
 test "parseStandaloneModifier: not_null (*)" {
     const tokens = [_][]const u8{"*"};
     const result = parse_field.parseStandaloneModifier(&tokens, 0, "*", 1) orelse return error.UnexpectedNull;
-    try testing.expectEqual(@as(ast_mod.ModifierKind, .not_null), result.modifier.kind);
+    try testing.expectEqual(@as(ast_mod.ModifierType, .not_null), result.modifier.kind);
 }
 
 test "parseStandaloneModifier: primary_key (!)" {
     const tokens = [_][]const u8{"!"};
     const result = parse_field.parseStandaloneModifier(&tokens, 0, "!", 1) orelse return error.UnexpectedNull;
-    try testing.expectEqual(@as(ast_mod.ModifierKind, .primary_key), result.modifier.kind);
+    try testing.expectEqual(@as(ast_mod.ModifierType, .primary_key), result.modifier.kind);
 }
 
 test "parseStandaloneModifier: inline_unique (@u)" {
     const tokens = [_][]const u8{ "@", "u" };
     const result = parse_field.parseStandaloneModifier(&tokens, 0, "@ u", 1) orelse return error.UnexpectedNull;
-    try testing.expectEqual(@as(ast_mod.ModifierKind, .inline_unique), result.modifier.kind);
+    try testing.expectEqual(@as(ast_mod.ModifierType, .inline_unique), result.modifier.kind);
     try testing.expectEqual(@as(usize, 2), result.end_idx);
 }
 
 test "parseStandaloneModifier: inline_index (@)" {
     const tokens = [_][]const u8{"@"};
     const result = parse_field.parseStandaloneModifier(&tokens, 0, "@", 1) orelse return error.UnexpectedNull;
-    try testing.expectEqual(@as(ast_mod.ModifierKind, .inline_index), result.modifier.kind);
+    try testing.expectEqual(@as(ast_mod.ModifierType, .inline_index), result.modifier.kind);
 }
 
 test "parseStandaloneModifier: unknown token returns null" {
@@ -139,6 +139,7 @@ test "parseTemplateHeader: simple template" {
     const alloc = arena.allocator();
 
     const line = tk.Line{
+        .line_type = .Template,
         .tokens = &.{ "%", "base" },
         .raw = "% base",
         .line_no = 1,
@@ -158,6 +159,7 @@ test "parseTemplateHeader: template with parent via >" {
     const alloc = arena.allocator();
 
     const line = tk.Line{
+        .line_type = .Template,
         .tokens = &.{ "%", "child", ">", "parent" },
         .raw = "% child > parent",
         .line_no = 1,
@@ -178,6 +180,7 @@ test "parseTemplateHeader: template with multiple parents via +" {
     const alloc = arena.allocator();
 
     const line = tk.Line{
+        .line_type = .Template,
         .tokens = &.{ "%", "child", ">", "p1", "+", "p2" },
         .raw = "% child > p1 + p2",
         .line_no = 1,

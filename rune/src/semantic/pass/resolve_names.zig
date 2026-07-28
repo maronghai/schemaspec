@@ -55,7 +55,7 @@ const diag_mod = @import("../diagnostic.zig");
 const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
-fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag_mod.DiagnosticCollector, templates: std.StringHashMap(*const ast.Template)) PassContext {
+fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector, templates: std.StringHashMap(*const ast.Template)) PassContext {
     return .{
         .alloc = alloc,
         .tables = tables,
@@ -92,7 +92,7 @@ test "resolve_names: duplicate table name emits diagnostic" {
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
     const templates = std.StringHashMap(*const ast.Template).init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics, templates);
+    var ctx = makeCtx(alloc, &tables, &diagnostics, templates);
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
@@ -118,7 +118,7 @@ test "resolve_names: valid tables populate symbol table" {
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
     const templates = std.StringHashMap(*const ast.Template).init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics, templates);
+    var ctx = makeCtx(alloc, &tables, &diagnostics, templates);
     try run(&ctx);
 
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);

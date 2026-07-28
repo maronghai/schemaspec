@@ -164,9 +164,9 @@ const test_helpers = @import("../test_helpers.zig");
 const diag_mod = @import("../diagnostic.zig");
 const symbol_table_mod = @import("../../types/symbol_table.zig");
 
-fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag_mod.DiagnosticCollector) PassContext {
+fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector) PassContext {
     var st = symbol_table_mod.SymbolTable.init(alloc);
-    for (tables) |*t| {
+    for (tables.items) |*t| {
         _ = st.registerTable(t.name, t) catch {};
     }
     return .{
@@ -208,7 +208,7 @@ test "validate_schema: duplicate table names emit diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
     try run(&ctx);
 
     var found_duplicate = false;
@@ -269,7 +269,7 @@ test "validate_schema: circular FK emits diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
     try run(&ctx);
 
     var found_circular = false;
@@ -321,7 +321,7 @@ test "validate_schema: non-circular FK produces no circular diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
     try run(&ctx);
 
     for (diagnostics.diagnostics.items) |d| {

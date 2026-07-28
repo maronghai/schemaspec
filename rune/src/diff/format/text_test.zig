@@ -17,22 +17,24 @@ test "writeDiffTo: empty schema produces no output" {
     defer aw.deinit();
     try text.writeDiffTo(&aw.writer, d, '`');
     try aw.writer.flush();
-    const result = try aw.toOwnedSlice(testing.allocator);
+    const result = try aw.toOwnedSlice();
     defer testing.allocator.free(result);
     try testing.expectEqual(@as(usize, 0), result.len);
 }
 
 test "writeDiffTo: dropped table renders DROP TABLE" {
+    const alloc = testing.allocator;
+    const dropped = try alloc.dupe([]const u8, &.{"users"});
     const d = SchemaDiff{
-        .dropped_tables = &.{"users"},
+        .dropped_tables = dropped,
         .view_diffs = &.{},
         .table_diffs = &.{},
     };
-    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    var aw = std.Io.Writer.Allocating.init(alloc);
     defer aw.deinit();
     try text.writeDiffTo(&aw.writer, d, '`');
     try aw.writer.flush();
-    const result = try aw.toOwnedSlice(testing.allocator);
-    defer testing.allocator.free(result);
+    const result = try aw.toOwnedSlice();
+    defer alloc.free(result);
     try testing.expect(std.mem.indexOf(u8, result, "DROP TABLE") != null);
 }

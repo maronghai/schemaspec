@@ -27,7 +27,7 @@ pub fn main(init: std.process.Init) !void {
             cli.printUsage();
             std.process.exit(1);
         }
-        return forward.handleCompileRequest(init.io, alloc, null, null, false, .mysql, .sql, false, false, false, false, &.{});
+        return forward.handleCompileRequest(init.io, alloc, null, null, false, .mysql, .sql, false, false, false, false, false, &.{});
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
@@ -106,11 +106,15 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .json_schema => .json_schema,
             };
 
-            return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format, cmd.stats, cmd.check, parsed.quiet, cmd.verbose_passes, parsed.import_paths);
+            return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format, cmd.stats, cmd.check, parsed.quiet, cmd.verbose_passes, parsed.json_errors, parsed.import_paths);
         },
         .validate => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
-            return forward.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes);
+            return forward.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
+        },
+        .check => |cmd| {
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            return forward.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
         },
         .diff => |cmd| {
             return switch (cmd.format) {

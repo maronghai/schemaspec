@@ -67,7 +67,7 @@ const diag_mod = @import("../diagnostic.zig");
 const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
-fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag_mod.DiagnosticCollector) PassContext {
+fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector) PassContext {
     return .{
         .alloc = alloc,
         .tables = tables,
@@ -95,7 +95,7 @@ test "validate_type_modifiers: unsigned on numeric type — no diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
     try run(&ctx);
 
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
@@ -120,7 +120,7 @@ test "validate_type_modifiers: unsigned on string type — warning" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
@@ -147,7 +147,7 @@ test "validate_type_modifiers: auto_inc on non-numeric non-datetime — warning"
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
@@ -172,7 +172,7 @@ test "validate_type_modifiers: empty modifiers — no diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
     try run(&ctx);
 
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);

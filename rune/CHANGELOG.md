@@ -4,6 +4,21 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.37.0] - 2026-07-28
+
+### Fixed
+- **Broken colocated test compilation**: Fixed `parser/sql_parser_test.zig` incorrect import path (`parser/sql_parser.zig` → `sql_parser.zig`). Fixed redundant import paths in `diff/migrate_test.zig` and `semantic/template_test.zig`.
+- **72 compilation errors across colocated tests**: Fixed API mismatches from v0.36.1 test extraction — function signature changes (`visitField` callback), missing struct fields (`line_no`, `view_diffs`, `line_type`), non-public function access (`mysqlRenderType`), `ModifierKind` → `ModifierType` rename, `ArrayList` API changes (`init` → `initCapacity`, `toOwnedSlice`), `BufSet` initialization, const/mutable slice mismatches, and `SchemaDiff` struct field additions.
+- **`pass_manager.zig` runtime functions**: Fixed `detectConflicts()` and `transitiveDependsOn()` to use `ArrayList` instead of comptime slice concatenation; fixed `BufSet` initialization for Zig 0.16.
+- **`type_registry.zig` API**: Fixed `toOwnedSlice` call to match Zig 0.16 API (no allocator argument).
+
+### Added
+- **`--json-errors` flag**: Output diagnostics as JSON array when compilation errors occur. Useful for CI/CD integration, editor plugins, and programmatic consumption. Each diagnostic includes `severity`, `line`, `col`, `file`, `message`, and optional `expected`/`actual` fields.
+- **`check` subcommand**: `rune check [input.ss]` — standalone subcommand for schema validation. Equivalent to `rune --check` but more discoverable for CI/CD workflows.
+
+### Changed
+- Updated golden test files for version 0.37.0.
+
 ## [0.36.0] - 2026-07-28
 
 ### Architecture

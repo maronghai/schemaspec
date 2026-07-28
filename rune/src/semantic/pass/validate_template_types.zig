@@ -43,7 +43,7 @@ const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
 fn makeCtx(alloc: std.mem.Allocator, diagnostics: *diag_mod.DiagnosticCollector, templates: std.StringHashMap(*const ast.Template)) PassContext {
-    var tables = std.ArrayList(ResolvedTable).init(alloc);
+    var tables = std.ArrayList(ResolvedTable).initCapacity(alloc, 4) catch unreachable;
     return .{
         .alloc = alloc,
         .tables = &tables,

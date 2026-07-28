@@ -46,12 +46,14 @@ const diag = @import("../diagnostic.zig");
 const makeTestField = @import("../test_helpers.zig").makeTestField;
 
 fn runPassOnFields(alloc: std.mem.Allocator, fields: []const Field) !ResolvedTable {
+    const mut_fields = try alloc.alloc(Field, fields.len);
+    for (fields, 0..) |f, i| mut_fields[i] = f;
     var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
     try tables.append(alloc, .{
         .name = "t",
         .comment = null,
         .engine = null,
-        .fields = fields,
+        .fields = mut_fields,
         .fks = &.{},
         .indexes = &.{},
         .line_no = 1,

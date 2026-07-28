@@ -84,7 +84,7 @@ const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
 const diag_mod = @import("../diagnostic.zig");
 
-fn makeCtx(alloc: std.mem.Allocator, tables: []ResolvedTable, diagnostics: *diag_mod.DiagnosticCollector, schema: ?ast.Schema) PassContext {
+fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector, schema: ?ast.Schema) PassContext {
     return .{
         .alloc = alloc,
         .tables = tables,
@@ -125,7 +125,7 @@ test "autofk: _id suffix triggers FK inference" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics, .{
+    var ctx = makeCtx(alloc, &tables, &diagnostics, .{
         .name = "demo",
         .charset = null,
         .autofk = true,
@@ -160,7 +160,7 @@ test "autofk: no suffix means no FK" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics, .{
+    var ctx = makeCtx(alloc, &tables, &diagnostics, .{
         .name = "demo",
         .charset = null,
         .autofk = true,
@@ -193,7 +193,7 @@ test "autofk: disabled schema skips inference" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, tables.items, &diagnostics, .{
+    var ctx = makeCtx(alloc, &tables, &diagnostics, .{
         .name = "demo",
         .charset = null,
         .autofk = false,

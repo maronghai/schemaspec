@@ -5,8 +5,8 @@ const Field = ast_mod.Field;
 
 const testing = std.testing;
 const test_helpers = struct {
-    const makeTestField = @import("../semantic/test_helpers.zig").makeTestField;
-    const makeTestAst = @import("../semantic/test_helpers.zig").makeTestAst;
+    const makeTestField = @import("test_helpers.zig").makeTestField;
+    const makeTestAst = @import("test_helpers.zig").makeTestAst;
 };
 
 test "template application: fields merged in order" {
@@ -22,6 +22,7 @@ test "template application: fields merged in order" {
         .parents = &.{},
         .fields = tmpl_fields,
         .slot_index = 1,
+        .line_no = 1,
     };
 
     const table_fields = try alloc.alloc(Field, 1);
@@ -52,15 +53,15 @@ test "template: 3-level inheritance" {
 
     const gp_fields = try alloc.alloc(Field, 1);
     gp_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
-    const gp_tmpl = ast_mod.Template{ .name = "gp", .parents = &.{}, .fields = gp_fields, .slot_index = null };
+    const gp_tmpl = ast_mod.Template{ .name = "gp", .parents = &.{}, .fields = gp_fields, .slot_index = null, .line_no = 1 };
 
     const p_fields = try alloc.alloc(Field, 1);
     p_fields[0] = test_helpers.makeTestField("status", .{ .simple = "1" });
-    const p_tmpl = ast_mod.Template{ .name = "p", .parents = &.{"gp"}, .fields = p_fields, .slot_index = null };
+    const p_tmpl = ast_mod.Template{ .name = "p", .parents = &.{"gp"}, .fields = p_fields, .slot_index = null, .line_no = 1 };
 
     const c_fields = try alloc.alloc(Field, 1);
     c_fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
-    const c_tmpl = ast_mod.Template{ .name = "c", .parents = &.{"p"}, .fields = c_fields, .slot_index = null };
+    const c_tmpl = ast_mod.Template{ .name = "c", .parents = &.{"p"}, .fields = c_fields, .slot_index = null, .line_no = 1 };
 
     const table = ast_mod.Table{
         .name = "t",
@@ -87,14 +88,14 @@ test "template: multiple mixins" {
 
     const m1_fields = try alloc.alloc(Field, 1);
     m1_fields[0] = test_helpers.makeTestField("created_at", .none);
-    const m1 = ast_mod.Template{ .name = "timestamps", .parents = &.{}, .fields = m1_fields, .slot_index = null };
+    const m1 = ast_mod.Template{ .name = "timestamps", .parents = &.{}, .fields = m1_fields, .slot_index = null, .line_no = 1 };
 
     const m2_fields = try alloc.alloc(Field, 1);
     m2_fields[0] = test_helpers.makeTestField("deleted_at", .none);
-    const m2 = ast_mod.Template{ .name = "softdel", .parents = &.{}, .fields = m2_fields, .slot_index = null };
+    const m2 = ast_mod.Template{ .name = "softdel", .parents = &.{}, .fields = m2_fields, .slot_index = null, .line_no = 1 };
 
     const audit_fields = try alloc.alloc(Field, 0);
-    const audit = ast_mod.Template{ .name = "audit", .parents = &.{ "timestamps", "softdel" }, .fields = audit_fields, .slot_index = null };
+    const audit = ast_mod.Template{ .name = "audit", .parents = &.{ "timestamps", "softdel" }, .fields = audit_fields, .slot_index = null, .line_no = 1 };
 
     const table = ast_mod.Table{
         .name = "t",
@@ -120,11 +121,11 @@ test "template: child field type overrides parent" {
 
     const parent_fields = try alloc.alloc(Field, 1);
     parent_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
-    const parent = ast_mod.Template{ .name = "base", .parents = &.{}, .fields = parent_fields, .slot_index = null };
+    const parent = ast_mod.Template{ .name = "base", .parents = &.{}, .fields = parent_fields, .slot_index = null, .line_no = 1 };
 
     const child_fields = try alloc.alloc(Field, 1);
     child_fields[0] = test_helpers.makeTestField("id", .{ .simple = "N" });
-    const child = ast_mod.Template{ .name = "big_base", .parents = &.{"base"}, .fields = child_fields, .slot_index = null };
+    const child = ast_mod.Template{ .name = "big_base", .parents = &.{"base"}, .fields = child_fields, .slot_index = null, .line_no = 1 };
 
     const table = ast_mod.Table{
         .name = "t",

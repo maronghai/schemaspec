@@ -1,6 +1,6 @@
 const std = @import("std");
-const mysql = @import("mysql.zig");
 const dialect = @import("dialect.zig");
+const SqlType = @import("../types/sql_type.zig").SqlType;
 
 // ─── Unit Tests ──────────────────────────────────────────────
 
@@ -8,12 +8,13 @@ const testing = std.testing;
 
 test "mysql: renderType maps common types" {
     const alloc = testing.allocator;
+    const backend = dialect.getBackend(.mysql);
 
     // int
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try mysql.mysqlRenderType(w, .int);
+        try backend.renderType(w, .int);
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -23,7 +24,7 @@ test "mysql: renderType maps common types" {
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try mysql.mysqlRenderType(w, .bigint);
+        try backend.renderType(w, .bigint);
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -33,7 +34,7 @@ test "mysql: renderType maps common types" {
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try mysql.mysqlRenderType(w, .{ .varchar = 128 });
+        try backend.renderType(w, .{ .varchar = 128 });
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -43,7 +44,7 @@ test "mysql: renderType maps common types" {
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try mysql.mysqlRenderType(w, .{ .decimal = .{ .precision = 10, .scale = 2 } });
+        try backend.renderType(w, .{ .decimal = .{ .precision = 10, .scale = 2 } });
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -53,7 +54,7 @@ test "mysql: renderType maps common types" {
     {
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
-        try mysql.mysqlRenderType(w, .boolean);
+        try backend.renderType(w, .boolean);
         try w.flush();
         const result = try aw.toOwnedSlice();
         defer alloc.free(result);
@@ -62,5 +63,5 @@ test "mysql: renderType maps common types" {
 }
 
 test "mysql: quoteChar is backtick" {
-    try testing.expectEqual(@as(u8, '`'), mysql.mysql_backend.quoteChar);
+    try testing.expectEqual(@as(u8, '`'), dialect.getBackend(.mysql).quoteChar);
 }

@@ -1,5 +1,5 @@
 const std = @import("std");
-const sql_parser = @import("parser/sql_parser.zig");
+const sql_parser = @import("sql_parser.zig");
 const SqlParser = sql_parser.SqlParser;
 const IndexKind = sql_parser.IndexKind;
 const FkActionType = sql_parser.FkActionType;
@@ -13,7 +13,7 @@ test "parse basic CREATE TABLE" {
         \\  "name" TEXT NOT NULL
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .sqlite);
+    var parser = try SqlParser.init(alloc, sql, .sqlite);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -50,7 +50,7 @@ test "parse multi-column table with modifiers" {
         \\  PRIMARY KEY (`id`)
         \\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='order table';
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -98,7 +98,7 @@ test "parse VARCHAR and parameterized types" {
         \\  d int(11) UNSIGNED
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -129,7 +129,7 @@ test "parse FOREIGN KEY with actions" {
         \\  FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE ON UPDATE SET NULL
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -172,7 +172,7 @@ test "parse FOREIGN KEY composite fields" {
         \\  FOREIGN KEY (order_id, product_id) REFERENCES order_product(order_id, product_id)
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -210,7 +210,7 @@ test "parse CREATE INDEX standalone" {
         \\CREATE INDEX idx_name ON t (name);
         \\CREATE UNIQUE INDEX uk_email ON t (email);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -243,7 +243,7 @@ test "parse PG CREATE INDEX composite" {
         \\CREATE TABLE t (id int, a text, b text);
         \\CREATE INDEX idx复合 ON t (a, b DESC);
     ;
-    var parser = SqlParser.init(alloc, sql, .pg);
+    var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -277,7 +277,7 @@ test "COMMENT ON TABLE" {
         \\CREATE TABLE "user" (id int, name text);
         \\COMMENT ON TABLE "user" IS 'The user table';
     ;
-    var parser = SqlParser.init(alloc, sql, .pg);
+    var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -300,7 +300,7 @@ test "COMMENT ON COLUMN" {
         \\CREATE TABLE "t" (id int, name text);
         \\COMMENT ON COLUMN "t"."name" IS 'Display name';
     ;
-    var parser = SqlParser.init(alloc, sql, .pg);
+    var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -327,7 +327,7 @@ test "PG serial normalization" {
         \\  regular int
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .pg);
+    var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -356,7 +356,7 @@ test "PG GENERATED ALWAYS AS IDENTITY" {
         \\  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .pg);
+    var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -383,7 +383,7 @@ test "SQLite AUTOINCREMENT" {
         \\  "title" TEXT NOT NULL
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .sqlite);
+    var parser = try SqlParser.init(alloc, sql, .sqlite);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -412,7 +412,7 @@ test "SQLite @sym metadata comments" {
         \\-- @sym id n
         \\-- @sym name s32
     ;
-    var parser = SqlParser.init(alloc, sql, .sqlite);
+    var parser = try SqlParser.init(alloc, sql, .sqlite);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -439,7 +439,7 @@ test "SQLite column comment via -- table.col: text" {
         \\);
         \\-- t.name: The user name
     ;
-    var parser = SqlParser.init(alloc, sql, .sqlite);
+    var parser = try SqlParser.init(alloc, sql, .sqlite);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -462,7 +462,7 @@ test "skip ALTER TABLE statement" {
         \\ALTER TABLE t ADD COLUMN age int;
         \\CREATE TABLE t2 (id int);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -489,7 +489,7 @@ test "parse ALTER TABLE ADD FOREIGN KEY" {
         \\);
         \\ALTER TABLE orders ADD CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE;
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -518,7 +518,7 @@ test "parse ALTER TABLE ADD FOREIGN KEY without constraint name" {
         \\CREATE TABLE t (id int, ref_id int);
         \\ALTER TABLE t ADD FOREIGN KEY (ref_id) REFERENCES other(id);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -544,7 +544,7 @@ test "skip CREATE EXTENSION/SCHEMA/TYPE" {
         \\CREATE SCHEMA IF NOT EXISTS app;
         \\CREATE TABLE t (id int);
     ;
-    var parser = SqlParser.init(alloc, sql, .pg);
+    var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -567,7 +567,7 @@ test "parse CREATE DATABASE with charset" {
         \\CREATE DATABASE IF NOT EXISTS mydb CHARACTER SET utf8mb4;
         \\CREATE TABLE t (id int);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -590,7 +590,7 @@ test "parse PG CREATE DATABASE with encoding" {
         \\CREATE DATABASE mydb ENCODING 'UTF8';
         \\CREATE TABLE t (id int);
     ;
-    var parser = SqlParser.init(alloc, sql, .pg);
+    var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -615,7 +615,7 @@ test "parse CHECK constraint" {
         \\  status text CHECK (status IN ('active', 'inactive'))
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -650,7 +650,7 @@ test "parse inline column DEFAULT values" {
         \\  e blob DEFAULT b'0'
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -679,7 +679,7 @@ test "parse inline COMMENT on columns" {
         \\  name varchar(100) COMMENT 'user name'
         \\) COMMENT='table desc';
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -705,7 +705,7 @@ test "parse multiple tables in one statement" {
         \\CREATE TABLE post (id int, user_id int, title text);
         \\CREATE TABLE comment (id int, post_id int, body text);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -736,7 +736,7 @@ test "parse inline index MySQL" {
         \\  PRIMARY KEY (`id`)
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);
@@ -766,7 +766,7 @@ test "FK with ON DELETE SET NULL only" {
         \\  FOREIGN KEY (ref_id) REFERENCES other(id) ON DELETE SET NULL
         \\);
     ;
-    var parser = SqlParser.init(alloc, sql, .mysql);
+    var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
     defer {
         alloc.free(result.diagnostics);

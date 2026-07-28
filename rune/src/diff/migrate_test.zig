@@ -1,6 +1,6 @@
 const std = @import("std");
-const migrate_mod = @import("../diff/migrate.zig");
-const diff_mod = @import("../diff/engine.zig");
+const migrate_mod = @import("migrate.zig");
+const diff_mod = @import("engine.zig");
 const ast_mod = @import("../types/ast.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const typed_ast = @import("../types/typed_ast.zig");
@@ -83,6 +83,7 @@ test "migrate: migration header present" {
     const d = diff_mod.SchemaDiff{
         .table_diffs = &.{},
         .dropped_tables = &.{},
+        .view_diffs = &.{},
     };
     const sql = try generateFromDiff(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     try testing.expect(std.mem.indexOf(u8, sql, "-- Migration: schema diff") != null);
