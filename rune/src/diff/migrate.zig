@@ -78,8 +78,7 @@ pub fn generateFromDiff(
     try w.writeAll("COMMIT;\n");
 
     try w.flush();
-    var out = aw.toArrayList();
-    return try out.toOwnedSlice(alloc);
+    return try aw.toOwnedSlice();
 }
 
 // ─── Rollback Generation ─────────────────────────────────────
@@ -113,8 +112,7 @@ pub fn generateRollback(
     try w.writeAll("COMMIT;\n");
 
     try w.flush();
-    var out = aw.toArrayList();
-    return try out.toOwnedSlice(alloc);
+    return try aw.toOwnedSlice();
 }
 
 fn emitRollbackDroppedTables(

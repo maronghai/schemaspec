@@ -501,8 +501,29 @@ pub fn handleCompileRequest(
 }
 
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
-/// Returns error.DiagnosticsError if any errors are found (exit code 1).
+/// Always succeeds (exit 0) as long as the pipeline runs. Warnings and errors
+/// are printed but do not cause a non-zero exit. Use `handleCheck` for CI gates.
 pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool) !void {
+    const result = compilePipelineVerbose(alloc, file_data, verbose_passes, json_errors) catch |err| {
+        if (err == error.DiagnosticsError or err == error.SemanticError) {
+            // Diagnostics already printed by the compiler — validate always succeeds
+            if (stats) {
+                // Can't compute stats on failed compile, skip
+            }
+            return;
+        }
+        return err;
+    };
+    if (stats) {
+        printStats(computeStats(result.resolved));
+    }
+    std.debug.print("schema is valid\n", .{});
+}
+
+/// Check a .ss file — runs the full semantic pipeline and fails on errors.
+/// Returns error.DiagnosticsError or error.SemanticError on errors (exit code 1).
+/// Used for CI gates: `rune check schema.ss` exits 1 if the schema has errors.
+pub fn handleCheck(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool) !void {
     const result = try compilePipelineVerbose(alloc, file_data, verbose_passes, json_errors);
     if (stats) {
         printStats(computeStats(result.resolved));

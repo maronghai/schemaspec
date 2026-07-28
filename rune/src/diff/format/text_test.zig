@@ -25,6 +25,7 @@ test "writeDiffTo: empty schema produces no output" {
 test "writeDiffTo: dropped table renders DROP TABLE" {
     const alloc = testing.allocator;
     const dropped = try alloc.dupe([]const u8, &.{"users"});
+    defer alloc.free(dropped);
     const d = SchemaDiff{
         .dropped_tables = dropped,
         .view_diffs = &.{},

@@ -181,8 +181,7 @@ pub fn formatDiff(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect) ![]
     const q = quoteChar(dialect);
     try writeDiffTo(w, d, q);
     try w.flush();
-    var out = aw.toArrayList();
-    return try out.toOwnedSlice(alloc);
+    return try aw.toOwnedSlice();
 }
 
 pub fn printDiff(d: SchemaDiff, dialect: Dialect) void {

@@ -30,11 +30,13 @@ pub fn diffFields(
 ) ![]const FieldDiff {
     // Build name→field maps (skip slot markers)
     var old_fmap = std.StringHashMap(usize).init(alloc);
+    defer old_fmap.deinit();
     for (old_fields, 0..) |f, i| {
         if (!std.mem.eql(u8, f.name, "..."))
             try old_fmap.put(f.name, i);
     }
     var new_fmap = std.StringHashMap(usize).init(alloc);
+    defer new_fmap.deinit();
     for (new_fields, 0..) |f, i| {
         if (!std.mem.eql(u8, f.name, "..."))
             try new_fmap.put(f.name, i);
@@ -42,7 +44,9 @@ pub fn diffFields(
 
     var diffs = try std.ArrayList(FieldDiff).initCapacity(alloc, 8);
     var dropped_names = try std.ArrayList([]const u8).initCapacity(alloc, 4);
+    defer dropped_names.deinit(alloc);
     var added_fields = try std.ArrayList(Field).initCapacity(alloc, 4);
+    defer added_fields.deinit(alloc);
 
     // Fields in both → compare
     for (old_fields) |old_field| {
@@ -126,7 +130,9 @@ pub fn diffFields(
         }
     }
 
-    return try diffs.toOwnedSlice(alloc);
+    const result = try alloc.dupe(FieldDiff, diffs.items);
+    diffs.deinit(alloc);
+    return result;
 }
 
 /// Create add-diffs for all fields of a new table.
@@ -142,7 +148,9 @@ pub fn createAllFieldDiffs(alloc: std.mem.Allocator, new_fields: []const Field) 
             .rename_from = null,
         });
     }
-    return try diffs.toOwnedSlice(alloc);
+    const result = try alloc.dupe(FieldDiff, diffs.items);
+    diffs.deinit(alloc);
+    return result;
 }
 
 // ─── Rename Detection ──────────────────────────────────────
@@ -188,7 +196,9 @@ fn detectRenames(
         }
     }
 
-    return try renames.toOwnedSlice(alloc);
+    const result = try alloc.dupe(RenamePair, renames.items);
+    renames.deinit(alloc);
+    return result;
 }
 
 // ─── Equality Helpers ──────────────────────────────────────

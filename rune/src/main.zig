@@ -45,7 +45,7 @@ pub fn main(init: std.process.Init) !void {
                 std.debug.print("error: --target requires a value, expected one of: sql, json-schema\n", .{});
             },
             error.UnknownFormat => {
-                std.debug.print("error: unknown format, expected one of: text, json\n", .{});
+                std.debug.print("error: unknown format, expected one of: text, json, sarif\n", .{});
             },
             error.DiffMissingArgs => {
                 std.debug.print("error: diff requires two arguments: <old.ss> <new.ss>\n", .{});
@@ -114,7 +114,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .check => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
-            return forward.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
+            return forward.handleCheck(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
         },
         .diff => |cmd| {
             return switch (cmd.format) {

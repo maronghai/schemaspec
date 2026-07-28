@@ -37,8 +37,10 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
 
     // Build name→table maps
     var old_map = std.StringHashMap(usize).init(alloc);
+    defer old_map.deinit();
     for (old.tables, 0..) |t, i| try old_map.put(t.name, i);
     var new_map = std.StringHashMap(usize).init(alloc);
+    defer new_map.deinit();
     for (new.tables, 0..) |t, i| try new_map.put(t.name, i);
 
     // Tables in new but not old → create
@@ -77,8 +79,10 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
 
     // Views: build name→view maps
     var old_view_map = std.StringHashMap(usize).init(alloc);
+    defer old_view_map.deinit();
     for (old.views, 0..) |v, i| try old_view_map.put(v.name, i);
     var new_view_map = std.StringHashMap(usize).init(alloc);
+    defer new_view_map.deinit();
     for (new.views, 0..) |v, i| try new_view_map.put(v.name, i);
 
     // Views in new but not old → create
@@ -103,10 +107,18 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
         }
     }
 
+    // Safe toOwnedSlice: copy items to new allocation, then free ArrayList buffer
+    const table_diffs_slice = try alloc.dupe(TableDiff, table_diffs.items);
+    table_diffs.clearAndFree(alloc);
+    const dropped_tables_slice = try alloc.dupe([]const u8, dropped_tables.items);
+    dropped_tables.clearAndFree(alloc);
+    const view_diffs_slice = try alloc.dupe(ViewDiff, view_diffs.items);
+    view_diffs.clearAndFree(alloc);
+
     return .{
-        .table_diffs = try table_diffs.toOwnedSlice(alloc),
-        .dropped_tables = try dropped_tables.toOwnedSlice(alloc),
-        .view_diffs = try view_diffs.toOwnedSlice(alloc),
+        .table_diffs = table_diffs_slice,
+        .dropped_tables = dropped_tables_slice,
+        .view_diffs = view_diffs_slice,
     };
 }
 

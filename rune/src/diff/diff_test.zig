@@ -13,6 +13,17 @@ const IndexDecl = ast_mod.IndexDecl;
 
 const testing = std.testing;
 
+fn freeSchemaDiff(alloc: std.mem.Allocator, d: diff_mod.SchemaDiff) void {
+    alloc.free(d.dropped_tables);
+    alloc.free(d.view_diffs);
+    for (d.table_diffs) |td| {
+        alloc.free(td.field_diffs);
+        alloc.free(td.index_diffs);
+        alloc.free(td.fk_diffs);
+    }
+    alloc.free(d.table_diffs);
+}
+
 fn makeField(alloc: std.mem.Allocator, name: []const u8, type_info: TypeInfo) !Field {
     return .{
         .name = try alloc.dupe(u8, name),
@@ -578,10 +589,12 @@ test "diff: table comment change detected" {
 // ─── Tests moved from diff/engine.zig ───────────────────────────
 
 test "engine diff: dropping a table produces a dropped_tables entry" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const old_fields = try alloc.alloc(Field, 1);
-    old_fields[0] = makeField(alloc, "id", .{ .simple = "n" }) catch |err| return err;
+    old_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
     const old_tables = try alloc.alloc(resolved_ast.ResolvedTable, 1);
     old_tables[0] = .{ .name = "users", .comment = null, .engine = null, .fields = old_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1 };
 
@@ -596,17 +609,19 @@ test "engine diff: dropping a table produces a dropped_tables entry" {
 }
 
 test "engine diff: modifying a field produces a modify action" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const old_fields = try alloc.alloc(Field, 2);
-    old_fields[0] = makeField(alloc, "id", .{ .simple = "n" }) catch |err| return err;
-    old_fields[1] = makeField(alloc, "name", .{ .simple = "s" }) catch |err| return err;
+    old_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
+    old_fields[1] = try makeField(alloc, "name", .{ .simple = "s" });
     const old_tables = try alloc.alloc(resolved_ast.ResolvedTable, 1);
     old_tables[0] = .{ .name = "users", .comment = null, .engine = null, .fields = old_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1 };
 
     const new_fields = try alloc.alloc(Field, 2);
-    new_fields[0] = makeField(alloc, "id", .{ .simple = "n" }) catch |err| return err;
-    new_fields[1] = makeField(alloc, "name", .{ .simple = "t" }) catch |err| return err; // changed from s to t
+    new_fields[0] = try makeField(alloc, "id", .{ .simple = "n" });
+    new_fields[1] = try makeField(alloc, "name", .{ .simple = "t" }); // changed from s to t
     const new_tables = try alloc.alloc(resolved_ast.ResolvedTable, 1);
     new_tables[0] = .{ .name = "users", .comment = null, .engine = null, .fields = new_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1 };
 
@@ -621,7 +636,9 @@ test "engine diff: modifying a field produces a modify action" {
 }
 
 test "engine diff: view creation produces a view_diffs entry" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const old_tables = try alloc.alloc(resolved_ast.ResolvedTable, 0);
     const new_views = try alloc.alloc(ast_mod.View, 1);
@@ -639,7 +656,9 @@ test "engine diff: view creation produces a view_diffs entry" {
 }
 
 test "engine diff: identical views produce no view_diffs" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const views = try alloc.alloc(ast_mod.View, 1);
     views[0] = .{ .name = "user_view", .query = "SELECT id FROM users", .comment = null, .line_no = 1 };

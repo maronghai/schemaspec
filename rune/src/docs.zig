@@ -85,8 +85,7 @@ pub fn generate(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst) ![
     }
 
     try w.flush();
-    var out = aw.toArrayList();
-    return try out.toOwnedSlice(alloc);
+    return try aw.toOwnedSlice();
 }
 
 fn writeTable(_: std.mem.Allocator, w: anytype, table: resolved_ast.ResolvedTable) !void {

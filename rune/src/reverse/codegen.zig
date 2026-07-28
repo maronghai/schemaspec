@@ -42,8 +42,7 @@ pub const ReverseCodegen = struct {
         try emitTables(self, w, schema, tmpl_list);
 
         try w.flush();
-        var out = aw.toArrayList();
-        return try out.toOwnedSlice(self.alloc);
+        return try aw.toOwnedSlice();
     }
 };
 

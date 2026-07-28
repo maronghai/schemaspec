@@ -10,6 +10,7 @@ const testing = std.testing;
 test "formatDiffJson: produces valid structure" {
     const alloc = testing.allocator;
     const dropped = try alloc.dupe([]const u8, &.{"old_table"});
+    defer alloc.free(dropped);
     const d = SchemaDiff{
         .dropped_tables = dropped,
         .view_diffs = &.{},

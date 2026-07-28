@@ -84,6 +84,7 @@ pub const Tokenizer = struct {
     pub fn tokenizeLine(alloc: std.mem.Allocator, line: []const u8) ![]const []const u8 {
         // First pass: split by spaces
         var raw_tokens = try std.ArrayList([]const u8).initCapacity(alloc, 8);
+        defer raw_tokens.deinit(alloc);
         var space_it = std.mem.splitScalar(u8, line, ' ');
         while (space_it.next()) |tok| {
             if (tok.len == 0) continue;
@@ -102,7 +103,9 @@ pub const Tokenizer = struct {
         for (raw_tokens.items) |tok| {
             try splitToken(alloc, &tokens, tok);
         }
-        return try tokens.toOwnedSlice(alloc);
+        const result = try alloc.dupe([]const u8, tokens.items);
+        tokens.deinit(alloc);
+        return result;
     }
 
     /// Tokenize a view line: `& name = SELECT ...` → [& , name, =, query]

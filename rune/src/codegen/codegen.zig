@@ -65,8 +65,7 @@ pub const Codegen = struct {
         }
 
         try w.flush();
-        var out = aw.toArrayList();
-        return try out.toOwnedSlice(self.alloc);
+        return try aw.toOwnedSlice();
     }
 
     /// Emit a full CREATE TABLE statement for one table to the given writer.

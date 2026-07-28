@@ -10,8 +10,10 @@ pub fn diffIndexes(alloc: std.mem.Allocator, old_idxs: []const IndexDecl, new_id
     var diffs = try std.ArrayList(IndexDiff).initCapacity(alloc, 4);
 
     var old_by_name = std.StringHashMap(usize).init(alloc);
+    defer old_by_name.deinit();
     for (old_idxs, 0..) |idx, i| try old_by_name.put(idx.name, i);
     var new_by_name = std.StringHashMap(usize).init(alloc);
+    defer new_by_name.deinit();
     for (new_idxs, 0..) |idx, i| try new_by_name.put(idx.name, i);
 
     for (old_idxs) |old_idx| {
@@ -46,7 +48,9 @@ pub fn diffIndexes(alloc: std.mem.Allocator, old_idxs: []const IndexDecl, new_id
         }
     }
 
-    return try diffs.toOwnedSlice(alloc);
+    const result = try alloc.dupe(IndexDiff, diffs.items);
+    diffs.clearAndFree(alloc);
+    return result;
 }
 
 /// Create add-diffs for all indexes of a new table.
@@ -60,7 +64,9 @@ pub fn createAllIndexDiffs(alloc: std.mem.Allocator, new_idxs: []const IndexDecl
             .new_idx = idx,
         });
     }
-    return try diffs.toOwnedSlice(alloc);
+    const result = try alloc.dupe(IndexDiff, diffs.items);
+    diffs.clearAndFree(alloc);
+    return result;
 }
 
 pub fn indexesEqual(a: IndexDecl, b: IndexDecl) bool {

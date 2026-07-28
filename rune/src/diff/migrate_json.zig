@@ -191,6 +191,5 @@ pub fn generateMigrationJson(
     try w.writeAll("\n}\n");
 
     try w.flush();
-    var out = aw.toArrayList();
-    return try out.toOwnedSlice(alloc);
+    return try aw.toOwnedSlice();
 }

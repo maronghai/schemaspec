@@ -41,8 +41,7 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]const u8
     try w.writeAll("}\n");
 
     try w.flush();
-    var out = aw.toArrayList();
-    return try out.toOwnedSlice(alloc);
+    return try aw.toOwnedSlice();
 }
 
 fn writeTable(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable) !void {

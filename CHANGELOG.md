@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.40.0] - 2026-07-29
+
+### Fixed
+- Fixed memory leaks in `diff/indexes.zig` — two `StringHashMap`s (`old_by_name`, `new_by_name`) created but never freed in `diffIndexes()`
+- Fixed memory leaks in `diff/engine.zig` — four `StringHashMap`s (`old_map`, `new_map`, `old_view_map`, `new_view_map`) created but never freed in `diff()`
+- Fixed memory leaks in `diff/fields.zig` — two `StringHashMap`s (`old_fmap`, `new_fmap`) and three intermediate `ArrayList`s (`diffs`, `dropped_names`, `added_fields`) freed properly
+- Fixed memory leaks in `diff/fks.zig` — two `ArrayList.toOwnedSlice(alloc)` calls replaced with safe `dupe + deinit` pattern
+- Fixed memory leaks in `parser/tokenizer.zig` — `raw_tokens` ArrayList and `tokens` ArrayList buffer freed in `tokenizeLine()`
+- Fixed redundant allocations in 8 production files — replaced `aw.toArrayList().toOwnedSlice(alloc)` pattern with `aw.toOwnedSlice()` (eliminates double-allocation)
+- Fixed `validate` vs `check` CLI behavior — `rune validate` now always succeeds (exit 0) even with errors; `rune check` exits 1 on errors (CI gate)
+- Fixed error message for unknown `--format` to include `sarif` option
+
+### Changed
+- `diff/engine.zig`: `diff()` now uses `alloc.dupe() + clearAndFree()` pattern instead of `ArrayList.toOwnedSlice(alloc)` to prevent ArrayList buffer leaks
+- `diff/indexes.zig`: `diffIndexes()` and `createAllIndexDiffs()` use same safe pattern
+- `diff/fields.zig`: `diffFields()`, `createAllFieldDiffs()`, and `detectRenames()` use same safe pattern
+- `diff/fks.zig`: `diffFks()` and `createAllFkDiffs()` use same safe pattern
+
+### Testing
+- Fixed memory leaks in `diff/migrate_test.zig` — all 6 tests now properly free allocated `dropped` slices and returned SQL strings
+- Fixed memory leaks in `diff/format/text_test.zig`, `json_test.zig`, `sarif_test.zig` — `dropped` slices properly freed
+- Fixed memory leak in `json_schema_test.zig` — `vals` slice properly freed
+- Fixed pre-existing test bug in `migrate_test.zig` — migration header assertion updated to match actual output format
+- Fixed 4 diff_test failures by switching to arena allocators
+- Memory leaks reduced from 606 to 533 (73 fewer)
+
 ## [0.38.0] - 2026-07-28
 
 ### Fixed

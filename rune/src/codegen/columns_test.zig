@@ -22,8 +22,7 @@ test "emitColumnDef: MySQL table" {
     try columns.emitColumnDef(backend, w, col);
     try w.flush();
 
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
+    const result = try aw.toOwnedSlice();
     defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "`balance`") != null);
@@ -45,8 +44,7 @@ test "emitColumnDef: PG omits UNSIGNED" {
     try columns.emitColumnDef(backend, w, col);
     try w.flush();
 
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
+    const result = try aw.toOwnedSlice();
     defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "UNSIGNED") == null);

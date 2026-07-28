@@ -87,7 +87,9 @@ pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []con
         }
     }
 
-    return try diffs.toOwnedSlice(alloc);
+    const result = try alloc.dupe(FkDiff, diffs.items);
+    diffs.deinit(alloc);
+    return result;
 }
 
 /// Result of adjustFkForRenames — contains the adjusted FK and allocated memory.
@@ -176,7 +178,9 @@ pub fn createAllFkDiffs(alloc: std.mem.Allocator, new_fks: []const FkDecl) ![]co
             .new_fk = fk,
         });
     }
-    return try diffs.toOwnedSlice(alloc);
+    const result = try alloc.dupe(FkDiff, diffs.items);
+    diffs.deinit(alloc);
+    return result;
 }
 
 pub fn fksEqual(a: FkDecl, b: FkDecl) bool {

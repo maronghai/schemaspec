@@ -43,8 +43,8 @@ test "indexes: emitInlineIndexes emits UNIQUE for inline_unique columns" {
     try indexes_mod.emitInlineIndexes(backend, w, table, &needs_comma);
     try w.flush();
 
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
+    const result = try aw.toOwnedSlice();
+    defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "UNIQUE") != null);
     try testing.expect(std.mem.indexOf(u8, result, "email") != null);
@@ -76,8 +76,8 @@ test "indexes: emitInlineIndexes skips when explicit index dominates" {
     try indexes_mod.emitInlineIndexes(backend, w, table, &needs_comma);
     try w.flush();
 
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
+    const result = try aw.toOwnedSlice();
+    defer alloc.free(result);
 
     // Should not emit inline UNIQUE since explicit index dominates
     try testing.expectEqual(@as(usize, 0), result.len);
@@ -104,8 +104,8 @@ test "indexes: emitStandaloneIndexes emits index definitions" {
     try indexes_mod.emitStandaloneIndexes(backend, w, table);
     try w.flush();
 
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
+    const result = try aw.toOwnedSlice();
+    defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "INDEX") != null);
     try testing.expect(std.mem.indexOf(u8, result, "idx_name") != null);
@@ -134,8 +134,8 @@ test "indexes: emitInlineColumnStandaloneIndexes emits for inline_index columns"
     try indexes_mod.emitInlineColumnStandaloneIndexes(backend, w, table);
     try w.flush();
 
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
+    const result = try aw.toOwnedSlice();
+    defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "INDEX") != null);
     try testing.expect(std.mem.indexOf(u8, result, "created_at") != null);
@@ -165,8 +165,8 @@ test "indexes: emitInlineColumnStandaloneIndexes skips when explicit index domin
     try indexes_mod.emitInlineColumnStandaloneIndexes(backend, w, table);
     try w.flush();
 
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
+    const result = try aw.toOwnedSlice();
+    defer alloc.free(result);
 
     // Should not emit since explicit index dominates
     try testing.expectEqual(@as(usize, 0), result.len);
@@ -192,8 +192,8 @@ test "indexes: MySQL UNIQUE INDEX vs PG UNIQUE" {
     };
     try indexes_mod.emitStandaloneIndexes(backend_mysql, w_mysql, table_mysql);
     try w_mysql.flush();
-    var out_mysql = aw_mysql.toArrayList();
-    const result_mysql = try out_mysql.toOwnedSlice(alloc);
+    const result_mysql = try aw_mysql.toOwnedSlice();
+    defer alloc.free(result_mysql);
 
     // PG backend
     var aw_pg = std.Io.Writer.Allocating.init(alloc);
@@ -211,8 +211,8 @@ test "indexes: MySQL UNIQUE INDEX vs PG UNIQUE" {
     };
     try indexes_mod.emitStandaloneIndexes(backend_pg, w_pg, table_pg);
     try w_pg.flush();
-    var out_pg = aw_pg.toArrayList();
-    const result_pg = try out_pg.toOwnedSlice(alloc);
+    const result_pg = try aw_pg.toOwnedSlice();
+    defer alloc.free(result_pg);
 
     // Both should emit UNIQUE INDEX
     try testing.expect(std.mem.indexOf(u8, result_mysql, "UNIQUE") != null);

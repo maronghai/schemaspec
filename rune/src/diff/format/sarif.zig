@@ -155,6 +155,5 @@ pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect
     try w.writeAll("}\n");
 
     try w.flush();
-    var out = aw.toArrayList();
-    return try out.toOwnedSlice(alloc);
+    return try aw.toOwnedSlice();
 }

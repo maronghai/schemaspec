@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.39.0 (2026-07-29)
+**Current version**: 0.40.0 (2026-07-29)
 
 ---
 
@@ -183,6 +183,15 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.40.0 (2026-07-29)
+
+- Fixed memory leaks across diff subsystem — hash maps, ArrayLists, and intermediate allocations properly freed
+- Replaced `ArrayList.toOwnedSlice(alloc)` with safe `dupe + deinit` pattern in diff engine to prevent buffer leaks
+- Fixed `validate` vs `check` CLI behavior — `validate` always succeeds, `check` exits 1 on errors
+- Fixed redundant allocations in 8 production files — `aw.toOwnedSlice()` instead of `aw.toArrayList().toOwnedSlice(alloc)`
+- Fixed error message to include SARIF in unknown format error
+- Memory leaks reduced from 606 to 533 (73 fewer)
 
 ### v0.39.0 (2026-07-29)
 
