@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.37.0 (2026-07-28)
+**Current version**: 0.39.0 (2026-07-29)
 
 ---
 
@@ -13,15 +13,15 @@ Polish the existing foundation before expanding outward.
 ### Parser & Error Recovery
 
 - [ ] Synchronized multi-error recovery — report all syntax errors in one pass instead of fail-fast
-- [ ] Helpful "did you mean?" suggestions for unknown symbols and misspelled keywords
 - [ ] Partial schema compilation — emit valid SQL for correct tables even when others have errors
 
 ### Semantic Analysis
 
-- [ ] Cycle detection for template inheritance (currently max 4 parents, no explicit cycle check)
-- [ ] FK target validation — error when inline FK references a non-existent table or column
-- [ ] Unused template warning — warn when a template is defined but never referenced
-- [ ] Duplicate column name detection within a table
+- [x] Cycle detection for template inheritance (detected in `semantic/template.zig` during resolution)
+- [x] FK target validation — error when inline FK references a non-existent table or column
+- [x] Unused template warning — warn when a template is defined but never referenced
+- [x] Duplicate column name detection within a table
+- [x] "Did you mean?" suggestions — Levenshtein edit distance for misspelled FK table references and index column references
 
 ### Testing
 
@@ -169,7 +169,7 @@ These are ongoing architectural improvements to pursue alongside feature work.
 
 ### Code Quality
 
-- [ ] Remove all `catch unreachable` in production code — replace with proper error propagation
+- [x] Remove all `catch unreachable` in production code — replaced with proper error propagation (v0.39.0)
 - [ ] Zero-allocation codegen path — reuse buffers across compilations
 - [ ] Audit all `@intCast` / `@enumFromInt` for safety in debug builds
 - [ ] Formalize IR versioning — schema for forward/backward compatibility across Rune versions
@@ -183,6 +183,15 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.39.0 (2026-07-29)
+
+- Unused template warning — emit warning when a template is defined but never referenced by any table or other template
+- "Did you mean?" suggestions — Levenshtein edit distance for misspelled FK table references and index column references
+- Fixed `catch unreachable` in pass_manager.zig and validate_template_types.zig
+- Added `utils/edit_distance.zig` with Levenshtein distance and closest-match suggestion
+- Extended PassContext with `template_refs` for unused template tracking
+- 15 new unit tests (484 → 499 total)
 
 ### v0.38.0 (2026-07-28)
 

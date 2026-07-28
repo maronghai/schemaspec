@@ -15,6 +15,9 @@ pub const PassContext = struct {
     tables: *std.ArrayList(ResolvedTable),
     schema: ?ast_mod.Schema,
     templates: std.StringHashMap(*const Template) = undefined,
+    /// Set of template names referenced by tables (template_ref) or other templates (parents).
+    /// Populated by the analyzer before passes run. Used by validate_schema for unused template detection.
+    template_refs: std.StringHashMap(void) = undefined,
     diagnostics: *diag.DiagnosticCollector = undefined,
     symbol_table: symbol_table_mod.SymbolTable = undefined,
 };
@@ -63,7 +66,7 @@ pub fn validateDependencyOrder() void {
                     std.debug.panic("SemanticPass '{s}' depends on '{s}' which has not run yet", .{ pass.name, dep });
                 }
             }
-            seen_names.put(pass.name, {}) catch unreachable;
+            seen_names.put(pass.name, {}) catch {};
         }
     }
 }

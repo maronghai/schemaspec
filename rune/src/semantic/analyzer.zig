@@ -35,6 +35,19 @@ pub const SemanticAnalyzer = struct {
 
         const tmpl_map = try template_mod.buildTemplateMap(self.alloc, tree.templates);
 
+        // Build set of referenced templates (for unused template detection)
+        var template_refs = std.StringHashMap(void).init(self.alloc);
+        for (tree.tables) |t| {
+            if (t.template_ref) |tref| {
+                _ = try template_refs.put(tref, {});
+            }
+        }
+        for (tree.templates) |*t| {
+            for (t.parents) |parent| {
+                _ = try template_refs.put(parent, {});
+            }
+        }
+
         pm.validateDependencyOrder();
         var diagnostics = try diag.DiagnosticCollector.init(self.alloc);
         var ctx = PassContext{
@@ -42,6 +55,7 @@ pub const SemanticAnalyzer = struct {
             .tables = &tables,
             .schema = tree.schema,
             .templates = tmpl_map,
+            .template_refs = template_refs,
             .diagnostics = &diagnostics,
         };
         for (DEFAULT_PASSES) |pass| {

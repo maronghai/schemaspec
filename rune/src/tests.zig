@@ -56,4 +56,6 @@ comptime {
     _ = @import("types/type_resolver_test.zig");
     _ = @import("types/type_registry_test.zig");
     _ = @import("types/sql_type_test.zig");
+    // utils
+    _ = @import("utils/edit_distance.zig");
 }

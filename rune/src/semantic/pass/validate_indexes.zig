@@ -2,6 +2,7 @@ const std = @import("std");
 const ast = @import("../../types/ast.zig");
 const resolved_ast = @import("../../types/resolved_ast.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
+const edit_distance = @import("../../utils/edit_distance.zig");
 
 /// Validate index declarations: duplicate names, duplicate definitions, non-existent column references.
 pub fn run(ctx: *PassContext) !void {
@@ -50,7 +51,7 @@ pub fn run(ctx: *PassContext) !void {
                 }
             }
         }
-        // Check for indexes referencing non-existent columns
+        // Check for indexes referencing non-existent columns (with "did you mean?" suggestions)
         for (table.indexes) |idx| {
             for (idx.fields) |field_name| {
                 var found = false;
@@ -61,10 +62,20 @@ pub fn run(ctx: *PassContext) !void {
                     }
                 }
                 if (!found) {
+                    // Build column name list for suggestions
+                    var col_names = try std.ArrayList([]const u8).initCapacity(ctx.alloc, table.fields.len);
+                    for (table.fields) |col| {
+                        try col_names.append(ctx.alloc, col.name);
+                    }
+                    const suggestion = edit_distance.suggestClosest(field_name, col_names.items, 3);
+                    const msg = if (suggestion) |s|
+                        std.fmt.allocPrint(ctx.alloc, "index '{s}' references non-existent column '{s}' in table '{s}' — did you mean '{s}'?", .{ idx.name, field_name, table.name, s.match }) catch return
+                    else
+                        std.fmt.allocPrint(ctx.alloc, "index '{s}' references non-existent column '{s}' in table '{s}'", .{ idx.name, field_name, table.name }) catch return;
                     ctx.diagnostics.push(.{
                         .severity = .warning,
                         .line_no = idx.line_no,
-                        .message = std.fmt.allocPrint(ctx.alloc, "index '{s}' references non-existent column '{s}' in table '{s}'", .{ idx.name, field_name, table.name }) catch return,
+                        .message = msg,
                     });
                 }
             }
@@ -206,4 +217,33 @@ test "validate_indexes: semantically identical indexes emit warning" {
         }
     }
     try testing.expect(found_semantic_dup);
+}
+
+test "validate_indexes: index on misspelled column suggests correction" {
+    const alloc = testing.allocator;
+    const fields = try alloc.alloc(ast.Field, 2);
+    fields[0] = test_helpers.makeTestField("username", .{ .simple = "s" });
+    fields[1] = test_helpers.makeTestField("email", .{ .simple = "s" });
+
+    const indexes = try alloc.alloc(ast.IndexDecl, 1);
+    indexes[0] = .{ .kind = .regular, .name = "idx_name", .fields = try alloc.dupe([]const u8, &.{"usrname"}), .descending = &.{false}, .line_no = 2 };
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = indexes,
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    try run(&ctx);
+
+    try testing.expect(diagnostics.diagnostics.items.len > 0);
+    const msg = diagnostics.diagnostics.items[0].message;
+    try testing.expect(std.mem.indexOf(u8, msg, "did you mean 'username'") != null);
 }

@@ -42,8 +42,8 @@ const diag_mod = @import("../diagnostic.zig");
 const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
-fn makeCtx(alloc: std.mem.Allocator, diagnostics: *diag_mod.DiagnosticCollector, templates: std.StringHashMap(*const ast.Template)) PassContext {
-    var tables = std.ArrayList(ResolvedTable).initCapacity(alloc, 4) catch unreachable;
+fn makeCtx(alloc: std.mem.Allocator, diagnostics: *diag_mod.DiagnosticCollector, templates: std.StringHashMap(*const ast.Template)) !PassContext {
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 4);
     return .{
         .alloc = alloc,
         .tables = &tables,
@@ -73,7 +73,7 @@ test "validate_template_types: child overrides parent field type emits diagnosti
     try templates.put("extended", child_tmpl);
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &diagnostics, templates);
+    var ctx = try makeCtx(alloc, &diagnostics, templates);
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
@@ -101,7 +101,7 @@ test "validate_template_types: same type produces no diagnostic" {
     try templates.put("extended", child_tmpl);
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &diagnostics, templates);
+    var ctx = try makeCtx(alloc, &diagnostics, templates);
     try run(&ctx);
 
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);

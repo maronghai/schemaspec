@@ -4,9 +4,10 @@ const resolved_ast = @import("../../types/resolved_ast.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const FkDecl = ast.FkDecl;
 const ResolvedTable = resolved_ast.ResolvedTable;
+const edit_distance = @import("../../utils/edit_distance.zig");
 
 /// Helper: validate a single FK declaration against the table and schema.
-fn validateFk(ctx: *PassContext, table_names: *const std.StringHashMap(void), table: ResolvedTable, fk: FkDecl) !void {
+fn validateFk(ctx: *PassContext, table_names: *const std.StringHashMap(void), table_name_list: []const []const u8, table: ResolvedTable, fk: FkDecl) !void {
     for (fk.fields) |fk_field| {
         var found = false;
         for (table.fields) |field| {
@@ -24,10 +25,15 @@ fn validateFk(ctx: *PassContext, table_names: *const std.StringHashMap(void), ta
         }
     }
     if (fk.ref_table.len > 0 and !table_names.contains(fk.ref_table)) {
+        const suggestion = edit_distance.suggestClosest(fk.ref_table, table_name_list, 3);
+        const msg = if (suggestion) |s|
+            try std.fmt.allocPrint(ctx.alloc, "FK references non-existent table '{s}' in table '{s}' — did you mean '{s}'?", .{ fk.ref_table, table.name, s.match })
+        else
+            try std.fmt.allocPrint(ctx.alloc, "FK references non-existent table '{s}' in table '{s}'", .{ fk.ref_table, table.name });
         ctx.diagnostics.push(.{
             .severity = .warning,
             .line_no = table.line_no,
-            .message = try std.fmt.allocPrint(ctx.alloc, "FK references non-existent table '{s}' in table '{s}'", .{ fk.ref_table, table.name }),
+            .message = msg,
         });
     }
 }
@@ -35,8 +41,10 @@ fn validateFk(ctx: *PassContext, table_names: *const std.StringHashMap(void), ta
 /// Semantic validation: FK reference checks, field name duplicates.
 pub fn run(ctx: *PassContext) !void {
     var table_names = std.StringHashMap(void).init(ctx.alloc);
+    var table_name_list = try std.ArrayList([]const u8).initCapacity(ctx.alloc, ctx.tables.items.len);
     for (ctx.tables.items) |t| {
         try table_names.put(t.name, {});
+        try table_name_list.append(ctx.alloc, t.name);
     }
 
     for (ctx.tables.items) |table| {
@@ -55,11 +63,11 @@ pub fn run(ctx: *PassContext) !void {
         }
 
         for (table.fks) |fk| {
-            try validateFk(ctx, &table_names, table, fk);
+            try validateFk(ctx, &table_names, table_name_list.items, table, fk);
         }
         for (table.fields) |field| {
             if (field.fk) |fk| {
-                try validateFk(ctx, &table_names, table, fk);
+                try validateFk(ctx, &table_names, table_name_list.items, table, fk);
             }
         }
     }
@@ -162,4 +170,51 @@ test "validate: FK to non-existent table emits diagnostic" {
     try testing.expect(diagnostics.diagnostics.items.len > 0);
     const msg = diagnostics.diagnostics.items[0].message;
     try testing.expect(std.mem.indexOf(u8, msg, "non-existent table 'nonexistent'") != null);
+}
+
+test "validate: FK to misspelled table suggests correction" {
+    const alloc = testing.allocator;
+
+    const user_fields = try alloc.alloc(ast.Field, 1);
+    user_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });
+
+    const order_fields = try alloc.alloc(ast.Field, 1);
+    order_fields[0] = test_helpers.makeTestField("user_id", .{ .simple = "n" });
+
+    const fks = try alloc.alloc(ast.FkDecl, 1);
+    fks[0] = .{
+        .fields = try alloc.dupe([]const u8, &.{"user_id"}),
+        .ref_table = "usrs",
+        .ref_fields = try alloc.dupe([]const u8, &.{"id"}),
+        .actions = &.{},
+        .line_no = 3,
+    };
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
+    try tables.append(alloc, .{
+        .name = "orders",
+        .comment = null,
+        .engine = null,
+        .fields = order_fields,
+        .fks = fks,
+        .indexes = &.{},
+        .line_no = 1,
+    });
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = user_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 5,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    try run(&ctx);
+
+    try testing.expect(diagnostics.diagnostics.items.len > 0);
+    const msg = diagnostics.diagnostics.items[0].message;
+    try testing.expect(std.mem.indexOf(u8, msg, "did you mean 'users'") != null);
 }
