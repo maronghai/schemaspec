@@ -4,6 +4,29 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.36.0] - 2026-07-28
+
+### Architecture
+- **Comptime RenderEntry validation**: Added compile-time check in `renderFromTable()` that validates render table length matches SqlType enum variant count. Catches silent mismatches when adding new SqlType variants.
+- **TypedAst ss_symbol cleanup**: Renamed `TypedColumn.sym_type` → `ss_symbol` with documentation clarifying it's for SQLite roundtrip fidelity only.
+- **Diff FK rename detection**: `diffFks()` now accepts field diffs and performs rename-aware matching. When a column is renamed and an FK references it, the FK diff produces `modify` instead of `drop + add`. Added `adjustFkForRenames()` helper and 3 new unit tests.
+
+### Code Quality
+- **Shared test helpers**: Extracted `makeTestColumn()` from 5 test files into `semantic/test_helpers.zig`.
+
+### Documentation
+- **`rune/README.md`**: New contributor README with project overview, quick start, commands, CLI flags reference, testing, and contributing guide.
+- **ARCHITECTURE.md**: Fixed roundtrip test count (20 → 26), updated total.
+
+## [0.34.0] - 2026-07-27
+
+### Architecture
+- **Diff format module split**: Refactored monolithic `diff/format.zig` (518 lines) into 4 files: `format.zig` (re-export), `format/text.zig` (text), `format/json.zig` (JSON), `format/sarif.zig` (SARIF).
+- **SARIF version from source**: `format/sarif.zig` now reads `version.VERSION` from `version.zig` instead of hardcoding.
+
+### Testing
+- Updated 247 golden test files from version 0.32.0 to 0.34.0.
+
 ## [0.35.0] - 2026-07-28
 
 ### Fixed

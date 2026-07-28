@@ -415,5 +415,5 @@ zig build bench -- bench/large.ss 5         # large schema
 | Diff golden | `tests/test_diff.sh` | 12 | Schema comparison |
 | Error recovery | `tests/test_error_recovery.sh` | 12 | Parse error handling + schema-level validation |
 | JSON Schema | `tests/test_json_schema.sh` | 3 | JSON Schema output |
-| Roundtrip | `tests/test_roundtrip.sh` | 20 | Forward → reverse fidelity |
-| **Total** | | **~480+** | |
+| Roundtrip | `tests/test_roundtrip.sh` | 26 | Forward → reverse fidelity |
+| **Total** | | **~486+** | |

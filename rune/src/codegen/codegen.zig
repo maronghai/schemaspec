@@ -121,7 +121,7 @@ pub const Codegen = struct {
             }
         }
         for (table.columns) |col| {
-            if (col.sym_type) |sym| {
+            if (col.ss_symbol) |sym| {
                 try self.backend.emitTypeMetadata(w, col.name, sym);
             }
         }

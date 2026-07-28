@@ -1,5 +1,7 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
+const typed_ast_mod = @import("../types/typed_ast.zig");
+const sql_type_mod = @import("../types/sql_type.zig");
 
 /// Shared test helper: create a minimal Field with default values.
 pub fn makeTestField(name: []const u8, type_info: ast_mod.TypeInfo) ast_mod.Field {
@@ -37,5 +39,19 @@ pub fn makeTestAst(_: std.mem.Allocator, tables: []const ast_mod.Table, template
         .tables = tables,
         .views = &.{},
         .sql_comments = &.{},
+    };
+}
+
+/// Shared test helper: create a minimal TypedColumn with default values.
+pub fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast_mod.TypedColumn {
+    return .{
+        .name = name,
+        .sql_type = sql_type,
+        .flags = .{},
+        .default = null,
+        .check = null,
+        .comment = null,
+        .enum_values = &.{},
+        .line_no = 1,
     };
 }

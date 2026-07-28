@@ -81,19 +81,8 @@ pub fn emitColumnDefEx(backend: dialect_mod.DialectBackend, w: *Writer, col: typ
 // ─── Unit Tests ─────────────────────────────────────────────
 
 const testing = std.testing;
-
-fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast_mod.TypedColumn {
-    return .{
-        .name = name,
-        .sql_type = sql_type,
-        .flags = .{},
-        .default = null,
-        .check = null,
-        .comment = null,
-        .enum_values = &.{},
-        .line_no = 1,
-    };
-}
+const test_helpers = @import("../semantic/test_helpers.zig");
+const makeTestColumn = test_helpers.makeTestColumn;
 
 test "emitColumnDef: MySQL table" {
     const alloc = testing.allocator;

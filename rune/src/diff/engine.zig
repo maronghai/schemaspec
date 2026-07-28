@@ -127,7 +127,7 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
 fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: resolved_ast.ResolvedTable, dialect: ?Dialect) !TableDiff {
     const field_diffs = try diff_fields.diffFields(alloc, old.fields, new.fields, dialect);
     const index_diffs = try diff_indexes.diffIndexes(alloc, old.indexes, new.indexes);
-    const fk_diffs = try diff_fks.diffFks(alloc, old.fks, new.fks);
+    const fk_diffs = try diff_fks.diffFks(alloc, old.fks, new.fks, field_diffs);
 
     // Compare metadata (comment, engine)
     const metadata_diff = TableMetadataDiff{

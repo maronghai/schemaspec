@@ -9,19 +9,8 @@ const Codegen = codegen_mod.Codegen;
 const sql_type_mod = @import("../types/sql_type.zig");
 
 const testing = std.testing;
-
-fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast_mod.TypedColumn {
-    return .{
-        .name = name,
-        .sql_type = sql_type,
-        .flags = .{},
-        .default = null,
-        .check = null,
-        .comment = null,
-        .enum_values = &.{},
-        .line_no = 1,
-    };
-}
+const test_helpers = @import("../semantic/test_helpers.zig");
+const makeTestColumn = test_helpers.makeTestColumn;
 
 fn makeTestIndex(kind: ast_mod.IndexType, name: []const u8, fields: []const []const u8) ast_mod.IndexDecl {
     return .{

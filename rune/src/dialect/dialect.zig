@@ -167,7 +167,9 @@ pub const DialectBackend = struct {
     /// AUTO_INCREMENT keyword — only MySQL uses; PG uses GENERATED AS IDENTITY, SQLite uses PRIMARY KEY AUTOINCREMENT.
     emitAutoIncrement: *const fn (w: *Writer) anyerror!void = noopWriteEmpty,
     /// SQLite-specific SS type metadata comment (e.g. `-- @sym col_type`).
-    emitTypeMetadata: *const fn (w: *Writer, col_name: []const u8, sym_type: []const u8) anyerror!void = noopEmitTypeMetadata,
+    /// Emit SS symbol metadata for SQLite roundtrip (e.g. `-- @sym col_name n`).
+    /// Only SQLite implements this; other dialects use noopEmitTypeMetadata.
+    emitTypeMetadata: *const fn (w: *Writer, col_name: []const u8, ss_symbol: []const u8) anyerror!void = noopEmitTypeMetadata,
     /// SQLite-specific confidence comment (e.g. ` -- [score:42]`).
     emitConfidenceComment: *const fn (w: *Writer, confidence: []const u8) anyerror!void = noopEmitConfidenceComment,
     /// Dialect-specific reverse lookup. Returns null to fall back to general logic in reverse/map.zig.
@@ -277,6 +279,15 @@ pub const RenderEntry = struct {
 /// Render a SqlType using a comptime dispatch table.
 /// Looks up the active tag in the table, calls render_fn if set, else writes comptime_str.
 pub fn renderFromTable(w: *Writer, sql_type: SqlType, comptime table: []const RenderEntry) anyerror!void {
+    // Comptime check: table must have one entry per SqlType variant.
+    // Catches silent mismatches when adding new SqlType variants.
+    comptime {
+        const tag_type = @typeInfo(SqlType).@"union".tag_type orelse unreachable;
+        const total = @typeInfo(tag_type).@"enum".fields.len;
+        if (table.len != total) {
+            @compileError(std.fmt.comptimePrint("RenderEntry table length mismatch: expected {d} entries (one per SqlType variant), got {d}", .{ total, table.len }));
+        }
+    }
     const tag = @intFromEnum(sql_type);
     const entry = if (tag < table.len) table[tag] else RenderEntry{};
     if (entry.render_fn) |fn_ptr| {

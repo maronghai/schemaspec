@@ -4,8 +4,9 @@ const diff_types = @import("../diff/types.zig");
 const FkDecl = ast_mod.FkDecl;
 pub const FkDiff = diff_types.FkDiff;
 pub const FkAction = diff_types.FkAction;
+pub const FieldDiff = diff_types.FieldDiff;
 
-pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []const FkDecl) ![]const FkDiff {
+pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []const FkDecl, field_diffs: []const FieldDiff) ![]const FkDiff {
     var diffs = try std.ArrayList(FkDiff).initCapacity(alloc, 4);
 
     var old_matched = try std.ArrayList(bool).initCapacity(alloc, old_fks.len);
@@ -20,6 +21,26 @@ pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []con
                 old_matched.items[oi] = true;
                 new_matched.items[ni] = true;
                 break;
+            }
+        }
+    }
+
+    // Pass 1.5: rename-aware matching — adjust FK fields for renames, then match
+    for (old_fks, 0..) |old_fk, oi| {
+        if (old_matched.items[oi]) continue;
+        const adjusted = adjustFkForRenames(old_fk, field_diffs);
+        for (new_fks, 0..) |new_fk, ni| {
+            if (!new_matched.items[ni]) {
+                if (fksStructurallyEqual(adjusted, new_fk)) {
+                    old_matched.items[oi] = true;
+                    new_matched.items[ni] = true;
+                    try diffs.append(alloc, .{
+                        .action = .modify,
+                        .old_fk = old_fk,
+                        .new_fk = new_fk,
+                    });
+                    break;
+                }
             }
         }
     }
@@ -64,6 +85,63 @@ pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []con
     }
 
     return try diffs.toOwnedSlice(alloc);
+}
+
+/// Create a copy of an FK with fields adjusted according to field renames.
+/// Returns a stack-local FkDecl — valid for the duration of the calling function.
+fn adjustFkForRenames(fk: FkDecl, field_diffs: []const FieldDiff) FkDecl {
+    var local_fields: [8][]const u8 = undefined;
+    var local_ref_fields: [8][]const u8 = undefined;
+    var fields_len: usize = 0;
+    var ref_fields_len: usize = 0;
+    var modified = false;
+
+    for (field_diffs) |fd| {
+        if (fd.action != .rename) continue;
+        const old_name = fd.rename_from orelse continue;
+
+        // Check if any FK fields or ref_fields are affected by this rename
+        for (fk.fields) |f| {
+            if (std.mem.eql(u8, f, old_name)) modified = true;
+        }
+        for (fk.ref_fields) |f| {
+            if (std.mem.eql(u8, f, old_name)) modified = true;
+        }
+    }
+
+    if (!modified) return fk;
+
+    // Copy fields into local buffers, applying renames
+    for (fk.fields) |f| {
+        var replaced = f;
+        for (field_diffs) |fd| {
+            if (fd.action == .rename and fd.rename_from != null and std.mem.eql(u8, f, fd.rename_from.?)) {
+                replaced = fd.name;
+                break;
+            }
+        }
+        local_fields[fields_len] = replaced;
+        fields_len += 1;
+    }
+    for (fk.ref_fields) |f| {
+        var replaced = f;
+        for (field_diffs) |fd| {
+            if (fd.action == .rename and fd.rename_from != null and std.mem.eql(u8, f, fd.rename_from.?)) {
+                replaced = fd.name;
+                break;
+            }
+        }
+        local_ref_fields[ref_fields_len] = replaced;
+        ref_fields_len += 1;
+    }
+
+    return .{
+        .fields = local_fields[0..fields_len],
+        .ref_table = fk.ref_table,
+        .ref_fields = local_ref_fields[0..ref_fields_len],
+        .actions = fk.actions,
+        .line_no = fk.line_no,
+    };
 }
 
 /// Create add-diffs for all FKs of a new table.
@@ -122,7 +200,7 @@ test "diffFks identical — no diffs" {
     const alloc = std.testing.allocator;
     const old = [_]FkDecl{makeFk(&.{"user_id"}, "user", &.{"id"}, &.{})};
     const new_ = [_]FkDecl{makeFk(&.{"user_id"}, "user", &.{"id"}, &.{})};
-    const diffs = try diffFks(alloc, &old, &new_);
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 0), diffs.len);
 }
@@ -131,7 +209,7 @@ test "diffFks added FK" {
     const alloc = std.testing.allocator;
     const old = [_]FkDecl{};
     const new_ = [_]FkDecl{makeFk(&.{"user_id"}, "user", &.{"id"}, &.{})};
-    const diffs = try diffFks(alloc, &old, &new_);
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(FkAction.add, diffs[0].action);
@@ -143,7 +221,7 @@ test "diffFks dropped FK" {
     const alloc = std.testing.allocator;
     const old = [_]FkDecl{makeFk(&.{"user_id"}, "user", &.{"id"}, &.{})};
     const new_ = [_]FkDecl{};
-    const diffs = try diffFks(alloc, &old, &new_);
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(FkAction.drop, diffs[0].action);
@@ -156,7 +234,7 @@ test "diffFks changed FK actions — modify" {
     // Changed ref_fields from (id) to (uuid) — different structure → drop + add
     const old = [_]FkDecl{makeFk(&.{"user_id"}, "user", &.{"id"}, &.{})};
     const new_ = [_]FkDecl{makeFk(&.{"user_id"}, "user", &.{"uuid"}, &.{})};
-    const diffs = try diffFks(alloc, &old, &new_);
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 2), diffs.len);
     var has_add = false;
@@ -174,7 +252,7 @@ test "diffFks action-only change — modify" {
     // Same structure, different actions → modify (single diff, not drop+add)
     const old = [_]FkDecl{makeFk(&.{"user_id"}, "user", &.{"id"}, &.{.{ .trigger = .on_delete, .action = .cascade }})};
     const new_ = [_]FkDecl{makeFk(&.{"user_id"}, "user", &.{"id"}, &.{.{ .trigger = .on_delete, .action = .restrict }})};
-    const diffs = try diffFks(alloc, &old, &new_);
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(FkAction.modify, diffs[0].action);
@@ -195,7 +273,7 @@ test "diffFks add+modify action — partial match" {
         makeFk(&.{"user_id"}, "user", &.{"id"}, &.{.{ .trigger = .on_delete, .action = .restrict }}),
         makeFk(&.{"comment_id"}, "comment", &.{"id"}, &.{}),
     };
-    const diffs = try diffFks(alloc, &old, &new_);
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 3), diffs.len);
     var has_modify = false;
@@ -215,7 +293,7 @@ test "diffFks empty lists" {
     const alloc = std.testing.allocator;
     const old = [_]FkDecl{};
     const new_ = [_]FkDecl{};
-    const diffs = try diffFks(alloc, &old, &new_);
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 0), diffs.len);
 }
@@ -231,7 +309,7 @@ test "diffFks multi-match bipartite" {
         makeFk(&.{"a_id"}, "a", &.{"id"}, &.{}),
         makeFk(&.{"b_id"}, "b", &.{"id"}, &.{}),
     };
-    const diffs = try diffFks(alloc, &old, &new_);
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 0), diffs.len);
 }
@@ -252,4 +330,61 @@ test "fksEqual different fields" {
     const a = makeFk(&.{"user_id"}, "user", &.{"id"}, &.{});
     const b = makeFk(&.{"admin_id"}, "user", &.{"id"}, &.{});
     try std.testing.expect(!fksEqual(a, b));
+}
+
+test "diffFks: rename-aware local field match" {
+    const alloc = std.testing.allocator;
+    // old FK references "uid", new FK references "user_id"
+    // Field rename: uid → user_id
+    const old = [_]FkDecl{makeFk(&.{"uid"}, "users", &.{"id"}, &.{})};
+    const new_ = [_]FkDecl{makeFk(&.{"user_id"}, "users", &.{"id"}, &.{})};
+    const field_diffs = [_]diff_types.FieldDiff{.{
+        .name = "user_id",
+        .action = .rename,
+        .old_field = null,
+        .new_field = null,
+        .rename_from = "uid",
+    }};
+    const diffs = try diffFks(alloc, &old, &new_, &field_diffs);
+    defer alloc.free(diffs);
+    // Should be modify (rename-aware match), not drop+add
+    try std.testing.expectEqual(@as(usize, 1), diffs.len);
+    try std.testing.expectEqual(FkAction.modify, diffs[0].action);
+}
+
+test "diffFks: rename-aware ref_field match" {
+    const alloc = std.testing.allocator;
+    // old FK references "users"."ref_id", new FK references "users"."uuid"
+    // Field rename: ref_id → uuid
+    const old = [_]FkDecl{makeFk(&.{"fk_col"}, "users", &.{"ref_id"}, &.{})};
+    const new_ = [_]FkDecl{makeFk(&.{"fk_col"}, "users", &.{"uuid"}, &.{})};
+    const field_diffs = [_]diff_types.FieldDiff{.{
+        .name = "uuid",
+        .action = .rename,
+        .old_field = null,
+        .new_field = null,
+        .rename_from = "ref_id",
+    }};
+    const diffs = try diffFks(alloc, &old, &new_, &field_diffs);
+    defer alloc.free(diffs);
+    try std.testing.expectEqual(@as(usize, 1), diffs.len);
+    try std.testing.expectEqual(FkAction.modify, diffs[0].action);
+}
+
+test "diffFks: no rename match without field_diffs" {
+    const alloc = std.testing.allocator;
+    // Without field_diffs, renamed FK fields → drop+add
+    const old = [_]FkDecl{makeFk(&.{"uid"}, "users", &.{"id"}, &.{})};
+    const new_ = [_]FkDecl{makeFk(&.{"user_id"}, "users", &.{"id"}, &.{})};
+    const diffs = try diffFks(alloc, &old, &new_, &.{});
+    defer alloc.free(diffs);
+    try std.testing.expectEqual(@as(usize, 2), diffs.len);
+    var has_add = false;
+    var has_drop = false;
+    for (diffs) |d| {
+        if (d.action == .add) has_add = true;
+        if (d.action == .drop) has_drop = true;
+    }
+    try std.testing.expect(has_add);
+    try std.testing.expect(has_drop);
 }

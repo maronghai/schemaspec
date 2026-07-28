@@ -65,7 +65,11 @@ pub const TypedTable = struct {
 pub const TypedColumn = struct {
     name: []const u8,
     sql_type: sql_type_mod.SqlType,
-    sym_type: ?[]const u8 = null,
+    /// Original SS symbol string for roundtrip preservation (SQLite only).
+    /// Used to emit `-- @sym col_name symbol` comments that the reverse
+    /// pipeline reads back to preserve the original DSL type symbol.
+    /// Null for PG/MySQL (they don't need symbol roundtrip).
+    ss_symbol: ?[]const u8 = null,
     flags: ColumnFlags = .{},
     default: ?[]const u8,
     check: ?CheckConstraint,

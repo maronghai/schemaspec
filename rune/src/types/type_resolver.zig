@@ -102,13 +102,13 @@ pub const TypeResolver = struct {
         const is_enum = field.type_info == .enum_type;
         const enum_vals = if (is_enum) field.type_info.enum_type else &[_][]const u8{};
 
-        // Compute original SS type string for roundtrip preservation
-        const sym_type = try buildSymType(alloc, field.type_info, flags.unsigned);
+        // Compute original SS type string for roundtrip preservation (SQLite only)
+        const ss_symbol = try buildSymType(alloc, field.type_info, flags.unsigned);
 
         return .{
             .name = field.name,
             .sql_type = sql_type,
-            .sym_type = sym_type,
+            .ss_symbol = ss_symbol,
             .flags = .{
                 .nullable = !flags.nn,
                 .primary_key = flags.pk,
@@ -183,10 +183,10 @@ fn classifyModifiers(field: Field) ModifierFlags {
 
 // ─── Sym Type Computation ───────────────────────────────────────
 
-/// Compute the original SS type string for roundtrip preservation.
+/// Compute the original SS type string for roundtrip preservation (SQLite only).
 /// Returns null for multi-char types (custom types are resolved before this).
 fn buildSymType(alloc: std.mem.Allocator, type_info: ast_mod.TypeInfo, unsigned: bool) !?[]const u8 {
-    var sym_type: ?[]const u8 = switch (type_info) {
+    var sym: ?[]const u8 = switch (type_info) {
         .simple => |s| if (s.len == 1) s else null,
         .varchar_explicit => |n| if (n > 0) blk: {
             var tbuf: [16]u8 = undefined;
@@ -203,13 +203,13 @@ fn buildSymType(alloc: std.mem.Allocator, type_info: ast_mod.TypeInfo, unsigned:
     };
     // Unsigned → prepend + prefix for roundtrip (+n, +N, +i)
     if (unsigned) {
-        if (sym_type) |tt| {
+        if (sym) |tt| {
             if (tt.len == 1 and (tt[0] == 'n' or tt[0] == 'N' or tt[0] == 'i')) {
-                sym_type = try std.fmt.allocPrint(alloc, "+{s}", .{tt});
+                sym = try std.fmt.allocPrint(alloc, "+{s}", .{tt});
             }
         }
     }
-    return sym_type;
+    return sym;
 }
 
 // ─── Unit Tests ──────────────────────────────────────────────

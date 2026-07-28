@@ -87,8 +87,8 @@ fn sqliteEmitPrimaryKey(w: *Writer, auto_increment: bool) anyerror!void {
     }
 }
 
-fn sqliteEmitTypeMetadata(w: *Writer, col_name: []const u8, sym_type: []const u8) anyerror!void {
-    try w.print("-- @sym {s} {s}\n", .{ col_name, sym_type });
+fn sqliteEmitTypeMetadata(w: *Writer, col_name: []const u8, ss_symbol: []const u8) anyerror!void {
+    try w.print("-- @sym {s} {s}\n", .{ col_name, ss_symbol });
 }
 
 fn sqliteEmitConfidenceComment(w: *Writer, confidence: []const u8) anyerror!void {

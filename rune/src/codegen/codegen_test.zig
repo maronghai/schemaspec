@@ -6,19 +6,8 @@ const dialect_mod = @import("../dialect/dialect.zig");
 const Codegen = codegen_mod.Codegen;
 
 const testing = std.testing;
-
-fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast_mod.TypedColumn {
-    return .{
-        .name = name,
-        .sql_type = sql_type,
-        .flags = .{},
-        .default = null,
-        .check = null,
-        .comment = null,
-        .enum_values = &.{},
-        .line_no = 1,
-    };
-}
+const test_helpers = @import("../semantic/test_helpers.zig");
+const makeTestColumn = test_helpers.makeTestColumn;
 
 test "codegen: simple MySQL table" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);

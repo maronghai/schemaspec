@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.36.0] - 2026-07-28
+
+### Architecture
+- **Comptime RenderEntry validation**: Added compile-time check in `renderFromTable()` that validates render table length matches SqlType enum variant count. Catches silent mismatches when adding new SqlType variants.
+- **TypedAst ss_symbol cleanup**: Renamed `TypedColumn.sym_type` → `ss_symbol` with documentation clarifying it's for SQLite roundtrip fidelity only. Reduces cognitive burden on the core IR type.
+- **Diff FK rename detection**: `diffFks()` now accepts field diffs and performs rename-aware matching (Pass 1.5). When a column is renamed and an FK references it, the FK diff produces `modify` instead of `drop + add`. Added `adjustFkForRenames()` helper and 3 new unit tests.
+
+### Code Quality
+- **Shared test helpers**: Extracted `makeTestColumn()` from 5 test files into `semantic/test_helpers.zig`. Updated `codegen/columns.zig`, `codegen/indexes_test.zig`, `codegen/codegen_test.zig`, `codegen_test.zig`, `json_schema.zig` to use the shared version.
+
+### Documentation
+- **`rune/README.md`**: New contributor README with project overview, quick start, commands, CLI flags reference, testing instructions, project structure, and contributing guide.
+- **ARCHITECTURE.md**: Fixed roundtrip test count (20 → 26), updated total (~480+ → ~486+).
+- **CLAUDE.md**: Fixed roundtrip test count (20 → 26).
+
+## [0.35.0] - 2026-07-28
+
+### Fixed
+- Re-enabled colocated test files that were disabled since v0.28.0 SqlType refactor
+- Fixed 9 compilation errors across colocated test files: string→SqlType type mismatches, missing struct fields, deprecated `getWritten()` API, wrong namespace references
+- Fixed test memory leaks in colocated tests using arena allocators
+- Fixed golden file naming inconsistency (view golden files: dash → dot convention)
+
+### Added
+- `tests.zig` test module index for colocated test files
+- Second test step in `build.zig` for colocated test compilation
+
+### Changed
+- Updated `rune/ARCHITECTURE.md` testing table with correct test counts
+
+## [0.33.0] - 2026-07-27
+
+### Architecture
+- **Extract shared reverse mapping data**: Moved `REVERSE_MAP` data from `reverse/map_data.zig` → `types/reverse_map.zig` (canonical location). `reverse/map_data.zig` now re-exports for backward compatibility.
+- **Colocate test files with modules**: Moved `diff_test.zig`, `fields_test.zig`, `codegen_test.zig` to their logical module directories (`diff/`, `codegen/`).
+- **Reverse map unit tests**: Added 25 new tests to `reverse/map.zig`: round-trip tests, confidence score range validation, data integrity checks.
+
 ## [0.34.0] - 2026-07-27
 
 ### Architecture

@@ -315,19 +315,8 @@ fn parseInList(alloc: std.mem.Allocator, expr: []const u8) ?[]const []const u8 {
 // ─── Unit Tests ──────────────────────────────────────────────
 
 const testing = std.testing;
-
-fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_ast.TypedColumn {
-    return .{
-        .name = name,
-        .sql_type = sql_type,
-        .flags = .{},
-        .default = null,
-        .check = null,
-        .comment = null,
-        .enum_values = &.{},
-        .line_no = 1,
-    };
-}
+const test_helpers = @import("semantic/test_helpers.zig");
+const makeTestColumn = test_helpers.makeTestColumn;
 
 test "json_schema: int column" {
     const alloc = testing.allocator;
