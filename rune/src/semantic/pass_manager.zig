@@ -91,7 +91,7 @@ pub fn detectConflicts() [][2][]const u8 {
 }
 
 /// Check if pass a has a direct dependency on pass b.
-fn dependsOn(a: SemanticPass, b: SemanticPass) bool {
+pub fn dependsOn(a: SemanticPass, b: SemanticPass) bool {
     for (a.depends_on) |dep| {
         if (std.mem.eql(u8, dep, b.name)) return true;
     }
@@ -99,7 +99,7 @@ fn dependsOn(a: SemanticPass, b: SemanticPass) bool {
 }
 
 /// Check if two passes have a write-write conflict on the same resource.
-fn hasConflict(a: SemanticPass, b: SemanticPass) bool {
+pub fn hasConflict(a: SemanticPass, b: SemanticPass) bool {
     if (a.access.writes_tables and b.access.writes_tables) return true;
     if (a.access.modifies_table_list and b.access.modifies_table_list) return true;
     if (a.access.writes_types and b.access.writes_types) return true;
@@ -169,70 +169,4 @@ pub fn canRunConcurrently(a: SemanticPass, b: SemanticPass) bool {
         return false;
     }
     return true;
-}
-
-// ─── Unit Tests ──────────────────────────────────────────────
-
-const testing = std.testing;
-
-test "DEFAULT_PASSES: dependency order is valid" {
-    validateDependencyOrder();
-}
-
-test "DEFAULT_PASSES: expected count" {
-    try testing.expectEqual(@as(usize, 8), DEFAULT_PASSES.len);
-}
-
-test "canRunConcurrently: independent passes can run together" {
-    const a = SemanticPass{ .name = "a", .run = undefined };
-    const b = SemanticPass{ .name = "b", .run = undefined };
-    try testing.expect(canRunConcurrently(a, b));
-}
-
-test "canRunConcurrently: dependent passes cannot run together" {
-    const a = SemanticPass{ .name = "a", .run = undefined, .depends_on = &.{"b"} };
-    const b = SemanticPass{ .name = "b", .run = undefined };
-    try testing.expect(!canRunConcurrently(a, b));
-}
-
-test "canRunConcurrently: write-write conflict prevents concurrency" {
-    const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .writes_tables = true } };
-    const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
-    try testing.expect(!canRunConcurrently(a, b));
-}
-
-test "canRunConcurrently: read-write is fine" {
-    const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .reads_tables = true } };
-    const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
-    try testing.expect(canRunConcurrently(a, b));
-}
-
-test "detectConflicts: no conflicts in DEFAULT_PASSES" {
-    // All DEFAULT_PASSES have proper dependency ordering, so no conflicts
-    const conflicts = detectConflicts();
-    try testing.expectEqual(@as(usize, 0), conflicts.len);
-}
-
-test "getParallelGroups: returns non-empty groups" {
-    const groups = getParallelGroups();
-    try testing.expect(groups.len > 0);
-}
-
-test "hasConflict: write-write conflict detected" {
-    const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .writes_tables = true } };
-    const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
-    try testing.expect(hasConflict(a, b));
-}
-
-test "hasConflict: no conflict for read-write" {
-    const a = SemanticPass{ .name = "a", .run = undefined, .access = .{ .reads_tables = true } };
-    const b = SemanticPass{ .name = "b", .run = undefined, .access = .{ .writes_tables = true } };
-    try testing.expect(!hasConflict(a, b));
-}
-
-test "dependsOn: direct dependency detected" {
-    const a = SemanticPass{ .name = "a", .run = undefined, .depends_on = &.{"b"} };
-    const b = SemanticPass{ .name = "b", .run = undefined };
-    try testing.expect(dependsOn(a, b));
-    try testing.expect(!dependsOn(b, a));
 }

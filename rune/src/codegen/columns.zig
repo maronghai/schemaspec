@@ -2,7 +2,6 @@ const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
-const sql_type_mod = @import("../types/sql_type.zig");
 const Writer = std.Io.Writer;
 
 pub fn isDominatedByExplicitIndex(col_name: []const u8, explicit_indexes: []const ast_mod.IndexDecl, require_unique: bool) bool {
@@ -76,55 +75,4 @@ pub fn emitColumnDefEx(backend: dialect_mod.DialectBackend, w: *Writer, col: typ
         try w.writeAll(" ");
         try backend.emitGeneratedColumn(w, expr, col.flags.is_stored);
     }
-}
-
-// ─── Unit Tests ─────────────────────────────────────────────
-
-const testing = std.testing;
-const test_helpers = @import("../semantic/test_helpers.zig");
-const makeTestColumn = test_helpers.makeTestColumn;
-
-test "emitColumnDef: MySQL table" {
-    const alloc = testing.allocator;
-    var aw = std.Io.Writer.Allocating.init(alloc);
-    const w = &aw.writer;
-
-    var col = makeTestColumn("balance", .{ .decimal = .{ .precision = 16, .scale = 2 } });
-    col.flags.nullable = false;
-    col.flags.unsigned = true;
-    col.default = "0";
-
-    const backend = dialect_mod.getBackend(.mysql);
-    try emitColumnDef(backend, w, col);
-    try w.flush();
-
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
-    defer alloc.free(result);
-
-    try testing.expect(std.mem.indexOf(u8, result, "`balance`") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "decimal(16, 2)") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "UNSIGNED") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "NOT NULL") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "DEFAULT 0") != null);
-}
-
-test "emitColumnDef: PG omits UNSIGNED" {
-    const alloc = testing.allocator;
-    var aw = std.Io.Writer.Allocating.init(alloc);
-    const w = &aw.writer;
-
-    var col = makeTestColumn("count", .int);
-    col.flags.unsigned = true;
-
-    const backend = dialect_mod.getBackend(.pg);
-    try emitColumnDef(backend, w, col);
-    try w.flush();
-
-    var out = aw.toArrayList();
-    const result = try out.toOwnedSlice(alloc);
-    defer alloc.free(result);
-
-    try testing.expect(std.mem.indexOf(u8, result, "UNSIGNED") == null);
-    try testing.expect(std.mem.indexOf(u8, result, "\"count\"") != null);
 }

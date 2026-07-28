@@ -1,5 +1,4 @@
 const std = @import("std");
-const diff_mod = @import("engine.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const dialect_mod = @import("../dialect/dialect.zig");

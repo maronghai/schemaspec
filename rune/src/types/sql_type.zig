@@ -116,15 +116,3 @@ pub const SqlType = union(enum) {
         };
     }
 };
-
-// ─── Tests ──────────────────────────────────────────────────────
-
-test "SqlType basic roundtrip" {
-    const int_type: SqlType = .int;
-    var aw = std.Io.Writer.Allocating.init(std.testing.allocator);
-    defer aw.deinit();
-    try int_type.toSql(.mysql, &aw.writer);
-    const result = try aw.toOwnedSlice();
-    defer std.testing.allocator.free(result);
-    try std.testing.expectEqualStrings("int", result);
-}

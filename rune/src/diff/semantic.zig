@@ -36,7 +36,7 @@ pub fn typeInfoEquiv(a: TypeInfo, b: TypeInfo, dialect: Dialect) bool {
 /// Canonical form of a SS type symbol within a dialect.
 /// Equivalent symbols map to the same canonical form.
 /// NOTE: n and N are NOT equivalent — they map to int vs bigint.
-fn canonicalSimple(sym: []const u8, dialect: Dialect) ?[]const u8 {
+pub fn canonicalSimple(sym: []const u8, dialect: Dialect) ?[]const u8 {
     _ = dialect;
     if (sym.len == 0) return null;
     return switch (sym[0]) {
@@ -59,7 +59,7 @@ fn canonicalSimple(sym: []const u8, dialect: Dialect) ?[]const u8 {
 }
 
 /// Check if two simple SS type symbols are equivalent in a dialect.
-fn simpleEquiv(a: []const u8, b: []const u8, dialect: Dialect) bool {
+pub fn simpleEquiv(a: []const u8, b: []const u8, dialect: Dialect) bool {
     if (std.mem.eql(u8, a, b)) return true;
     const ca = canonicalSimple(a, dialect) orelse return false;
     const cb = canonicalSimple(b, dialect) orelse return false;
@@ -80,92 +80,3 @@ pub fn semanticEquiv(a_sql_type: []const u8, a_col_name: []const u8, a_dialect: 
     return std.mem.eql(u8, a_sym, b_sym);
 }
 
-// ─── Tests ────────────────────────────────────────────────────
-
-const testing = std.testing;
-
-test "typeInfoEquiv: identical types" {
-    try testing.expect(typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "n" }, .mysql));
-    try testing.expect(typeInfoEquiv(.{ .simple = "s" }, .{ .simple = "s" }, .mysql));
-    try testing.expect(typeInfoEquiv(.none, .none, .mysql));
-}
-
-test "typeInfoEquiv: MySQL n/N NOT equivalent (int vs bigint)" {
-    try testing.expect(!typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "N" }, .mysql));
-    try testing.expect(!typeInfoEquiv(.{ .simple = "N" }, .{ .simple = "n" }, .mysql));
-}
-
-test "typeInfoEquiv: MySQL 4/N4 equivalent" {
-    try testing.expect(typeInfoEquiv(.{ .simple = "4" }, .{ .simple = "N4" }, .mysql));
-}
-
-test "typeInfoEquiv: MySQL 8/N8 equivalent" {
-    try testing.expect(typeInfoEquiv(.{ .simple = "8" }, .{ .simple = "N8" }, .mysql));
-}
-
-test "typeInfoEquiv: MySQL b/B NOT equivalent (boolean vs blob)" {
-    try testing.expect(!typeInfoEquiv(.{ .simple = "b" }, .{ .simple = "B" }, .mysql));
-}
-
-test "typeInfoEquiv: MySQL different types not equivalent" {
-    try testing.expect(!typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "s" }, .mysql));
-    try testing.expect(!typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "4" }, .mysql));
-    try testing.expect(!typeInfoEquiv(.{ .simple = "s" }, .{ .simple = "t" }, .mysql));
-}
-
-test "typeInfoEquiv: PG n/N NOT equivalent (int vs bigint)" {
-    try testing.expect(!typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "N" }, .pg));
-}
-
-test "typeInfoEquiv: PG 4/N4 equivalent" {
-    try testing.expect(typeInfoEquiv(.{ .simple = "4" }, .{ .simple = "N4" }, .pg));
-}
-
-test "typeInfoEquiv: explicit types" {
-    try testing.expect(typeInfoEquiv(.{ .varchar_explicit = 255 }, .{ .varchar_explicit = 255 }, .mysql));
-    try testing.expect(!typeInfoEquiv(.{ .varchar_explicit = 255 }, .{ .varchar_explicit = 128 }, .mysql));
-    try testing.expect(typeInfoEquiv(.{ .int_explicit = 11 }, .{ .int_explicit = 11 }, .pg));
-}
-
-test "typeInfoEquiv: cross-tag not equivalent" {
-    try testing.expect(!typeInfoEquiv(.{ .simple = "n" }, .none, .mysql));
-    try testing.expect(!typeInfoEquiv(.{ .simple = "n" }, .{ .varchar_explicit = 255 }, .mysql));
-}
-
-// ─── semanticEquiv tests ─────────────────────────────────────
-
-test "semanticEquiv: MySQL int ↔ PG integer → true" {
-    try testing.expect(semanticEquiv("int", "id", .mysql, "integer", "id", .pg));
-}
-
-test "semanticEquiv: MySQL int ↔ PG bigint → false" {
-    try testing.expect(!semanticEquiv("int", "id", .mysql, "bigint", "id", .pg));
-}
-
-test "semanticEquiv: MySQL datetime ↔ PG timestamp → true" {
-    try testing.expect(semanticEquiv("datetime", "created_at", .mysql, "timestamp", "created_at", .pg));
-}
-
-test "semanticEquiv: MySQL blob ↔ PG bytea → true" {
-    try testing.expect(semanticEquiv("blob", "data", .mysql, "bytea", "data", .pg));
-}
-
-test "semanticEquiv: MySQL boolean ↔ PG boolean → true (same name)" {
-    try testing.expect(semanticEquiv("boolean", "flag", .mysql, "boolean", "flag", .pg));
-}
-
-test "semanticEquiv: MySQL tinyint ↔ PG smallint → false (n vs i)" {
-    try testing.expect(!semanticEquiv("tinyint", "age", .mysql, "smallint", "age", .pg));
-}
-
-test "semanticEquiv: MySQL text ↔ PG text → true" {
-    try testing.expect(semanticEquiv("text", "bio", .mysql, "text", "bio", .pg));
-}
-
-test "semanticEquiv: MySQL int ↔ SQLite INTEGER → true" {
-    try testing.expect(semanticEquiv("int", "id", .mysql, "INTEGER", "id", .sqlite));
-}
-
-test "semanticEquiv: MySQL varchar(255) ↔ PG varchar → true (both → s)" {
-    try testing.expect(semanticEquiv("varchar(255)", "name", .mysql, "varchar", "name", .pg));
-}

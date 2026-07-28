@@ -208,3 +208,24 @@ test "findSlot: no slot returns null" {
     };
     try testing.expectEqual(@as(?usize, null), parse_template.findSlot(&fields));
 }
+
+// ─── classifyCheck tests (extracted from parser.zig) ──────────
+
+const parser_mod = @import("parser.zig");
+const Parser = parser_mod.Parser;
+
+test "classifyCheck: range" {
+    try testing.expectEqual(ast_mod.CheckKind.range, Parser.classifyCheck("1, 100", '[', ']'));
+    try testing.expectEqual(ast_mod.CheckKind.range_upper_exclusive, Parser.classifyCheck("1, 100", '[', ')'));
+    try testing.expectEqual(ast_mod.CheckKind.range_lower_exclusive, Parser.classifyCheck("1, 100", '(', ']'));
+    try testing.expectEqual(ast_mod.CheckKind.range_both_exclusive, Parser.classifyCheck("1, 100", '(', ')'));
+}
+
+test "classifyCheck: in_list" {
+    try testing.expectEqual(ast_mod.CheckKind.in_list, Parser.classifyCheck("active inactive", '{', '}'));
+}
+
+test "classifyCheck: comparison" {
+    try testing.expectEqual(ast_mod.CheckKind.comparison, Parser.classifyCheck("price > 0", '{', '}'));
+    try testing.expectEqual(ast_mod.CheckKind.comparison, Parser.classifyCheck("price > 0 AND price < 10000", '[', ']'));
+}

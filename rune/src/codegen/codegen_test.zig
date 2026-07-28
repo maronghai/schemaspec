@@ -1,7 +1,6 @@
 const std = @import("std");
 const codegen_mod = @import("codegen.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
-const sql_type_mod = @import("../types/sql_type.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const Codegen = codegen_mod.Codegen;
 

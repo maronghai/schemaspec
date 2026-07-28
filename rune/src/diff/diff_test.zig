@@ -6,6 +6,7 @@ const diff = diff_mod.diff;
 const TableAction = diff_mod.TableAction;
 const FieldAction = diff_mod.FieldAction;
 const IndexAction = diff_mod.IndexAction;
+const ViewAction = diff_mod.ViewAction;
 const TypeInfo = ast_mod.TypeInfo;
 const Field = ast_mod.Field;
 const IndexDecl = ast_mod.IndexDecl;
@@ -572,4 +573,85 @@ test "diff: table comment change detected" {
     try testing.expect(result.table_diffs[0].metadata_diff != null);
     try testing.expectEqualStrings("old comment", result.table_diffs[0].metadata_diff.?.old_comment.?);
     try testing.expectEqualStrings("new comment", result.table_diffs[0].metadata_diff.?.new_comment.?);
+}
+
+// ─── Tests moved from diff/engine.zig ───────────────────────────
+
+test "engine diff: dropping a table produces a dropped_tables entry" {
+    const alloc = testing.allocator;
+
+    const old_fields = try alloc.alloc(Field, 1);
+    old_fields[0] = makeField(alloc, "id", .{ .simple = "n" }) catch |err| return err;
+    const old_tables = try alloc.alloc(resolved_ast.ResolvedTable, 1);
+    old_tables[0] = .{ .name = "users", .comment = null, .engine = null, .fields = old_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1 };
+
+    const new_tables = try alloc.alloc(resolved_ast.ResolvedTable, 0);
+
+    const old_ast = makeResolvedAst(alloc, old_tables);
+    const new_ast = makeResolvedAst(alloc, new_tables);
+    const schema_diff = try diff(old_ast, new_ast, alloc, .mysql);
+
+    try testing.expectEqual(@as(usize, 1), schema_diff.dropped_tables.len);
+    try testing.expectEqualStrings("users", schema_diff.dropped_tables[0]);
+}
+
+test "engine diff: modifying a field produces a modify action" {
+    const alloc = testing.allocator;
+
+    const old_fields = try alloc.alloc(Field, 2);
+    old_fields[0] = makeField(alloc, "id", .{ .simple = "n" }) catch |err| return err;
+    old_fields[1] = makeField(alloc, "name", .{ .simple = "s" }) catch |err| return err;
+    const old_tables = try alloc.alloc(resolved_ast.ResolvedTable, 1);
+    old_tables[0] = .{ .name = "users", .comment = null, .engine = null, .fields = old_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1 };
+
+    const new_fields = try alloc.alloc(Field, 2);
+    new_fields[0] = makeField(alloc, "id", .{ .simple = "n" }) catch |err| return err;
+    new_fields[1] = makeField(alloc, "name", .{ .simple = "t" }) catch |err| return err; // changed from s to t
+    const new_tables = try alloc.alloc(resolved_ast.ResolvedTable, 1);
+    new_tables[0] = .{ .name = "users", .comment = null, .engine = null, .fields = new_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1 };
+
+    const old_ast = makeResolvedAst(alloc, old_tables);
+    const new_ast = makeResolvedAst(alloc, new_tables);
+    const schema_diff = try diff(old_ast, new_ast, alloc, .mysql);
+
+    try testing.expectEqual(@as(usize, 1), schema_diff.table_diffs.len);
+    try testing.expectEqual(TableAction.alter, schema_diff.table_diffs[0].action);
+    try testing.expectEqual(@as(usize, 1), schema_diff.table_diffs[0].field_diffs.len);
+    try testing.expectEqual(FieldAction.modify, schema_diff.table_diffs[0].field_diffs[0].action);
+}
+
+test "engine diff: view creation produces a view_diffs entry" {
+    const alloc = testing.allocator;
+
+    const old_tables = try alloc.alloc(resolved_ast.ResolvedTable, 0);
+    const new_views = try alloc.alloc(ast_mod.View, 1);
+    new_views[0] = .{ .name = "user_view", .query = "SELECT id FROM users", .comment = null, .line_no = 1 };
+
+    const old_ast = makeResolvedAst(alloc, old_tables);
+    var new_ast = makeResolvedAst(alloc, old_tables);
+    new_ast.views = new_views;
+
+    const schema_diff = try diff(old_ast, new_ast, alloc, .mysql);
+
+    try testing.expectEqual(@as(usize, 1), schema_diff.view_diffs.len);
+    try testing.expectEqual(ViewAction.create, schema_diff.view_diffs[0].action);
+    try testing.expectEqualStrings("user_view", schema_diff.view_diffs[0].name);
+}
+
+test "engine diff: identical views produce no view_diffs" {
+    const alloc = testing.allocator;
+
+    const views = try alloc.alloc(ast_mod.View, 1);
+    views[0] = .{ .name = "user_view", .query = "SELECT id FROM users", .comment = null, .line_no = 1 };
+
+    const old_ast = makeResolvedAst(alloc, &.{});
+    var new_ast = makeResolvedAst(alloc, &.{});
+    new_ast.views = views;
+
+    var old_ast_with_views = old_ast;
+    old_ast_with_views.views = views;
+
+    const schema_diff = try diff(old_ast_with_views, new_ast, alloc, .mysql);
+
+    try testing.expectEqual(@as(usize, 0), schema_diff.view_diffs.len);
 }

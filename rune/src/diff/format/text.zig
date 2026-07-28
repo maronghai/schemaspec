@@ -191,37 +191,3 @@ pub fn printDiff(d: SchemaDiff, dialect: Dialect) void {
     const text = formatDiff(arena.allocator(), d, dialect) catch return;
     std.debug.print("{s}", .{text});
 }
-
-// ─── Unit Tests ──────────────────────────────────────────────
-
-const testing = std.testing;
-
-test "writeDiffTo: empty schema produces no output" {
-    const d = SchemaDiff{
-        .dropped_tables = &.{},
-        .view_diffs = &.{},
-        .table_diffs = &.{},
-    };
-    var aw = std.Io.Writer.Allocating.init(testing.allocator);
-    defer aw.deinit();
-    try writeDiffTo(&aw.writer, d, '`');
-    try aw.writer.flush();
-    const result = try aw.toOwnedSlice(testing.allocator);
-    defer testing.allocator.free(result);
-    try testing.expectEqual(@as(usize, 0), result.len);
-}
-
-test "writeDiffTo: dropped table renders DROP TABLE" {
-    const d = SchemaDiff{
-        .dropped_tables = &.{"users"},
-        .view_diffs = &.{},
-        .table_diffs = &.{},
-    };
-    var aw = std.Io.Writer.Allocating.init(testing.allocator);
-    defer aw.deinit();
-    try writeDiffTo(&aw.writer, d, '`');
-    try aw.writer.flush();
-    const result = try aw.toOwnedSlice(testing.allocator);
-    defer testing.allocator.free(result);
-    try testing.expect(std.mem.indexOf(u8, result, "DROP TABLE") != null);
-}

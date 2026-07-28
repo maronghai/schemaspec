@@ -505,35 +505,3 @@ pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8
     }
     std.debug.print("schema is valid\n", .{});
 }
-
-// ─── Unit Tests ──────────────────────────────────────────────
-
-const testing = std.testing;
-
-test "compilePipeline: simple schema produces resolved tables" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    const ss_input =
-        \\$ demo
-        \\
-        \\# user
-        \\
-        \\id   n++
-        \\name s
-    ;
-    const result = try compilePipeline(alloc, ss_input);
-    try testing.expect(result.resolved.tables.len > 0);
-    try testing.expectEqualStrings("user", result.resolved.tables[0].name);
-}
-
-test "compilePipeline: syntax error returns error" {
-    var arena = std.heap.ArenaAllocator.init(testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    const bad_input = "### invalid $$$";
-    const result = compilePipeline(alloc, bad_input);
-    try testing.expectError(error.ParseError, result);
-}

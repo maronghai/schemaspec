@@ -96,21 +96,3 @@ pub fn formatDiffJson(alloc: std.mem.Allocator, d: SchemaDiff) ![]const u8 {
     var out = aw.toArrayList();
     return try out.toOwnedSlice(alloc);
 }
-
-// ─── Unit Tests ──────────────────────────────────────────────
-
-const testing = std.testing;
-
-test "formatDiffJson: produces valid structure" {
-    const d = SchemaDiff{
-        .dropped_tables = &.{"old_table"},
-        .view_diffs = &.{},
-        .table_diffs = &.{},
-    };
-    const json = try formatDiffJson(testing.allocator, d);
-    defer testing.allocator.free(json);
-    try testing.expect(std.mem.indexOf(u8, json, "\"dropped_tables\"") != null);
-    try testing.expect(std.mem.indexOf(u8, json, "\"table_diffs\"") != null);
-    try testing.expect(std.mem.indexOf(u8, json, "\"view_diffs\"") != null);
-    try testing.expect(std.mem.indexOf(u8, json, "old_table") != null);
-}

@@ -13,6 +13,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
 ### Code Quality
 - **Shared test helpers**: Extracted `makeTestColumn()` from 5 test files into `semantic/test_helpers.zig`.
+- **Test extraction**: Moved ~310 inline unit tests from 35 production files into 30 new colocated `*_test.zig` files. Production files now contain only logic.
+- **Dead code cleanup**: Removed unused imports, unused re-exports, and dead root test files.
 
 ### Documentation
 - **`rune/README.md`**: New contributor README with project overview, quick start, commands, CLI flags reference, testing, and contributing guide.

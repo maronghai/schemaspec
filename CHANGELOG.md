@@ -11,6 +11,8 @@ All notable changes to this project will be documented in this file.
 
 ### Code Quality
 - **Shared test helpers**: Extracted `makeTestColumn()` from 5 test files into `semantic/test_helpers.zig`. Updated `codegen/columns.zig`, `codegen/indexes_test.zig`, `codegen/codegen_test.zig`, `codegen_test.zig`, `json_schema.zig` to use the shared version.
+- **Test extraction**: Moved ~310 inline unit tests from 35 production files into 30 new colocated `*_test.zig` files. Production files are now pure logic; only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests. Made `canonicalSimple`, `simpleEquiv`, `classifyModifiers`, `buildSymType`, `classifyLine` pub for test access.
+- **Dead code cleanup**: Removed 6 unused imports, 9 unused re-exports from `diff/engine.zig`, and 2 dead root test files (`diff_test.zig`, `codegen_test.zig`).
 
 ### Documentation
 - **`rune/README.md`**: New contributor README with project overview, quick start, commands, CLI flags reference, testing instructions, project structure, and contributing guide.

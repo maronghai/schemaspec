@@ -6,8 +6,6 @@ const ast_mod = @import("../types/ast.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const Codegen = codegen_mod.Codegen;
 
-const sql_type_mod = @import("../types/sql_type.zig");
-
 const testing = std.testing;
 const test_helpers = @import("../semantic/test_helpers.zig");
 const makeTestColumn = test_helpers.makeTestColumn;
