@@ -11,6 +11,7 @@ const rf = @import("../reverse/fk.zig");
 // to reverse_column.zig, CHECK parsing to reverse_check.zig (via
 // reverse_column.zig), and FK classification to reverse_fk.zig.
 
+/// Reverse codegen engine: converts parsed SQL schema back to .ss format.
 pub const ReverseCodegen = struct {
     alloc: std.mem.Allocator,
     dialect: Dialect,
@@ -19,10 +20,13 @@ pub const ReverseCodegen = struct {
         return .{ .alloc = alloc, .dialect = dialect };
     }
 
+    /// Generate .ss schema from parsed SQL. Tables are output with inline type annotations.
     pub fn generate(self: *ReverseCodegen, schema: sp.SqlSchema) ![]const u8 {
         return self.generateInner(schema, false);
     }
 
+    /// Generate .ss schema with template extraction — identifies common field patterns
+    /// across tables and emits them as reusable templates (% name ...).
     pub fn generateWithTemplates(self: *ReverseCodegen, schema: sp.SqlSchema) ![]const u8 {
         return self.generateInner(schema, true);
     }

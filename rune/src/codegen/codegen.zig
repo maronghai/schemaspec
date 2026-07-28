@@ -24,6 +24,7 @@ pub const Codegen = struct {
 
     // ─── TypedAst API (sole codegen path) ───────────────────────
 
+    /// Generate SQL DDL from a TypedAst. Returns the complete SQL string.
     pub fn generateFromTypedAst(self: *Codegen, typed: typed_ast_mod.TypedAst) ![]const u8 {
         var aw = std.Io.Writer.Allocating.init(self.alloc);
         const w = &aw.writer;

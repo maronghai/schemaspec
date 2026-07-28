@@ -30,6 +30,7 @@ const optionalStrEq = utils.optionalStrEq;
 
 // ─── Diff Engine ───────────────────────────────────────────
 
+/// Compare two ResolvedAsts and produce a SchemaDiff describing all differences.
 pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc: std.mem.Allocator, dialect: ?Dialect) !SchemaDiff {
     var table_diffs = try std.ArrayList(TableDiff).initCapacity(alloc, 8);
     var dropped_tables = try std.ArrayList([]const u8).initCapacity(alloc, 4);

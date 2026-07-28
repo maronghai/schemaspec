@@ -2,6 +2,7 @@ const std = @import("std");
 
 // ─── I/O Helpers ───────────────────────────────────────────────
 
+/// Read all data from stdin. Returns the complete input as a byte slice.
 pub fn readStdin(io: std.Io, alloc: std.mem.Allocator) ![]const u8 {
     const stdin_file = std.Io.File.stdin();
     var buf: [4096]u8 = undefined;
@@ -13,6 +14,7 @@ pub fn readStdin(io: std.Io, alloc: std.mem.Allocator) ![]const u8 {
     return try result.toOwnedSlice(alloc);
 }
 
+/// Read a file by path, or stdin if path is "-".
 pub fn readFileOrStdin(io: std.Io, alloc: std.mem.Allocator, path: []const u8) ![]const u8 {
     if (std.mem.eql(u8, path, "-")) {
         return readStdin(io, alloc);
@@ -20,6 +22,7 @@ pub fn readFileOrStdin(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !
     return try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited);
 }
 
+/// Write data to a file or stdout. If output_path is null, writes to stdout.
 pub fn writeOutput(io: std.Io, data: []const u8, output_path: ?[]const u8, quiet: bool) !void {
     if (output_path) |opath| {
         try std.Io.Dir.cwd().writeFile(io, .{

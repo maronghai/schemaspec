@@ -8,6 +8,7 @@ const io_mod = @import("../io.zig");
 
 // ─── Reverse Pipeline: SQL → .ss ─────────────────────────────
 
+/// Handle the `rune reverse` command: parse SQL DDL and generate .ss schema output.
 pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, with_templates: bool, dialect: codegen.Dialect, trace: bool, stats: bool, validate_only: bool) !void {
     // Auto-detect dialect from SQL content when not explicitly specified
     const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect.detectSqlDialect(file_data) else dialect;

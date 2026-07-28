@@ -114,6 +114,7 @@ pub const DiagnosticCollector = struct {
     max_errors: usize = 100,
     overflow: bool = false,
     json_errors: bool = false,
+    cached_error_count: usize = 0,
 
     pub fn init(alloc: std.mem.Allocator) !DiagnosticCollector {
         return .{
@@ -127,11 +128,12 @@ pub const DiagnosticCollector = struct {
     /// Note: allocation failures are logged but not propagated to keep the API simple.
     pub fn push(self: *DiagnosticCollector, d: Diagnostic) void {
         if (self.overflow) return;
-        if (d.severity == .@"error" and self.errorCount() >= self.max_errors) {
+        if (d.severity == .@"error" and self.cached_error_count >= self.max_errors) {
             self.overflow = true;
             std.debug.print("error: too many errors ({d}), stopping\n", .{self.max_errors});
             return;
         }
+        if (d.severity == .@"error") self.cached_error_count += 1;
         self.diagnostics.append(self.alloc, d) catch {
             std.debug.print("warning: failed to record diagnostic (out of memory)\n", .{});
         };
@@ -144,19 +146,12 @@ pub const DiagnosticCollector = struct {
 
     /// Returns true if any error-severity diagnostics have been recorded.
     pub fn hasErrors(self: *const DiagnosticCollector) bool {
-        for (self.diagnostics.items) |d| {
-            if (d.severity == .@"error") return true;
-        }
-        return false;
+        return self.cached_error_count > 0;
     }
 
     /// Returns the count of error-severity diagnostics.
     pub fn errorCount(self: *const DiagnosticCollector) usize {
-        var count: usize = 0;
-        for (self.diagnostics.items) |d| {
-            if (d.severity == .@"error") count += 1;
-        }
-        return count;
+        return self.cached_error_count;
     }
 
     /// Print all collected diagnostics.

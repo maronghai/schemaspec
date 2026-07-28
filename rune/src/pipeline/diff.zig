@@ -19,6 +19,7 @@ const DiffResult = struct {
     schema_diff: diff_types.SchemaDiff,
 };
 
+/// Compile both schemas and compute their diff. Shared by all diff/migrate handlers.
 fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect) !DiffResult {
     const old_ast = try pipeline_forward.compileToAst(io, alloc, old_path);
     const new_ast = try pipeline_forward.compileToAst(io, alloc, new_path);
@@ -26,6 +27,7 @@ fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_p
     return .{ .old_ast = old_ast, .new_ast = new_ast, .schema_diff = schema_diff };
 }
 
+/// Handle `rune diff`: output human-readable text diff between two .ss files.
 pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);
@@ -41,6 +43,7 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, ne
     try io_mod.writeOutput(io, diff_text, null, false);
 }
 
+/// Handle `rune diff --format json`: output structured JSON diff.
 pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);
@@ -53,6 +56,7 @@ pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8
     try io_mod.writeOutput(io, json_text, output_path, false);
 }
 
+/// Handle `rune diff --format sarif`: output SARIF-formatted diff for CI/CD integration.
 pub fn handleDiffSarif(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);
@@ -65,6 +69,7 @@ pub fn handleDiffSarif(io: std.Io, alloc: std.mem.Allocator, old_path: []const u
     try io_mod.writeOutput(io, sarif_text, null, false);
 }
 
+/// Handle `rune migrate`: generate ALTER TABLE migration SQL (or rollback SQL with --rollback).
 pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, rollback: bool, stats: bool, dry_run: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);
@@ -87,6 +92,7 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8,
     }
 }
 
+/// Handle `rune migrate --format json`: output structured JSON migration operations.
 pub fn handleMigrateDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, stats: bool) !void {
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);

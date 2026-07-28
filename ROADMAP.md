@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.40.0 (2026-07-29)
+**Current version**: 0.41.0 (2026-07-29)
 
 ---
 
@@ -183,6 +183,15 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.41.0 (2026-07-29)
+
+- DiagnosticCollector error count caching — O(1) `errorCount()` instead of O(n) scan
+- Replaced `std.debug.panic` with proper error return in semantic analyzer pass constraint validation
+- Added doc comments to public APIs (io.zig, pipeline/diff.zig, pipeline/reverse.zig, codegen/codegen.zig, diff/engine.zig, diff/migrate.zig, reverse/codegen.zig)
+- Added 10 unit tests for `docs.zig` (documentation generator)
+- Added 18 unit tests for `diff/migrate_json.zig` (JSON migration output)
+- Total unit tests: 499 → 526
 
 ### v0.40.0 (2026-07-29)
 

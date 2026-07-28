@@ -50,6 +50,8 @@ fn emitSingleTable(
 
 // ─── generateFromDiff (orchestrator) ─────────────────────────
 
+/// Generate forward migration SQL from a SchemaDiff. Outputs ALTER TABLE statements
+/// wrapped in a BEGIN/COMMIT transaction.
 pub fn generateFromDiff(
     alloc: std.mem.Allocator,
     d: diff_mod.SchemaDiff,
@@ -83,6 +85,8 @@ pub fn generateFromDiff(
 
 // ─── Rollback Generation ─────────────────────────────────────
 
+/// Generate rollback SQL from a SchemaDiff. Outputs the inverse operations
+/// (re-create dropped tables, reverse ALTER TABLE changes) wrapped in BEGIN/COMMIT.
 pub fn generateRollback(
     alloc: std.mem.Allocator,
     d: diff_mod.SchemaDiff,

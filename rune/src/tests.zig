@@ -21,9 +21,12 @@ comptime {
     _ = @import("diff/indexes_test.zig");
     _ = @import("diff/semantic_test.zig");
     _ = @import("diff/migrate_test.zig");
+    _ = @import("diff/migrate_json_test.zig");
     _ = @import("diff/format/text_test.zig");
     _ = @import("diff/format/sarif_test.zig");
     _ = @import("diff/format/json_test.zig");
+    // docs
+    _ = @import("docs_test.zig");
     // json_schema
     _ = @import("json_schema_test.zig");
     // parser
