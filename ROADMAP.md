@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.45.0 (2026-07-29)
+**Current version**: 0.46.0 (2026-07-29)
 
 ---
 
@@ -184,6 +184,12 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.46.0 (2026-07-29)
+
+- CLI parseArgs refactor — split monolithic parser into subcommand-specific functions with GlobalFlags struct
+- Safe optional unwraps — replaced 3 unsafe `result.resolved.?` panics with explicit error returns
+- validate_indexes decomposition — extracted 3 helper functions from monolithic run()
 
 ### v0.45.0 (2026-07-29)
 

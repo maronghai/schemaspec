@@ -178,72 +178,62 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
-    // Pass 2: route subcommand
+    const flags = GlobalFlags{
+        .stats = want_stats,
+        .check = want_check,
+        .dry_run = want_dry_run,
+        .strict = want_strict,
+        .verbose_passes = want_verbose_passes,
+        .json_errors = want_json_errors,
+        .format = diff_format,
+        .validate_only = want_validate_only,
+        .quiet = want_quiet,
+        .import_paths = import_path_list,
+    };
+
+    // No positional args, or first arg is a flag → default compile from stdin
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
-        // No positional args, or first arg is a flag (e.g. `-o output.sql`) → default compile from stdin
-        return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = null, .output = parseOutputFlag(fargs, 0), .trace = parseTraceFlag(fargs, 0), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+        return .{
+            .dialect = dialect,
+            .target = target,
+            .command = .{ .compile = .{
+                .input = null,
+                .output = parseOutputFlag(fargs, 0),
+                .trace = parseTraceFlag(fargs, 0),
+                .stats = want_stats,
+                .check = want_check,
+                .verbose_passes = want_verbose_passes,
+            } },
+            .quiet = want_quiet,
+            .strict = want_strict,
+            .json_errors = want_json_errors,
+            .import_paths = import_path_list,
+        };
     }
 
     const sub = fargs[0];
 
-    if (std.mem.eql(u8, sub, "diff")) {
-        if (fargs.len < 3) return error.DiffMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .diff = .{ .old = fargs[1], .new = fargs[2], .trace = parseTraceFlag(fargs, 3), .stats = want_stats, .format = diff_format, .check = want_check } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
-    }
-
-    if (std.mem.eql(u8, sub, "migrate")) {
-        if (fargs.len < 3) return error.MigrateMissingArgs;
-        return .{ .dialect = dialect, .target = target, .command = .{ .migrate = .{ .old = fargs[1], .new = fargs[2], .output = parseOutputFlag(fargs, 3), .trace = parseTraceFlag(fargs, 3), .rollback = parseRollbackFlag(fargs, 3), .stats = want_stats, .dry_run = want_dry_run, .format = diff_format, .check = want_check } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
-    }
-
-    if (std.mem.eql(u8, sub, "reverse")) {
-        var with_templates = false;
-        var input: ?[]const u8 = null;
-        var j: usize = 1;
-        while (j < fargs.len) : (j += 1) {
-            if (std.mem.eql(u8, fargs[j], "-T") or std.mem.eql(u8, fargs[j], "--template")) {
-                with_templates = true;
-            } else if (input == null) {
-                input = fargs[j];
-            }
-        }
-        return .{ .dialect = dialect, .target = target, .command = .{ .reverse = .{ .input = input, .output = parseOutputFlag(fargs, 1), .with_templates = with_templates, .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .validate_only = want_validate_only } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
-    }
+    if (std.mem.eql(u8, sub, "diff")) return parseDiffArgs(fargs, dialect, target, flags);
+    if (std.mem.eql(u8, sub, "migrate")) return parseMigrateArgs(fargs, dialect, target, flags);
+    if (std.mem.eql(u8, sub, "reverse")) return parseReverseArgs(fargs, dialect, target, flags);
+    if (std.mem.eql(u8, sub, "generate")) return parseGenerateArgs(fargs, dialect, target, flags);
 
     if (std.mem.eql(u8, sub, "validate")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .validate = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+        return parseSimpleSubcommand(dialect, target, .{ .validate = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, flags);
     }
 
     if (std.mem.eql(u8, sub, "check")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .check = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+        return parseSimpleSubcommand(dialect, target, .{ .check = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, flags);
     }
 
     if (std.mem.eql(u8, sub, "docs")) {
         const input = if (fargs.len > 1) fargs[1] else null;
-        return .{ .dialect = dialect, .target = target, .command = .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+        return parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, flags);
     }
 
-    if (std.mem.eql(u8, sub, "generate")) {
-        var want_list = false;
-        var generator: ?[]const u8 = null;
-        var input: ?[]const u8 = null;
-        var j: usize = 1;
-        while (j < fargs.len) : (j += 1) {
-            if (std.mem.eql(u8, fargs[j], "--list") or std.mem.eql(u8, fargs[j], "-l")) {
-                want_list = true;
-            } else if (generator == null) {
-                generator = fargs[j];
-            } else if (input == null) {
-                input = fargs[j];
-            }
-        }
-        return .{ .dialect = dialect, .target = target, .command = .{ .generate = .{ .generator = generator orelse "", .input = input, .output = parseOutputFlag(fargs, 1), .list = want_list } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
-    }
-
-    // Unknown command detection: if first arg looks like a command (no file extension)
-    // but isn't recognized, report an error instead of silently treating it as input.
+    // Unknown command detection
     if (fargs.len > 0 and std.mem.indexOfScalar(u8, fargs[0], '.') == null) {
         if (!isKnownCommand(fargs[0]) and !std.mem.eql(u8, fargs[0], "-")) {
             return error.UnknownCommand;
@@ -252,7 +242,22 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     // Default: compile
     const input = if (fargs.len > 0) fargs[0] else null;
-    return .{ .dialect = dialect, .target = target, .command = .{ .compile = .{ .input = input, .output = parseOutputFlag(fargs, 1), .trace = parseTraceFlag(fargs, 1), .stats = want_stats, .check = want_check, .verbose_passes = want_verbose_passes } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+    return .{
+        .dialect = dialect,
+        .target = target,
+        .command = .{ .compile = .{
+            .input = input,
+            .output = parseOutputFlag(fargs, 1),
+            .trace = parseTraceFlag(fargs, 1),
+            .stats = want_stats,
+            .check = want_check,
+            .verbose_passes = want_verbose_passes,
+        } },
+        .quiet = want_quiet,
+        .strict = want_strict,
+        .json_errors = want_json_errors,
+        .import_paths = import_path_list,
+    };
 }
 
 fn parseDialect(s: []const u8) !dialect_enum.Dialect {
@@ -308,6 +313,137 @@ fn isKnownCommand(name: []const u8) bool {
         if (std.mem.eql(u8, name, cmd.name)) return true;
     }
     return false;
+}
+
+// ─── Subcommand Parsers ──────────────────────────────────────
+
+fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
+    if (fargs.len < 3) return error.DiffMissingArgs;
+    return .{
+        .dialect = dialect,
+        .target = target,
+        .command = .{ .diff = .{
+            .old = fargs[1],
+            .new = fargs[2],
+            .trace = parseTraceFlag(fargs, 3),
+            .stats = opts.stats,
+            .format = opts.format,
+            .check = opts.check,
+        } },
+        .quiet = opts.quiet,
+        .strict = opts.strict,
+        .json_errors = opts.json_errors,
+        .import_paths = opts.import_paths,
+    };
+}
+
+fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
+    if (fargs.len < 3) return error.MigrateMissingArgs;
+    return .{
+        .dialect = dialect,
+        .target = target,
+        .command = .{ .migrate = .{
+            .old = fargs[1],
+            .new = fargs[2],
+            .output = parseOutputFlag(fargs, 3),
+            .trace = parseTraceFlag(fargs, 3),
+            .rollback = parseRollbackFlag(fargs, 3),
+            .stats = opts.stats,
+            .dry_run = opts.dry_run,
+            .format = opts.format,
+            .check = opts.check,
+        } },
+        .quiet = opts.quiet,
+        .strict = opts.strict,
+        .json_errors = opts.json_errors,
+        .import_paths = opts.import_paths,
+    };
+}
+
+fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
+    var with_templates = false;
+    var input: ?[]const u8 = null;
+    var j: usize = 1;
+    while (j < fargs.len) : (j += 1) {
+        if (std.mem.eql(u8, fargs[j], "-T") or std.mem.eql(u8, fargs[j], "--template")) {
+            with_templates = true;
+        } else if (input == null) {
+            input = fargs[j];
+        }
+    }
+    return .{
+        .dialect = dialect,
+        .target = target,
+        .command = .{ .reverse = .{
+            .input = input,
+            .output = parseOutputFlag(fargs, 1),
+            .with_templates = with_templates,
+            .trace = parseTraceFlag(fargs, 1),
+            .stats = opts.stats,
+            .validate_only = opts.validate_only,
+        } },
+        .quiet = opts.quiet,
+        .strict = opts.strict,
+        .json_errors = opts.json_errors,
+        .import_paths = opts.import_paths,
+    };
+}
+
+fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
+    var want_list = false;
+    var generator: ?[]const u8 = null;
+    var input: ?[]const u8 = null;
+    var j: usize = 1;
+    while (j < fargs.len) : (j += 1) {
+        if (std.mem.eql(u8, fargs[j], "--list") or std.mem.eql(u8, fargs[j], "-l")) {
+            want_list = true;
+        } else if (generator == null) {
+            generator = fargs[j];
+        } else if (input == null) {
+            input = fargs[j];
+        }
+    }
+    return .{
+        .dialect = dialect,
+        .target = target,
+        .command = .{ .generate = .{
+            .generator = generator orelse "",
+            .input = input,
+            .output = parseOutputFlag(fargs, 1),
+            .list = want_list,
+        } },
+        .quiet = opts.quiet,
+        .strict = opts.strict,
+        .json_errors = opts.json_errors,
+        .import_paths = opts.import_paths,
+    };
+}
+
+/// Flags extracted from the global pass (shared by all subcommands).
+const GlobalFlags = struct {
+    stats: bool,
+    check: bool,
+    dry_run: bool,
+    strict: bool,
+    verbose_passes: bool,
+    json_errors: bool,
+    format: DiffFormat,
+    validate_only: bool,
+    quiet: bool,
+    import_paths: []const []const u8,
+};
+
+/// Shared single-argument subcommand builder (validate, check, docs).
+fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
+    return .{
+        .dialect = dialect,
+        .target = target,
+        .command = cmd,
+        .quiet = opts.quiet,
+        .strict = opts.strict,
+        .json_errors = opts.json_errors,
+        .import_paths = opts.import_paths,
+    };
 }
 
 // ─── Usage ─────────────────────────────────────────────────────

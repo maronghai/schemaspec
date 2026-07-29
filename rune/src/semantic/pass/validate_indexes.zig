@@ -7,77 +7,87 @@ const edit_distance = @import("../../utils/edit_distance.zig");
 /// Validate index declarations: duplicate names, duplicate definitions, non-existent column references.
 pub fn run(ctx: *PassContext) !void {
     for (ctx.tables.items) |*table| {
-        // Check for duplicate index names
-        for (table.indexes, 0..) |idx, i| {
-            if (idx.name.len == 0) continue;
-            for (table.indexes[i + 1 ..]) |other| {
-                if (std.mem.eql(u8, idx.name, other.name)) {
-                    ctx.diagnostics.push(.{
-                        .severity = .warning,
-                        .line_no = other.line_no,
-                        .message = std.fmt.allocPrint(ctx.alloc, "duplicate index name '{s}' in table '{s}'", .{ idx.name, table.name }) catch return,
-                    });
-                }
+        try checkDuplicateNames(ctx, table);
+        try checkSemanticDuplicates(ctx, table);
+        try checkColumnRefs(ctx, table);
+    }
+}
+
+/// Check for duplicate index names within a table.
+fn checkDuplicateNames(ctx: *PassContext, table: *const resolved_ast.ResolvedTable) !void {
+    for (table.indexes, 0..) |idx, i| {
+        if (idx.name.len == 0) continue;
+        for (table.indexes[i + 1 ..]) |other| {
+            if (std.mem.eql(u8, idx.name, other.name)) {
+                ctx.diagnostics.push(.{
+                    .severity = .warning,
+                    .line_no = other.line_no,
+                    .message = std.fmt.allocPrint(ctx.alloc, "duplicate index name '{s}' in table '{s}'", .{ idx.name, table.name }) catch return,
+                });
             }
         }
-        // Check for semantically identical indexes (same fields + kind + descending, different name)
-        for (table.indexes, 0..) |idx, i| {
-            for (table.indexes[i + 1 ..]) |other| {
-                if (idx.fields.len != other.fields.len) continue;
-                if (idx.kind != other.kind) continue;
-                var same_fields = true;
-                for (idx.fields, 0..) |f, fi| {
-                    if (!std.mem.eql(u8, f, other.fields[fi])) {
-                        same_fields = false;
-                        break;
-                    }
-                }
-                if (!same_fields) continue;
-                var same_desc = true;
-                for (idx.descending, 0..) |d, di| {
-                    if (di >= other.descending.len or d != other.descending[di]) {
-                        same_desc = false;
-                        break;
-                    }
-                }
-                if (!same_desc) continue;
-                // Same fields + kind + descending but different names
-                if (idx.name.len > 0 and other.name.len > 0 and !std.mem.eql(u8, idx.name, other.name)) {
-                    ctx.diagnostics.push(.{
-                        .severity = .warning,
-                        .line_no = other.line_no,
-                        .message = std.fmt.allocPrint(ctx.alloc, "index '{s}' is semantically identical to '{s}' in table '{s}'", .{ other.name, idx.name, table.name }) catch return,
-                    });
+    }
+}
+
+/// Check for semantically identical indexes (same fields + kind + descending, different name).
+fn checkSemanticDuplicates(ctx: *PassContext, table: *const resolved_ast.ResolvedTable) !void {
+    for (table.indexes, 0..) |idx, i| {
+        for (table.indexes[i + 1 ..]) |other| {
+            if (idx.fields.len != other.fields.len) continue;
+            if (idx.kind != other.kind) continue;
+            var same_fields = true;
+            for (idx.fields, 0..) |f, fi| {
+                if (!std.mem.eql(u8, f, other.fields[fi])) {
+                    same_fields = false;
+                    break;
                 }
             }
+            if (!same_fields) continue;
+            var same_desc = true;
+            for (idx.descending, 0..) |d, di| {
+                if (di >= other.descending.len or d != other.descending[di]) {
+                    same_desc = false;
+                    break;
+                }
+            }
+            if (!same_desc) continue;
+            if (idx.name.len > 0 and other.name.len > 0 and !std.mem.eql(u8, idx.name, other.name)) {
+                ctx.diagnostics.push(.{
+                    .severity = .warning,
+                    .line_no = other.line_no,
+                    .message = std.fmt.allocPrint(ctx.alloc, "index '{s}' is semantically identical to '{s}' in table '{s}'", .{ other.name, idx.name, table.name }) catch return,
+                });
+            }
         }
-        // Check for indexes referencing non-existent columns (with "did you mean?" suggestions)
-        for (table.indexes) |idx| {
-            for (idx.fields) |field_name| {
-                var found = false;
+    }
+}
+
+/// Check for indexes referencing non-existent columns (with "did you mean?" suggestions).
+fn checkColumnRefs(ctx: *PassContext, table: *const resolved_ast.ResolvedTable) !void {
+    for (table.indexes) |idx| {
+        for (idx.fields) |field_name| {
+            var found = false;
+            for (table.fields) |col| {
+                if (std.mem.eql(u8, col.name, field_name)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                var col_names = try std.ArrayList([]const u8).initCapacity(ctx.alloc, table.fields.len);
                 for (table.fields) |col| {
-                    if (std.mem.eql(u8, col.name, field_name)) {
-                        found = true;
-                        break;
-                    }
+                    try col_names.append(ctx.alloc, col.name);
                 }
-                if (!found) {
-                    // Build column name list for suggestions
-                    var col_names = try std.ArrayList([]const u8).initCapacity(ctx.alloc, table.fields.len);
-                    for (table.fields) |col| {
-                        try col_names.append(ctx.alloc, col.name);
-                    }
-                    const suggestion = edit_distance.suggestClosest(field_name, col_names.items, 3);
-                    const msg = if (suggestion) |s|
-                        std.fmt.allocPrint(ctx.alloc, "index '{s}' references non-existent column '{s}' in table '{s}' — did you mean '{s}'?", .{ idx.name, field_name, table.name, s.match }) catch return
-                    else
-                        std.fmt.allocPrint(ctx.alloc, "index '{s}' references non-existent column '{s}' in table '{s}'", .{ idx.name, field_name, table.name }) catch return;
-                    ctx.diagnostics.push(.{
-                        .severity = .warning,
-                        .line_no = idx.line_no,
-                        .message = msg,
-                    });
-                }
+                const suggestion = edit_distance.suggestClosest(field_name, col_names.items, 3);
+                const msg = if (suggestion) |s|
+                    std.fmt.allocPrint(ctx.alloc, "index '{s}' references non-existent column '{s}' in table '{s}' — did you mean '{s}'?", .{ idx.name, field_name, table.name, s.match }) catch return
+                else
+                    std.fmt.allocPrint(ctx.alloc, "index '{s}' references non-existent column '{s}' in table '{s}'", .{ idx.name, field_name, table.name }) catch return;
+                ctx.diagnostics.push(.{
+                    .severity = .warning,
+                    .line_no = idx.line_no,
+                    .message = msg,
+                });
             }
         }
     }

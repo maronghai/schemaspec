@@ -144,13 +144,13 @@ fn compileInternal(
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
 pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
     const result = try compileInternal(null, alloc, file_data, null, .{});
-    return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
+    return .{ .resolved = result.resolved orelse return error.SemanticError, .lines = result.lines, .tree = result.tree };
 }
 
 /// Shared tokenizer → parser → semantic pipeline with verbose pass tracking.
 pub fn compilePipelineVerbose(alloc: std.mem.Allocator, file_data: []const u8, verbose: bool, json_errors: bool) !PipelineResult {
     const result = try compileInternal(null, alloc, file_data, null, .{ .verbose_passes = verbose, .json_errors = json_errors });
-    return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
+    return .{ .resolved = result.resolved orelse return error.SemanticError, .lines = result.lines, .tree = result.tree };
 }
 
 /// Compile pipeline with import resolution. Handles @import directives by
@@ -161,7 +161,7 @@ fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: [
         .merge_imports = true,
         .json_errors = json_errors,
     });
-    return .{ .resolved = result.resolved.?, .lines = result.lines, .tree = result.tree };
+    return .{ .resolved = result.resolved orelse return error.SemanticError, .lines = result.lines, .tree = result.tree };
 }
 
 /// Tokenize and parse a .ss file, resolving @import directives recursively.

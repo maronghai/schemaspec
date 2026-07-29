@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.46.0] - 2026-07-29
+
+### Changed
+- **CLI parseArgs refactor** — split monolithic 170-line `parseArgs` into subcommand-specific parsers (`parseDiffArgs`, `parseMigrateArgs`, `parseReverseArgs`, `parseGenerateArgs`, `parseSimpleSubcommand`). Extracted `GlobalFlags` struct for shared flag state.
+- **Safe optional unwraps** — replaced 3 unsafe `result.resolved.?` panics in `pipeline/forward.zig` with explicit `orelse return error.SemanticError`, preventing undefined behavior when semantic analysis is skipped.
+- **validate_indexes decomposition** — extracted `checkDuplicateNames`, `checkSemanticDuplicates`, `checkColumnRefs` helper functions from monolithic `run()`. Same behavior, improved readability.
+- Updated 244 golden test files from version 0.45.0 to 0.46.0.
+
 ## [0.45.0] - 2026-07-29
 
 ### Added
