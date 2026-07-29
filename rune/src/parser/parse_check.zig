@@ -82,10 +82,8 @@ fn parseCheckBody(alloc: std.mem.Allocator, tokens: []const []const u8, idx: usi
 pub fn classifyCheck(expr: []const u8, open_bracket: u8, close_bracket: u8) CheckKind {
     // Handle comparison (contains > < =)
     if (std.mem.indexOfScalar(u8, expr, '>') != null or std.mem.indexOfScalar(u8, expr, '<') != null) {
-        // {braces} → always comparison
-        if (open_bracket == '{') return .comparison;
-        // [] with comparison operators → not supported, use {}
-        if (open_bracket == '[' and close_bracket == ']') return .range;
+        // {braces} or [] → always comparison (range syntax uses comma-separated bounds)
+        if (open_bracket == '{' or (open_bracket == '[' and close_bracket == ']')) return .comparison;
         // [a,b) or (a,b] or (a,b) form → exclusive range
         if (open_bracket == '(' and close_bracket == ')') return .range_both_exclusive;
         if (close_bracket == ')') return .range_upper_exclusive;

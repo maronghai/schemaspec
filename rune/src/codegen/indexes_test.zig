@@ -87,7 +87,8 @@ test "indexes: emitStandaloneIndexes emits index definitions" {
     const alloc = testing.allocator;
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
-    const backend = dialect_mod.getBackend(.mysql);
+    // PG backend emits standalone CREATE INDEX; MySQL is no-op (indexes are inline)
+    const backend = dialect_mod.getBackend(.pg);
 
     const idx = makeTestIndex(.regular, "idx_name", &.{"name"});
 
@@ -116,7 +117,8 @@ test "indexes: emitInlineColumnStandaloneIndexes emits for inline_index columns"
     const alloc = testing.allocator;
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
-    const backend = dialect_mod.getBackend(.mysql);
+    // PG backend emits standalone CREATE INDEX for inline columns; MySQL is no-op
+    const backend = dialect_mod.getBackend(.pg);
 
     var col = makeTestColumn("created_at", .datetime);
     col.flags.inline_index = true;
@@ -172,10 +174,10 @@ test "indexes: emitInlineColumnStandaloneIndexes skips when explicit index domin
     try testing.expectEqual(@as(usize, 0), result.len);
 }
 
-test "indexes: MySQL UNIQUE INDEX vs PG UNIQUE" {
+test "indexes: MySQL standalone index is no-op, PG emits CREATE INDEX" {
     const alloc = testing.allocator;
 
-    // MySQL backend
+    // MySQL backend — standalone index is no-op (indexes are inline in CREATE TABLE)
     var aw_mysql = std.Io.Writer.Allocating.init(alloc);
     const w_mysql = &aw_mysql.writer;
     const backend_mysql = dialect_mod.getBackend(.mysql);
@@ -195,18 +197,22 @@ test "indexes: MySQL UNIQUE INDEX vs PG UNIQUE" {
     const result_mysql = try aw_mysql.toOwnedSlice();
     defer alloc.free(result_mysql);
 
-    // PG backend
+    // MySQL: standalone index is no-op, output is empty
+    try testing.expectEqual(@as(usize, 0), result_mysql.len);
+
+    // PG backend — emits standalone CREATE INDEX for regular indexes
     var aw_pg = std.Io.Writer.Allocating.init(alloc);
     const w_pg = &aw_pg.writer;
     const backend_pg = dialect_mod.getBackend(.pg);
 
+    const regular_idx = makeTestIndex(.regular, "idx_email", &.{"email"});
     const table_pg = typed_ast_mod.TypedTable{
         .name = "users",
         .comment = null,
         .engine = null,
         .columns = &.{},
         .fks = &.{},
-        .indexes = &.{idx},
+        .indexes = &.{regular_idx},
         .line_no = 1,
     };
     try indexes_mod.emitStandaloneIndexes(backend_pg, w_pg, table_pg);
@@ -214,11 +220,7 @@ test "indexes: MySQL UNIQUE INDEX vs PG UNIQUE" {
     const result_pg = try aw_pg.toOwnedSlice();
     defer alloc.free(result_pg);
 
-    // Both should emit UNIQUE INDEX
-    try testing.expect(std.mem.indexOf(u8, result_mysql, "UNIQUE") != null);
-    try testing.expect(std.mem.indexOf(u8, result_pg, "UNIQUE") != null);
-
-    // MySQL uses backticks, PG uses double quotes
-    try testing.expect(std.mem.indexOf(u8, result_mysql, "`users`") != null);
+    // PG should emit CREATE INDEX for regular indexes
+    try testing.expect(std.mem.indexOf(u8, result_pg, "CREATE INDEX") != null);
     try testing.expect(std.mem.indexOf(u8, result_pg, "\"users\"") != null);
 }

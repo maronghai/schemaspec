@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.44.0] - 2026-07-29
+
+### Fixed
+- Fixed `reverseLookup` ignoring `confidence_base` from REVERSE_MAP — `ReverseResult.score` now correctly propagates the confidence base score (was always defaulting to 100)
+- Fixed `classifyCheck` misclassifying `[]` brackets with comparison operators — expressions like `[price > 0]` now correctly return `.comparison` instead of `.range`
+- Fixed 5 unit test expectations: tokenizer fused type modifier (2→2 tokens), enum type (5 tokens), comment stops at -- (2 tokens), inline FK (4 tokens), indexes standalone/inline MySQL→PG backend, parse_check single value `.in_list`
+
 ## [0.43.0] - 2026-07-29
 
 ### Added

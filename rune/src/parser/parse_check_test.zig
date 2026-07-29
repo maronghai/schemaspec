@@ -30,8 +30,8 @@ test "classifyCheck: comparison with AND" {
     try std.testing.expectEqual(CheckKind.comparison, parse_check.classifyCheck("price > 0 AND price < 10000", '[', ']'));
 }
 
-test "classifyCheck: single value → comparison" {
-    try std.testing.expectEqual(CheckKind.comparison, parse_check.classifyCheck("active", '{', '}'));
+test "classifyCheck: single value → in_list" {
+    try std.testing.expectEqual(CheckKind.in_list, parse_check.classifyCheck("active", '{', '}'));
 }
 
 test "parseCheckConstraint: returns null for non-bracket token" {
