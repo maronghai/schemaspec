@@ -55,9 +55,9 @@ pub const DEFAULT_PASSES = [_]SemanticPass{
 };
 
 /// Validate dependency ordering at runtime (comptime safety check).
-pub fn validateDependencyOrder() void {
+pub fn validateDependencyOrder(alloc: std.mem.Allocator) void {
     if (comptime std.debug.runtime_safety) {
-        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        var arena = std.heap.ArenaAllocator.init(alloc);
         defer arena.deinit();
         var seen_names = std.StringHashMap(void).init(arena.allocator());
         for (DEFAULT_PASSES) |pass| {
@@ -80,7 +80,7 @@ pub fn detectConflicts(alloc: std.mem.Allocator) ![][2][]const u8 {
         for (DEFAULT_PASSES[i + 1 ..]) |b| {
             if (hasConflict(a, b)) {
                 if (!dependsOn(a, b) and !dependsOn(b, a)) {
-                    if (!transitiveDependsOn(a, b) and !transitiveDependsOn(b, a)) {
+                    if (!transitiveDependsOn(alloc, a, b) and !transitiveDependsOn(alloc, b, a)) {
                         result.append(alloc, .{ a.name, b.name }) catch return error.OutOfMemory;
                     }
                 }
@@ -107,13 +107,13 @@ pub fn hasConflict(a: SemanticPass, b: SemanticPass) bool {
 }
 
 /// Check if there is a transitive dependency from a to b (through intermediate passes).
-fn transitiveDependsOn(a: SemanticPass, b: SemanticPass) bool {
-    var visited = std.BufSet.init(std.heap.page_allocator);
+fn transitiveDependsOn(alloc: std.mem.Allocator, a: SemanticPass, b: SemanticPass) bool {
+    var visited = std.BufSet.init(alloc);
     defer visited.deinit();
-    var frontier = std.ArrayList([]const u8).initCapacity(std.heap.page_allocator, 8) catch return false;
-    defer frontier.deinit(std.heap.page_allocator);
+    var frontier = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return false;
+    defer frontier.deinit(alloc);
     for (a.depends_on) |dep| {
-        frontier.append(std.heap.page_allocator, dep) catch return false;
+        frontier.append(alloc, dep) catch return false;
         visited.insert(dep) catch return false;
     }
     while (frontier.items.len > 0) {
@@ -123,7 +123,7 @@ fn transitiveDependsOn(a: SemanticPass, b: SemanticPass) bool {
             if (std.mem.eql(u8, pass.name, current)) {
                 for (pass.depends_on) |dep| {
                     if (!visited.contains(dep)) {
-                        frontier.append(std.heap.page_allocator, dep) catch return false;
+                        frontier.append(alloc, dep) catch return false;
                         visited.insert(dep) catch return false;
                     }
                 }

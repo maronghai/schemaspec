@@ -102,7 +102,7 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
 
     // Warn if FK form was unrecognized (empty fields/ref_table)
     if (local_fields.items.len == 0 and ref_table.len == 0) {
-        diag.printDiagnostic(.{
+        diag.printDiagnostic(alloc, .{
             .severity = .warning,
             .line_no = line.line_no,
             .col = if (tokens.len > 0) diag.tokenColumn(tokens[0], line.raw) else null,

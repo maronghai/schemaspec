@@ -37,9 +37,13 @@ pub const ArgError = error{
     MissingTargetValue,
     UnknownFormat,
     UnknownCommand,
+    UnknownFlag,
     DiffMissingArgs,
     MigrateMissingArgs,
 };
+
+/// Last unknown flag detected by parseArgs. Valid only when parseArgs returns error.UnknownFlag.
+pub var last_unknown_flag: ?[]const u8 = null;
 
 // ─── Shared Flag Parsers ───────────────────────────────────────
 
@@ -155,6 +159,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 i += 1;
             }
         } else {
+            // Reject unrecognized long flags (--something)
+            if (raw_args[i].len > 2 and raw_args[i][0] == '-' and raw_args[i][1] == '-' and !isKnownLongFlag(raw_args[i])) {
+                last_unknown_flag = raw_args[i];
+                return error.UnknownFlag;
+            }
             try filtered.append(alloc, raw_args[i]);
         }
     }
@@ -278,6 +287,20 @@ const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
     .{ .name = "generate", .args = "<generator> [input.ss]", .description = "Generate output in specified format" },
 };
+
+/// Check if a long flag (--flag) is recognized by the parser.
+fn isKnownLongFlag(flag: []const u8) bool {
+    const known = [_][]const u8{
+        "--version", "--help", "--stats", "--quiet", "--check", "--dry-run",
+        "--dialect",  "--target", "--format", "--validate-only", "--strict",
+        "--json-errors", "--verbose-passes", "--import-path", "--trace",
+        "--rollback", "--output",
+    };
+    inline for (known) |k| {
+        if (std.mem.eql(u8, flag, k)) return true;
+    }
+    return false;
+}
 
 /// Check if a string is a known subcommand name.
 fn isKnownCommand(name: []const u8) bool {

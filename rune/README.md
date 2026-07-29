@@ -51,6 +51,8 @@ cd rune && zig build                              # Build
 | `--import-path` | | Additional search path for `@import` directives |
 | `-q`, `--quiet` | | Suppress non-essential output |
 
+**Note**: Unrecognized `--` flags produce an error with the flag name, instead of being silently treated as file paths.
+
 ### Diff / Migrate
 
 | Flag | Description |
@@ -99,6 +101,7 @@ For deep dives into the codebase architecture, IR boundaries, dialect backend vt
 ```
 rune/src/
   main.zig, cli.zig, io.zig         # CLI entry point + argument parsing
+  generator.zig                      # generator registry (pluggable, dialect-aware)
   pipeline/    forward.zig, reverse.zig, diff.zig   # Pipeline orchestration
   parser/      tokenizer.zig, parser.zig, parse_*.zig, sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig

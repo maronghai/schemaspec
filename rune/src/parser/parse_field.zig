@@ -149,7 +149,7 @@ pub fn tryParseType(tok: []const u8) ?TypeInfo {
 }
 
 /// Parse standalone modifiers: `++`, `+`, `*`, `!`, `@`, `@u`.
-pub fn parseStandaloneModifier(tokens: []const []const u8, idx: usize, raw: []const u8, line_no: usize) ?ModifierResult {
+pub fn parseStandaloneModifier(alloc: std.mem.Allocator, tokens: []const []const u8, idx: usize, raw: []const u8, line_no: usize) ?ModifierResult {
     const tok = tokens[idx];
     if (std.mem.eql(u8, tok, "++")) {
         return .{ .modifier = .{ .kind = .auto_inc_pk, .line_no = line_no }, .end_idx = idx + 1 };
@@ -172,7 +172,7 @@ pub fn parseStandaloneModifier(tokens: []const []const u8, idx: usize, raw: []co
     }
     // @ followed by f (inline fulltext — not supported)
     if (std.mem.eql(u8, tok, "@") and idx + 1 < tokens.len and std.mem.eql(u8, tokens[idx + 1], "f")) {
-        diag.printDiagnostic(.{
+        diag.printDiagnostic(alloc, .{
             .severity = .warning,
             .line_no = line_no,
             .col = diag.tokenColumn(tokens[idx], raw),
@@ -233,7 +233,7 @@ pub fn parseEnumType(alloc: std.mem.Allocator, tokens: []const []const u8, idx: 
         }
     }
     if (i >= tokens.len) {
-        diag.printDiagnostic(.{
+        diag.printDiagnostic(alloc, .{
             .severity = .@"error",
             .line_no = line_no,
             .col = paren_col,
@@ -331,7 +331,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
         if (tok[0] == ';') break;
 
         // 5. Standalone modifiers: ++, +, *, !, @, @u
-        if (parseStandaloneModifier(line.tokens, i, line.raw, line.line_no)) |result| {
+        if (parseStandaloneModifier(alloc, line.tokens, i, line.raw, line.line_no)) |result| {
             try modifiers.append(alloc, result.modifier);
             i = result.end_idx;
             continue;
@@ -418,7 +418,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
         }
 
         // 11. Unrecognized token warning
-        diag.printDiagnostic(.{
+        diag.printDiagnostic(alloc, .{
             .severity = .warning,
             .line_no = line.line_no,
             .col = diag.tokenColumn(tok, line.raw),
@@ -440,7 +440,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
                 else => false,
             };
             if (!is_valid) {
-                diag.printDiagnostic(.{
+                diag.printDiagnostic(alloc, .{
                     .severity = .warning,
                     .line_no = line.line_no,
                     .col = diag.tokenColumn(name, line.raw),

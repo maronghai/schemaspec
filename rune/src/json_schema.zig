@@ -14,7 +14,7 @@ const Writer = std.Io.Writer;
 //   Comment → description
 //   Enum values → enum array
 
-pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]const u8 {
+pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import("dialect/enum.zig").Dialect) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 

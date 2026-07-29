@@ -174,7 +174,7 @@ Input (SQL DDL text)
 
 ## DialectBackend Vtable
 
-23 core + 6 optional function pointers + 3 behavioral flags for dialect-specific SQL generation (32 total dispatch points):
+23 core + 6 optional function pointers + 3 behavioral flags + 1 capability field for dialect-specific SQL generation (32+ dispatch points):
 
 ```zig
 DialectBackend = struct {
@@ -244,6 +244,27 @@ DialectBackend = struct {
 | `emitForeignKey` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` |
 
 PG and SQLite share 4/5 method implementations. `emitCheckExpr` is a shared standalone function (all dialects use identical CHECK syntax). `emitForeignKey` is shared via `dialect_common.zig:emitForeignKeyShared` (takes `quoteIdent` function pointer).
+
+## DialectCapability Flags
+
+Each dialect backend declares feature flags via the `capability` field:
+
+| Capability | MySQL | PostgreSQL | SQLite | Description |
+|-----------|-------|-----------|--------|-------------|
+| `auto_increment` | ✓ | | | AUTO_INCREMENT keyword |
+| `unsigned` | ✓ | | | UNSIGNED integer modifier |
+| `create_database` | ✓ | ✓ | | CREATE DATABASE statement |
+| `enum_type` | ✓ | | | Native ENUM type |
+| `inline_comments` | ✓ | | | Inline column comments |
+| `standalone_comments` | | ✓ | | COMMENT ON statements |
+| `schemas` | | ✓ | | Schema-qualified names |
+| `sequences` | | ✓ | | Sequence objects |
+| `tablespace` | ✓ | | | TABLESPACE clauses |
+| `batch_separators` | | | | GO batch separators |
+| `generated_columns` | | ✓ | ✓ | GENERATED ALWAYS AS columns |
+| `alter_drop_column` | ✓ | ✓ | | ALTER TABLE ... DROP COLUMN |
+
+Adding a new dialect = set the appropriate capability flags in the backend struct. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names.
 
 ## Semantic Pass Manager
 
@@ -315,7 +336,9 @@ Rune uses a three-layer type mapping system:
 
 1. **TypedAst IR layer**: Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 2. **TypeResolver namespace**: Stateless functions (`TypeResolver.resolve`, `TypeResolver.resolveColumn`) that take `Allocator` directly. No struct instantiation — eliminates `init` boilerplate and per-loop allocation overhead in migrate.zig.
-2. **DialectBackend vtable**: 23 core + 6 optional function pointers + 3 behavioral flags cover all dialect differences. Adding a new dialect requires < 100 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect_common.zig:emitForeignKeyShared`.
+2. **DialectBackend vtable**: 23 core + 6 optional function pointers + 3 behavioral flags + 1 capability field cover all dialect differences. Adding a new dialect requires < 100 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect_common.zig:emitForeignKeyShared`.
+3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. Ready for Phase 2 enterprise dialects (Oracle, MSSQL, Db2).
+4. **CompileConfig struct**: Replaces 13 positional parameters in `handleCompileRequest`. All fields have named defaults; callers specify only what they need. Improves readability and reduces parameter-ordering bugs.
 3. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
 4. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).
 5. **AST-level diff**: Semantic comparison, not text diff. Detects renames by signature matching. Dialect-aware type equivalence (`diff/semantic.zig`) provides two levels: `typeInfoEquiv` for AST-level TypeInfo comparison and `semanticEquiv` for SQL string-level comparison via reverse lookup. Canonical SS symbol mapping ensures different symbols resolving to the same SQL type are equivalent (e.g., `N4` ↔ `4` in MySQL), but distinct types like `n` (int) vs `N` (bigint) are NOT equivalent.
@@ -368,7 +391,7 @@ No code changes needed — users define types in `.ss` files. For built-in suppo
 2. Add type mappings to `CORE_TYPES` in `type_registry.zig`
 3. Add reverse mappings to `REVERSE_MAP` in `reverse_map.zig`
 4. Update `SqlType.toSql()` in `sql_type.zig` with new dialect case
-5. Create `DialectBackend` instance in `dialect_<name>.zig` (implement all 22 core methods + optional methods + 3 flags)
+5. Create `DialectBackend` instance in `dialect_<name>.zig` (implement all 22 core methods + optional methods + 3 flags + set `capability` flags)
 6. Register in `getBackend()` switch in `dialect.zig`
 7. Optionally implement `reverseLookup` for dialect-specific reverse engineering (e.g., SQLite's heuristic-based type disambiguation)
 8. Add golden file tests in `tests/`
@@ -407,7 +430,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 48 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~531 | Core logic + pipeline + colocated |
+| Unit tests | 49 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~536 | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 85 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 25 | Full pipeline |

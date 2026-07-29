@@ -227,7 +227,7 @@ pub const Parser = struct {
                         };
                         try block.fields.append(self.alloc, fld);
                     } else {
-                        diag.printDiagnostic(.{
+                        diag.printDiagnostic(self.alloc, .{
                             .severity = .warning,
                             .line_no = line.line_no,
                             .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
@@ -250,7 +250,7 @@ pub const Parser = struct {
                             .loc = if (line.tokens.len > 0) Parser.locFromLine(line, line.tokens[0]) else null,
                         });
                     } else {
-                        diag.printDiagnostic(.{
+                        diag.printDiagnostic(self.alloc, .{
                             .severity = .warning,
                             .line_no = line.line_no,
                             .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
@@ -267,7 +267,7 @@ pub const Parser = struct {
                         };
                         try block.fks.append(self.alloc, fk);
                     } else if (block.mode == .template) {
-                        diag.printDiagnostic(.{
+                        diag.printDiagnostic(self.alloc, .{
                             .severity = .warning,
                             .line_no = line.line_no,
                             .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
@@ -284,7 +284,7 @@ pub const Parser = struct {
                         };
                         try block.indexes.append(self.alloc, idx);
                     } else if (block.mode == .template) {
-                        diag.printDiagnostic(.{
+                        diag.printDiagnostic(self.alloc, .{
                             .severity = .warning,
                             .line_no = line.line_no,
                             .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
@@ -301,7 +301,7 @@ pub const Parser = struct {
                         };
                         try block.indexes.append(self.alloc, idx);
                     } else if (block.mode == .template) {
-                        diag.printDiagnostic(.{
+                        diag.printDiagnostic(self.alloc, .{
                             .severity = .warning,
                             .line_no = line.line_no,
                             .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
@@ -334,7 +334,7 @@ pub const Parser = struct {
         // Flush last block — catch allocation errors gracefully
         if (block.mode == .template) {
             self.flushCurrentTemplate(&templates, &block) catch |err| {
-                diag.printDiagnostic(.{
+                diag.printDiagnostic(self.alloc, .{
                     .severity = .@"error",
                     .line_no = block.line_no,
                     .message = "failed to flush template block",
@@ -343,7 +343,7 @@ pub const Parser = struct {
             };
         } else if (block.mode == .table) {
             self.flushCurrentTable(&tables, &block) catch |err| {
-                diag.printDiagnostic(.{
+                diag.printDiagnostic(self.alloc, .{
                     .severity = .@"error",
                     .line_no = block.line_no,
                     .message = "failed to flush table block",

@@ -61,6 +61,32 @@ const CompileFlags = struct {
     json_errors: bool = false,
 };
 
+/// Configuration for the compile handler — replaces 13 positional parameters.
+pub const CompileConfig = struct {
+    /// Input path. null = read from stdin, else file path.
+    input: ?[]const u8 = null,
+    /// Output path. null = stdout, else file path.
+    output_path: ?[]const u8 = null,
+    /// Print compilation trace (tokens, AST, passes).
+    trace: bool = false,
+    /// Target SQL dialect.
+    dialect: codegen.Dialect = .mysql,
+    /// Output format (SQL or JSON Schema).
+    format: OutputFormat = .sql,
+    /// Print compilation stats (table count, type distribution).
+    stats: bool = false,
+    /// Check mode: validate schema, exit 0 if valid, don't emit output.
+    check: bool = false,
+    /// Suppress non-error output (e.g. "schema is valid" message).
+    quiet: bool = false,
+    /// Run semantic passes in verbose mode (print each pass name and timing).
+    verbose_passes: bool = false,
+    /// Emit diagnostics in JSON format (for CI/CD integration).
+    json_errors: bool = false,
+    /// Additional search paths for @import resolution.
+    import_paths: []const []const u8 = &.{},
+};
+
 /// Unified internal compilation pipeline.
 /// Handles tokenize → parse → (optional imports) → (optional semantic) → ResolvedAst.
 /// `io` is only used when `resolve_imports` is true; pass null when imports are disabled.
@@ -195,7 +221,7 @@ fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u
         const trimmed = std.mem.trim(u8, line, " \t");
         if (trimmed.len > 8 and std.mem.startsWith(u8, trimmed, "@import")) {
             if (import_ctx.depth >= import_ctx.max_depth) {
-                diag.printDiagnostic(.{
+                diag.printDiagnostic(alloc, .{
                     .severity = .@"error",
                     .line_no = 0,
                     .message = "import depth limit exceeded (max 8)",
@@ -212,7 +238,7 @@ fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u
                 rest;
 
             if (import_path.len == 0) {
-                diag.printDiagnostic(.{
+                diag.printDiagnostic(alloc, .{
                     .severity = .@"error",
                     .line_no = 0,
                     .message = "@import requires a file path",
@@ -242,7 +268,7 @@ fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u
 
             // Circular dependency detection
             if (import_ctx.imported.contains(resolved_path)) {
-                diag.printDiagnostic(.{
+                diag.printDiagnostic(alloc, .{
                     .severity = .@"error",
                     .line_no = 0,
                     .message = "circular import detected",
@@ -253,7 +279,7 @@ fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u
 
             // Read imported file
             const imported_data = std.Io.Dir.cwd().readFileAlloc(io, resolved_path, alloc, .unlimited) catch |err| {
-                diag.printDiagnostic(.{
+                diag.printDiagnostic(alloc, .{
                     .severity = .@"error",
                     .line_no = 0,
                     .message = "failed to read imported file",
@@ -453,51 +479,41 @@ pub const OutputFormat = enum {
 pub fn handleCompileRequest(
     io: std.Io,
     alloc: std.mem.Allocator,
-    input: ?[]const u8, // null = stdin, else = file path
-    output_path: ?[]const u8,
-    trace: bool,
-    dialect: codegen.Dialect,
-    format: OutputFormat,
-    stats: bool,
-    check: bool,
-    quiet: bool,
-    verbose_passes: bool,
-    json_errors: bool,
-    import_paths: []const []const u8,
+    cfg: CompileConfig,
 ) !void {
-    const pipeline = if (input) |path|
-        try compileFileWithPaths(io, alloc, path, import_paths, json_errors)
+    const pipeline = if (cfg.input) |path|
+        try compileFileWithPaths(io, alloc, path, cfg.import_paths, cfg.json_errors)
     else
-        try compilePipelineVerbose(alloc, try io_mod.readStdin(io, alloc), verbose_passes, json_errors);
+        try compilePipelineVerbose(alloc, try io_mod.readStdin(io, alloc), cfg.verbose_passes, cfg.json_errors);
 
-    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, cfg.dialect);
 
-    const output = switch (format) {
+    const output = switch (cfg.format) {
         .sql => blk: {
-            var cg = codegen.Codegen.init(alloc, dialect);
+            var cg = codegen.Codegen.init(alloc, cfg.dialect);
             break :blk try cg.generateFromTypedAst(typed);
         },
         .json_schema => blk: {
-            break :blk try json_schema.generate(alloc, typed);
+            break :blk try json_schema.generate(alloc, typed, cfg.dialect);
         },
     };
 
-    if (trace) {
-        if (format == .sql) traceWithTyped(pipeline, typed) else traceForward(pipeline);
+    if (cfg.trace) {
+        if (cfg.format == .sql) traceWithTyped(pipeline, typed) else traceForward(pipeline);
     }
 
-    if (stats) {
+    if (cfg.stats) {
         printStats(computeStats(pipeline.resolved));
     }
 
-    if (check) {
-        if (!quiet) {
+    if (cfg.check) {
+        if (!cfg.quiet) {
             std.debug.print("schema is valid\n", .{});
         }
         return;
     }
 
-    try io_mod.writeOutput(io, output, output_path, quiet);
+    try io_mod.writeOutput(io, output, cfg.output_path, cfg.quiet);
 }
 
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.

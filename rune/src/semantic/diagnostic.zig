@@ -87,8 +87,8 @@ fn formatDiagnosticTo(w: anytype, d: Diagnostic) !void {
     }
 }
 
-pub fn printDiagnostic(d: Diagnostic) void {
-    var aw = std.Io.Writer.Allocating.init(std.heap.page_allocator);
+pub fn printDiagnostic(alloc: std.mem.Allocator, d: Diagnostic) void {
+    var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
     formatDiagnosticTo(w, d) catch return;
     const out = aw.toArrayList();
@@ -157,17 +157,17 @@ pub const DiagnosticCollector = struct {
     /// Print all collected diagnostics.
     pub fn printAll(self: *const DiagnosticCollector) void {
         if (self.json_errors) {
-            var aw = std.Io.Writer.Allocating.init(std.heap.page_allocator);
+            var aw = std.Io.Writer.Allocating.init(self.alloc);
             self.formatJson(&aw.writer) catch return;
             aw.writer.flush() catch return;
             if (aw.toOwnedSlice()) |json| {
-                defer std.heap.page_allocator.free(json);
+                defer self.alloc.free(json);
                 std.debug.print("{s}\n", .{json});
             } else |_| {}
             return;
         }
         for (self.diagnostics.items) |d| {
-            printDiagnostic(d);
+            printDiagnostic(self.alloc, d);
         }
     }
 

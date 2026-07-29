@@ -28,7 +28,7 @@ pub fn main(init: std.process.Init) !void {
             cli.printUsage();
             std.process.exit(1);
         }
-        return forward.handleCompileRequest(init.io, alloc, null, null, false, .mysql, .sql, false, false, false, false, false, &.{});
+        return forward.handleCompileRequest(init.io, alloc, .{});
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
@@ -56,6 +56,13 @@ pub fn main(init: std.process.Init) !void {
             },
             error.UnknownCommand => {
                 std.debug.print("error: unknown command. Run 'rune --help' for usage.\n", .{});
+            },
+            error.UnknownFlag => {
+                if (cli.last_unknown_flag) |flag| {
+                    std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
+                } else {
+                    std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});
+                }
             },
             else => {
                 std.debug.print("error: {s}\n", .{@errorName(err)});
@@ -107,7 +114,19 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .json_schema => .json_schema,
             };
 
-            return forward.handleCompileRequest(io, alloc, input_path, cmd.output, cmd.trace, parsed.dialect, format, cmd.stats, cmd.check, parsed.quiet, cmd.verbose_passes, parsed.json_errors, parsed.import_paths);
+            return forward.handleCompileRequest(io, alloc, .{
+                .input = input_path,
+                .output_path = cmd.output,
+                .trace = cmd.trace,
+                .dialect = parsed.dialect,
+                .format = format,
+                .stats = cmd.stats,
+                .check = cmd.check,
+                .quiet = parsed.quiet,
+                .verbose_passes = cmd.verbose_passes,
+                .json_errors = parsed.json_errors,
+                .import_paths = parsed.import_paths,
+            });
         },
         .validate => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
@@ -151,7 +170,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
                 const pipeline = try forward.compilePipeline(alloc, file_data);
                 const typed = try @import("types/type_resolver.zig").TypeResolver.resolve(alloc, pipeline.resolved, parsed.dialect);
-                const output_text = try gen.generate(alloc, typed);
+                const output_text = try gen.generate(alloc, typed, parsed.dialect);
                 try io_mod.writeOutput(io, output_text, cmd.output, parsed.quiet);
             } else {
                 std.debug.print("error: unknown generator '{s}'. Run 'rune generate --list' for available generators.\n", .{cmd.generator});

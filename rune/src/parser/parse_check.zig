@@ -55,7 +55,7 @@ fn parseCheckBody(alloc: std.mem.Allocator, tokens: []const []const u8, idx: usi
             ')' => "')' or ']'",
             else => "'}'",
         };
-        diag.printDiagnostic(.{
+        diag.printDiagnostic(alloc, .{
             .severity = .@"error",
             .line_no = line_no,
             .col = bracket_col,

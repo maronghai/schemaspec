@@ -17,6 +17,38 @@ pub const ReverseResult = struct {
     score: u8 = 100,
 };
 
+// ─── DialectCapability: feature flags for dialect-specific behavior ──
+// Each backend declares what it supports so the parser and codegen can emit
+// targeted warnings for dialect-incompatible features (e.g. AUTO_INCREMENT on SQLite).
+// Adding a new dialect = set the appropriate flags; no switch statements needed.
+
+pub const DialectCapability = struct {
+    /// Dialect uses AUTO_INCREMENT keyword (MySQL) vs GENERATED AS IDENTITY (PG) vs AUTOINCREMENT (SQLite).
+    auto_increment: bool = false,
+    /// Dialect supports UNSIGNED integer modifier (MySQL only).
+    unsigned: bool = false,
+    /// Dialect supports CREATE DATABASE statement (MySQL, PG).
+    create_database: bool = false,
+    /// Dialect has a native ENUM type (MySQL) vs CHECK(val IN (...)) (PG/SQLite).
+    enum_type: bool = false,
+    /// Dialect supports inline column comments (MySQL: after column def).
+    inline_comments: bool = false,
+    /// Dialect uses standalone COMMENT ON statements (PG).
+    standalone_comments: bool = false,
+    /// Dialect supports schema-qualified names (PG: schema.table).
+    schemas: bool = false,
+    /// Dialect supports sequences (PG, Oracle, MSSQL).
+    sequences: bool = false,
+    /// Dialect supports TABLESPACE clauses (MySQL, Oracle).
+    tablespace: bool = false,
+    /// Dialect uses batch separators like GO (MSSQL).
+    batch_separators: bool = false,
+    /// Dialect supports GENERATED ALWAYS AS (expr) [STORED|VIRTUAL] columns.
+    generated_columns: bool = false,
+    /// Dialect supports ALTER TABLE ... DROP COLUMN (full support, not just warning).
+    alter_drop_column: bool = false,
+};
+
 // ─── canOmitType: shared helper for reverse lookup ────────────
 
 pub fn canOmitType(col_name: []const u8, sym: []const u8, is_auto_inc: bool, is_default_ts: bool) bool {
@@ -187,6 +219,13 @@ pub const DialectBackend = struct {
     modify_needs_column_def: bool,
     /// PG ALTER COLUMN TYPE skips the column name (it's in the ALTER prefix).
     modify_column_def_skips_name: bool,
+
+    // ══════════════════════════════════════════════════════════════
+    // SECTION 7: Capability Flags (let callers check dialect features without switch)
+    // ══════════════════════════════════════════════════════════════
+
+    /// Feature flags declaring what this dialect supports.
+    capability: DialectCapability = DialectCapability{},
 };
 
 pub fn getBackend(dialect: Dialect) DialectBackend {

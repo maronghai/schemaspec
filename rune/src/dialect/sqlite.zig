@@ -288,4 +288,7 @@ pub const sqlite_backend = DialectBackend{
     .rename_needs_column_def = false,
     .modify_needs_column_def = false,
     .modify_column_def_skips_name = false,
+    .capability = .{
+        .generated_columns = true,
+    },
 };

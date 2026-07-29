@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.45.0] - 2026-07-29
+
+### Added
+- **DialectCapability system** — `DialectCapability` struct with 12 feature flags (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities, enabling callers to check dialect features without switch statements. Ready for Phase 2 enterprise dialects (Oracle, MSSQL, Db2).
+- **CompileConfig struct** — replaced 13-parameter `handleCompileRequest` with a single `CompileConfig` struct. All parameters have named defaults; callers specify only what they need.
+- **Generator API dialect awareness** — `Generator.generate` signature now includes `dialect: Dialect` parameter, enabling dialect-specific code generators (Prisma, OpenAPI, etc.).
+- **CLI unknown-flag detection** — unrecognized `--` flags now produce `error.UnknownFlag` with the flag name in the error message, instead of silently treating them as file paths.
+- **io.zig unit tests** — 5 new tests for I/O helper logic (stdin detection, output path routing).
+
+### Changed
+- **Allocator consistency** — replaced `std.heap.page_allocator` with arena allocator in `edit_distance.zig` (stack-allocated DP arrays), `diagnostic.zig` (JSON formatting), and `pass_manager.zig` (dependency validation). Reduces memory tracking noise in leak detection.
+- Refactored `pass_manager.validateDependencyOrder` and `transitiveDependsOn` to accept explicit `Allocator` parameter.
+- Updated `edit_distance.distance` to use stack-allocated `[256]usize` arrays instead of heap-allocated `ArrayList`, eliminating per-call heap allocations for Levenshtein computation.
+- Updated 247 golden test files from version 0.44.0 to 0.45.0.
+
+### Dialect Capabilities
+| Capability | MySQL | PostgreSQL | SQLite |
+|-----------|-------|-----------|--------|
+| auto_increment | ✓ | | |
+| unsigned | ✓ | | |
+| create_database | ✓ | ✓ | |
+| enum_type | ✓ | | |
+| inline_comments | ✓ | | |
+| standalone_comments | | ✓ | |
+| schemas | | ✓ | |
+| sequences | | ✓ | |
+| tablespace | ✓ | | |
+| generated_columns | | ✓ | ✓ |
+| alter_drop_column | ✓ | ✓ | |
+
 ## [0.44.0] - 2026-07-29
 
 ### Fixed

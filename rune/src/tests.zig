@@ -28,6 +28,8 @@ comptime {
     _ = @import("diff/format/json_test.zig");
     // docs
     _ = @import("docs_test.zig");
+    // io
+    _ = @import("io_test.zig");
     // json_schema
     _ = @import("json_schema_test.zig");
     // parser

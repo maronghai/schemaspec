@@ -1,6 +1,7 @@
 const std = @import("std");
 const typed_ast = @import("types/typed_ast.zig");
 const dialect_enum = @import("dialect/enum.zig");
+const Dialect = dialect_enum.Dialect;
 
 // ─── Generator Registry ───────────────────────────────────────
 // Pluggable generator infrastructure for `rune generate`.
@@ -15,7 +16,7 @@ const dialect_enum = @import("dialect/enum.zig");
 pub const Generator = struct {
     name: []const u8,
     description: []const u8,
-    generate: *const fn (alloc: std.mem.Allocator, typed: typed_ast.TypedAst) anyerror![]const u8,
+    generate: *const fn (alloc: std.mem.Allocator, typed: typed_ast.TypedAst, dialect: Dialect) anyerror![]const u8,
 };
 
 /// Registry of all available generators.

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.44.0 (2026-07-29)
+**Current version**: 0.45.0 (2026-07-29)
 
 ---
 
@@ -43,7 +43,7 @@ Add the most-requested enterprise SQL dialects.
 
 ### Dialect Infrastructure
 
-- [ ] Dialect capability flags — let each backend declare what it supports (SEQUENCES, SCHEMAS, TABLESPACES) so the parser can emit targeted warnings
+- [x] Dialect capability flags — let each backend declare what it supports (SEQUENCES, SCHEMAS, TABLESPACES) so the parser can emit targeted warnings
 - [ ] Dialect-specific test suites — `tests/test_oracle.sh`, `tests/test_mssql.sh`, `tests/test_db2.sh`
 - [ ] `rune reverse --dialect oracle` — dialect-aware reverse engineering for each new backend
 
@@ -184,6 +184,16 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.45.0 (2026-07-29)
+
+- DialectCapability system — 12 feature flags per dialect backend, enabling feature-aware codegen and parser warnings
+- CompileConfig struct — replaced 13-parameter handleCompileRequest with named-field config struct
+- Generator API dialect awareness — generate() now receives dialect parameter for dialect-specific output
+- CLI unknown-flag detection — unrecognized --flags produce error with flag name
+- Allocator consistency — replaced page_allocator with arena/stack allocation in edit_distance, diagnostic, pass_manager
+- 5 new io.zig unit tests
+- Updated 247 golden test files from 0.44.0 to 0.45.0
 
 ### v0.43.0 (2026-07-29)
 
