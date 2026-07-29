@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.51.0] - 2026-07-30
+
+### Added
+- **TypeORM generator** (`rune generate typeorm`) — generates TypeORM entity classes from `.ss` files. TypeScript decorators: `@Entity`, `@Column`, `@PrimaryGeneratedColumn`, `@ManyToOne`, `@JoinColumn`, `@Index`. Supports enum types via `@Column({ type: 'enum', enum: [...] })`. Nullable, default values, and composite index support.
+- **SQLAlchemy generator** (`rune generate sqlalchemy`) — generates SQLAlchemy ORM models from `.ss` files. Python declarative base with `Column()`, `ForeignKey`, `Index`, `UniqueConstraint`. Type mapping: int→Integer, varchar→String(N), text→Text, boolean→Boolean, datetime→DateTime, decimal→Numeric(precision, scale), enum→Enum.
+- **Knex.js generator** (`rune generate knex`) — generates Knex.js migration files from `.ss` files. `exports.up`/`exports.down` pattern with `createTable`, `table.increments`, `table.foreign().references()`, `table.index()`. Supports single and composite indexes/foreign keys.
+- 24 new unit tests (8 per generator).
+- `rune generate --list` now shows 8 generators.
+
+### Changed
+- Generator registry expanded from 5 to 8 generators.
+- All new generators registered in `REGISTRY` — no `main.zig` changes needed.
+
 ## [0.49.0] - 2026-07-30
 
 ### Added

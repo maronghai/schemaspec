@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.50.0 (2026-07-30)
+**Current version**: 0.51.0 (2026-07-30)
 
 ---
 
@@ -71,9 +71,9 @@ Bridge the gap between database schema and application code.
 
 - [x] `rune generate prisma schema.ss`
 - [x] `rune generate drizzle schema.ss`
-- [ ] `rune generate typeorm schema.ss` — TypeORM entity classes
-- [ ] `rune generate sqlalchemy schema.ss` — SQLAlchemy ORM models
-- [ ] `rune generate knex schema.ss` — Knex migration files
+- [x] `rune generate typeorm schema.ss` — TypeORM entity classes
+- [x] `rune generate sqlalchemy schema.ss` — SQLAlchemy ORM models
+- [x] `rune generate knex schema.ss` — Knex migration files
 
 ### API Schema
 
@@ -200,6 +200,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.51.0 (2026-07-30)
+
+- **TypeORM generator** (`rune generate typeorm`) — generates TypeORM entity classes from `.ss` files. Supports `@Entity`, `@Column`, `@PrimaryGeneratedColumn`, `@ManyToOne`, `@JoinColumn`, `@Index` decorators. TypeScript type inference for all SS types.
+- **SQLAlchemy generator** (`rune generate sqlalchemy`) — generates SQLAlchemy ORM models from `.ss` files. Supports `Column()`, `ForeignKey`, `Index`, `UniqueConstraint`, `declarative_base`. Python type mapping for all SS types.
+- **Knex.js generator** (`rune generate knex`) — generates Knex.js migration files from `.ss` files. Supports `createTable`, `table.increments`, `table.foreign().references()`, `table.index()`, `exports.up`/`exports.down` pattern.
+- 24 new unit tests (8 per generator).
+- `rune generate --list` now shows8 generators.
+- All generators registered in `REGISTRY` — no `main.zig` changes needed.
 
 ### v0.50.0 (2026-07-30)
 

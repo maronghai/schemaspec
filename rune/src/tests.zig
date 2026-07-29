@@ -67,6 +67,9 @@ comptime {
     _ = @import("generators/prisma_test.zig");
     _ = @import("generators/docs_test.zig");
     _ = @import("generators/drizzle_test.zig");
+    _ = @import("generators/typeorm_test.zig");
+    _ = @import("generators/sqlalchemy_test.zig");
+    _ = @import("generators/knex_test.zig");
     // utils
     _ = @import("utils/edit_distance.zig");
 }

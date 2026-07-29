@@ -65,7 +65,7 @@ rune/src/
   main.zig, cli.zig, io.zig, utils.zig                           # CLI + glue
   bench.zig, ast_visitor.zig                                       # standalone modules
   generator.zig                                                   # generator registry (pluggable)
-  generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig  # generator implementations (6)
+  generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig  # generator implementations (9)
   tests.zig                                                       # colocated test index (51 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig        # pipeline orchestration
@@ -101,7 +101,7 @@ rune/src/
 
 ### Key Design Patterns
 
-- **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`.
+- **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`.
 
 - **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
 
@@ -193,6 +193,9 @@ rune/src/
 | | `generators/prisma.zig` | Prisma schema generator |
 | | `generators/docs.zig` | Markdown documentation generator |
 | | `generators/drizzle.zig` | Drizzle ORM TypeScript schema generator |
+| | `generators/typeorm.zig` | TypeORM entity class generator |
+| | `generators/sqlalchemy.zig` | SQLAlchemy ORM model generator |
+| | `generators/knex.zig` | Knex.js migration file generator |
 
 ### Testing
 

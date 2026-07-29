@@ -46,6 +46,21 @@ pub const REGISTRY = [_]Generator{
         .description = "Drizzle ORM TypeScript schema from .ss schema",
         .generate = @import("generators/drizzle.zig").generate,
     },
+    .{
+        .name = "typeorm",
+        .description = "TypeORM entity classes from .ss schema",
+        .generate = @import("generators/typeorm.zig").generate,
+    },
+    .{
+        .name = "sqlalchemy",
+        .description = "SQLAlchemy ORM models from .ss schema",
+        .generate = @import("generators/sqlalchemy.zig").generate,
+    },
+    .{
+        .name = "knex",
+        .description = "Knex.js migration files from .ss schema",
+        .generate = @import("generators/knex.zig").generate,
+    },
 };
 
 /// Look up a generator by name. Returns null if not found.
