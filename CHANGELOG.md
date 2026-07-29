@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.47.0] - 2026-07-29
+
+### Changed
+- **Module splits** — extracted `pipeline/import_resolver.zig` from `forward.zig` (import resolution logic) and `diff/migrate_helpers.zig` from `migrate.zig` (shared `emitSingleTable` helper). Reduces `forward.zig` from 548 to ~300 lines and `migrate.zig` from 652 to ~600 lines.
+- **Moved `emitCheckExpr`** — relocated dialect-independent CHECK expression rendering from `dialect/dialect.zig` to `codegen/codegen.zig` where it belongs.
+- **Auto-computed parallel groups** — replaced hardcoded `getParallelGroups()` in `pass_manager.zig` with a greedy graph-coloring algorithm that computes groups from the dependency graph. No manual maintenance needed when passes are reordered or added.
+
+### Added
+- **`grammar.ebnf`** — formal EBNF grammar specification for the `.ss` schema language.
+- **`schema.md`** — complete language reference with syntax, constructs, and examples.
+- **`type.md`** — type system reference documenting all 17 SS symbols, parameterized types, custom types, and dialect-specific rendering.
+- Fixed README.md testing section — removed references to non-existent golden test shell scripts, documented actual `zig build test` command.
+- Updated ARCHITECTURE.md with new module extractions.
+
 ## [0.46.0] - 2026-07-29
 
 ### Changed

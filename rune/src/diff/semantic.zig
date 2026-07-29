@@ -79,4 +79,3 @@ pub fn semanticEquiv(a_sql_type: []const u8, a_col_name: []const u8, a_dialect: 
     const b_sym = reverse_map.reverseLookup(b_sql_type, b_col_name, false, false, b_dialect).sym;
     return std.mem.eql(u8, a_sym, b_sym);
 }
-

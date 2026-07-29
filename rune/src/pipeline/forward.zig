@@ -10,6 +10,7 @@ const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const diag = @import("../semantic/diagnostic.zig");
 const io_mod = @import("../io.zig");
 const json_schema = @import("../json_schema.zig");
+const import_res = @import("import_resolver.zig");
 
 // ─── Forward Pipeline: .ss → SQL ─────────────────────────────
 // No dependency on cli.zig — output format dispatch is the caller's responsibility.
@@ -23,32 +24,10 @@ pub const PipelineResult = struct {
     tree: ast_mod.Ast,
 };
 
-// ─── Import Support ───────────────────────────────────────────
-
-/// Set of imported file paths for circular dependency detection.
-const ImportSet = std.StringHashMap(void);
-
-/// Cached parse result for a previously imported file.
-const CachedImport = struct {
-    templates: []const ast_mod.Template,
-    tables: []const ast_mod.Table,
-    views: []const ast_mod.View,
-    comments: []const ast_mod.SqlComment,
-};
-
-/// Cache of parsed import files — keyed by resolved path.
-const ImportCache = std.StringHashMap(CachedImport);
-
-/// Context for resolving @import directives during parsing.
-pub const ImportContext = struct {
-    base_dir: []const u8,
-    imported: *ImportSet,
-    cache: ?*ImportCache = null,
-    depth: u8 = 0,
-    max_depth: u8 = 8,
-    /// Additional search paths for imports (from --import-path flag).
-    import_paths: []const []const u8 = &.{},
-};
+// ─── Re-export import types for callers ────────────────────────
+pub const ImportContext = import_res.ImportContext;
+pub const ImportSet = import_res.ImportSet;
+pub const ImportCache = import_res.ImportCache;
 
 // ─── Unified Pipeline ──────────────────────────────────────────
 
@@ -97,11 +76,11 @@ fn compileInternal(
     import_ctx: ?*ImportContext,
     flags: CompileFlags,
 ) !struct { tree: ast_mod.Ast, lines: []tokenizer.Line, resolved: ?resolved_ast.ResolvedAst } {
-    const raw_lines = try splitLines(alloc, file_data);
+    const raw_lines = try import_res.splitLines(alloc, file_data);
 
     // Resolve @import directives only when enabled and io is available
     const imports_result = if (flags.resolve_imports and import_ctx != null and io != null)
-        try resolveImports(io.?, alloc, raw_lines, import_ctx.?)
+        try import_res.resolveImports(io.?, alloc, raw_lines, import_ctx.?)
     else
         null;
 
@@ -109,7 +88,7 @@ fn compileInternal(
     const final_lines = if (imports_result) |r| r.processed_lines else raw_lines;
 
     // Tokenize and parse
-    const result = try tokenizeAndParseWithLines(alloc, final_lines, flags.json_errors);
+    const result = try import_res.tokenizeAndParseWithLines(alloc, final_lines, flags.json_errors);
 
     // Merge imported definitions if requested
     var tree = result.tree;
@@ -117,14 +96,14 @@ fn compileInternal(
         if (imports.templates.len > 0 or imports.tables.len > 0) {
             tree = .{
                 .schema = tree.schema,
-                .templates = try concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
-                .tables = try concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
+                .templates = try import_res.concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
+                .tables = try import_res.concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
                 .views = if (flags.merge_imports)
-                    try concatSlices(alloc, ast_mod.View, tree.views, imports.views)
+                    try import_res.concatSlices(alloc, ast_mod.View, tree.views, imports.views)
                 else
                     tree.views,
                 .sql_comments = if (flags.merge_imports)
-                    try concatSlices(alloc, ast_mod.SqlComment, tree.sql_comments, imports.comments)
+                    try import_res.concatSlices(alloc, ast_mod.SqlComment, tree.sql_comments, imports.comments)
                 else
                     tree.sql_comments,
             };
@@ -174,215 +153,6 @@ fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import
     return result.tree;
 }
 
-/// Concatenate two slices into a new arena-allocated slice.
-fn concatSlices(alloc: std.mem.Allocator, comptime T: type, a: []const T, b: []const T) ![]const T {
-    var result = try std.ArrayList(T).initCapacity(alloc, a.len + b.len);
-    try result.appendSlice(alloc, a);
-    try result.appendSlice(alloc, b);
-    return try result.toOwnedSlice(alloc);
-}
-
-/// Extract the directory portion of a file path.
-fn computeBaseDir(alloc: std.mem.Allocator, file_path: []const u8) []const u8 {
-    const last_sep = std.mem.lastIndexOfScalar(u8, file_path, '/') orelse
-        std.mem.lastIndexOfScalar(u8, file_path, '\\') orelse 0;
-    return if (last_sep > 0) alloc.dupe(u8, file_path[0..last_sep]) catch "" else "";
-}
-
-/// Split file data into lines, stripping trailing \r.
-fn splitLines(alloc: std.mem.Allocator, file_data: []const u8) ![]const []const u8 {
-    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
-    var line_it = std.mem.splitScalar(u8, file_data, '\n');
-    while (line_it.next()) |line| {
-        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
-    }
-    return try lines.toOwnedSlice(alloc);
-}
-
-/// Result of resolving @import directives from a set of lines.
-const ImportResult = struct {
-    processed_lines: []const []const u8,
-    templates: []const ast_mod.Template,
-    tables: []const ast_mod.Table,
-    views: []const ast_mod.View,
-    comments: []const ast_mod.SqlComment,
-};
-
-/// Shared import resolution logic: iterates lines, resolves @import directives
-/// recursively, and returns filtered lines plus accumulated definitions.
-fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u8, import_ctx: *ImportContext) !ImportResult {
-    var processed_lines = try std.ArrayList([]const u8).initCapacity(alloc, lines.len);
-    var imported_templates = try std.ArrayList(ast_mod.Template).initCapacity(alloc, 8);
-    var imported_tables = try std.ArrayList(ast_mod.Table).initCapacity(alloc, 8);
-    var imported_views = try std.ArrayList(ast_mod.View).initCapacity(alloc, 8);
-    var imported_comments = try std.ArrayList(ast_mod.SqlComment).initCapacity(alloc, 8);
-
-    for (lines) |line| {
-        const trimmed = std.mem.trim(u8, line, " \t");
-        if (trimmed.len > 8 and std.mem.startsWith(u8, trimmed, "@import")) {
-            if (import_ctx.depth >= import_ctx.max_depth) {
-                diag.printDiagnostic(alloc, .{
-                    .severity = .@"error",
-                    .line_no = 0,
-                    .message = "import depth limit exceeded (max 8)",
-                    .actual = trimmed,
-                });
-                return error.ParseError;
-            }
-
-            // Extract file path from @import "path" or @import path
-            const rest = std.mem.trimStart(u8, trimmed[7..], " ");
-            const import_path = if (rest.len >= 2 and rest[0] == '"' and rest[rest.len - 1] == '"')
-                rest[1 .. rest.len - 1]
-            else
-                rest;
-
-            if (import_path.len == 0) {
-                diag.printDiagnostic(alloc, .{
-                    .severity = .@"error",
-                    .line_no = 0,
-                    .message = "@import requires a file path",
-                    .actual = trimmed,
-                });
-                return error.ParseError;
-            }
-
-            // Handle std: prefix — search in import_paths
-            const resolved_path = if (std.mem.startsWith(u8, import_path, "std:")) blk: {
-                const rel_path = import_path[4..];
-                // Search in import_paths for the std: relative path
-                var found: ?[]const u8 = null;
-                for (import_ctx.import_paths) |search_path| {
-                    const candidate = std.fmt.allocPrint(alloc, "{s}/{s}", .{ search_path, rel_path }) catch break :blk import_path;
-                    // Try reading the file to check if it exists
-                    if (std.Io.Dir.cwd().readFileAlloc(io, candidate, alloc, .unlimited)) |_| {
-                        found = candidate;
-                        break;
-                    } else |_| {}
-                }
-                break :blk found orelse import_path;
-            } else if (import_ctx.base_dir.len > 0)
-                try std.fmt.allocPrint(alloc, "{s}/{s}", .{ import_ctx.base_dir, import_path })
-            else
-                try alloc.dupe(u8, import_path);
-
-            // Circular dependency detection
-            if (import_ctx.imported.contains(resolved_path)) {
-                diag.printDiagnostic(alloc, .{
-                    .severity = .@"error",
-                    .line_no = 0,
-                    .message = "circular import detected",
-                    .actual = resolved_path,
-                });
-                return error.ParseError;
-            }
-
-            // Read imported file
-            const imported_data = std.Io.Dir.cwd().readFileAlloc(io, resolved_path, alloc, .unlimited) catch |err| {
-                diag.printDiagnostic(alloc, .{
-                    .severity = .@"error",
-                    .line_no = 0,
-                    .message = "failed to read imported file",
-                    .actual = @errorName(err),
-                });
-                return error.ParseError;
-            };
-
-            // Track this import
-            try import_ctx.imported.put(resolved_path, {});
-
-            // Check cache before parsing
-            var child_tree: ast_mod.Ast = undefined;
-            var child_imports: ImportResult = undefined;
-            var cache_hit = false;
-
-            if (import_ctx.cache) |cache| {
-                if (cache.get(resolved_path)) |cached| {
-                    // Cache hit — use stored definitions, skip re-parsing
-                    for (cached.templates) |t| try imported_templates.append(alloc, t);
-                    for (cached.tables) |t| try imported_tables.append(alloc, t);
-                    for (cached.views) |v| try imported_views.append(alloc, v);
-                    for (cached.comments) |c| try imported_comments.append(alloc, c);
-                    cache_hit = true;
-                }
-            }
-
-            if (!cache_hit) {
-                // Parse imported file: recursively resolve its imports, then tokenize+parse
-                var child_ctx = ImportContext{
-                    .base_dir = computeBaseDir(alloc, resolved_path),
-                    .imported = import_ctx.imported,
-                    .cache = import_ctx.cache,
-                    .depth = import_ctx.depth + 1,
-                };
-                const child_lines = try splitLines(alloc, imported_data);
-                child_imports = try resolveImports(io, alloc, child_lines, &child_ctx);
-                const child_result = try tokenizeAndParseWithLines(alloc, child_imports.processed_lines, false);
-                child_tree = child_result.tree;
-                if (child_imports.templates.len > 0 or child_imports.tables.len > 0) {
-                    child_tree = .{
-                        .schema = child_tree.schema,
-                        .templates = try concatSlices(alloc, ast_mod.Template, child_tree.templates, child_imports.templates),
-                        .tables = try concatSlices(alloc, ast_mod.Table, child_tree.tables, child_imports.tables),
-                        .views = child_tree.views,
-                        .sql_comments = child_tree.sql_comments,
-                    };
-                }
-
-                // Merge all definition types
-                for (child_tree.templates) |t| try imported_templates.append(alloc, t);
-                for (child_tree.tables) |t| try imported_tables.append(alloc, t);
-                for (child_tree.views) |v| try imported_views.append(alloc, v);
-                for (child_tree.sql_comments) |c| try imported_comments.append(alloc, c);
-
-                // Store in cache for future imports of the same file
-                if (import_ctx.cache) |cache| {
-                    const cached = CachedImport{
-                        .templates = try concatSlices(alloc, ast_mod.Template, child_tree.templates, child_imports.templates),
-                        .tables = try concatSlices(alloc, ast_mod.Table, child_tree.tables, child_imports.tables),
-                        .views = child_tree.views,
-                        .comments = child_tree.sql_comments,
-                    };
-                    try cache.put(resolved_path, cached);
-                }
-            }
-        } else {
-            try processed_lines.append(alloc, line);
-        }
-    }
-
-    return .{
-        .processed_lines = try processed_lines.toOwnedSlice(alloc),
-        .templates = try imported_templates.toOwnedSlice(alloc),
-        .tables = try imported_tables.toOwnedSlice(alloc),
-        .views = try imported_views.toOwnedSlice(alloc),
-        .comments = try imported_comments.toOwnedSlice(alloc),
-    };
-}
-
-/// Tokenize and parse a .ss file into AST and tokenized lines.
-/// Returns both the parsed tree and the tokenized lines so callers
-/// don't need to re-tokenize for trace output.
-fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []const u8, json_errors: bool) !struct { tree: ast_mod.Ast, tokenized: []tokenizer.Line } {
-    const tok = tokenizer.Tokenizer.init(lines);
-    const tokenized = try tok.tokenizeAll(alloc);
-    var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    diagnostics.json_errors = json_errors;
-    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    const tree = p.parse(tokenized) catch |err| {
-        if (!diagnostics.hasErrors()) {
-            std.debug.print("error: {s}\n", .{@errorName(err)});
-        }
-        return err;
-    };
-    if (diagnostics.hasErrors()) {
-        diagnostics.printAll();
-        diagnostics.printSummary();
-        return error.DiagnosticsError;
-    }
-    return .{ .tree = tree, .tokenized = tokenized };
-}
-
 // ─── Public API ────────────────────────────────────────────────
 
 /// Compile a .ss file by path, handling @import directives.
@@ -393,7 +163,7 @@ pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, 
 /// Compile a .ss file by path with additional import search paths.
 pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, import_paths: []const []const u8, json_errors: bool) !PipelineResult {
     const file_data = try std.Io.Dir.cwd().readFileAlloc(io, file_path, alloc, .unlimited);
-    const base_dir = computeBaseDir(alloc, file_path);
+    const base_dir = import_res.computeBaseDir(alloc, file_path);
 
     var imported = ImportSet.init(alloc);
     defer imported.deinit();

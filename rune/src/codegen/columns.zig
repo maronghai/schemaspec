@@ -1,5 +1,6 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
+const codegen_mod = @import("codegen.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
 const Writer = std.Io.Writer;
@@ -61,7 +62,7 @@ pub fn emitColumnDefEx(backend: dialect_mod.DialectBackend, w: *Writer, col: typ
     if (col.default) |dv| try emitDefault(w, dv);
     if (col.check) |ck| {
         try w.writeAll(" CHECK (");
-        try dialect_mod.emitCheckExpr(w, col.name, ck);
+        try codegen_mod.emitCheckExpr(w, col.name, ck);
         try w.writeAll(")");
     }
     if (col.comment) |c| {

@@ -201,7 +201,7 @@ test "codegen: check expression BETWEEN" {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    try dialect_mod.emitCheckExpr(w, "age", .{ .kind = .range, .expr = "0,150", .line_no = 1 });
+    try codegen_mod.emitCheckExpr(w, "age", .{ .kind = .range, .expr = "0,150", .line_no = 1 });
     try w.flush();
 
     var out = aw.toArrayList();
@@ -218,7 +218,7 @@ test "codegen: check expression IN list" {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    try dialect_mod.emitCheckExpr(w, "status", .{ .kind = .in_list, .expr = "'active','inactive','banned'", .line_no = 1 });
+    try codegen_mod.emitCheckExpr(w, "status", .{ .kind = .in_list, .expr = "'active','inactive','banned'", .line_no = 1 });
     try w.flush();
 
     var out = aw.toArrayList();

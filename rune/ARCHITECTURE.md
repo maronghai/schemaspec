@@ -64,6 +64,8 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `diff/engine.zig` | `diff/fks.zig` | FK diffing |
 | `diff/engine.zig` | `diff/semantic.zig` | Dialect-aware type equivalence — `typeInfoEquiv` (AST-level) + `semanticEquiv` (SQL string-level via reverse lookup) |
 | `diff/engine.zig` | `diff/format.zig` | Human-readable diff formatting |
+| `diff/migrate.zig` | `diff/migrate_helpers.zig` | Shared `emitSingleTable` helper for forward and rollback paths |
+| `pipeline/forward.zig` | `pipeline/import_resolver.zig` | `@import` directive resolution — `ImportContext`, `resolveImports`, `splitLines`, `tokenizeAndParseWithLines` |
 | `codegen/codegen.zig` | `codegen/columns.zig` | Column definition rendering (emitColumnDef, emitColumnDefEx, emitDefault) + shared `isDominatedByExplicitIndex()` |
 | `codegen/codegen.zig` | `codegen/indexes.zig` | Inline and standalone index emission |
 | `parser/sql_parser.zig` | `parser/sql_parser_helpers.zig` | Identifier/literal/word parsing, whitespace/comment skipping, trailing comment capture, `parseExpression` |

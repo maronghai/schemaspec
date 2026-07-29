@@ -1,4 +1,5 @@
 const std = @import("std");
+const ast_mod = @import("../types/ast.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
@@ -166,4 +167,85 @@ pub fn diagnosticTrace(typed: typed_ast_mod.TypedAst) void {
     std.debug.print("Views:     {d}\n", .{typed.views.len});
     std.debug.print("FKs:       {d}\n", .{fk_count});
     std.debug.print("Indexes:   {d}\n\n", .{index_count});
+}
+
+// ─── Shared helpers (dialect-independent) ──────────────────────
+
+/// Render a CHECK constraint expression from a field name and CheckConstraint.
+/// Handles range, in_list, and comparison expressions.
+pub fn emitCheckExpr(w: *Writer, field_name: []const u8, ck: ast_mod.CheckConstraint) !void {
+    switch (ck.kind) {
+        .range => {
+            var parts = std.mem.splitScalar(u8, ck.expr, ',');
+            const low = std.mem.trim(u8, parts.next() orelse "", " ");
+            const high = std.mem.trim(u8, parts.next() orelse "", " ");
+            try w.print("{s} BETWEEN {s} AND {s}", .{ field_name, low, high });
+        },
+        .range_upper_exclusive => {
+            var parts = std.mem.splitScalar(u8, ck.expr, ',');
+            const low = std.mem.trim(u8, parts.next() orelse "", " ");
+            const high = std.mem.trim(u8, parts.next() orelse "", " ");
+            try w.print("{s} >= {s} AND {s} < {s}", .{ field_name, low, field_name, high });
+        },
+        .range_lower_exclusive => {
+            var parts = std.mem.splitScalar(u8, ck.expr, ',');
+            const low = std.mem.trim(u8, parts.next() orelse "", " ");
+            const high = std.mem.trim(u8, parts.next() orelse "", " ");
+            try w.print("{s} > {s} AND {s} <= {s}", .{ field_name, low, field_name, high });
+        },
+        .range_both_exclusive => {
+            var parts = std.mem.splitScalar(u8, ck.expr, ',');
+            const low = std.mem.trim(u8, parts.next() orelse "", " ");
+            const high = std.mem.trim(u8, parts.next() orelse "", " ");
+            try w.print("{s} > {s} AND {s} < {s}", .{ field_name, low, field_name, high });
+        },
+        .in_list => {
+            try w.print("{s} IN (", .{field_name});
+            var parts = std.mem.splitScalar(u8, ck.expr, ',');
+            var first = true;
+            while (parts.next()) |part| {
+                const trimmed = std.mem.trim(u8, part, " ");
+                if (trimmed.len == 0) continue;
+                if (!first) try w.writeAll(", ");
+                first = false;
+                const is_num = blk: {
+                    _ = std.fmt.parseFloat(f64, trimmed) catch break :blk false;
+                    break :blk true;
+                };
+                if (is_num) {
+                    try w.print("{s}", .{trimmed});
+                } else {
+                    const val = if (trimmed.len >= 2 and trimmed[0] == '\'' and trimmed[trimmed.len - 1] == '\'')
+                        trimmed[1 .. trimmed.len - 1]
+                    else
+                        trimmed;
+                    try w.print("'{s}'", .{val});
+                }
+            }
+            try w.writeAll(")");
+        },
+        .comparison => {
+            var parts = std.mem.splitScalar(u8, ck.expr, ',');
+            var first = true;
+            while (parts.next()) |part| {
+                const trimmed = std.mem.trim(u8, part, " ");
+                if (trimmed.len == 0) continue;
+                if (!first) try w.writeAll(" AND ");
+                first = false;
+                if (trimmed[0] == '>' and trimmed.len > 1 and trimmed[1] == '=') {
+                    try w.print("{s} >= {s}", .{ field_name, trimmed[2..] });
+                } else if (trimmed[0] == '<' and trimmed.len > 1 and trimmed[1] == '=') {
+                    try w.print("{s} <= {s}", .{ field_name, trimmed[2..] });
+                } else if (trimmed[0] == '>') {
+                    try w.print("{s} > {s}", .{ field_name, trimmed[1..] });
+                } else if (trimmed[0] == '<') {
+                    try w.print("{s} < {s}", .{ field_name, trimmed[1..] });
+                } else if (trimmed[0] == '=') {
+                    try w.print("{s} = {s}", .{ field_name, trimmed[1..] });
+                } else {
+                    try w.print("{s} = {s}", .{ field_name, trimmed });
+                }
+            }
+        },
+    }
 }

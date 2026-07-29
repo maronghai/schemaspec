@@ -71,26 +71,20 @@ cd rune && zig build                              # Build
 ## Testing
 
 ```bash
-# Run all test suites
-bash tests/test_coverage.sh
+# Run all unit tests (49 colocated test files, 536+ tests)
+zig build test
 
-# Or run individual suites
-bash tests/test.sh                  # MySQL golden (86 tests)
-bash tests/test_postgres.sh         # PostgreSQL golden (85 tests)
-bash tests/test_sqlite.sh           # SQLite golden (25 tests)
-bash tests/test_migrate.sh          # Migration golden (34 tests)
-bash tests/test_diff.sh             # Diff golden (12 tests)
-bash tests/test_reverse.sh          # Reverse engineering (15 tests)
-bash tests/test_error_recovery.sh   # Error recovery (12 tests)
-bash tests/test_json_schema.sh      # JSON Schema (3 tests)
-bash tests/test_roundtrip.sh        # Round-trip fidelity (26 tests)
-bash tests/test_imports.sh          # Import system (6 tests)
-bash tests/test_stdin.sh            # Stdin pipeline (4 tests)
-bash tests/test_reverse_confidence.sh # Reverse confidence (4 tests)
+# Build only
+zig build
 
-# Run a single test by name filter
-bash tests/test.sh 01               # Run tests matching "01"
+# Build with optimizations
+zig build -Doptimize=ReleaseSafe
+
+# Check formatting
+zig fmt --check src/
 ```
+
+Tests use Zig's built-in `test` blocks with `std.testing` allocator. Each source module has a colocated `*_test.zig` file wired via `src/tests.zig`.
 
 ## Architecture
 
@@ -102,14 +96,18 @@ For deep dives into the codebase architecture, IR boundaries, dialect backend vt
 rune/src/
   main.zig, cli.zig, io.zig         # CLI entry point + argument parsing
   generator.zig                      # generator registry (pluggable, dialect-aware)
-  pipeline/    forward.zig, reverse.zig, diff.zig   # Pipeline orchestration
+  pipeline/    forward.zig, reverse.zig, diff.zig, import_resolver.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig, sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig
   dialect/     dialect.zig, mysql.zig, pg.zig, sqlite.zig, common.zig
   reverse/     codegen.zig, column.zig, map.zig, fk.zig, check.zig
-  diff/        engine.zig, fields.zig, fks.zig, indexes.zig, migrate.zig
+  diff/        engine.zig, fields.zig, fks.zig, indexes.zig, migrate.zig, migrate_helpers.zig
   types/       ast.zig, resolved_ast.zig, typed_ast.zig, sql_type.zig, ...
   semantic/    analyzer.zig, pass_manager.zig, pass/*.zig
+
+rune/grammar.ebnf    # Formal EBNF grammar for the .ss language
+rune/schema.md       # Language reference (syntax, constructs, examples)
+rune/type.md         # Type system reference (symbols, dialects, custom types)
 ```
 
 ## Contributing
@@ -118,5 +116,5 @@ rune/src/
 - **Line endings**: LF
 - **Indent**: 4-space for `.zig`, 2-space for `.md`/`.sh`/`.sql`
 - **Memory model**: Arena-style allocator per command lifetime
-- **Tests**: All changes must pass `zig build` + `bash tests/test_coverage.sh`
+- **Tests**: All changes must pass `zig build` + `zig build test`
 - **New dialects**: Add `dialect/<name>.zig` (~200 lines, self-contained type mapping)

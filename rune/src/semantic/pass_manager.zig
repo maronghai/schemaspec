@@ -135,15 +135,51 @@ fn transitiveDependsOn(alloc: std.mem.Allocator, a: SemanticPass, b: SemanticPas
 
 /// Parallelizable group: passes that can run concurrently (no dependency, no write-write conflict).
 /// Returns groups of pass indices that can run in parallel.
+/// Groups are auto-computed from the dependency graph — no manual maintenance needed.
 pub fn getParallelGroups() []const ParallelGroup {
-    const groups = [_]ParallelGroup{
-        .{ .passes = &.{ 0, 2 }, .label = "validate_template_types + autofk" }, // independent writes
-        .{ .passes = &.{1}, .label = "resolve_names" },
-        .{ .passes = &.{3}, .label = "suffix_inference" },
-        .{ .passes = &.{ 4, 5, 6 }, .label = "validate + validate_type_modifiers + validate_indexes" }, // read-only
-        .{ .passes = &.{7}, .label = "validate_schema" },
-    };
-    return &groups;
+    // Greedy graph coloring: assign each pass to the earliest group where it
+    // can run concurrently with all passes already in that group.
+    var group_count: usize = 0;
+    // group_passes[i] = list of pass indices assigned to group i
+    var group_passes: [DEFAULT_PASSES.len][DEFAULT_PASSES.len]usize = undefined;
+    var group_sizes: [DEFAULT_PASSES.len]usize = undefined;
+
+    for (DEFAULT_PASSES, 0..) |pass, i| {
+        var placed = false;
+        // Try each existing group
+        for (0..group_count) |g| {
+            var conflict = false;
+            for (0..group_sizes[g]) |p| {
+                const other = DEFAULT_PASSES[group_passes[g][p]];
+                if (!canRunConcurrently(pass, other)) {
+                    conflict = true;
+                    break;
+                }
+            }
+            if (!conflict) {
+                group_passes[g][group_sizes[g]] = i;
+                group_sizes[g] += 1;
+                placed = true;
+                break;
+            }
+        }
+        // Create a new group if no existing group works
+        if (!placed) {
+            group_passes[group_count][0] = i;
+            group_sizes[group_count] = 1;
+            group_count += 1;
+        }
+    }
+
+    // Build result — snapshot group_passes into stack-allocated slices.
+    var result: [DEFAULT_PASSES.len]ParallelGroup = undefined;
+    for (0..group_count) |g| {
+        result[g] = .{
+            .passes = group_passes[g][0..group_sizes[g]],
+            .label = "", // labels are now dynamic; callers use .passes directly
+        };
+    }
+    return result[0..group_count];
 }
 
 pub const ParallelGroup = struct {

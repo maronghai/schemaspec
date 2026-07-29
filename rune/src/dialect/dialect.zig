@@ -4,7 +4,6 @@ const dialect_enum = @import("../dialect/enum.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
 const Writer = std.Io.Writer;
 const IndexDecl = ast_mod.IndexDecl;
-const CheckConstraint = ast_mod.CheckConstraint;
 const Dialect = dialect_enum.Dialect;
 const SqlType = sql_type_mod.SqlType;
 
@@ -337,80 +336,4 @@ pub fn renderFromTable(w: *Writer, sql_type: SqlType, comptime table: []const Re
 }
 
 // ─── Shared helpers (dialect-independent) ──────────────────────
-
-pub fn emitCheckExpr(w: *Writer, field_name: []const u8, ck: CheckConstraint) !void {
-    switch (ck.kind) {
-        .range => {
-            var parts = std.mem.splitScalar(u8, ck.expr, ',');
-            const low = std.mem.trim(u8, parts.next() orelse "", " ");
-            const high = std.mem.trim(u8, parts.next() orelse "", " ");
-            try w.print("{s} BETWEEN {s} AND {s}", .{ field_name, low, high });
-        },
-        .range_upper_exclusive => {
-            var parts = std.mem.splitScalar(u8, ck.expr, ',');
-            const low = std.mem.trim(u8, parts.next() orelse "", " ");
-            const high = std.mem.trim(u8, parts.next() orelse "", " ");
-            try w.print("{s} >= {s} AND {s} < {s}", .{ field_name, low, field_name, high });
-        },
-        .range_lower_exclusive => {
-            var parts = std.mem.splitScalar(u8, ck.expr, ',');
-            const low = std.mem.trim(u8, parts.next() orelse "", " ");
-            const high = std.mem.trim(u8, parts.next() orelse "", " ");
-            try w.print("{s} > {s} AND {s} <= {s}", .{ field_name, low, field_name, high });
-        },
-        .range_both_exclusive => {
-            var parts = std.mem.splitScalar(u8, ck.expr, ',');
-            const low = std.mem.trim(u8, parts.next() orelse "", " ");
-            const high = std.mem.trim(u8, parts.next() orelse "", " ");
-            try w.print("{s} > {s} AND {s} < {s}", .{ field_name, low, field_name, high });
-        },
-        .in_list => {
-            try w.print("{s} IN (", .{field_name});
-            var parts = std.mem.splitScalar(u8, ck.expr, ',');
-            var first = true;
-            while (parts.next()) |part| {
-                const trimmed = std.mem.trim(u8, part, " ");
-                if (trimmed.len == 0) continue;
-                if (!first) try w.writeAll(", ");
-                first = false;
-                const is_num = blk: {
-                    _ = std.fmt.parseFloat(f64, trimmed) catch break :blk false;
-                    break :blk true;
-                };
-                if (is_num) {
-                    try w.print("{s}", .{trimmed});
-                } else {
-                    const val = if (trimmed.len >= 2 and trimmed[0] == '\'' and trimmed[trimmed.len - 1] == '\'')
-                        trimmed[1 .. trimmed.len - 1]
-                    else
-                        trimmed;
-                    try w.print("'{s}'", .{val});
-                }
-            }
-            try w.writeAll(")");
-        },
-        .comparison => {
-            var parts = std.mem.splitScalar(u8, ck.expr, ',');
-            var first = true;
-            while (parts.next()) |part| {
-                const trimmed = std.mem.trim(u8, part, " ");
-                if (trimmed.len == 0) continue;
-                if (!first) try w.writeAll(" AND ");
-                first = false;
-                if (trimmed[0] == '>' and trimmed.len > 1 and trimmed[1] == '=') {
-                    try w.print("{s} >= {s}", .{ field_name, trimmed[2..] });
-                } else if (trimmed[0] == '<' and trimmed.len > 1 and trimmed[1] == '=') {
-                    try w.print("{s} <= {s}", .{ field_name, trimmed[2..] });
-                } else if (trimmed[0] == '>') {
-                    try w.print("{s} > {s}", .{ field_name, trimmed[1..] });
-                } else if (trimmed[0] == '<') {
-                    try w.print("{s} < {s}", .{ field_name, trimmed[1..] });
-                } else if (trimmed[0] == '=') {
-                    try w.print("{s} = {s}", .{ field_name, trimmed[1..] });
-                } else {
-                    try w.print("{s} = {s}", .{ field_name, trimmed });
-                }
-            }
-        },
-    }
-}
+// Note: emitCheckExpr moved to codegen/codegen.zig (dialect-independent code belongs in codegen).

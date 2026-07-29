@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.46.0 (2026-07-29)
+**Current version**: 0.47.0 (2026-07-29)
 
 ---
 
@@ -184,6 +184,14 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.47.0 (2026-07-29)
+
+- Module splits — extracted `pipeline/import_resolver.zig` and `diff/migrate_helpers.zig`
+- Moved `emitCheckExpr` from `dialect/dialect.zig` to `codegen/codegen.zig`
+- Auto-computed parallel groups in `pass_manager.zig` (replaces hardcoded indices)
+- Added `grammar.ebnf`, `schema.md`, `type.md` documentation
+- Fixed README.md testing section (removed non-existent golden test references)
 
 ### v0.46.0 (2026-07-29)
 
