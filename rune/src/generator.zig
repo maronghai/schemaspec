@@ -26,6 +26,21 @@ pub const REGISTRY = [_]Generator{
         .description = "JSON Schema (draft-07) from .ss schema",
         .generate = @import("json_schema.zig").generate,
     },
+    .{
+        .name = "sql-ddl",
+        .description = "SQL DDL (CREATE TABLE) for the selected dialect",
+        .generate = @import("generators/sql_ddl.zig").generate,
+    },
+    .{
+        .name = "prisma",
+        .description = "Prisma schema from .ss schema",
+        .generate = @import("generators/prisma.zig").generate,
+    },
+    .{
+        .name = "docs",
+        .description = "Markdown documentation from .ss schema",
+        .generate = @import("generators/docs.zig").generate,
+    },
 };
 
 /// Look up a generator by name. Returns null if not found.

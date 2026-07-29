@@ -307,10 +307,13 @@ Handles: CREATE TABLE, PRIMARY KEY, indexes, FKs, CHECK constraints, ENUMs, view
 
 ```bash
 rune generate json-schema schema.ss   # → JSON Schema (draft-07)
+rune generate sql-ddl schema.ss       # → SQL DDL (CREATE TABLE)
+rune generate prisma schema.ss        # → Prisma schema
+rune generate docs schema.ss          # → Markdown documentation
 rune generate --list                  # → list available generators
 ```
 
-Foundation for ORM/API schema output. Currently supports JSON Schema generation from `.ss` files. Future generators: Prisma, Drizzle, TypeORM, SQLAlchemy.
+4 built-in generators: JSON Schema, SQL DDL, Prisma, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
 
 ## Roadmap
 
@@ -319,7 +322,8 @@ Foundation for ORM/API schema output. Currently supports JSON Schema generation 
 - [ ] Microsoft SQL Server dialect support
 - [ ] IBM Db2 dialect support
 - [x] JSON Schema output for API layer generation
-- [ ] Prisma/Drizzle schema output
+- [x] Prisma schema output
+- [ ] Drizzle/TypeORM/SQLAlchemy schema output
 - [ ] Incremental migration (only changed tables)
 
 ## Vision

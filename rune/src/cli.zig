@@ -298,7 +298,7 @@ fn isKnownLongFlag(flag: []const u8) bool {
     const known = [_][]const u8{
         "--version",        "--help",        "--stats",  "--quiet",         "--check",  "--dry-run",
         "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
-        "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output",
+        "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
     };
     inline for (known) |k| {
         if (std.mem.eql(u8, flag, k)) return true;

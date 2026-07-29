@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.47.0 (2026-07-29)
+**Current version**: 0.48.0 (2026-07-29)
 
 ---
 
@@ -55,7 +55,7 @@ Bridge the gap between database schema and application code.
 
 ### ORM Generators
 
-- [ ] `rune generate prisma schema.ss` — output Prisma schema files with models, fields, relations, and enums
+- [x] `rune generate prisma schema.ss` — output Prisma schema files with models, fields, relations, and enums
 - [ ] `rune generate drizzle schema.ss` — output Drizzle ORM TypeScript schema
 - [ ] `rune generate typeorm schema.ss` — output TypeORM entity classes
 - [ ] `rune generate sqlalchemy schema.ss` — output SQLAlchemy ORM models
@@ -71,6 +71,8 @@ Bridge the gap between database schema and application code.
 
 - [x] `rune generate --list` — show available generators
 - [x] Generator registry — pluggable `Generator` struct with `REGISTRY` array in `generator.zig`
+- [x] SQL DDL generator — `rune generate sql-ddl` wraps codegen for standalone use
+- [x] Markdown docs generator — `rune generate docs` generates documentation from TypedAst
 - [ ] Generator plugin system — allow user-defined generators via Zig plugins or WASM modules
 - [ ] Template overrides — let users customize generator output with `.rune-template` files
 
@@ -184,6 +186,14 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.48.0 (2026-07-29)
+
+- Generator expansion — added 3 new generators: SQL DDL (`sql-ddl`), Prisma (`prisma`), Markdown docs (`docs`)
+- `rune generate --list` now shows 4 generators
+- main.zig error dispatch refactor — extracted `cliArgErrorMessage` helper
+- 16 new unit tests (3 generator test files × 4-5 tests each)
+- Updated 244 golden test files from 0.46.0 to 0.48.0
 
 ### v0.47.0 (2026-07-29)
 

@@ -32,41 +32,17 @@ pub fn main(init: std.process.Init) !void {
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
-        switch (err) {
-            error.UnknownDialect => {
-                std.debug.print("error: unknown dialect, expected one of: mysql, pg, postgres, sqlite\n", .{});
-            },
-            error.MissingDialectValue => {
-                std.debug.print("error: --dialect requires a value, expected one of: mysql, pg, postgres, sqlite\n", .{});
-            },
-            error.UnknownTarget => {
-                std.debug.print("error: unknown target, expected one of: sql, json-schema\n", .{});
-            },
-            error.MissingTargetValue => {
-                std.debug.print("error: --target requires a value, expected one of: sql, json-schema\n", .{});
-            },
-            error.UnknownFormat => {
-                std.debug.print("error: unknown format, expected one of: text, json, sarif\n", .{});
-            },
-            error.DiffMissingArgs => {
-                std.debug.print("error: diff requires two arguments: <old.ss> <new.ss>\n", .{});
-            },
-            error.MigrateMissingArgs => {
-                std.debug.print("error: migrate requires two arguments: <old.ss> <new.ss>\n", .{});
-            },
-            error.UnknownCommand => {
-                std.debug.print("error: unknown command. Run 'rune --help' for usage.\n", .{});
-            },
-            error.UnknownFlag => {
-                if (cli.last_unknown_flag) |flag| {
-                    std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
-                } else {
-                    std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});
-                }
-            },
-            else => {
-                std.debug.print("error: {s}\n", .{@errorName(err)});
-            },
+        if (err == error.OutOfMemory) {
+            std.debug.print("error: out of memory\n", .{});
+        } else if (err == error.UnknownFlag) {
+            if (cli.last_unknown_flag) |flag| {
+                std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
+            } else {
+                std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});
+            }
+        } else {
+            const cli_err: cli.ArgError = @errorCast(err);
+            std.debug.print("error: {s}\n", .{cliArgErrorMessage(cli_err)});
         }
         std.process.exit(1);
     };
@@ -178,4 +154,21 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             }
         },
     }
+}
+
+// ─── Error Messages ───────────────────────────────────────────
+
+/// Map CLI argument errors to human-readable messages.
+fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
+    return switch (err) {
+        error.UnknownDialect => "unknown dialect, expected one of: mysql, pg, postgres, sqlite",
+        error.MissingDialectValue => "--dialect requires a value, expected one of: mysql, pg, postgres, sqlite",
+        error.UnknownTarget => "unknown target, expected one of: sql, json-schema",
+        error.MissingTargetValue => "--target requires a value, expected one of: sql, json-schema",
+        error.UnknownFormat => "unknown format, expected one of: text, json, sarif",
+        error.DiffMissingArgs => "diff requires two arguments: <old.ss> <new.ss>",
+        error.MigrateMissingArgs => "migrate requires two arguments: <old.ss> <new.ss>",
+        error.UnknownCommand => "unknown command. Run 'rune --help' for usage.",
+        error.UnknownFlag => "unknown flag. Run 'rune --help' for usage.",
+    };
 }

@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.48.0] - 2026-07-29
+
+### Added
+- **SQL DDL generator** (`rune generate sql-ddl`) — wraps the existing codegen engine to output SQL DDL as a standalone generator. Supports all 3 dialects (MySQL, PostgreSQL, SQLite).
+- **Prisma schema generator** (`rune generate prisma`) — generates Prisma schema from `.ss` files. Maps SS types to Prisma types, includes `@id`, `@default(autoincrement())`, `@unique`, `@@map`, and nullable `?` suffixes.
+- **Markdown docs generator** (`rune generate docs`) — generates structured Markdown documentation from `.ss` files. Includes table overview, per-table column details, and index listings.
+- `rune generate --list` now shows 4 generators (was 1).
+
+### Changed
+- **main.zig error dispatch** — extracted `cliArgErrorMessage` helper for CLI argument errors, replacing repetitive switch statement with table-driven error messages.
+- Updated 244 golden test files from version 0.46.0 to 0.48.0.
+
 ## [0.47.0] - 2026-07-29
 
 ### Changed
