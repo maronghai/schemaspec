@@ -6,7 +6,7 @@ const reverse_pipe = @import("pipeline/reverse.zig");
 const io_mod = @import("io.zig");
 const version = @import("version.zig");
 const docs = @import("docs.zig");
-const json_schema = @import("json_schema.zig");
+const generator = @import("generator.zig");
 
 // ─── Entry Point ───────────────────────────────────────────────
 
@@ -144,16 +144,15 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .generate => |cmd| {
             if (cmd.list) {
-                std.debug.print("Available generators:\n", .{});
-                std.debug.print("  json-schema    JSON Schema (draft-07) from .ss schema\n", .{});
+                generator.listAll();
                 return;
             }
-            if (std.mem.eql(u8, cmd.generator, "json-schema")) {
+            if (generator.get(cmd.generator)) |gen| {
                 const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
                 const pipeline = try forward.compilePipeline(alloc, file_data);
                 const typed = try @import("types/type_resolver.zig").TypeResolver.resolve(alloc, pipeline.resolved, parsed.dialect);
-                const json_text = try json_schema.generate(alloc, typed);
-                try io_mod.writeOutput(io, json_text, cmd.output, parsed.quiet);
+                const output_text = try gen.generate(alloc, typed);
+                try io_mod.writeOutput(io, output_text, cmd.output, parsed.quiet);
             } else {
                 std.debug.print("error: unknown generator '{s}'. Run 'rune generate --list' for available generators.\n", .{cmd.generator});
                 std.process.exit(1);

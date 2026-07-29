@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.42.0 (2026-07-29)
+**Current version**: 0.43.0 (2026-07-29)
 
 ---
 
@@ -69,7 +69,8 @@ Bridge the gap between database schema and application code.
 
 ### Generator Infrastructure
 
-- [ ] `rune generate --list` — show available generators
+- [x] `rune generate --list` — show available generators
+- [x] Generator registry — pluggable `Generator` struct with `REGISTRY` array in `generator.zig`
 - [ ] Generator plugin system — allow user-defined generators via Zig plugins or WASM modules
 - [ ] Template overrides — let users customize generator output with `.rune-template` files
 
@@ -183,6 +184,14 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.43.0 (2026-07-29)
+
+- Generator registry — pluggable `Generator` struct with `REGISTRY` array in `generator.zig`, replacing hardcoded dispatch in `main.zig`
+- Fixed memory leak in `detectConflicts()` — accepts `Allocator` parameter instead of using `page_allocator` directly
+- Fixed memory leak in `transitiveDependsOn()` — added `defer` cleanup for `BufSet` and `ArrayList`
+- Parallel golden test runner — `tests/test_parallel.sh` runs 12 test suites concurrently
+- Updated golden test files from version 0.42.0 to 0.43.0 (244 files)
 
 ### v0.42.0 (2026-07-29)
 

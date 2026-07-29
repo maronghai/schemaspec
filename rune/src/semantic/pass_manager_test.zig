@@ -37,7 +37,8 @@ test "canRunConcurrently: read-write is fine" {
 
 test "detectConflicts: no conflicts in DEFAULT_PASSES" {
     // All DEFAULT_PASSES have proper dependency ordering, so no conflicts
-    const conflicts = pm.detectConflicts();
+    const conflicts = try pm.detectConflicts(testing.allocator);
+    defer testing.allocator.free(conflicts);
     try testing.expectEqual(@as(usize, 0), conflicts.len);
 }
 

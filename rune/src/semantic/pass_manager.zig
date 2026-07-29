@@ -73,21 +73,21 @@ pub fn validateDependencyOrder() void {
 
 /// Detect write-write conflicts between passes that could break reordering.
 /// Two passes conflict if both write to the same resource and neither depends on the other.
-/// Returns a list of conflicting pass name pairs.
-pub fn detectConflicts() [][2][]const u8 {
-    var result = std.ArrayList([2][]const u8).initCapacity(std.heap.page_allocator, 8) catch return &.{};
+/// Returns a list of conflicting pass name pairs. Caller must free the returned slice.
+pub fn detectConflicts(alloc: std.mem.Allocator) ![][2][]const u8 {
+    var result = std.ArrayList([2][]const u8).initCapacity(alloc, 8) catch return error.OutOfMemory;
     for (DEFAULT_PASSES, 0..) |a, i| {
         for (DEFAULT_PASSES[i + 1 ..]) |b| {
             if (hasConflict(a, b)) {
                 if (!dependsOn(a, b) and !dependsOn(b, a)) {
                     if (!transitiveDependsOn(a, b) and !transitiveDependsOn(b, a)) {
-                        result.append(std.heap.page_allocator, .{ a.name, b.name }) catch return &.{};
+                        result.append(alloc, .{ a.name, b.name }) catch return error.OutOfMemory;
                     }
                 }
             }
         }
     }
-    return result.toOwnedSlice(std.heap.page_allocator) catch return &.{};
+    return try result.toOwnedSlice(alloc);
 }
 
 /// Check if pass a has a direct dependency on pass b.
@@ -109,7 +109,9 @@ pub fn hasConflict(a: SemanticPass, b: SemanticPass) bool {
 /// Check if there is a transitive dependency from a to b (through intermediate passes).
 fn transitiveDependsOn(a: SemanticPass, b: SemanticPass) bool {
     var visited = std.BufSet.init(std.heap.page_allocator);
+    defer visited.deinit();
     var frontier = std.ArrayList([]const u8).initCapacity(std.heap.page_allocator, 8) catch return false;
+    defer frontier.deinit(std.heap.page_allocator);
     for (a.depends_on) |dep| {
         frontier.append(std.heap.page_allocator, dep) catch return false;
         visited.insert(dep) catch return false;

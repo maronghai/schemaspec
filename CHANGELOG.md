@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.43.0] - 2026-07-29
+
+### Added
+- Generator registry (`generator.zig`) — pluggable `Generator` struct with `REGISTRY` array, `get(name)` lookup, and `listAll()` for CLI output. Adding a new generator requires only adding an entry to `REGISTRY`.
+- Parallel golden test runner (`tests/test_parallel.sh`) — runs 12 test suites concurrently for faster CI. Uses `tests/lib_parallel.sh` helper library.
+
+### Fixed
+- Fixed memory leak in `semantic/pass_manager.zig:detectConflicts()` — now accepts `Allocator` parameter instead of using `std.heap.page_allocator` directly. Callers are responsible for freeing the returned slice.
+- Fixed memory leak in `semantic/pass_manager.zig:transitiveDependsOn()` — added `defer` cleanup for `BufSet` and `ArrayList` allocated with `page_allocator`.
+
+### Changed
+- Refactored `main.zig` generate dispatch to use `generator.get(name)` instead of hardcoded `if/else` on generator name string.
+- Updated 244 golden test files from version 0.42.0 to 0.43.0.
+
+### Testing
+- Updated `pass_manager_test.zig` — `detectConflicts` test now uses `testing.allocator` with proper `defer free`.
+
 ## [0.42.0] - 2026-07-29
 
 ### Fixed

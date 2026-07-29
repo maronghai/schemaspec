@@ -326,6 +326,7 @@ Rune uses a three-layer type mapping system:
 10. **Custom type system**: Users can define named type aliases via `~` directives in the schema block. Custom types support dialect-specific overrides and are resolved during type resolution (not parsing).
 11. **SQLite roundtrip preservation**: `-- @sym col_name type` metadata comments preserve original SS types through lossy SQLite type affinity. Forward compiler emits comments; reverse compiler parses them for exact type restoration.
 12. **Unified ReverseResult**: `dialect.zig` defines the single `ReverseResult` struct (`sym`, `omit`, `score`). Both `reverse/map.zig` and `reverse/column.zig` re-export it — zero type duplication across the reverse pipeline.
+13. **Generator Registry**: `generator.zig` defines a `Generator` struct (name, description, generate fn ptr) and a `REGISTRY` array. Adding a new generator = add entry to `REGISTRY` + implement `generate()`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed.
 
 ## Custom Type System
 
@@ -406,7 +407,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 45 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~325 | Core logic + pipeline + colocated |
+| Unit tests | 48 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~531 | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 85 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 25 | Full pipeline |
@@ -416,4 +417,4 @@ zig build bench -- bench/large.ss 5         # large schema
 | Error recovery | `tests/test_error_recovery.sh` | 12 | Parse error handling + schema-level validation |
 | JSON Schema | `tests/test_json_schema.sh` | 3 | JSON Schema output |
 | Roundtrip | `tests/test_roundtrip.sh` | 26 | Forward → reverse fidelity |
-| **Total** | | **~486+** | |
+| **Total** | | **~531+** | |
