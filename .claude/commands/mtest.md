@@ -21,3 +21,4 @@ allowed-tools: Bash(git *), Bash(ls *), Read, Glob, Bash(rg *)
 11. 更新 ROADMAP.md。未完成的用 `[ ]` 标识，已完成的用 `[x]` 标识
 11. commit
 12. commit message 是 VERSION 文件中的版本号
+13. 输出完成计划耗时

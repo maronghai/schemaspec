@@ -171,8 +171,13 @@ pub fn parseDefaultValue(self: *sp.SqlParser) ![]const u8 {
             if (depth > 0) self.advance();
         }
         if (self.peek() == ')') self.advance();
+        return self.src[start..self.pos];
     }
-    return self.src[start..self.pos];
+    // Trim trailing whitespace captured between the word/number and the next token.
+    // e.g. "CURRENT_TIMESTAMP COMMENT ..." → skipWord reads "CURRENT_TIMESTAMP",
+    // skipSpaces reads the space, then peek() != '(' — without trim we'd return "CURRENT_TIMESTAMP ".
+    const end = self.pos;
+    return std.mem.trimEnd(u8, self.src[start..end], " \t");
 }
 
 /// Parse a general SQL expression — captures everything up to the given delimiter
