@@ -25,7 +25,7 @@ cd rune && zig build                              # Build
 | `migrate` | `rune migrate <old.ss> <new.ss>` | Generate ALTER TABLE migration SQL |
 | `reverse` | `rune reverse [input.sql]` | Reverse SQL DDL to `.ss` schema |
 | `docs` | `rune docs [input.ss]` | Generate Markdown documentation |
-| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (e.g., `json-schema`) |
+| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`) |
 
 ## Flags Reference
 
@@ -96,6 +96,10 @@ For deep dives into the codebase architecture, IR boundaries, dialect backend vt
 rune/src/
   main.zig, cli.zig, io.zig         # CLI entry point + argument parsing
   generator.zig                      # generator registry (pluggable, dialect-aware)
+  generators/                        # generator implementations
+    sql_ddl.zig                      #   SQL DDL output
+    prisma.zig                       #   Prisma schema output
+    docs.zig                         #   Markdown documentation output
   pipeline/    forward.zig, reverse.zig, diff.zig, import_resolver.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig, sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig

@@ -351,7 +351,7 @@ Rune uses a three-layer type mapping system:
 10. **Custom type system**: Users can define named type aliases via `~` directives in the schema block. Custom types support dialect-specific overrides and are resolved during type resolution (not parsing).
 11. **SQLite roundtrip preservation**: `-- @sym col_name type` metadata comments preserve original SS types through lossy SQLite type affinity. Forward compiler emits comments; reverse compiler parses them for exact type restoration.
 12. **Unified ReverseResult**: `dialect.zig` defines the single `ReverseResult` struct (`sym`, `omit`, `score`). Both `reverse/map.zig` and `reverse/column.zig` re-export it — zero type duplication across the reverse pipeline.
-13. **Generator Registry**: `generator.zig` defines a `Generator` struct (name, description, generate fn ptr) and a `REGISTRY` array. Adding a new generator = add entry to `REGISTRY` + implement `generate()`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed.
+13. **Generator Registry**: `generator.zig` defines a `Generator` struct (name, description, generate fn ptr) and a `REGISTRY` array. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. Current generators: `json-schema`, `sql-ddl`, `prisma`, `docs`.
 
 ## Custom Type System
 

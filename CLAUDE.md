@@ -63,9 +63,10 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ```
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig                           # CLI + glue
-  bench.zig, json_schema.zig, ast_visitor.zig, docs.zig          # standalone modules
+  bench.zig, json_schema.zig, ast_visitor.zig                    # standalone modules
   generator.zig                                                   # generator registry (pluggable)
-  tests.zig                                                       # colocated test index (48 files)
+  generators/      sql_ddl.zig, prisma.zig, docs.zig             # generator implementations (3)
+  tests.zig                                                       # colocated test index (51 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig        # pipeline orchestration
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
@@ -100,7 +101,7 @@ rune/src/
 
 ### Key Design Patterns
 
-- **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Adding a new generator = add entry to `REGISTRY` + implement `generate(alloc, typed, dialect)`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output (e.g. Prisma schema for MySQL vs PG).
+- **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`.
 
 - **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
 
@@ -187,12 +188,14 @@ rune/src/
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing |
 | | `bench.zig` | Benchmark entry point |
-| | `json_schema.zig` | JSON Schema output |
-| | `docs.zig` | Markdown documentation generation |
+| generators | `json_schema.zig` | JSON Schema generator (standalone, not in generators/) |
+| | `generators/sql_ddl.zig` | SQL DDL generator (wraps codegen) |
+| | `generators/prisma.zig` | Prisma schema generator |
+| | `generators/docs.zig` | Markdown documentation generator |
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 48 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 51 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. 14 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 85), `test_sqlite.sh` (SQLite, 25), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (15), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_roundtrip.sh` (26), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
