@@ -41,6 +41,11 @@ pub const REGISTRY = [_]Generator{
         .description = "Markdown documentation from .ss schema",
         .generate = @import("generators/docs.zig").generate,
     },
+    .{
+        .name = "drizzle",
+        .description = "Drizzle ORM TypeScript schema from .ss schema",
+        .generate = @import("generators/drizzle.zig").generate,
+    },
 };
 
 /// Look up a generator by name. Returns null if not found.

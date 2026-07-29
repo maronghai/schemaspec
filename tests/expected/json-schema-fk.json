@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "rune-schema",
   "type": "object",
-  "properties": {
+  "$defs": {
     "order": {
       "type": "object",
       "description": ": 订单表",
@@ -11,9 +11,10 @@
         "user_id": {"type":"integer"},
         "total": {"type":"string","format":"date"},
         "status": {"type":"string"},
-          "enum": ["draft","pending","done"]
+          "enum": ["draft", "pending", "done"]
       },
-      "required": []
+      "required": [],
+      "additionalProperties": false
     },
     "user": {
       "type": "object",
@@ -22,7 +23,13 @@
         "id": {"type":"integer"},
         "name": {"type":"string"}
       },
-      "required": []
+      "required": [],
+      "additionalProperties": false
     }
-  }
+  },
+  "properties": {
+    "order": { "$ref": "#/$defs/order" },
+    "user": { "$ref": "#/$defs/user" }
+  },
+  "required": ["order", "user"]
 }

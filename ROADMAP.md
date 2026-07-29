@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.48.0 (2026-07-29)
+**Current version**: 0.49.0 (2026-07-30)
 
 ---
 
@@ -56,7 +56,7 @@ Bridge the gap between database schema and application code.
 ### ORM Generators
 
 - [x] `rune generate prisma schema.ss` — output Prisma schema files with models, fields, relations, and enums
-- [ ] `rune generate drizzle schema.ss` — output Drizzle ORM TypeScript schema
+- [x] `rune generate drizzle schema.ss` — output Drizzle ORM TypeScript schema
 - [ ] `rune generate typeorm schema.ss` — output TypeORM entity classes
 - [ ] `rune generate sqlalchemy schema.ss` — output SQLAlchemy ORM models
 - [ ] `rune generate knex schema.ss` — output Knex migration files
@@ -65,7 +65,7 @@ Bridge the gap between database schema and application code.
 
 - [ ] `rune generate openapi schema.ss` — OpenAPI 3.1 spec with request/response schemas derived from tables
 - [ ] `rune generate graphql schema.ss` — GraphQL type definitions from tables
-- [ ] `rune generate json-schema schema.ss` — enhanced JSON Schema output (currently partial, needs `definitions`, `$ref`, proper `required` arrays)
+- [x] `rune generate json-schema schema.ss` — enhanced JSON Schema output (currently partial, needs `definitions`, `$ref`, proper `required` arrays)
 
 ### Generator Infrastructure
 
@@ -186,6 +186,15 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.49.0 (2026-07-30)
+
+- Drizzle ORM generator — `rune generate drizzle` outputs TypeScript schema with pgTable/mysqlTable/sqliteTable, column modifiers, FK references, indexes, and enum types
+- Enhanced JSON Schema generator — added `$defs` section, `$ref` for tables and FK references, proper `required` arrays, `additionalProperties: false`, and column descriptions
+- 8 new Drizzle generator unit tests (basic columns, nullable, primary key, FK references, dialects, indexes, boolean/timestamp types)
+- 6 new JSON Schema generator tests ($defs, $ref, required arrays, descriptions, FK $ref, empty schema)
+- `rune generate --list` now shows 5 generators
+- Registered Drizzle in generator.zig REGISTRY
 
 ### v0.48.0 (2026-07-29)
 

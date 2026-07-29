@@ -2,4 +2,4 @@
 order_id *
 product_id *
 quantity n * =1
-price 10, 2 *
+price 10,2 *

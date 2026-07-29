@@ -2,13 +2,14 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "base",
   "type": "object",
-  "properties": {
+  "$defs": {
     "post": {
       "type": "object",
       "properties": {
         "title": {"type":"string"}
       },
-      "required": ["title"]
+      "required": ["title"],
+      "additionalProperties": false
     },
     "comment": {
       "type": "object",
@@ -16,7 +17,13 @@
         "post_id": {"type":"integer"},
         "body": {"type":"string"}
       },
-      "required": []
+      "required": [],
+      "additionalProperties": false
     }
-  }
+  },
+  "properties": {
+    "post": { "$ref": "#/$defs/post" },
+    "comment": { "$ref": "#/$defs/comment" }
+  },
+  "required": ["post", "comment"]
 }

@@ -66,6 +66,7 @@ comptime {
     _ = @import("generators/sql_ddl_test.zig");
     _ = @import("generators/prisma_test.zig");
     _ = @import("generators/docs_test.zig");
+    _ = @import("generators/drizzle_test.zig");
     // utils
     _ = @import("utils/edit_distance.zig");
 }
