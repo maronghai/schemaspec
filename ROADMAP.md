@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.41.0 (2026-07-29)
+**Current version**: 0.42.0 (2026-07-29)
 
 ---
 
@@ -183,6 +183,14 @@ These are ongoing architectural improvements to pursue alongside feature work.
 ---
 
 ## Completed
+
+### v0.42.0 (2026-07-29)
+
+- Fixed buffer overflow risk in `reverse/map.zig` — added bounds checking for decimal/numeric parameterized type patterns
+- Extracted `hasChanges()` method on `SchemaDiff` — eliminates 3x duplicated check blocks in `pipeline/diff.zig`
+- Added `rune generate` subcommand with JSON Schema generator support
+- Added `rune generate --list` to show available generators
+- Added 8 new unit tests (types_test.zig: 3, map_test.zig: 2, existing tests updated)
 
 ### v0.41.0 (2026-07-29)
 

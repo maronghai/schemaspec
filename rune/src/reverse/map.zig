@@ -50,6 +50,7 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
         var j: usize = 0;
         for (inner) |ch| {
             if (ch != ' ') {
+                if (j >= 16) return .{ .sym = t, .omit = false };
                 sbuf.buf[j] = ch;
                 j += 1;
             }
@@ -66,6 +67,7 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
         var j: usize = 0;
         for (inner) |ch| {
             if (ch != ' ') {
+                if (j >= 16) return .{ .sym = t, .omit = false };
                 sbuf.buf[j] = ch;
                 j += 1;
             }

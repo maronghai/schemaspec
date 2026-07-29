@@ -57,6 +57,11 @@ pub const SchemaDiff = struct {
     table_diffs: []const TableDiff,
     dropped_tables: [][]const u8,
     view_diffs: []const ViewDiff,
+
+    /// Returns true if any tables were dropped, any table diffs exist, or any view diffs exist.
+    pub fn hasChanges(self: SchemaDiff) bool {
+        return self.dropped_tables.len > 0 or self.table_diffs.len > 0 or self.view_diffs.len > 0;
+    }
 };
 
 pub const TableDiff = struct {

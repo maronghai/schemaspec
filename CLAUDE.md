@@ -52,6 +52,8 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune docs schema.ss                   # Generate Markdown documentation
 ./rune/zig-out/bin/rune diff old.ss new.ss --format sarif # SARIF diff output
 ./rune/zig-out/bin/rune diff old.ss new.ss --check       # CI gate (exit 1 if differences)
+./rune/zig-out/bin/rune generate json-schema schema.ss   # Generate JSON Schema
+./rune/zig-out/bin/rune generate --list                  # List available generators
 ```
 
 ## Architecture

@@ -15,6 +15,7 @@ pub const Command = union(enum) {
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
+    generate: struct { generator: []const u8, input: ?[]const u8, output: ?[]const u8, list: bool },
     version,
     help,
 };
@@ -215,6 +216,23 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         return .{ .dialect = dialect, .target = target, .command = .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
+    if (std.mem.eql(u8, sub, "generate")) {
+        var want_list = false;
+        var generator: ?[]const u8 = null;
+        var input: ?[]const u8 = null;
+        var j: usize = 1;
+        while (j < fargs.len) : (j += 1) {
+            if (std.mem.eql(u8, fargs[j], "--list") or std.mem.eql(u8, fargs[j], "-l")) {
+                want_list = true;
+            } else if (generator == null) {
+                generator = fargs[j];
+            } else if (input == null) {
+                input = fargs[j];
+            }
+        }
+        return .{ .dialect = dialect, .target = target, .command = .{ .generate = .{ .generator = generator orelse "", .input = input, .output = parseOutputFlag(fargs, 1), .list = want_list } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+    }
+
     // Unknown command detection: if first arg looks like a command (no file extension)
     // but isn't recognized, report an error instead of silently treating it as input.
     if (fargs.len > 0 and std.mem.indexOfScalar(u8, fargs[0], '.') == null) {
@@ -258,6 +276,7 @@ const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "migrate", .args = "<old.ss> <new.ss>", .description = "Generate ALTER TABLE migration SQL" },
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
     .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
+    .{ .name = "generate", .args = "<generator> [input.ss]", .description = "Generate output in specified format" },
 };
 
 /// Check if a string is a known subcommand name.
@@ -301,6 +320,8 @@ pub fn printUsage() void {
     std.debug.print("  rune diff old.ss new.ss              # Show schema differences\n", .{});
     std.debug.print("  rune migrate old.ss new.ss -o m.sql  # Generate migration SQL\n", .{});
     std.debug.print("  rune reverse schema.sql -T           # Reverse-engineer with templates\n", .{});
+    std.debug.print("  rune generate json-schema schema.ss  # Generate JSON Schema from .ss\n", .{});
+    std.debug.print("  rune generate --list                 # Show available generators\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});

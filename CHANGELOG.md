@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.42.0] - 2026-07-29
+
+### Fixed
+- Fixed buffer overflow risk in `reverse/map.zig` — added bounds checking for decimal/numeric parameterized type patterns to prevent memory corruption with oversized type parameters
+
+### Added
+- `rune generate` subcommand — foundation for ORM/API schema output (Phase 3)
+- `rune generate json-schema` — generate JSON Schema (draft-07) from .ss files
+- `rune generate --list` — show available generators
+
+### Changed
+- Extracted `hasChanges()` method on `SchemaDiff` — eliminates 3x duplicated check blocks in `pipeline/diff.zig`
+
+### Testing
+- Added 3 unit tests for `diff/types_test.zig` (`hasChanges()` method)
+- Added 2 unit tests for `reverse/map_test.zig` (decimal/numeric overflow guard)
+- Updated 244 golden test files from version 0.38.0 to 0.42.0
+
 ## [0.40.0] - 2026-07-29
 
 ### Fixed

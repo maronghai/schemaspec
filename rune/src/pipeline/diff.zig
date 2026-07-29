@@ -33,8 +33,7 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, ne
     emitTraceAndStats(result, trace, stats);
     const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, dialect);
     if (check) {
-        const has_changes = result.schema_diff.dropped_tables.len > 0 or result.schema_diff.table_diffs.len > 0 or result.schema_diff.view_diffs.len > 0;
-        if (has_changes) {
+        if (result.schema_diff.hasChanges()) {
             try io_mod.writeOutput(io, diff_text, null, false);
             return error.CheckFailed;
         }
@@ -48,8 +47,7 @@ pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);
     if (check) {
-        const has_changes = result.schema_diff.dropped_tables.len > 0 or result.schema_diff.table_diffs.len > 0 or result.schema_diff.view_diffs.len > 0;
-        if (has_changes) return error.CheckFailed;
+        if (result.schema_diff.hasChanges()) return error.CheckFailed;
         return;
     }
     const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
@@ -61,8 +59,7 @@ pub fn handleDiffSarif(io: std.Io, alloc: std.mem.Allocator, old_path: []const u
     const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
     emitTraceAndStats(result, trace, stats);
     if (check) {
-        const has_changes = result.schema_diff.dropped_tables.len > 0 or result.schema_diff.table_diffs.len > 0 or result.schema_diff.view_diffs.len > 0;
-        if (has_changes) return error.CheckFailed;
+        if (result.schema_diff.hasChanges()) return error.CheckFailed;
         return;
     }
     const sarif_text = try diff_format.formatDiffSarif(alloc, result.schema_diff, dialect);

@@ -386,3 +386,13 @@ test "reverse: character varying with long N falls back to raw" {
     const r = reverseLookup("character varying(9999999999999999)", "col", false, false, .pg);
     try testing.expectEqualStrings("character varying(9999999999999999)", r.sym);
 }
+
+test "reverse: decimal with long P,S falls back to raw" {
+    const r = reverseLookup("decimal(99999999999999999,99999999999999999)", "col", false, false, .mysql);
+    try testing.expectEqualStrings("decimal(99999999999999999,99999999999999999)", r.sym);
+}
+
+test "reverse: numeric with long P,S falls back to raw" {
+    const r = reverseLookup("numeric(99999999999999999,99999999999999999)", "col", false, false, .pg);
+    try testing.expectEqualStrings("numeric(99999999999999999,99999999999999999)", r.sym);
+}

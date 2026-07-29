@@ -303,13 +303,22 @@ rune reverse -d pg schema.sql        # PostgreSQL input
 
 Handles: CREATE TABLE, PRIMARY KEY, indexes, FKs, CHECK constraints, ENUMs, views. Template extraction (`-t`) auto-discovers shared field patterns.
 
+### Generate
+
+```bash
+rune generate json-schema schema.ss   # → JSON Schema (draft-07)
+rune generate --list                  # → list available generators
+```
+
+Foundation for ORM/API schema output. Currently supports JSON Schema generation from `.ss` files. Future generators: Prisma, Drizzle, TypeORM, SQLAlchemy.
+
 ## Roadmap
 
 - [ ] LSP language server (completion, diagnostics, go-to-definition)
 - [ ] Oracle dialect support
 - [ ] Microsoft SQL Server dialect support
 - [ ] IBM Db2 dialect support
-- [ ] JSON Schema output for API layer generation
+- [x] JSON Schema output for API layer generation
 - [ ] Prisma/Drizzle schema output
 - [ ] Incremental migration (only changed tables)
 
