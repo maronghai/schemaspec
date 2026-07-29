@@ -97,9 +97,12 @@ rune/src/
   main.zig, cli.zig, io.zig         # CLI entry point + argument parsing
   generator.zig                      # generator registry (pluggable, dialect-aware)
   generators/                        # generator implementations
+    common.zig                       #   shared generator utilities
+    json_schema.zig                  #   JSON Schema output
     sql_ddl.zig                      #   SQL DDL output
     prisma.zig                       #   Prisma schema output
     docs.zig                         #   Markdown documentation output
+    drizzle.zig                      #   Drizzle ORM output
   pipeline/    forward.zig, reverse.zig, diff.zig, import_resolver.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig, sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig

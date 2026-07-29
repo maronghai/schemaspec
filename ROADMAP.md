@@ -2,89 +2,103 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.49.0 (2026-07-30)
+**Current version**: 0.50.0 (2026-07-30)
 
 ---
 
-## Phase 1: Core Solidification (v0.38 – v0.40)
+## Legend
 
-Polish the existing foundation before expanding outward.
+- [ ] Planned — not yet started
+- [x] Done — shipped in a release
+- Priority is top-down within each phase; phases overlap in practice
+- Version numbers are approximate — shipped when ready, not by deadline
+
+---
+
+## Phase 1: Core Solidification
+
+Polish the existing foundation. Most items shipped in v0.38–v0.40.
 
 ### Parser & Error Recovery
 
 - [ ] Synchronized multi-error recovery — report all syntax errors in one pass instead of fail-fast
 - [ ] Partial schema compilation — emit valid SQL for correct tables even when others have errors
 
-### Semantic Analysis
+### Semantic Analysis (all done)
 
-- [x] Cycle detection for template inheritance (detected in `semantic/template.zig` during resolution)
+- [x] Cycle detection for template inheritance
 - [x] FK target validation — error when inline FK references a non-existent table or column
-- [x] Unused template warning — warn when a template is defined but never referenced
+- [x] Unused template warning
 - [x] Duplicate column name detection within a table
-- [x] "Did you mean?" suggestions — Levenshtein edit distance for misspelled FK table references and index column references
+- [x] "Did you mean?" suggestions — Levenshtein edit distance for misspelled references
 
 ### Testing
 
 - [ ] Fuzz testing infrastructure — random `.ss` input to find parser crashes
-- [ ] Golden test parallelization — run suites concurrently in CI
-- [ ] Property-based tests for roundtrip fidelity (generate `.ss` → compile → reverse → compile → compare)
+- [ ] Property-based tests for roundtrip fidelity (`.ss` → compile → reverse → compile → compare)
+- [x] Golden test parallelization — `tests/test_parallel.sh` runs suites concurrently
 
 ---
 
-## Phase 2: Extended Dialect Support (v0.40 – v0.45)
+## Phase 2: Extended Dialect Support
 
-Add the most-requested enterprise SQL dialects.
+Add enterprise SQL dialects. Dialect infrastructure (capability flags) is done.
 
 ### New Dialect Backends
 
-- [ ] **Oracle** — `dialect/oracle.zig` (~250 lines). Challenges: no `AUTO_INCREMENT` (use sequences + triggers), `NUMBER` precision/scale semantics, `VARCHAR2`/`NVARCHAR2`, `CLOB`/`NCLOB`, tablespace clauses
-- [ ] **Microsoft SQL Server** — `dialect/mssql.zig` (~250 lines). Challenges: `IDENTITY` instead of `AUTO_INCREMENT`, `NVARCHAR`/`NTEXT`, schema-qualified names (`dbo.table`), `GO` batch separators
-- [ ] **IBM Db2** — `dialect/db2.zig` (~200 lines). Challenges: `GENERATED ALWAYS AS IDENTITY`, `BIGINT`/`SMALLINT` mapping, `FOR ROW ACCESS` control
+- [ ] **Oracle** — `dialect/oracle.zig` (~250 lines). No `AUTO_INCREMENT` (sequences + triggers), `NUMBER` precision/scale, `VARCHAR2`/`NVARCHAR2`, `CLOB`/`NCLOB`, tablespace clauses
+- [ ] **Microsoft SQL Server** — `dialect/mssql.zig` (~250 lines). `IDENTITY`, `NVARCHAR`/`NTEXT`, schema-qualified names (`dbo.table`), `GO` batch separators
+- [ ] **IBM Db2** — `dialect/db2.zig` (~200 lines). `GENERATED ALWAYS AS IDENTITY`, `BIGINT`/`SMALLINT`, `FOR ROW ACCESS`
 
-### Dialect Infrastructure
+### Dialect Infrastructure (done)
 
-- [x] Dialect capability flags — let each backend declare what it supports (SEQUENCES, SCHEMAS, TABLESPACES) so the parser can emit targeted warnings
+- [x] Dialect capability flags — 12 feature flags per backend
+- [x] Generator API dialect awareness
+- [x] CLI unknown-flag detection
+
+### Dialect Testing & Reverse
+
 - [ ] Dialect-specific test suites — `tests/test_oracle.sh`, `tests/test_mssql.sh`, `tests/test_db2.sh`
-- [ ] `rune reverse --dialect oracle` — dialect-aware reverse engineering for each new backend
+- [ ] `rune reverse --dialect oracle` — dialect-aware reverse engineering per backend
 
 ---
 
-## Phase 3: ORM & API Schema Output (v0.45 – v0.50)
+## Phase 3: ORM & API Schema Output
 
 Bridge the gap between database schema and application code.
 
 ### ORM Generators
 
-- [x] `rune generate prisma schema.ss` — output Prisma schema files with models, fields, relations, and enums
-- [x] `rune generate drizzle schema.ss` — output Drizzle ORM TypeScript schema
-- [ ] `rune generate typeorm schema.ss` — output TypeORM entity classes
-- [ ] `rune generate sqlalchemy schema.ss` — output SQLAlchemy ORM models
-- [ ] `rune generate knex schema.ss` — output Knex migration files
+- [x] `rune generate prisma schema.ss`
+- [x] `rune generate drizzle schema.ss`
+- [ ] `rune generate typeorm schema.ss` — TypeORM entity classes
+- [ ] `rune generate sqlalchemy schema.ss` — SQLAlchemy ORM models
+- [ ] `rune generate knex schema.ss` — Knex migration files
 
 ### API Schema
 
-- [ ] `rune generate openapi schema.ss` — OpenAPI 3.1 spec with request/response schemas derived from tables
-- [ ] `rune generate graphql schema.ss` — GraphQL type definitions from tables
-- [x] `rune generate json-schema schema.ss` — enhanced JSON Schema output (currently partial, needs `definitions`, `$ref`, proper `required` arrays)
+- [ ] `rune generate openapi schema.ss` — OpenAPI 3.1 spec
+- [ ] `rune generate graphql schema.ss` — GraphQL type definitions
+- [x] `rune generate json-schema schema.ss` — `$defs`, `$ref`, proper `required` arrays
 
-### Generator Infrastructure
+### Generator Infrastructure (done)
 
 - [x] `rune generate --list` — show available generators
-- [x] Generator registry — pluggable `Generator` struct with `REGISTRY` array in `generator.zig`
-- [x] SQL DDL generator — `rune generate sql-ddl` wraps codegen for standalone use
-- [x] Markdown docs generator — `rune generate docs` generates documentation from TypedAst
-- [ ] Generator plugin system — allow user-defined generators via Zig plugins or WASM modules
-- [ ] Template overrides — let users customize generator output with `.rune-template` files
+- [x] Generator registry — pluggable `Generator` struct with `REGISTRY` array
+- [x] SQL DDL generator
+- [x] Markdown docs generator
+- [ ] Generator plugin system — user-defined generators via Zig plugins or WASM modules
+- [ ] Template overrides — `.rune-template` files for customizing generator output
 
 ---
 
-## Phase 4: Incremental & Live Workflows (v0.50 – v0.55)
+## Phase 4: Incremental & Live Workflows
 
 Move from batch compilation to interactive, incremental usage.
 
 ### Incremental Migration
 
-- [ ] `rune migrate --incremental old.ss new.ss` — only emit SQL for tables that actually changed
+- [ ] `rune migrate --incremental old.ss new.ss` — only emit SQL for changed tables
 - [ ] Migration file naming — `001_add_users.sql`, `002_add_posts.sql` with auto-sequencing
 - [ ] Migration dependency graph — detect and order dependent migrations
 - [ ] `rune migrate status` — compare migration files against current schema state
@@ -103,7 +117,7 @@ Move from batch compilation to interactive, incremental usage.
 
 ---
 
-## Phase 5: Developer Experience (v0.55 – v0.60)
+## Phase 5: Developer Experience
 
 Make Rune delightful to use day-to-day.
 
@@ -111,36 +125,36 @@ Make Rune delightful to use day-to-day.
 
 - [ ] `rune-lsp` — standalone language server binary
 - [ ] Completion — type symbols (`n`, `s32`, `m`), modifiers (`++`, `!`, `*`), keywords
-- [ ] Diagnostics — real-time error/warning display as you type
+- [ ] Diagnostics — real-time error/warning display
 - [ ] Go-to-definition — navigate from FK reference to target table/column
 - [ ] Hover — show SQL type equivalent for SS symbols
-- [ ] Code actions — quick fixes for common errors (add missing `++`, fix typo in symbol)
+- [ ] Code actions — quick fixes for common errors
 - [ ] Document symbols — outline view for tables, templates, views
 
 ### Editor Integration
 
-- [ ] VS Code extension — syntax highlighting, completion, diagnostics, commands
+- [ ] VS Code extension — syntax highlighting, completion, diagnostics
 - [ ] Neovim plugin — LSP-based with Treesitter grammar
 - [ ] JetBrains IDE plugin — IntelliJ-based schema editor
 
 ### CLI Improvements
 
-- [ ] `rune init` — scaffold a new project with directory structure and example schema
-- [ ] `rune playground` — open a web-based `.ss` editor with live compilation (WASM)
+- [ ] `rune init` — scaffold a new project with example schema
+- [ ] `rune playground` — web-based `.ss` editor with live compilation (WASM)
 - [ ] Shell completion scripts — `rune completions bash|zsh|fish|powershell`
-- [ ] `rune fmt` — auto-format `.ss` files (consistent spacing, ordering, comments)
-- [ ] colored output — syntax-highlighted SQL and diff output in terminal
+- [ ] `rune fmt` — auto-format `.ss` files
+- [ ] Colored output — syntax-highlighted SQL and diff output
 
 ---
 
-## Phase 6: Ecosystem & Community (v0.60+)
+## Phase 6: Ecosystem & Community
 
 Build the community and ecosystem around Rune.
 
 ### Distribution
 
-- [ ] Package managers — `brew install rune`, `scoop install rune`, `apt`/`yum` repos
-- [ ] npm package — `npx rune schema.ss` for Node.js workflows
+- [ ] Package managers — `brew install rune`, `scoop install rune`, `apt`/`yum`
+- [ ] npm package — `npx rune schema.ss`
 - [ ] Docker image — `ghcr.io/rune-lang/rune:latest`
 - [ ] Zig package manager — `build.zig.zon` for dependency consumption
 
@@ -148,34 +162,34 @@ Build the community and ecosystem around Rune.
 
 - [ ] Interactive tutorial — web-based walkthrough with live examples
 - [ ] Migration guide — from SQL DDL, Prisma, Knex to Rune `.ss`
-- [ ] Cookbook — common patterns (multi-tenant, soft delete, audit trail, tree structures)
+- [ ] Cookbook — common patterns (multi-tenant, soft delete, audit trail)
 - [ ] Video walkthroughs — schema design, migration, CI/CD integration
 
 ### Community
 
 - [ ] RFC process — formal proposal mechanism for language changes
-- [ ] Schema registry — shared template library (pagination, user auth, common patterns)
+- [ ] Schema registry — shared template library
 - [ ] Playground sharing — share `.ss` snippets via URL
 
 ---
 
 ## Architecture Targets
 
-These are ongoing architectural improvements to pursue alongside feature work.
+Ongoing improvements pursued alongside feature work.
 
 ### Performance
 
-- [ ] Streaming compilation — output SQL as soon as each table is resolved (currently waits for full AST)
+- [ ] Streaming compilation — output SQL as soon as each table is resolved
 - [ ] Parallel table compilation — compile independent tables concurrently
 - [ ] Memory-mapped file I/O — for large schema files (>10MB)
 - [ ] Benchmark CI gate — enforce no regressions beyond 10% (currently 20%)
 
 ### Code Quality
 
-- [x] Remove all `catch unreachable` in production code — replaced with proper error propagation (v0.39.0)
+- [x] Remove all `catch unreachable` in production code (v0.39.0)
 - [ ] Zero-allocation codegen path — reuse buffers across compilations
 - [ ] Audit all `@intCast` / `@enumFromInt` for safety in debug builds
-- [ ] Formalize IR versioning — schema for forward/backward compatibility across Rune versions
+- [ ] Formalize IR versioning — schema for forward/backward compatibility
 
 ### Platform
 
@@ -185,104 +199,95 @@ These are ongoing architectural improvements to pursue alongside feature work.
 
 ---
 
-## Completed
+## Release History
+
+### v0.50.0 (2026-07-30)
+
+- **DialectTypeMap refactoring** — `reverse_map.zig` now uses a `DialectTypeMap` struct instead of per-dialect named fields. Adding a new dialect no longer requires editing 88+ struct entries.
+- **Generator module relocation** — `json_schema.zig` moved from `src/` root to `generators/json_schema.zig` for consistent structure.
+- **Shared generator helpers** — new `generators/common.zig` with `hasEnumColumns()`, `findFkForColumn()`, `writeEnumValuesJoin()`, `tableHasNonPkIndexes()`, `tableHasCompositeFks()`.
+- Updated all callers: `reverse/map.zig`, `dialect/sqlite.zig`, `types/type_map_test.zig`, `reverse/map_test.zig`, `pipeline/forward.zig`.
+- 292 golden tests pass (MySQL 86, PG 85, SQLite 25, Reverse 21, Diff 12, Migration 34, Roundtrip 26, JSON Schema 3).
 
 ### v0.49.0 (2026-07-30)
 
-- Drizzle ORM generator — `rune generate drizzle` outputs TypeScript schema with pgTable/mysqlTable/sqliteTable, column modifiers, FK references, indexes, and enum types
-- Enhanced JSON Schema generator — added `$defs` section, `$ref` for tables and FK references, proper `required` arrays, `additionalProperties: false`, and column descriptions
-- 8 new Drizzle generator unit tests (basic columns, nullable, primary key, FK references, dialects, indexes, boolean/timestamp types)
-- 6 new JSON Schema generator tests ($defs, $ref, required arrays, descriptions, FK $ref, empty schema)
+- Drizzle ORM generator — TypeScript schema with pgTable/mysqlTable/sqliteTable, column modifiers, FK references, indexes, enum types
+- Enhanced JSON Schema generator — `$defs`, `$ref` for tables and FK references, proper `required` arrays, `additionalProperties: false`
+- 14 new generator unit tests
 - `rune generate --list` now shows 5 generators
-- Registered Drizzle in generator.zig REGISTRY
 
 ### v0.48.0 (2026-07-29)
 
-- Generator expansion — added 3 new generators: SQL DDL (`sql-ddl`), Prisma (`prisma`), Markdown docs (`docs`)
-- `rune generate --list` now shows 4 generators
+- 3 new generators: SQL DDL, Prisma, Markdown docs
 - main.zig error dispatch refactor — extracted `cliArgErrorMessage` helper
-- 16 new unit tests (3 generator test files × 4-5 tests each)
-- Updated 244 golden test files from 0.46.0 to 0.48.0
+- 16 new unit tests
+- Updated 244 golden test files
 
 ### v0.47.0 (2026-07-29)
 
-- Module splits — extracted `pipeline/import_resolver.zig` and `diff/migrate_helpers.zig`
-- Moved `emitCheckExpr` from `dialect/dialect.zig` to `codegen/codegen.zig`
-- Auto-computed parallel groups in `pass_manager.zig` (replaces hardcoded indices)
+- Module splits — `pipeline/import_resolver.zig`, `diff/migrate_helpers.zig`
+- Auto-computed parallel groups in `pass_manager.zig`
 - Added `grammar.ebnf`, `schema.md`, `type.md` documentation
-- Fixed README.md testing section (removed non-existent golden test references)
 
 ### v0.46.0 (2026-07-29)
 
-- CLI parseArgs refactor — split monolithic parser into subcommand-specific functions with GlobalFlags struct
-- Safe optional unwraps — replaced 3 unsafe `result.resolved.?` panics with explicit error returns
-- validate_indexes decomposition — extracted 3 helper functions from monolithic run()
+- CLI parseArgs refactor — subcommand-specific functions with GlobalFlags struct
+- Safe optional unwraps — 3 unsafe `result.resolved.?` panics → explicit errors
+- validate_indexes decomposition
 
 ### v0.45.0 (2026-07-29)
 
-- DialectCapability system — 12 feature flags per dialect backend, enabling feature-aware codegen and parser warnings
-- CompileConfig struct — replaced 13-parameter handleCompileRequest with named-field config struct
-- Generator API dialect awareness — generate() now receives dialect parameter for dialect-specific output
-- CLI unknown-flag detection — unrecognized --flags produce error with flag name
-- Allocator consistency — replaced page_allocator with arena/stack allocation in edit_distance, diagnostic, pass_manager
-- 5 new io.zig unit tests
-- Updated 247 golden test files from 0.44.0 to 0.45.0
+- DialectCapability system — 12 feature flags per dialect backend
+- CompileConfig struct — replaced 13-parameter `handleCompileRequest`
+- Generator API dialect awareness
+- CLI unknown-flag detection
+- Allocator consistency fixes
+- 5 new io.zig unit tests; updated 247 golden files
 
 ### v0.43.0 (2026-07-29)
 
-- Generator registry — pluggable `Generator` struct with `REGISTRY` array in `generator.zig`, replacing hardcoded dispatch in `main.zig`
-- Fixed memory leak in `detectConflicts()` — accepts `Allocator` parameter instead of using `page_allocator` directly
-- Fixed memory leak in `transitiveDependsOn()` — added `defer` cleanup for `BufSet` and `ArrayList`
-- Parallel golden test runner — `tests/test_parallel.sh` runs 12 test suites concurrently
-- Updated golden test files from version 0.42.0 to 0.43.0 (244 files)
+- Generator registry — pluggable `Generator` struct with `REGISTRY` array
+- Memory leak fixes in `detectConflicts()` and `transitiveDependsOn()`
+- Parallel golden test runner (`test_parallel.sh`)
 
 ### v0.42.0 (2026-07-29)
 
-- Fixed buffer overflow risk in `reverse/map.zig` — added bounds checking for decimal/numeric parameterized type patterns
-- Extracted `hasChanges()` method on `SchemaDiff` — eliminates 3x duplicated check blocks in `pipeline/diff.zig`
-- Added `rune generate` subcommand with JSON Schema generator support
-- Added `rune generate --list` to show available generators
-- Added 8 new unit tests (types_test.zig: 3, map_test.zig: 2, existing tests updated)
+- Buffer overflow fix in `reverse/map.zig`
+- Extracted `hasChanges()` on `SchemaDiff`
+- Added `rune generate` subcommand with JSON Schema generator
+- 8 new unit tests
 
 ### v0.41.0 (2026-07-29)
 
-- DiagnosticCollector error count caching — O(1) `errorCount()` instead of O(n) scan
-- Replaced `std.debug.panic` with proper error return in semantic analyzer pass constraint validation
-- Added doc comments to public APIs (io.zig, pipeline/diff.zig, pipeline/reverse.zig, codegen/codegen.zig, diff/engine.zig, diff/migrate.zig, reverse/codegen.zig)
-- Added 10 unit tests for `docs.zig` (documentation generator)
-- Added 18 unit tests for `diff/migrate_json.zig` (JSON migration output)
-- Total unit tests: 499 → 526
+- DiagnosticCollector error count caching
+- Replaced `std.debug.panic` with proper error return
+- Doc comments on public APIs
+- 28 new unit tests (docs + migrate_json); total 526
 
 ### v0.40.0 (2026-07-29)
 
-- Fixed memory leaks across diff subsystem — hash maps, ArrayLists, and intermediate allocations properly freed
-- Replaced `ArrayList.toOwnedSlice(alloc)` with safe `dupe + deinit` pattern in diff engine to prevent buffer leaks
-- Fixed `validate` vs `check` CLI behavior — `validate` always succeeds, `check` exits 1 on errors
-- Fixed redundant allocations in 8 production files — `aw.toOwnedSlice()` instead of `aw.toArrayList().toOwnedSlice(alloc)`
-- Fixed error message to include SARIF in unknown format error
-- Memory leaks reduced from 606 to 533 (73 fewer)
+- Memory leaks reduced 606 → 533 (73 fewer)
+- Fixed `validate` vs `check` CLI behavior
+- Redundant allocation fixes across 8 files
 
 ### v0.39.0 (2026-07-29)
 
-- Unused template warning — emit warning when a template is defined but never referenced by any table or other template
-- "Did you mean?" suggestions — Levenshtein edit distance for misspelled FK table references and index column references
-- Fixed `catch unreachable` in pass_manager.zig and validate_template_types.zig
-- Added `utils/edit_distance.zig` with Levenshtein distance and closest-match suggestion
-- Extended PassContext with `template_refs` for unused template tracking
-- 15 new unit tests (484 → 499 total)
+- Unused template warning
+- "Did you mean?" suggestions (Levenshtein edit distance)
+- Fixed `catch unreachable` in pass_manager and validate_template_types
+- 15 new unit tests (484 → 499)
 
 ### v0.38.0 (2026-07-28)
 
-- Fixed ast_visitor_test.zig broken callbacks + memory leaks (24 fails → 23, 592 leaks → 564)
-- Fixed FK rename buffer overflow (dynamic allocation instead of fixed [8])
-- Fixed PG ALTER TABLE index emission (standalone CREATE INDEX instead of comment)
-- Fixed FK constraint name separator in MySQL/PostgreSQL
+- Fixed ast_visitor_test callbacks + memory leaks
+- FK rename buffer overflow fix
+- PG ALTER TABLE index emission fix
 
 ### v0.37.0 (2026-07-28)
 
 - Fixed colocated test compilation (72 errors)
-- Added `--json-errors` flag for CI/CD integration
-- Added `rune check` subcommand
+- `--json-errors` flag
+- `rune check` subcommand
 
 ### v0.36.0 (2026-07-28)
 
@@ -295,7 +300,7 @@ These are ongoing architectural improvements to pursue alongside feature work.
 
 - Re-enabled colocated test files
 - Fixed 9 compilation errors across test files
-- Added `tests.zig` module index
+- `tests.zig` module index
 
 ### v0.34.0 (2026-07-27)
 
@@ -351,12 +356,3 @@ These are ongoing architectural improvements to pursue alongside feature work.
 - Template system
 - CHECK constraints, indexes, foreign keys
 - Custom types
-
----
-
-## Legend
-
-- [ ] Planned — not yet started
-- [x] Done — shipped in a release
-- Priority is top-down within each phase, but phases overlap in practice
-- Version numbers are approximate — shipped when ready, not by deadline

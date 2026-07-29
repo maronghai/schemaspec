@@ -63,9 +63,9 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ```
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig                           # CLI + glue
-  bench.zig, json_schema.zig, ast_visitor.zig                    # standalone modules
+  bench.zig, ast_visitor.zig                                       # standalone modules
   generator.zig                                                   # generator registry (pluggable)
-  generators/      sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig  # generator implementations (4)
+  generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig  # generator implementations (6)
   tests.zig                                                       # colocated test index (51 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig        # pipeline orchestration
@@ -177,7 +177,7 @@ rune/src/
 | | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
 | | `type_resolver.zig` | TypeResolver namespace — ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
-| | `reverse_map.zig` | Shared REVERSE_MAP data (46 entries) + ReverseMapping struct (canonical location) |
+| | `reverse_map.zig` | Shared REVERSE_MAP data (46 entries) + ReverseMapping struct with DialectTypeMap (canonical location) |
 | `semantic/` | `analyzer.zig` | SemanticAnalyzer + diagnosticTrace |
 | | `pass_manager.zig` | PassContext + SemanticPass + DEFAULT_PASSES + detectConflicts + getParallelGroups |
 | | `trace.zig` | Shared AST trace formatting |
@@ -188,7 +188,7 @@ rune/src/
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing |
 | | `bench.zig` | Benchmark entry point |
-| generators | `json_schema.zig` | JSON Schema generator (standalone, not in generators/) |
+| generators | `generators/json_schema.zig` | JSON Schema generator (draft-07) |
 | | `generators/sql_ddl.zig` | SQL DDL generator (wraps codegen) |
 | | `generators/prisma.zig` | Prisma schema generator |
 | | `generators/docs.zig` | Markdown documentation generator |

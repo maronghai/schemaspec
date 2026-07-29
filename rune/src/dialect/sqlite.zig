@@ -181,7 +181,7 @@ fn sqliteReverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: 
     // Check against REVERSE_MAP SQLite entries
     var found_sym: ?[]const u8 = null;
     for (reverse_map_data.REVERSE_MAP) |m| {
-        if (std.mem.eql(u8, upper_t, m.sqlite)) {
+        if (std.mem.eql(u8, upper_t, m.types.sqlite)) {
             found_sym = m.sym;
             break;
         }

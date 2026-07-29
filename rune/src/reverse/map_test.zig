@@ -361,9 +361,9 @@ test "data: every entry has non-empty sym" {
 
 test "data: every entry has non-empty mysql/pg/sqlite" {
     for (REVERSE_MAP) |m| {
-        try testing.expect(m.mysql.len > 0);
-        try testing.expect(m.pg.len > 0);
-        try testing.expect(m.sqlite.len > 0);
+        try testing.expect(m.types.mysql.len > 0);
+        try testing.expect(m.types.pg.len > 0);
+        try testing.expect(m.types.sqlite.len > 0);
     }
 }
 

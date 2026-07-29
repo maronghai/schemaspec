@@ -44,7 +44,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
 - `type_map.zig`: Helper functions (`lookupCustomType`, `isNumericSymType`, etc.) + `SqlType` re-export
 - `type_registry.zig`: SS symbol → `SqlType` direct mapping (`lookupSqlTypeDirect`) and reverse lookup. 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
-- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (46 entries) + `ReverseMapping` struct. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
+- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (46 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
 ### Extracted Sub-Modules
 
@@ -384,16 +384,16 @@ No code changes needed — users define types in `.ss` files. For built-in suppo
 1. Add variant to `SqlType` union in `sql_type.zig`
 2. Add case to `SqlType.toSql()` for dialect rendering
 3. Add entry to `CORE_TYPES` in `type_registry.zig` (for single-char symbols)
-4. Add to `REVERSE_MAP` in `reverse_map.zig` for reverse engineering support
+4. Add to `REVERSE_MAP` in `types/reverse_map.zig` for reverse engineering support
 5. Add unit tests and golden file tests
 
 ## Adding a New SQL Dialect
 
 1. Add variant to `Dialect` enum in `dialect_enum.zig`
 2. Add type mappings to `CORE_TYPES` in `type_registry.zig`
-3. Add reverse mappings to `REVERSE_MAP` in `reverse_map.zig`
+3. Add reverse mappings to `REVERSE_MAP` in `types/reverse_map.zig`
 4. Update `SqlType.toSql()` in `sql_type.zig` with new dialect case
-5. Create `DialectBackend` instance in `dialect_<name>.zig` (implement all 22 core methods + optional methods + 3 flags + set `capability` flags)
+5. Create `DialectBackend` instance in `dialect/<name>.zig` (implement 22 required methods + 7 optional methods + 3 behavioral flags + `capability` field)
 6. Register in `getBackend()` switch in `dialect.zig`
 7. Optionally implement `reverseLookup` for dialect-specific reverse engineering (e.g., SQLite's heuristic-based type disambiguation)
 8. Add golden file tests in `tests/`

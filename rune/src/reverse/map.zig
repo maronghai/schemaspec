@@ -26,7 +26,7 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
     var best_match: ?ReverseResult = null;
     var best_priority: u32 = std.math.maxInt(u32);
     for (REVERSE_MAP) |m| {
-        if (std.mem.eql(u8, t, m.mysql) or std.mem.eql(u8, t, m.pg)) {
+        if (std.mem.eql(u8, t, m.types.mysql) or std.mem.eql(u8, t, m.types.pg)) {
             if (m.rev_priority < best_priority) {
                 best_priority = m.rev_priority;
                 best_match = .{ .sym = m.sym, .omit = canOmitType(col_name, m.sym, is_auto_inc, is_default_ts), .score = m.confidence_base };

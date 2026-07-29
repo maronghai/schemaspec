@@ -24,7 +24,7 @@ pub const REGISTRY = [_]Generator{
     .{
         .name = "json-schema",
         .description = "JSON Schema (draft-07) from .ss schema",
-        .generate = @import("json_schema.zig").generate,
+        .generate = @import("generators/json_schema.zig").generate,
     },
     .{
         .name = "sql-ddl",

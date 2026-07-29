@@ -31,7 +31,7 @@ comptime {
     // io
     _ = @import("io_test.zig");
     // json_schema
-    _ = @import("json_schema_test.zig");
+    _ = @import("generators/json_schema_test.zig");
     // parser
     _ = @import("parser/tokenizer_test.zig");
     _ = @import("parser/parser_test.zig");

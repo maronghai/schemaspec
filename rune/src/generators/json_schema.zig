@@ -1,6 +1,6 @@
 const std = @import("std");
-const typed_ast = @import("types/typed_ast.zig");
-const utils = @import("utils.zig");
+const typed_ast = @import("../types/typed_ast.zig");
+const utils = @import("../utils.zig");
 const Writer = std.Io.Writer;
 
 // ─── JSON Schema Generator ──────────────────────────────────────
@@ -16,7 +16,7 @@ const Writer = std.Io.Writer;
 //   Enum values → enum array or $ref to named definition
 //   FK columns → $ref to referenced table's definition
 
-pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import("dialect/enum.zig").Dialect) ![]const u8 {
+pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import("../dialect/enum.zig").Dialect) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
@@ -113,13 +113,14 @@ fn writeColumnProp(alloc: std.mem.Allocator, w: *Writer, col: typed_ast.TypedCol
     try w.print("        \"{s}\": ", .{col.name});
 
     // Check if this column has an FK reference — emit $ref
-    var fk_ref_table: ?[]const u8 = null;
-    for (table.fks) |fk| {
-        if (fk.fields.len == 1 and std.mem.eql(u8, fk.fields[0], col.name)) {
-            fk_ref_table = fk.ref_table;
-            break;
+    const fk_ref_table: ?[]const u8 = blk: {
+        for (table.fks) |fk| {
+            if (fk.fields.len == 1 and std.mem.eql(u8, fk.fields[0], col.name)) {
+                break :blk fk.ref_table;
+            }
         }
-    }
+        break :blk null;
+    };
 
     if (fk_ref_table) |ref_table| {
         // FK column: emit $ref to referenced table with type wrapper
