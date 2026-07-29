@@ -309,11 +309,12 @@ Handles: CREATE TABLE, PRIMARY KEY, indexes, FKs, CHECK constraints, ENUMs, view
 rune generate json-schema schema.ss   # → JSON Schema (draft-07)
 rune generate sql-ddl schema.ss       # → SQL DDL (CREATE TABLE)
 rune generate prisma schema.ss        # → Prisma schema
+rune generate drizzle schema.ss       # → Drizzle ORM TypeScript schema
 rune generate docs schema.ss          # → Markdown documentation
 rune generate --list                  # → list available generators
 ```
 
-4 built-in generators: JSON Schema, SQL DDL, Prisma, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
+5 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
 
 ## Roadmap
 

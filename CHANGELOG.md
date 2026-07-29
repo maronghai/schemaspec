@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.49.0] - 2026-07-30
+
+### Added
+- **Drizzle ORM generator** (`rune generate drizzle`) — generates Drizzle ORM TypeScript schema from `.ss` files. Supports all 3 dialects (`pgTable`, `mysqlTable`, `sqliteTable`). Includes column modifiers (`.primaryKey()`, `.autoincrement()`, `.notNull()`, `.default()`, `.unique()`), FK `.references()`, `index()`/`uniqueIndex()`, and enum types (`pgEnum` for PG, const arrays for MySQL/SQLite).
+- **Enhanced JSON Schema generator** — added `$defs` section with reusable table schemas, `$ref` for FK column references, proper `required` arrays per table, `additionalProperties: false`, and table/column descriptions.
+- `rune generate --list` now shows 5 generators.
+- 14 new unit tests (8 Drizzle + 6 JSON Schema).
+
+### Changed
+- Updated 244 golden test files from version 0.48.0 to 0.49.0.
+- Fixed pre-existing golden test mismatches (decimal spacing, column names, trailing commas in PG migration output).
+
 ## [0.48.0] - 2026-07-29
 
 ### Added
