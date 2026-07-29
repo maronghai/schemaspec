@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.51.0 (2026-07-30)
+**Current version**: 0.52.0 (2026-07-30)
 
 ---
 
@@ -200,6 +200,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.52.0 (2026-07-30)
+
+- **Migration engine refactoring** — unified forward/rollback codepaths, eliminating ~180 lines of duplicated emit functions via shared `Direction` enum.
+- **Consolidated whitespace helpers** — merged duplicate `skipWhitespaceAndComments` / `skipWhitespaceAndCommentsNoSemicolon` into single function.
+- **Safety fixes** — replaced 3 unsafe `unreachable` statements in runtime code with proper error handling (`parse_index.zig`, `reverse/codegen.zig`).
 
 ### v0.51.0 (2026-07-30)
 

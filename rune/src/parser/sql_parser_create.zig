@@ -73,7 +73,7 @@ pub fn parseCreateTable(self: *sp.SqlParser) !SqlTable {
         if (self.peek() == ')') break;
 
         const save = self.pos;
-        self.skipWhitespaceAndCommentsNoSemicolon();
+        self.skipWhitespaceAndComments();
         if (self.peek() == ')') break;
         self.pos = save;
 

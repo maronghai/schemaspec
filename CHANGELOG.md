@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.52.0] - 2026-07-30
+
+### Changed
+- **Migration engine refactoring** — unified forward/rollback codepaths in `diff/migrate.zig`. Eliminated ~180 lines of duplicated emit functions by introducing a shared `Direction` enum and unified `emitFieldDiffs`, `emitIndexDiffs`, `emitFkDiffs`, `emitMetadataDiffs` functions that handle both directions via field selection.
+- **Consolidated whitespace helpers** — merged `skipWhitespaceAndComments` and `skipWhitespaceAndCommentsNoSemicolon` into a single function in `sql_parser_helpers.zig`. The "NoSemicolon" variant was identical in behavior.
+
+### Fixed
+- Replaced 3 unsafe `unreachable` statements in runtime code with proper error handling:
+  - `parse_index.zig` — `.primary_key => unreachable` → `return error.UnexpectedPrimaryKey` (2 occurrences)
+  - `reverse/codegen.zig` — `.primary_key => unreachable` → `else => {}` (already guarded by `continue`)
+
 ## [0.51.0] - 2026-07-30
 
 ### Added

@@ -401,10 +401,6 @@ pub const SqlParser = struct {
         sql_parser_helpers.skipWhitespaceAndComments(self);
     }
 
-    pub fn skipWhitespaceAndCommentsNoSemicolon(self: *SqlParser) void {
-        sql_parser_helpers.skipWhitespaceAndCommentsNoSemicolon(self);
-    }
-
     pub fn skipToSemicolon(self: *SqlParser) void {
         sql_parser_helpers.skipToSemicolon(self);
     }
