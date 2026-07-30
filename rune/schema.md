@@ -68,7 +68,7 @@ The `~` line creates reusable type aliases.
 
 Examples:
 ```
-~ uuid n mysql=char(36) pg=uuid sqlite=TEXT
+~ uuid n mysql=char(36) pg=uuid sqlite=TEXT mssql=UNIQUEIDENTIFIER
 ~ money m
 ~ status e('active','inactive','suspended')
 ~ password s256

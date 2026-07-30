@@ -33,7 +33,7 @@ cd rune && zig build                              # Build
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `-d`, `--dialect` | | Target SQL dialect: `mysql` (default), `pg`, `sqlite` |
+| `-d`, `--dialect` | | Target SQL dialect: `mysql` (default), `pg`, `sqlite`, `mssql` |
 | `--target` | | Output format: `sql` (default), `json-schema` |
 | `-o` | | Write output to file instead of stdout |
 | `-v`, `--version` | | Print version and exit |
@@ -109,7 +109,7 @@ rune/src/
   pipeline/    forward.zig, reverse.zig, diff.zig, import_resolver.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig, sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig
-  dialect/     dialect.zig, mysql.zig, pg.zig, sqlite.zig, common.zig
+  dialect/     dialect.zig, mysql.zig, pg.zig, sqlite.zig, mssql.zig, common.zig
   reverse/     codegen.zig, column.zig, map.zig, fk.zig, check.zig
   diff/        engine.zig, fields.zig, fks.zig, indexes.zig, migrate.zig, migrate_helpers.zig
   types/       ast.zig, resolved_ast.zig, typed_ast.zig, sql_type.zig, ...

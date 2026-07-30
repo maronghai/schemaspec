@@ -109,12 +109,14 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst, dialect: Dialect, has_enu
         .mysql => "mysqlTable",
         .pg => "pgTable",
         .sqlite => "sqliteTable",
+        .mssql => "mssqlTable",
     };
 
     const mod_name = switch (dialect) {
         .mysql => "mysql-core",
         .pg => "pg-core",
         .sqlite => "sqlite-core",
+        .mssql => "mssql-core",
     };
 
     try w.print("import {{ {s}", .{table_fn});
@@ -211,6 +213,7 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
         .mysql => "mysqlTable",
         .pg => "pgTable",
         .sqlite => "sqliteTable",
+        .mssql => "mssqlTable",
     };
 
     try w.print("export const {s} = {s}('{s}', {{\n", .{ table.name, table_fn, table.name });

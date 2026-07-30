@@ -103,9 +103,9 @@ rune/src/
 
 - **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`.
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
+- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
 
-- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. Ready for Phase 2 enterprise dialects (Oracle, MSSQL, Db2).
+- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. MSSQL dialect done; ready for Oracle and Db2.
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)`.
 
@@ -148,8 +148,8 @@ rune/src/
 | | `columns.zig` | Column definition rendering |
 | | `indexes.zig` | Inline and standalone index emission |
 | `dialect/` | `dialect.zig` | DialectBackend vtable + getBackend() + ReverseResult |
-| | `enum.zig` | Dialect enum (mysql, pg, sqlite) |
-| | `mysql.zig`, `pg.zig`, `sqlite.zig` | Per-dialect backend implementations |
+| | `enum.zig` | Dialect enum (mysql, pg, sqlite, mssql) |
+| | `mysql.zig`, `pg.zig`, `sqlite.zig`, `mssql.zig` | Per-dialect backend implementations |
 | | `common.zig` | Shared PG/SQLite dialect functions |
 | | `sqlite_hints.zig` | SQLite type affinity hints + column heuristics |
 | `reverse/` | `codegen.zig` | SQL → `.ss` orchestration |
@@ -177,7 +177,7 @@ rune/src/
 | | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
 | | `type_resolver.zig` | TypeResolver namespace — ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
-| | `reverse_map.zig` | Shared REVERSE_MAP data (46 entries) + ReverseMapping struct with DialectTypeMap (canonical location) |
+| | `reverse_map.zig` | Shared REVERSE_MAP data (45 entries) + ReverseMapping struct with DialectTypeMap (canonical location) |
 | `semantic/` | `analyzer.zig` | SemanticAnalyzer + diagnosticTrace |
 | | `pass_manager.zig` | PassContext + SemanticPass + DEFAULT_PASSES + detectConflicts + getParallelGroups |
 | | `trace.zig` | Shared AST trace formatting |

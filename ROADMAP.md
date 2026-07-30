@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.55.0 (2026-07-30)
+**Current version**: 0.56.0 (2026-07-30)
 
 ---
 
@@ -47,7 +47,7 @@ Add enterprise SQL dialects. Dialect infrastructure (capability flags) is done.
 ### New Dialect Backends
 
 - [ ] **Oracle** — `dialect/oracle.zig` (~250 lines). No `AUTO_INCREMENT` (sequences + triggers), `NUMBER` precision/scale, `VARCHAR2`/`NVARCHAR2`, `CLOB`/`NCLOB`, tablespace clauses
-- [ ] **Microsoft SQL Server** — `dialect/mssql.zig` (~250 lines). `IDENTITY`, `NVARCHAR`/`NTEXT`, schema-qualified names (`dbo.table`), `GO` batch separators
+- [x] **Microsoft SQL Server** — `dialect/mssql.zig` (~250 lines). `IDENTITY`, `NVARCHAR`/`NTEXT`, schema-qualified names (`dbo.table`), `GO` batch separators
 - [ ] **IBM Db2** — `dialect/db2.zig` (~200 lines). `GENERATED ALWAYS AS IDENTITY`, `BIGINT`/`SMALLINT`, `FOR ROW ACCESS`
 
 ### Dialect Infrastructure (done)
@@ -200,6 +200,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.56.0 (2026-07-30)
+
+- **Microsoft SQL Server dialect** (`dialect/mssql.zig`, ~260 lines) — complete MSSQL backend with square bracket identifier quoting, IDENTITY support, NVARCHAR/NVARCHAR(MAX)/VARBINARY(MAX)/DATETIME2/BIT type mappings, CHECK constraints for enums, schema-qualified names, and batch separator support.
+- **Dialect registration** — MSSQL added to `Dialect` enum, `getBackend()` switch, comptime validation, CLI `parseDialect` (accepts `mssql` or `sqlserver`), and help text.
+- **Reverse mapping** — `DialectTypeMap` extended with `mssql` field; 41 REVERSE_MAP entries updated with MSSQL type equivalents; reverse lookup includes MSSQL types.
+- **Drizzle ORM generator** — MSSQL support via `mssqlTable` / `mssql-core` imports.
+- **Golden tests** — 26 MSSQL golden tests in `tests/test_mssql.sh` covering all-types, modifiers, defaults, templates, FK, indexes, checks, enums, unsigned, inline indexes, generated columns, and views.
+- Test results: 597 pass, 14 fail, 3 crash (614 total); 525 leaks
 
 ### v0.55.0 (2026-07-30)
 

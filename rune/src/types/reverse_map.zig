@@ -5,7 +5,7 @@ const SqlType = sql_type_mod.SqlType;
 //
 // All entries that reverse codegen may encounter. Includes:
 //   - Core single-char entries (for SQLite which has lossy type affinity)
-//   - MySQL/PG variant types (tinyint, serial, jsonb, etc.)
+//   - MySQL/PG/MSSQL variant types (tinyint, serial, jsonb, nvarchar, etc.)
 //   - Passthrough types (uuid, real, float4, float8)
 //
 // Priority ordering: lower number = preferred when multiple SQL types
@@ -23,6 +23,7 @@ pub const DialectTypeMap = struct {
     mysql: []const u8 = "",
     pg: []const u8 = "",
     sqlite: []const u8 = "",
+    mssql: []const u8 = "",
 };
 
 pub const ReverseMapping = struct {
@@ -40,15 +41,15 @@ pub const ReverseMapping = struct {
 
 pub const REVERSE_MAP = [_]ReverseMapping{
     // ─── Core single-char symbols (used by SQLite reverse) ───
-    .{ .sym = "n", .types = .{ .mysql = "int", .pg = "integer", .sqlite = "INTEGER" }, .rev_priority = 10, .sql_type = .int, .confidence_base = 100 },
-    .{ .sym = "N", .types = .{ .mysql = "bigint", .pg = "bigint", .sqlite = "INTEGER" }, .rev_priority = 10, .sql_type = .bigint, .confidence_base = 100 },
-    .{ .sym = "M", .types = .{ .mysql = "decimal(20, 6)", .pg = "numeric(20, 6)", .sqlite = "NUMERIC" }, .rev_priority = 10, .sql_type = .{ .decimal = .{ .precision = 20, .scale = 6 } }, .confidence_base = 100 },
-    .{ .sym = "S", .types = .{ .mysql = "text", .pg = "text", .sqlite = "TEXT" }, .rev_priority = 10, .sql_type = .text, .confidence_base = 100 },
-    .{ .sym = "b", .types = .{ .mysql = "boolean", .pg = "boolean", .sqlite = "INTEGER" }, .rev_priority = 10, .sql_type = .boolean, .confidence_base = 100 },
-    .{ .sym = "B", .types = .{ .mysql = "blob", .pg = "bytea", .sqlite = "BLOB" }, .rev_priority = 10, .sql_type = .blob, .confidence_base = 100 },
-    .{ .sym = "j", .types = .{ .mysql = "json", .pg = "json", .sqlite = "TEXT" }, .rev_priority = 10, .sql_type = .json, .confidence_base = 100 },
-    .{ .sym = "d", .types = .{ .mysql = "date", .pg = "date", .sqlite = "TEXT" }, .rev_priority = 10, .sql_type = .date, .confidence_base = 100 },
-    .{ .sym = "t", .types = .{ .mysql = "datetime", .pg = "timestamp", .sqlite = "TEXT" }, .rev_priority = 10, .sql_type = .datetime, .confidence_base = 100 },
+    .{ .sym = "n", .types = .{ .mysql = "int", .pg = "integer", .sqlite = "INTEGER", .mssql = "INT" }, .rev_priority = 10, .sql_type = .int, .confidence_base = 100 },
+    .{ .sym = "N", .types = .{ .mysql = "bigint", .pg = "bigint", .sqlite = "INTEGER", .mssql = "BIGINT" }, .rev_priority = 10, .sql_type = .bigint, .confidence_base = 100 },
+    .{ .sym = "M", .types = .{ .mysql = "decimal(20, 6)", .pg = "numeric(20, 6)", .sqlite = "NUMERIC", .mssql = "NUMERIC(20, 6)" }, .rev_priority = 10, .sql_type = .{ .decimal = .{ .precision = 20, .scale = 6 } }, .confidence_base = 100 },
+    .{ .sym = "S", .types = .{ .mysql = "text", .pg = "text", .sqlite = "TEXT", .mssql = "NVARCHAR(MAX)" }, .rev_priority = 10, .sql_type = .text, .confidence_base = 100 },
+    .{ .sym = "b", .types = .{ .mysql = "boolean", .pg = "boolean", .sqlite = "INTEGER", .mssql = "BIT" }, .rev_priority = 10, .sql_type = .boolean, .confidence_base = 100 },
+    .{ .sym = "B", .types = .{ .mysql = "blob", .pg = "bytea", .sqlite = "BLOB", .mssql = "VARBINARY(MAX)" }, .rev_priority = 10, .sql_type = .blob, .confidence_base = 100 },
+    .{ .sym = "j", .types = .{ .mysql = "json", .pg = "json", .sqlite = "TEXT", .mssql = "NVARCHAR(MAX)" }, .rev_priority = 10, .sql_type = .json, .confidence_base = 100 },
+    .{ .sym = "d", .types = .{ .mysql = "date", .pg = "date", .sqlite = "TEXT", .mssql = "DATE" }, .rev_priority = 10, .sql_type = .date, .confidence_base = 100 },
+    .{ .sym = "t", .types = .{ .mysql = "datetime", .pg = "timestamp", .sqlite = "TEXT", .mssql = "DATETIME2" }, .rev_priority = 10, .sql_type = .datetime, .confidence_base = 100 },
 
     // ─── MySQL integer variants → reverse to "n" ───
     .{ .sym = "n", .types = .{ .mysql = "tinyint", .pg = "smallint", .sqlite = "INTEGER" }, .rev_priority = 20, .confidence_base = 85 },
@@ -73,8 +74,8 @@ pub const REVERSE_MAP = [_]ReverseMapping{
     .{ .sym = "n", .types = .{ .mysql = "serial", .pg = "serial", .sqlite = "INTEGER" }, .rev_priority = 20, .confidence_base = 85 },
     .{ .sym = "N", .types = .{ .mysql = "bigserial", .pg = "bigserial", .sqlite = "INTEGER" }, .rev_priority = 20, .confidence_base = 85 },
     .{ .sym = "i", .types = .{ .mysql = "smallint", .pg = "smallint", .sqlite = "INTEGER" }, .rev_priority = 10, .sql_type = .smallint, .confidence_base = 100 },
-    .{ .sym = "T", .types = .{ .mysql = "timestamp with time zone", .pg = "timestamptz", .sqlite = "TEXT" }, .rev_priority = 10, .sql_type = .timestamptz, .confidence_base = 100 },
-    .{ .sym = "U", .types = .{ .mysql = "uuid", .pg = "uuid", .sqlite = "TEXT" }, .rev_priority = 10, .sql_type = .uuid, .confidence_base = 100 },
+    .{ .sym = "T", .types = .{ .mysql = "timestamp with time zone", .pg = "timestamptz", .sqlite = "TEXT", .mssql = "DATETIMEOFFSET" }, .rev_priority = 10, .sql_type = .timestamptz, .confidence_base = 100 },
+    .{ .sym = "U", .types = .{ .mysql = "uuid", .pg = "uuid", .sqlite = "TEXT", .mssql = "UNIQUEIDENTIFIER" }, .rev_priority = 10, .sql_type = .uuid, .confidence_base = 100 },
     .{ .sym = "p", .types = .{ .mysql = "serial", .pg = "serial", .sqlite = "INTEGER" }, .rev_priority = 10, .sql_type = .serial, .confidence_base = 100 },
     .{ .sym = "J", .types = .{ .mysql = "jsonb", .pg = "jsonb", .sqlite = "TEXT" }, .rev_priority = 10, .sql_type = .jsonb, .confidence_base = 100 },
     .{ .sym = "I", .types = .{ .mysql = "inet", .pg = "inet", .sqlite = "TEXT" }, .rev_priority = 10, .sql_type = .inet, .confidence_base = 100 },
@@ -85,6 +86,12 @@ pub const REVERSE_MAP = [_]ReverseMapping{
     .{ .sym = "t", .types = .{ .mysql = "timestamp", .pg = "timestamp", .sqlite = "TEXT" }, .rev_priority = 15, .confidence_base = 90 },
     .{ .sym = "t", .types = .{ .mysql = "timestamp without time zone", .pg = "timestamp without time zone", .sqlite = "TEXT" }, .rev_priority = 25, .confidence_base = 80 },
     .{ .sym = "t", .types = .{ .mysql = "timestamp with time zone", .pg = "timestamp with time zone", .sqlite = "TEXT" }, .rev_priority = 25, .confidence_base = 80 },
+
+    // ─── MSSQL-specific types ───
+    .{ .sym = "n", .types = .{ .mssql = "TINYINT" }, .rev_priority = 20, .confidence_base = 85 },
+    .{ .sym = "n", .types = .{ .mssql = "SMALLINT" }, .rev_priority = 20, .confidence_base = 85 },
+    .{ .sym = "n", .types = .{ .mssql = "INT IDENTITY" }, .rev_priority = 15, .confidence_base = 90 },
+    .{ .sym = "t", .types = .{ .mssql = "SMALLDATETIME" }, .rev_priority = 20, .confidence_base = 85 },
 
     // ─── Passthrough types (not in Rune DSL, emitted as-is) ───
     .{ .sym = "uuid", .types = .{ .mysql = "uuid", .pg = "uuid", .sqlite = "TEXT" }, .rev_priority = 10, .confidence_base = 70 },

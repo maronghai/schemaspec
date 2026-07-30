@@ -44,7 +44,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
 - `type_map.zig`: Helper functions (`lookupCustomType`, `isNumericSymType`, etc.) + `SqlType` re-export
 - `type_registry.zig`: SS symbol → `SqlType` direct mapping (`lookupSqlTypeDirect`) and reverse lookup. 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
-- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (46 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
+- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (45 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
 ### Extracted Sub-Modules
 
@@ -339,7 +339,7 @@ Rune uses a three-layer type mapping system:
 1. **TypedAst IR layer**: Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 2. **TypeResolver namespace**: Stateless functions (`TypeResolver.resolve`, `TypeResolver.resolveColumn`) that take `Allocator` directly. No struct instantiation — eliminates `init` boilerplate and per-loop allocation overhead in migrate.zig.
 2. **DialectBackend vtable**: 23 core + 6 optional function pointers + 3 behavioral flags + 1 capability field cover all dialect differences. Adding a new dialect requires < 100 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect_common.zig:emitForeignKeyShared`.
-3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. Ready for Phase 2 enterprise dialects (Oracle, MSSQL, Db2).
+3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. MSSQL dialect done; ready for Oracle and Db2.
 4. **CompileConfig struct**: Replaces 13 positional parameters in `handleCompileRequest`. All fields have named defaults; callers specify only what they need. Improves readability and reduces parameter-ordering bugs.
 3. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
 4. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).
@@ -436,6 +436,7 @@ zig build bench -- bench/large.ss 5         # large schema
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 85 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 25 | Full pipeline |
+| MSSQL golden | `tests/test_mssql.sh` | 26 | Full pipeline |
 | Migrate golden | `tests/test_migrate.sh` | 34 | Diff + migration SQL |
 | Reverse golden | `tests/test_reverse.sh` | 15 | SQL → .ss |
 | Diff golden | `tests/test_diff.sh` | 12 | Schema comparison |
