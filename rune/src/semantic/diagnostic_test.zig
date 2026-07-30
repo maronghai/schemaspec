@@ -103,6 +103,36 @@ test "DiagnosticCollector: formatLsp produces LSP-compatible output" {
     try testing.expect(std.mem.indexOf(u8, lsp, "\"message\": \"unused variable\"") != null);
 }
 
+test "DiagnosticCollector: overflow stops at max_errors" {
+    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    dc.max_errors = 5;
+    // Push exactly 5 errors
+    var i: usize = 0;
+    while (i < 5) : (i += 1) {
+        dc.push(.{ .severity = .@"error", .line_no = i, .message = "err" });
+    }
+    try testing.expectEqual(@as(usize, 5), dc.errorCount());
+    try testing.expect(!dc.overflow);
+    // 6th error should trigger overflow
+    dc.push(.{ .severity = .@"error", .line_no = 5, .message = "overflow" });
+    try testing.expect(dc.overflow);
+    try testing.expectEqual(@as(usize, 5), dc.errorCount());
+    // Subsequent errors should be dropped
+    dc.push(.{ .severity = .@"error", .line_no = 6, .message = "dropped" });
+    try testing.expectEqual(@as(usize, 5), dc.errorCount());
+}
+
+test "DiagnosticCollector: warnings don't count toward max_errors" {
+    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    dc.max_errors = 2;
+    var i: usize = 0;
+    while (i < 10) : (i += 1) {
+        dc.push(.{ .severity = .warning, .line_no = i, .message = "warn" });
+    }
+    try testing.expect(!dc.overflow);
+    try testing.expectEqual(@as(usize, 0), dc.errorCount());
+}
+
 test "DiagnosticCollector: formatJson empty" {
     var dc = try diag.DiagnosticCollector.init(testing.allocator);
 

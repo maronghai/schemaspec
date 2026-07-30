@@ -11,6 +11,37 @@ pub const FkParseResult = struct {
     end_idx: usize,
 };
 
+/// Split a dotted reference like "table.f1.f2" into table and field parts.
+/// Returns owned allocations: table string and fields slice (each element is owned).
+/// Caller must free each field, then the fields slice, then the table.
+fn parseDottedRef(
+    alloc: std.mem.Allocator,
+    ref: []const u8,
+    trailing_dot_fallback: ?[]const u8,
+) !struct { table: []const u8, fields: []const []const u8 } {
+    var table: []const u8 = "";
+    var fields = try std.ArrayList([]const u8).initCapacity(alloc, 4);
+
+    if (std.mem.indexOfScalar(u8, ref, '.')) |dot| {
+        table = try alloc.dupe(u8, ref[0..dot]);
+        if (dot + 1 < ref.len) {
+            const rest = ref[dot + 1 ..];
+            var start: usize = 0;
+            while (start < rest.len) {
+                var end = start;
+                while (end < rest.len and rest[end] != '.') : (end += 1) {}
+                if (end > start) {
+                    try fields.append(alloc, try alloc.dupe(u8, rest[start..end]));
+                } else if (trailing_dot_fallback) |fb| {
+                    try fields.append(alloc, try alloc.dupe(u8, fb));
+                }
+                start = if (end < rest.len) end + 1 else rest.len;
+            }
+        }
+    }
+    return .{ .table = table, .fields = try fields.toOwnedSlice(alloc) };
+}
+
 /// Parse standalone FK: `> field_name ref_table[.ref_field] [actions]`
 /// or inline reconstructed FK from field line.
 pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
@@ -56,30 +87,58 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
 
     const ref_has_dot = tokens.len > ref_effective and std.mem.indexOfScalar(u8, tokens[ref_effective], '.') != null;
 
-    if (ref_has_dot) {
+    // Find first dot-containing token for compound FK support
+    var dot_tok_idx: ?usize = null;
+    {
+        var si: usize = if (has_sep) fi + 2 else fi + 1;
+        while (si < tokens.len) : (si += 1) {
+            if (std.mem.indexOfScalar(u8, tokens[si], '.') != null) {
+                dot_tok_idx = si;
+                break;
+            }
+        }
+    }
+
+    // For compound FKs, the effective reference is the first dot-containing token
+    const ref_compound = if (!ref_has_dot and dot_tok_idx != null) dot_tok_idx.? else ref_effective;
+    const ref_has_dot_final = tokens.len > ref_compound and std.mem.indexOfScalar(u8, tokens[ref_compound], '.') != null;
+
+    if (ref_has_dot_final) {
         // field table.field  or  table.field (inline ultra)
         if (ref_is_at_fi) {
             // Inline ultra: table.field — no local field
             const ref = line.tokens[ref_effective];
-            if (std.mem.indexOfScalar(u8, ref, '.')) |dot| {
-                ref_table = try alloc.dupe(u8, ref[0..dot]);
-                try ref_fields.append(alloc, try alloc.dupe(u8, ref[dot + 1 ..]));
-                const inferred = try std.fmt.allocPrint(alloc, "{s}_id", .{ref_table});
-                try local_fields.append(alloc, inferred);
+            const parsed = try parseDottedRef(alloc, ref, null);
+            ref_table = parsed.table;
+            for (parsed.fields) |f| {
+                try ref_fields.append(alloc, try alloc.dupe(u8, f));
             }
+            // Free parsed results after copying
+            for (parsed.fields) |f| alloc.free(f);
+            alloc.free(parsed.fields);
+            // Infer local field from ref_table (e.g. users.id → users_id)
+            const inferred = try std.fmt.allocPrint(alloc, "{s}_id", .{ref_table});
+            try local_fields.append(alloc, inferred);
         } else {
-            // Standard: field table.field
-            try local_fields.append(alloc, local_field_name);
-            const ref = line.tokens[ref_effective];
-            if (std.mem.indexOfScalar(u8, ref, '.')) |dot| {
-                ref_table = try alloc.dupe(u8, ref[0..dot]);
-                if (dot + 1 < ref.len) {
-                    try ref_fields.append(alloc, try alloc.dupe(u8, ref[dot + 1 ..]));
-                } else {
-                    // trailing dot: infer ref_field from local field name
-                    try ref_fields.append(alloc, local_field_name);
+            // Standard: field(s) table.field(s)
+            if (dot_tok_idx) |dti| {
+                // Compound: collect all local fields before the dot token
+                var li: usize = fi;
+                while (li < dti) : (li += 1) {
+                    try local_fields.append(alloc, try alloc.dupe(u8, line.tokens[li]));
                 }
+            } else if (fi < tokens.len) {
+                try local_fields.append(alloc, try alloc.dupe(u8, local_field_name));
             }
+            const ref = line.tokens[ref_compound];
+            const parsed = try parseDottedRef(alloc, ref, local_field_name);
+            ref_table = parsed.table;
+            for (parsed.fields) |f| {
+                try ref_fields.append(alloc, try alloc.dupe(u8, f));
+            }
+            // Free parsed results after copying
+            for (parsed.fields) |f| alloc.free(f);
+            alloc.free(parsed.fields);
         }
     } else if (ultra_no_dot) {
         // > table — ultra shorthand without dot (infer field = table_id, ref_field = id)
@@ -89,7 +148,7 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
         try local_fields.append(alloc, inferred);
     } else if (tokens.len > ref_effective) {
         // field_name ref_table (shorthand-no-dot)
-        try local_fields.append(alloc, local_field_name);
+        try local_fields.append(alloc, try alloc.dupe(u8, local_field_name));
         const ref = line.tokens[ref_effective];
         if (std.mem.indexOfScalar(u8, ref, '.')) |dot| {
             ref_table = try alloc.dupe(u8, ref[0..dot]);
@@ -113,7 +172,7 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
     }
 
     // Parse FK actions after reference (-S, -N, S, N)
-    const actions = try parseFkActions(alloc, tokens, ref_effective + 1);
+    const actions = try parseFkActions(alloc, tokens, ref_compound + 1);
 
     return .{
         .fields = try local_fields.toOwnedSlice(alloc),

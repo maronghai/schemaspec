@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.54.0 (2026-07-30)
+**Current version**: 0.55.0 (2026-07-30)
 
 ---
 
@@ -200,6 +200,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.55.0 (2026-07-30)
+
+- **Compound FK parsing** — multi-dot references (`projects.org_id.project_id`) now correctly split into table + individual fields. Multiple local fields before a dotted reference are supported.
+- **FK test memory leaks fixed** — `parse_fk_test.zig` now properly frees all inner string allocations via `freeFk` helper. All 9 FK tests pass with zero leaks.
+- **`parseDottedRef` helper** — extracted reusable function for splitting dotted references with trailing-dot fallback.
+- **DiagnosticCollector overflow tests** — new tests verify `max_errors` limit stops error recording and warnings don't count toward the limit.
+- Test results: 598 pass, 13 fail, 3 crash (614 total); 525 leaks (was 593/14/3/610/532)
 
 ### v0.54.0 (2026-07-30)
 
