@@ -58,7 +58,14 @@ pub fn main(init: std.process.Init) !void {
                 std.process.exit(1);
             },
             else => {
-                std.debug.print("error: {s}\n", .{@errorName(err)});
+                switch (err) {
+                    error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
+                    error.FileNotFound => std.debug.print("error: file not found\n", .{}),
+                    error.AccessDenied => std.debug.print("error: access denied\n", .{}),
+                    error.IsDir => std.debug.print("error: expected a file, got a directory\n", .{}),
+                    error.NotDir => std.debug.print("error: expected a directory, got a file\n", .{}),
+                    else => std.debug.print("error: {s}\n", .{@errorName(err)}),
+                }
             },
         }
         std.process.exit(1);

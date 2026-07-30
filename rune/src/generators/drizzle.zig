@@ -228,8 +228,8 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
     try w.writeAll("}");
 
     // Table callback for indexes and composite FK constraints
-    const has_indexes = tableHasNonPkIndexes(table);
-    const has_composite_fks = tableHasCompositeFks(table);
+    const has_indexes = common.tableHasNonPkIndexes(table);
+    const has_composite_fks = common.tableHasCompositeFks(table);
 
     if (has_indexes or has_composite_fks) {
         try w.writeAll(", (");
@@ -401,17 +401,4 @@ fn writeIndexDef(w: *Writer, idx: IndexDecl) !void {
 }
 
 // ─── Helpers ────────────────────────────────────────────────────
-
-fn tableHasNonPkIndexes(table: typed_ast.TypedTable) bool {
-    for (table.indexes) |idx| {
-        if (idx.kind != .primary_key) return true;
-    }
-    return false;
-}
-
-fn tableHasCompositeFks(table: typed_ast.TypedTable) bool {
-    for (table.fks) |fk| {
-        if (fk.fields.len > 1) return true;
-    }
-    return false;
-}
+// tableHasNonPkIndexes and tableHasCompositeFks are in generators/common.zig

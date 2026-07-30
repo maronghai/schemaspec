@@ -63,7 +63,10 @@ fn parseOutputFlag(args: []const []const u8, start: usize) ?[]const u8 {
     var j: usize = start;
     while (j < args.len) : (j += 1) {
         if (std.mem.eql(u8, args[j], "-o") and j + 1 < args.len) {
-            return args[j + 1];
+            const val = args[j + 1];
+            // Reject if value starts with '-' (likely a missing value)
+            if (val.len > 0 and val[0] == '-') return null;
+            return val;
         }
     }
     return null;

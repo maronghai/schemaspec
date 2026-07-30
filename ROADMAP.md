@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.56.0 (2026-07-30)
+**Current version**: 0.57.0 (2026-07-31)
 
 ---
 
@@ -200,6 +200,16 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.57.0 (2026-07-31)
+
+- **Fix `handleValidate` silent failure** — `rune validate` now prints "schema has errors" when the schema has semantic errors, instead of silently returning with no output. Exit code remains 0 (validate is permissive by design).
+- **Remove unused pass_manager parallelism code** — Removed `detectConflicts`, `hasConflict`, `dependsOn`, `transitiveDependsOn`, `getParallelGroups`, `canRunConcurrently`, and `ParallelGroup` from `semantic/pass_manager.zig`. These were never called from production code. Kept `validateDependencyOrder` which is used by the analyzer.
+- **Consolidate duplicate generator helpers** — Drizzle generator now uses `common.tableHasNonPkIndexes` and `common.tableHasCompositeFks` instead of local duplicates. Removed 3 unused functions from `generators/common.zig` (`hasEnumColumns`, `findFkForColumn`, `writeEnumValuesJoin`).
+- **Improve CLI error messages** — `main.zig` error dispatch now shows human-readable messages for common errors (`OutOfMemory`, `FileNotFound`, `AccessDenied`, `IsDir`, `NotDir`) instead of just the enum name.
+- **Separate benchmark timing** — `bench.zig` now measures tokenize and parse stages independently instead of combining them. Both stages are timed separately in `runPipelineTimed`.
+- **CLI `-o` flag validation** — `parseOutputFlag` now rejects values starting with `-` (indicating a missing output path).
+- Test results: 588 pass, 14 fail, 3 crash (605 total); 525 leaks
 
 ### v0.56.0 (2026-07-30)
 

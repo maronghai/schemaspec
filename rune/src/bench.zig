@@ -272,7 +272,9 @@ fn printRegressionDetails(current: StageTimes, baseline: Baseline) void {
 }
 
 /// Shared pipeline initialization: tokenize → parse. Returns the parsed AST.
-fn parseFile(alloc: std.mem.Allocator, file_data: []const u8) !ast_mod.Ast {
+fn parseFileTimed(alloc: std.mem.Allocator, file_data: []const u8, times: *StageTimes, io: std.Io) !ast_mod.Ast {
+    // Tokenize
+    var sw_start = std.Io.Clock.Timestamp.now(io, .awake);
     var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
     var line_it = std.mem.splitScalar(u8, file_data, '\n');
     while (line_it.next()) |line| {
@@ -280,20 +282,23 @@ fn parseFile(alloc: std.mem.Allocator, file_data: []const u8) !ast_mod.Ast {
     }
     const tok = tokenizer.Tokenizer.init(try lines.toOwnedSlice(alloc));
     const tokenized = try tok.tokenizeAll(alloc);
+    times.tokenize = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
+    // Parse
+    sw_start = std.Io.Clock.Timestamp.now(io, .awake);
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
     var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    return try p.parse(tokenized);
+    const tree = try p.parse(tokenized);
+    times.parse = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
+
+    return tree;
 }
 
 fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !StageTimes {
     var times = StageTimes{};
 
-    // Stage 1: Tokenize + Parse (combined — timing is coarse but avoids duplication)
-    var sw_start = std.Io.Clock.Timestamp.now(io, .awake);
-    const tree = try parseFile(alloc, file_data);
-    times.tokenize = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
-    times.parse = 0; // combined with tokenize
+    // Stage 1: Tokenize + Parse (separate timing)
+    const tree = try parseFileTimed(alloc, file_data, &times, io);
 
     // Stage 2: Semantic
     sw_start = std.Io.Clock.Timestamp.now(io, .awake);
@@ -313,6 +318,21 @@ fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8)
     times.codegen = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
     return times;
+}
+
+/// Shared pipeline initialization: tokenize → parse (no timing). Returns the parsed AST.
+fn parseFile(alloc: std.mem.Allocator, file_data: []const u8) !ast_mod.Ast {
+    var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
+    var line_it = std.mem.splitScalar(u8, file_data, '\n');
+    while (line_it.next()) |line| {
+        try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
+    }
+    const tok = tokenizer.Tokenizer.init(try lines.toOwnedSlice(alloc));
+    const tokenized = try tok.tokenizeAll(alloc);
+
+    var diagnostics = try diag.DiagnosticCollector.init(alloc);
+    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
+    return try p.parse(tokenized);
 }
 
 fn runPipeline(alloc: std.mem.Allocator, file_data: []const u8) ![]const u8 {
