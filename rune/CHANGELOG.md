@@ -4,6 +4,17 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.53.0] - 2026-07-30
+
+### Changed
+- **Shared default value formatting** — extracted `writeDefault` from 4 ORM generators (drizzle, knex, typeorm, sqlalchemy) into `generators/common.zig` with `DefaultFormatter` callback struct. ~120 lines of duplicated parsing logic consolidated into a single shared function.
+
+### Added
+- 22 new unit tests: `parse_recovery_test.zig` (16), `import_resolver_test.zig` (6)
+
+### Fixed
+- Replaced unsafe `@intFromPtr` pointer arithmetic in `parse_field.zig` with safe `std.mem.indexOf`
+
 ## [0.50.0] - 2026-07-30
 
 ### Changed

@@ -25,7 +25,7 @@ cd rune && zig build                              # Build
 | `migrate` | `rune migrate <old.ss> <new.ss>` | Generate ALTER TABLE migration SQL |
 | `reverse` | `rune reverse [input.sql]` | Reverse SQL DDL to `.ss` schema |
 | `docs` | `rune docs [input.ss]` | Generate Markdown documentation |
-| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`) |
+| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`) |
 
 ## Flags Reference
 
@@ -71,7 +71,7 @@ cd rune && zig build                              # Build
 ## Testing
 
 ```bash
-# Run all unit tests (49 colocated test files, 536+ tests)
+# Run all unit tests (51 colocated test files, 558+ tests)
 zig build test
 
 # Build only
@@ -97,12 +97,15 @@ rune/src/
   main.zig, cli.zig, io.zig         # CLI entry point + argument parsing
   generator.zig                      # generator registry (pluggable, dialect-aware)
   generators/                        # generator implementations
-    common.zig                       #   shared generator utilities
+    common.zig                       #   shared generator utilities + DefaultFormatter
     json_schema.zig                  #   JSON Schema output
     sql_ddl.zig                      #   SQL DDL output
     prisma.zig                       #   Prisma schema output
     docs.zig                         #   Markdown documentation output
     drizzle.zig                      #   Drizzle ORM output
+    typeorm.zig                      #   TypeORM entity output
+    sqlalchemy.zig                   #   SQLAlchemy ORM output
+    knex.zig                         #   Knex.js migration output
   pipeline/    forward.zig, reverse.zig, diff.zig, import_resolver.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig, sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig
