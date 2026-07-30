@@ -38,12 +38,14 @@ comptime {
     _ = @import("parser/parse_check_test.zig");
     _ = @import("parser/parse_fk_test.zig");
     _ = @import("parser/parse_index_test.zig");
+    _ = @import("parser/parse_recovery_test.zig");
     _ = @import("parser/parse_table_test.zig");
     _ = @import("parser/parse_template_test.zig");
     _ = @import("parser/sql_parser_test.zig");
     // pipeline
     _ = @import("pipeline/diff_test.zig");
     _ = @import("pipeline/forward_test.zig");
+    _ = @import("pipeline/import_resolver_test.zig");
     // reverse
     _ = @import("reverse/map_test.zig");
     _ = @import("reverse/column_test.zig");

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.52.0 (2026-07-30)
+**Current version**: 0.53.0 (2026-07-30)
 
 ---
 
@@ -200,6 +200,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.53.0 (2026-07-30)
+
+- **Shared default value formatting** — extracted `writeDefault` from 4 ORM generators (drizzle, knex, typeorm, sqlalchemy) into `generators/common.zig` with `DefaultFormatter` callback struct. ~120 lines of duplicated parsing logic consolidated into a single shared function.
+- **Parser safety** — replaced unsafe `@intFromPtr` pointer arithmetic in `parse_field.zig` with safe `std.mem.indexOf` for generated column expression extraction.
+- **New test coverage** — 22 unit tests for `parse_recovery.zig` (16) and `import_resolver.zig` (6), covering error recording, block boundary detection, line splitting, and base directory computation.
 
 ### v0.52.0 (2026-07-30)
 

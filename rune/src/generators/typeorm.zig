@@ -7,6 +7,7 @@ const Dialect = dialect_enum.Dialect;
 const FkDecl = ast_mod.FkDecl;
 const IndexDecl = ast_mod.IndexDecl;
 const Writer = std.Io.Writer;
+const common = @import("common.zig");
 
 // ─── TypeORM Generator ─────────────────────────────────────────
 // Maps Rune .ss schema to TypeORM entity classes (TypeScript).
@@ -286,40 +287,24 @@ fn tsType(col: typed_ast.TypedColumn) []const u8 {
     };
 }
 
-fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
-    _ = col;
-
-    if (std.mem.eql(u8, dflt, "true") or std.mem.eql(u8, dflt, "TRUE")) {
-        try w.writeAll("true");
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "false") or std.mem.eql(u8, dflt, "FALSE")) {
-        try w.writeAll("false");
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "null") or std.mem.eql(u8, dflt, "NULL")) {
-        try w.writeAll("null");
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "NOW()") or std.mem.eql(u8, dflt, "now()") or
-        std.mem.eql(u8, dflt, "CURRENT_TIMESTAMP"))
-    {
-        try w.writeAll("() => new Date()");
-        return;
-    }
-
-    if (std.fmt.parseInt(i64, dflt, 10)) |num| {
-        try w.print("{d}", .{num});
-        return;
-    } else |_| {}
-
-    if (std.fmt.parseFloat(f64, dflt)) |num| {
-        try w.print("{d}", .{num});
-        return;
-    } else |_| {}
-
+fn typeormFormatBoolTrue(w: *Writer) !void { try w.writeAll("true"); }
+fn typeormFormatBoolFalse(w: *Writer) !void { try w.writeAll("false"); }
+fn typeormFormatNull(w: *Writer) !void { try w.writeAll("null"); }
+fn typeormFormatNow(w: *Writer) !void { try w.writeAll("() => new Date()"); }
+fn typeormFormatString(w: *Writer, dflt: []const u8) !void {
     const trimmed = std.mem.trim(u8, dflt, "'");
     try w.print("'{s}'", .{trimmed});
+}
+
+fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
+    _ = col;
+    try common.writeFormattedDefault(w, dflt, .{
+        .boolTrue = typeormFormatBoolTrue,
+        .boolFalse = typeormFormatBoolFalse,
+        .nullValue = typeormFormatNull,
+        .now = typeormFormatNow,
+        .formatString = typeormFormatString,
+    });
 }
 
 // ─── Helpers ────────────────────────────────────────────────────

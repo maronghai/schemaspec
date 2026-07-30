@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.53.0] - 2026-07-30
+
+### Changed
+- **Shared default value formatting** — extracted duplicated `writeDefault` logic from 4 ORM generators (drizzle, knex, typeorm, sqlalchemy) into `generators/common.zig`. Introduced `DefaultFormatter` struct with language-specific callback function pointers (`boolTrue`, `boolFalse`, `nullValue`, `now`, `formatString`) and shared `writeFormattedDefault` function. Each generator now provides thin config wrappers instead of full parsing implementations.
+
+### Added
+- 22 new unit tests:
+  - `parser/parse_recovery_test.zig` (16 tests) — error recording, block boundary detection, `findNextBlockBoundary`, `locFromLine`
+  - `pipeline/import_resolver_test.zig` (6 tests) — line splitting, base directory computation, slice concatenation, `ImportContext` defaults
+
+### Fixed
+- Replaced unsafe `@intFromPtr` pointer arithmetic in `parse_field.zig:356-357` with safe `std.mem.indexOf` for generated column expression extraction
+
 ## [0.52.0] - 2026-07-30
 
 ### Changed
