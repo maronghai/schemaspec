@@ -246,7 +246,7 @@ fn emitStandaloneIndexes(self: *ReverseCodegen, w: anytype, table: sp.SqlTable) 
                 }
             },
             .fulltext => try w.print("@f {s}", .{idx.name}),
-            .primary_key => unreachable,
+            else => {}, // primary_key filtered above
         }
     }
 }

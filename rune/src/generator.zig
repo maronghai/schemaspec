@@ -24,7 +24,7 @@ pub const REGISTRY = [_]Generator{
     .{
         .name = "json-schema",
         .description = "JSON Schema (draft-07) from .ss schema",
-        .generate = @import("json_schema.zig").generate,
+        .generate = @import("generators/json_schema.zig").generate,
     },
     .{
         .name = "sql-ddl",
@@ -45,6 +45,21 @@ pub const REGISTRY = [_]Generator{
         .name = "drizzle",
         .description = "Drizzle ORM TypeScript schema from .ss schema",
         .generate = @import("generators/drizzle.zig").generate,
+    },
+    .{
+        .name = "typeorm",
+        .description = "TypeORM entity classes from .ss schema",
+        .generate = @import("generators/typeorm.zig").generate,
+    },
+    .{
+        .name = "sqlalchemy",
+        .description = "SQLAlchemy ORM models from .ss schema",
+        .generate = @import("generators/sqlalchemy.zig").generate,
+    },
+    .{
+        .name = "knex",
+        .description = "Knex.js migration files from .ss schema",
+        .generate = @import("generators/knex.zig").generate,
     },
 };
 

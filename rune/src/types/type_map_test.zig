@@ -101,9 +101,10 @@ fn forwardNameAlloc(dialect: Dialect, sql_type: sql_type_mod.SqlType) ![]const u
 
 fn expectForwardMatchesReverse(dialect: Dialect, forward_sql: []const u8, rev_entry: reverse_map.ReverseMapping) !void {
     const rev_sql = switch (dialect) {
-        .mysql => rev_entry.mysql,
-        .pg => rev_entry.pg,
-        .sqlite => rev_entry.sqlite,
+        .mysql => rev_entry.types.mysql,
+        .pg => rev_entry.types.pg,
+        .sqlite => rev_entry.types.sqlite,
+        .mssql => rev_entry.types.mssql,
     };
     try std.testing.expectEqualStrings(rev_sql, forward_sql);
 }

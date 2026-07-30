@@ -25,7 +25,7 @@ cd rune && zig build                              # Build
 | `migrate` | `rune migrate <old.ss> <new.ss>` | Generate ALTER TABLE migration SQL |
 | `reverse` | `rune reverse [input.sql]` | Reverse SQL DDL to `.ss` schema |
 | `docs` | `rune docs [input.ss]` | Generate Markdown documentation |
-| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`) |
+| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`) |
 
 ## Flags Reference
 
@@ -33,7 +33,7 @@ cd rune && zig build                              # Build
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `-d`, `--dialect` | | Target SQL dialect: `mysql` (default), `pg`, `sqlite` |
+| `-d`, `--dialect` | | Target SQL dialect: `mysql` (default), `pg`, `sqlite`, `mssql` |
 | `--target` | | Output format: `sql` (default), `json-schema` |
 | `-o` | | Write output to file instead of stdout |
 | `-v`, `--version` | | Print version and exit |
@@ -71,7 +71,7 @@ cd rune && zig build                              # Build
 ## Testing
 
 ```bash
-# Run all unit tests (49 colocated test files, 536+ tests)
+# Run all unit tests (51 colocated test files, 558+ tests)
 zig build test
 
 # Build only
@@ -97,13 +97,19 @@ rune/src/
   main.zig, cli.zig, io.zig         # CLI entry point + argument parsing
   generator.zig                      # generator registry (pluggable, dialect-aware)
   generators/                        # generator implementations
+    common.zig                       #   shared generator utilities + DefaultFormatter
+    json_schema.zig                  #   JSON Schema output
     sql_ddl.zig                      #   SQL DDL output
     prisma.zig                       #   Prisma schema output
     docs.zig                         #   Markdown documentation output
+    drizzle.zig                      #   Drizzle ORM output
+    typeorm.zig                      #   TypeORM entity output
+    sqlalchemy.zig                   #   SQLAlchemy ORM output
+    knex.zig                         #   Knex.js migration output
   pipeline/    forward.zig, reverse.zig, diff.zig, import_resolver.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig, sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig
-  dialect/     dialect.zig, mysql.zig, pg.zig, sqlite.zig, common.zig
+  dialect/     dialect.zig, mysql.zig, pg.zig, sqlite.zig, mssql.zig, common.zig
   reverse/     codegen.zig, column.zig, map.zig, fk.zig, check.zig
   diff/        engine.zig, fields.zig, fks.zig, indexes.zig, migrate.zig, migrate_helpers.zig
   types/       ast.zig, resolved_ast.zig, typed_ast.zig, sql_type.zig, ...

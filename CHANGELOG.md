@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.53.0] - 2026-07-30
+
+### Changed
+- **Shared default value formatting** — extracted duplicated `writeDefault` logic from 4 ORM generators (drizzle, knex, typeorm, sqlalchemy) into `generators/common.zig`. Introduced `DefaultFormatter` struct with language-specific callback function pointers (`boolTrue`, `boolFalse`, `nullValue`, `now`, `formatString`) and shared `writeFormattedDefault` function. Each generator now provides thin config wrappers instead of full parsing implementations.
+
+### Added
+- 22 new unit tests:
+  - `parser/parse_recovery_test.zig` (16 tests) — error recording, block boundary detection, `findNextBlockBoundary`, `locFromLine`
+  - `pipeline/import_resolver_test.zig` (6 tests) — line splitting, base directory computation, slice concatenation, `ImportContext` defaults
+
+### Fixed
+- Replaced unsafe `@intFromPtr` pointer arithmetic in `parse_field.zig:356-357` with safe `std.mem.indexOf` for generated column expression extraction
+
+## [0.52.0] - 2026-07-30
+
+### Changed
+- **Migration engine refactoring** — unified forward/rollback codepaths in `diff/migrate.zig`. Eliminated ~180 lines of duplicated emit functions by introducing a shared `Direction` enum and unified `emitFieldDiffs`, `emitIndexDiffs`, `emitFkDiffs`, `emitMetadataDiffs` functions that handle both directions via field selection.
+- **Consolidated whitespace helpers** — merged `skipWhitespaceAndComments` and `skipWhitespaceAndCommentsNoSemicolon` into a single function in `sql_parser_helpers.zig`. The "NoSemicolon" variant was identical in behavior.
+
+### Fixed
+- Replaced 3 unsafe `unreachable` statements in runtime code with proper error handling:
+  - `parse_index.zig` — `.primary_key => unreachable` → `return error.UnexpectedPrimaryKey` (2 occurrences)
+  - `reverse/codegen.zig` — `.primary_key => unreachable` → `else => {}` (already guarded by `continue`)
+
+## [0.51.0] - 2026-07-30
+
+### Added
+- **TypeORM generator** (`rune generate typeorm`) — generates TypeORM entity classes from `.ss` files. TypeScript decorators: `@Entity`, `@Column`, `@PrimaryGeneratedColumn`, `@ManyToOne`, `@JoinColumn`, `@Index`. Supports enum types via `@Column({ type: 'enum', enum: [...] })`. Nullable, default values, and composite index support.
+- **SQLAlchemy generator** (`rune generate sqlalchemy`) — generates SQLAlchemy ORM models from `.ss` files. Python declarative base with `Column()`, `ForeignKey`, `Index`, `UniqueConstraint`. Type mapping: int→Integer, varchar→String(N), text→Text, boolean→Boolean, datetime→DateTime, decimal→Numeric(precision, scale), enum→Enum.
+- **Knex.js generator** (`rune generate knex`) — generates Knex.js migration files from `.ss` files. `exports.up`/`exports.down` pattern with `createTable`, `table.increments`, `table.foreign().references()`, `table.index()`. Supports single and composite indexes/foreign keys.
+- 24 new unit tests (8 per generator).
+- `rune generate --list` now shows 8 generators.
+
+### Changed
+- Generator registry expanded from 5 to 8 generators.
+- All new generators registered in `REGISTRY` — no `main.zig` changes needed.
+
 ## [0.49.0] - 2026-07-30
 
 ### Added

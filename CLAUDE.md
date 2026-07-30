@@ -63,9 +63,9 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ```
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig                           # CLI + glue
-  bench.zig, json_schema.zig, ast_visitor.zig                    # standalone modules
+  bench.zig, ast_visitor.zig                                       # standalone modules
   generator.zig                                                   # generator registry (pluggable)
-  generators/      sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig  # generator implementations (4)
+  generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig  # generator implementations (9)
   tests.zig                                                       # colocated test index (51 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig        # pipeline orchestration
@@ -101,11 +101,11 @@ rune/src/
 
 ### Key Design Patterns
 
-- **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`.
+- **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`.
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
+- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
 
-- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. Ready for Phase 2 enterprise dialects (Oracle, MSSQL, Db2).
+- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. MSSQL dialect done; ready for Oracle and Db2.
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)`.
 
@@ -148,8 +148,8 @@ rune/src/
 | | `columns.zig` | Column definition rendering |
 | | `indexes.zig` | Inline and standalone index emission |
 | `dialect/` | `dialect.zig` | DialectBackend vtable + getBackend() + ReverseResult |
-| | `enum.zig` | Dialect enum (mysql, pg, sqlite) |
-| | `mysql.zig`, `pg.zig`, `sqlite.zig` | Per-dialect backend implementations |
+| | `enum.zig` | Dialect enum (mysql, pg, sqlite, mssql) |
+| | `mysql.zig`, `pg.zig`, `sqlite.zig`, `mssql.zig` | Per-dialect backend implementations |
 | | `common.zig` | Shared PG/SQLite dialect functions |
 | | `sqlite_hints.zig` | SQLite type affinity hints + column heuristics |
 | `reverse/` | `codegen.zig` | SQL → `.ss` orchestration |
@@ -177,7 +177,7 @@ rune/src/
 | | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
 | | `type_resolver.zig` | TypeResolver namespace — ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
-| | `reverse_map.zig` | Shared REVERSE_MAP data (46 entries) + ReverseMapping struct (canonical location) |
+| | `reverse_map.zig` | Shared REVERSE_MAP data (45 entries) + ReverseMapping struct with DialectTypeMap (canonical location) |
 | `semantic/` | `analyzer.zig` | SemanticAnalyzer + diagnosticTrace |
 | | `pass_manager.zig` | PassContext + SemanticPass + DEFAULT_PASSES + detectConflicts + getParallelGroups |
 | | `trace.zig` | Shared AST trace formatting |
@@ -188,15 +188,18 @@ rune/src/
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing |
 | | `bench.zig` | Benchmark entry point |
-| generators | `json_schema.zig` | JSON Schema generator (standalone, not in generators/) |
+| generators | `generators/json_schema.zig` | JSON Schema generator (draft-07) |
 | | `generators/sql_ddl.zig` | SQL DDL generator (wraps codegen) |
 | | `generators/prisma.zig` | Prisma schema generator |
 | | `generators/docs.zig` | Markdown documentation generator |
 | | `generators/drizzle.zig` | Drizzle ORM TypeScript schema generator |
+| | `generators/typeorm.zig` | TypeORM entity class generator |
+| | `generators/sqlalchemy.zig` | SQLAlchemy ORM model generator |
+| | `generators/knex.zig` | Knex.js migration file generator |
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 51 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 58 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. 14 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 85), `test_sqlite.sh` (SQLite, 25), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (15), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_roundtrip.sh` (26), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

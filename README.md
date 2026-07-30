@@ -26,7 +26,7 @@ Database schema DDL is verbose. A simple user table takes 15+ lines of SQL with 
 
 ## The Solution
 
-Rune is a minimal DSL that compresses database schema declarations into single-character symbols. One symbol = one SQL type. Modifiers fuse multiple keywords into postfix notation. Templates eliminate repetition. The compiler handles dialect differences — write once, generate MySQL/PostgreSQL/SQLite.
+Rune is a minimal DSL that compresses database schema declarations into single-character symbols. One symbol = one SQL type. Modifiers fuse multiple keywords into postfix notation. Templates eliminate repetition. The compiler handles dialect differences — write once, generate MySQL/PostgreSQL/SQLite/MSSQL.
 
 **Average compression: 3-5x per field** — common declarations shrink dramatically.
 
@@ -248,7 +248,7 @@ SS symbol → DialectBackend.lookupSym (per-dialect SqlType)
        reverse_map (SQL → SS, for reverse pipeline)
 ```
 
-17 core symbols, 3 dialect backends, lossless roundtrip for MySQL/PG, metadata-preserved roundtrip for SQLite. Adding a new dialect is a local change — implement `lookupSym` + `renderType` + `quoteChar` in one file.
+17 core symbols, 4 dialect backends, lossless roundtrip for MySQL/PG, metadata-preserved roundtrip for SQLite. Adding a new dialect is a local change — implement `lookupSym` + `renderType` + `quoteChar` in one file.
 
 ## Generators
 
@@ -273,6 +273,15 @@ rune schema.ss -d sqlite          # → SQLite DDL
 ```
 
 Type differences: `n` → `INTEGER`, `N` → `INTEGER`, `t` → `TEXT`, `U` → `TEXT`, `b` → `INTEGER`. SQLite emits `-- @sym` metadata comments for lossless roundtrip.
+
+### Microsoft SQL Server
+
+```bash
+rune schema.ss -d mssql            # → MSSQL DDL
+rune schema.ss -d sqlserver        # alias
+```
+
+Type differences: `b` → `BIT`, `t` → `DATETIME2`, `B` → `VARBARCHAR(MAX)`, `s` → `NVARCHAR(255)`. Identifiers use square brackets `[name]`.
 
 ### Migration
 
@@ -310,21 +319,27 @@ rune generate json-schema schema.ss   # → JSON Schema (draft-07)
 rune generate sql-ddl schema.ss       # → SQL DDL (CREATE TABLE)
 rune generate prisma schema.ss        # → Prisma schema
 rune generate drizzle schema.ss       # → Drizzle ORM TypeScript schema
+rune generate typeorm schema.ss       # → TypeORM entity classes
+rune generate sqlalchemy schema.ss    # → SQLAlchemy ORM models
+rune generate knex schema.ss          # → Knex.js migration files
 rune generate docs schema.ss          # → Markdown documentation
 rune generate --list                  # → list available generators
 ```
 
-5 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
+8 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
 
 ## Roadmap
 
 - [ ] LSP language server (completion, diagnostics, go-to-definition)
 - [ ] Oracle dialect support
-- [ ] Microsoft SQL Server dialect support
+- [x] Microsoft SQL Server dialect support
 - [ ] IBM Db2 dialect support
 - [x] JSON Schema output for API layer generation
 - [x] Prisma schema output
-- [ ] Drizzle/TypeORM/SQLAlchemy schema output
+- [x] Drizzle ORM schema output
+- [x] TypeORM entity class output
+- [x] SQLAlchemy ORM model output
+- [x] Knex.js migration file output
 - [ ] Incremental migration (only changed tables)
 
 ## Vision

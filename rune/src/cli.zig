@@ -264,6 +264,7 @@ fn parseDialect(s: []const u8) !dialect_enum.Dialect {
     if (std.mem.eql(u8, s, "mysql")) return .mysql;
     if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
     if (std.mem.eql(u8, s, "sqlite") or std.mem.eql(u8, s, "sq")) return .sqlite;
+    if (std.mem.eql(u8, s, "mssql") or std.mem.eql(u8, s, "sqlserver")) return .mssql;
     return error.UnknownDialect;
 }
 
@@ -449,14 +450,14 @@ fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Com
 
 pub fn printUsage() void {
     std.debug.print("Usage:\n", .{});
-    std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite] [--target sql|json-schema]\n", .{});
+    std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite|mssql] [--target sql|json-schema]\n", .{});
     std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
     inline for (COMMAND_REGISTRY) |cmd| {
         std.debug.print("  rune {s:<32}{s}\n", .{ cmd.name ++ " " ++ cmd.args, cmd.description });
     }
     std.debug.print("                                                       -T: extract shared templates (reverse only)\n", .{});
     std.debug.print("\nOptions:\n", .{});
-    std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite\n", .{});
+    std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
     std.debug.print("  --format        Output format: text (default), json, sarif (for diff/migrate)\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});

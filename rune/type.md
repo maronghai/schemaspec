@@ -1,6 +1,6 @@
 # Rune Type System Reference
 
-Rune uses single-character symbols to represent SQL types. Each symbol compiles to the appropriate type for the target dialect (MySQL, PostgreSQL, or SQLite).
+Rune uses single-character symbols to represent SQL types. Each symbol compiles to the appropriate type for the target dialect (MySQL, PostgreSQL, SQLite, or MSSQL).
 
 ## Core Type Symbols
 
@@ -79,7 +79,7 @@ Define reusable type aliases with the `~` directive:
 
 Examples:
 ```
-~ uuid n mysql=char(36) pg=uuid sqlite=TEXT
+~ uuid n mysql=char(36) pg=uuid sqlite=TEXT mssql=UNIQUEIDENTIFIER
 ~ money m
 ~ email s256
 ~ status e('active','inactive','suspended')

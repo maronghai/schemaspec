@@ -393,31 +393,6 @@ pub fn skipWhitespaceAndComments(self: *sp.SqlParser) void {
     }
 }
 
-pub fn skipWhitespaceAndCommentsNoSemicolon(self: *sp.SqlParser) void {
-    while (self.pos < self.src.len) {
-        self.skipSpacesAndNewlines();
-        if (self.pos >= self.src.len) break;
-        // Skip -- line comments
-        if (self.pos + 1 < self.src.len and self.src[self.pos] == '-' and self.src[self.pos + 1] == '-') {
-            while (self.pos < self.src.len and self.src[self.pos] != '\n') self.pos += 1;
-            continue;
-        }
-        // Skip /* block comments */
-        if (self.pos + 1 < self.src.len and self.src[self.pos] == '/' and self.src[self.pos + 1] == '*') {
-            self.pos += 2;
-            while (self.pos + 1 < self.src.len) {
-                if (self.src[self.pos] == '*' and self.src[self.pos + 1] == '/') {
-                    self.pos += 2;
-                    break;
-                }
-                self.pos += 1;
-            }
-            continue;
-        }
-        break;
-    }
-}
-
 pub fn skipToSemicolon(self: *sp.SqlParser) void {
     while (self.pos < self.src.len) {
         const c = self.src[self.pos];

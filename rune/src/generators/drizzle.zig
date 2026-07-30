@@ -7,6 +7,7 @@ const Dialect = dialect_enum.Dialect;
 const FkDecl = ast_mod.FkDecl;
 const IndexDecl = ast_mod.IndexDecl;
 const Writer = std.Io.Writer;
+const common = @import("common.zig");
 
 // ─── Drizzle ORM Generator ─────────────────────────────────────
 // Maps Rune .ss schema to Drizzle ORM TypeScript schema.
@@ -108,12 +109,14 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst, dialect: Dialect, has_enu
         .mysql => "mysqlTable",
         .pg => "pgTable",
         .sqlite => "sqliteTable",
+        .mssql => "mssqlTable",
     };
 
     const mod_name = switch (dialect) {
         .mysql => "mysql-core",
         .pg => "pg-core",
         .sqlite => "sqlite-core",
+        .mssql => "mssql-core",
     };
 
     try w.print("import {{ {s}", .{table_fn});
@@ -210,6 +213,7 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
         .mysql => "mysqlTable",
         .pg => "pgTable",
         .sqlite => "sqliteTable",
+        .mssql => "mssqlTable",
     };
 
     try w.print("export const {s} = {s}('{s}', {{\n", .{ table.name, table_fn, table.name });
@@ -332,40 +336,24 @@ fn columnConstructor(col: typed_ast.TypedColumn, dialect: Dialect) []const u8 {
     };
 }
 
-fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
-    _ = col;
-
-    if (std.mem.eql(u8, dflt, "true") or std.mem.eql(u8, dflt, "TRUE")) {
-        try w.writeAll("true");
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "false") or std.mem.eql(u8, dflt, "FALSE")) {
-        try w.writeAll("false");
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "null") or std.mem.eql(u8, dflt, "NULL")) {
-        try w.writeAll("null");
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "NOW()") or std.mem.eql(u8, dflt, "now()") or
-        std.mem.eql(u8, dflt, "CURRENT_TIMESTAMP"))
-    {
-        try w.writeAll("new Date()");
-        return;
-    }
-
-    if (std.fmt.parseInt(i64, dflt, 10)) |num| {
-        try w.print("{d}", .{num});
-        return;
-    } else |_| {}
-
-    if (std.fmt.parseFloat(f64, dflt)) |num| {
-        try w.print("{d}", .{num});
-        return;
-    } else |_| {}
-
+fn drizzleFormatBoolTrue(w: *Writer) !void { try w.writeAll("true"); }
+fn drizzleFormatBoolFalse(w: *Writer) !void { try w.writeAll("false"); }
+fn drizzleFormatNull(w: *Writer) !void { try w.writeAll("null"); }
+fn drizzleFormatNow(w: *Writer) !void { try w.writeAll("new Date()"); }
+fn drizzleFormatString(w: *Writer, dflt: []const u8) !void {
     const trimmed = std.mem.trim(u8, dflt, "'");
     try w.print("'{s}'", .{trimmed});
+}
+
+fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
+    _ = col;
+    try common.writeFormattedDefault(w, dflt, .{
+        .boolTrue = drizzleFormatBoolTrue,
+        .boolFalse = drizzleFormatBoolFalse,
+        .nullValue = drizzleFormatNull,
+        .now = drizzleFormatNow,
+        .formatString = drizzleFormatString,
+    });
 }
 
 // ─── FK Constraint Generation (composite) ──────────────────────

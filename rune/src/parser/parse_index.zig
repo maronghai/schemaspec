@@ -4,6 +4,8 @@ const ast_mod = @import("../types/ast.zig");
 const IndexDecl = ast_mod.IndexDecl;
 const IndexType = ast_mod.IndexType;
 
+pub const IndexParseError = error{UnexpectedPrimaryKey};
+
 /// Parse index declaration: `@ [u|f] [name] (field1, field2, ...)`
 /// Supports 3 forms:
 ///   1. Shorthand: `@ field1 field2` (auto-generate name)
@@ -47,7 +49,7 @@ pub fn parseIndex(alloc: std.mem.Allocator, line: tk.Line) !IndexDecl {
                     .regular => "idx_",
                     .unique => "uk_",
                     .fulltext => "ft_",
-                    .primary_key => unreachable,
+                    .primary_key => return error.UnexpectedPrimaryKey,
                 };
                 var name_buf = try std.ArrayList(u8).initCapacity(alloc, 64);
                 try name_buf.appendSlice(alloc, prefix);

@@ -1,10 +1,10 @@
 const std = @import("std");
 const js = @import("json_schema.zig");
-const typed_ast = @import("types/typed_ast.zig");
-const ast_mod = @import("types/ast.zig");
+const typed_ast = @import("../types/typed_ast.zig");
+const ast_mod = @import("../types/ast.zig");
 
 const testing = std.testing;
-const test_helpers = @import("semantic/test_helpers.zig");
+const test_helpers = @import("../semantic/test_helpers.zig");
 const makeTestColumn = test_helpers.makeTestColumn;
 
 fn makeTestTable(name: []const u8, columns: []const typed_ast.TypedColumn) typed_ast.TypedTable {

@@ -9,7 +9,7 @@ const typed_ast = @import("../types/typed_ast.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const diag = @import("../semantic/diagnostic.zig");
 const io_mod = @import("../io.zig");
-const json_schema = @import("../json_schema.zig");
+const json_schema = @import("../generators/json_schema.zig");
 const import_res = @import("import_resolver.zig");
 
 // ─── Forward Pipeline: .ss → SQL ─────────────────────────────

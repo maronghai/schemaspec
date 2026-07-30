@@ -353,8 +353,9 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
                 // Calculate raw substring from first token start to last token end
                 const first_tok = line.tokens[expr_start];
                 const last_tok = line.tokens[j - 1];
-                const first_off = @intFromPtr(first_tok.ptr) - @intFromPtr(line.raw.ptr);
-                const last_end = (@intFromPtr(last_tok.ptr) - @intFromPtr(line.raw.ptr)) + last_tok.len;
+                const first_off = std.mem.indexOf(u8, line.raw, first_tok) orelse 0;
+                const last_start = std.mem.indexOf(u8, line.raw, last_tok) orelse line.raw.len;
+                const last_end = last_start + last_tok.len;
                 generated_expr = line.raw[first_off..last_end];
             }
             i = j + 1; // skip past )

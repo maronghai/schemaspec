@@ -31,19 +31,21 @@ comptime {
     // io
     _ = @import("io_test.zig");
     // json_schema
-    _ = @import("json_schema_test.zig");
+    _ = @import("generators/json_schema_test.zig");
     // parser
     _ = @import("parser/tokenizer_test.zig");
     _ = @import("parser/parser_test.zig");
     _ = @import("parser/parse_check_test.zig");
     _ = @import("parser/parse_fk_test.zig");
     _ = @import("parser/parse_index_test.zig");
+    _ = @import("parser/parse_recovery_test.zig");
     _ = @import("parser/parse_table_test.zig");
     _ = @import("parser/parse_template_test.zig");
     _ = @import("parser/sql_parser_test.zig");
     // pipeline
     _ = @import("pipeline/diff_test.zig");
     _ = @import("pipeline/forward_test.zig");
+    _ = @import("pipeline/import_resolver_test.zig");
     // reverse
     _ = @import("reverse/map_test.zig");
     _ = @import("reverse/column_test.zig");
@@ -67,6 +69,9 @@ comptime {
     _ = @import("generators/prisma_test.zig");
     _ = @import("generators/docs_test.zig");
     _ = @import("generators/drizzle_test.zig");
+    _ = @import("generators/typeorm_test.zig");
+    _ = @import("generators/sqlalchemy_test.zig");
+    _ = @import("generators/knex_test.zig");
     // utils
     _ = @import("utils/edit_distance.zig");
 }
