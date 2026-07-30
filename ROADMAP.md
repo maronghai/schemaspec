@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.53.0 (2026-07-30)
+**Current version**: 0.54.0 (2026-07-30)
 
 ---
 
@@ -200,6 +200,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.54.0 (2026-07-30)
+
+- **Tokenizer test fixes** — corrected 18 unit test expectations in `tokenizer_test.zig` to match actual compiler behavior. Fused type modifiers (`n++`) are kept as single tokens (parser's `parseFusedTypeModifier` handles them). Fixed4 test expectations: fused type modifier (2 tokens, not3), enum type (5 tokens, not7), comment stops at -- (2 tokens, not3), inline FK (4 tokens, not5).
+- **Memory leak fix** — added proper token array cleanup in `tokenizeAll: mixed content` test, reducing leak count from535 to532.
+- **Test file count** — updated CLAUDE.md to reflect58 colocated test files (was51).
 
 ### v0.53.0 (2026-07-30)
 

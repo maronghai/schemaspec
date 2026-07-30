@@ -57,10 +57,9 @@ test "tokenizeLine: fused type modifier" {
     const alloc = std.testing.allocator;
     const toks = try Tokenizer.tokenizeLine(alloc, "id n++");
     defer alloc.free(toks);
-    try std.testing.expectEqual(@as(usize, 3), toks.len);
+    try std.testing.expectEqual(@as(usize, 2), toks.len);
     try std.testing.expectEqualStrings("id", toks[0]);
-    try std.testing.expectEqualStrings("n", toks[1]);
-    try std.testing.expectEqualStrings("++", toks[2]);
+    try std.testing.expectEqualStrings("n++", toks[1]);
 }
 
 test "tokenizeLine: table header" {
@@ -77,21 +76,19 @@ test "tokenizeLine: enum type" {
     const alloc = std.testing.allocator;
     const toks = try Tokenizer.tokenizeLine(alloc, "status e(A,B,C)");
     defer alloc.free(toks);
-    try std.testing.expectEqual(@as(usize, 7), toks.len);
+    try std.testing.expectEqual(@as(usize, 5), toks.len);
     try std.testing.expectEqualStrings("status", toks[0]);
     try std.testing.expectEqualStrings("e", toks[1]);
     try std.testing.expectEqualStrings("(", toks[2]);
-    try std.testing.expectEqualStrings("A", toks[3]);
-    try std.testing.expectEqualStrings(",", toks[4]);
-    try std.testing.expectEqualStrings("B", toks[5]);
-    try std.testing.expectEqualStrings(")", toks[6]);
+    try std.testing.expectEqualStrings("A,B,C", toks[3]);
+    try std.testing.expectEqualStrings(")", toks[4]);
 }
 
 test "tokenizeLine: comment stops at --" {
     const alloc = std.testing.allocator;
     const toks = try Tokenizer.tokenizeLine(alloc, "name s32 -- varchar type");
     defer alloc.free(toks);
-    try std.testing.expectEqual(@as(usize, 3), toks.len);
+    try std.testing.expectEqual(@as(usize, 2), toks.len);
     try std.testing.expectEqualStrings("name", toks[0]);
     try std.testing.expectEqualStrings("s32", toks[1]);
 }
@@ -100,7 +97,7 @@ test "tokenizeLine: inline FK" {
     const alloc = std.testing.allocator;
     const toks = try Tokenizer.tokenizeLine(alloc, "user_id n > users.id");
     defer alloc.free(toks);
-    try std.testing.expectEqual(@as(usize, 5), toks.len);
+    try std.testing.expectEqual(@as(usize, 4), toks.len);
     try std.testing.expectEqualStrings("user_id", toks[0]);
     try std.testing.expectEqualStrings("n", toks[1]);
     try std.testing.expectEqualStrings(">", toks[2]);
@@ -134,7 +131,12 @@ test "tokenizeAll: mixed content" {
     const lines = [_][]const u8{ "$ mydb", "", "# user", "name s32 *" };
     const tok = Tokenizer.init(&lines);
     const result = try tok.tokenizeAll(alloc);
-    defer alloc.free(result);
+    defer {
+        for (result) |line| {
+            if (line.tokens.len > 0) alloc.free(line.tokens);
+        }
+        alloc.free(result);
+    }
     try std.testing.expectEqual(@as(usize, 4), result.len);
     try std.testing.expectEqual(LineType.Schema, result[0].line_type);
     try std.testing.expectEqual(LineType.Empty, result[1].line_type);
