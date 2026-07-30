@@ -225,23 +225,23 @@ DialectBackend = struct {
 };
 ```
 
-| Method | MySQL | PostgreSQL | SQLite |
-|--------|-------|-----------|--------|
-| `quoteIdent` | backticks | double-quotes | double-quotes |
-| `emitIndex` | inline INDEX/UNIQUE/FULLTEXT | UNIQUE (...) inline | UNIQUE (...) inline |
-| `emitCreateDatabase` | CHARACTER SET | ENCODING | no-op |
-| `emitUnsigned` | `UNSIGNED` | no-op | no-op |
-| `emitTimestampModifier` | `DEFAULT CURRENT_TIMESTAMP [ON UPDATE ...]` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
-| `emitTableFooter` | `ENGINE=... CHARSET=... COMMENT='...'` | `);` | `);` |
-| `emitTableComment` | no-op (in footer) | `COMMENT ON TABLE` | `-- comment` |
-| `emitColumnComment` | no-op (inline) | `COMMENT ON COLUMN` | `-- table.col: comment` |
-| `emitAutoIncrement` | `AUTO_INCREMENT` | `GENERATED ALWAYS AS IDENTITY` | no-op |
-| `emitPrimaryKey` | `PRIMARY KEY` | `PRIMARY KEY` | `PRIMARY KEY [AUTOINCREMENT]` |
-| `emitInlineIndex` | `INDEX`/`UNIQUE INDEX` | `UNIQUE (...)` | `UNIQUE (...)` |
-| `emitStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` |
-| `emitInlineColumnComment` | `COMMENT '...'` | no-op (standalone) | no-op (standalone) |
-| `emitEnumTypeCheck` | no-op (native ENUM) | `CHECK (... IN (...))` | `CHECK (... IN (...))` |
-| `emitInlineColumnStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` |
+| Method | MySQL | PostgreSQL | SQLite | MSSQL |
+|--------|-------|-----------|--------|-------|
+| `quoteIdent` | backticks | double-quotes | double-quotes | square brackets |
+| `emitIndex` | inline INDEX/UNIQUE/FULLTEXT | UNIQUE (...) inline | UNIQUE (...) inline | INDEX/UNIQUE inline |
+| `emitCreateDatabase` | CHARACTER SET | ENCODING | no-op | no-op |
+| `emitUnsigned` | `UNSIGNED` | no-op | no-op | no-op |
+| `emitTimestampModifier` | `DEFAULT CURRENT_TIMESTAMP [ON UPDATE ...]` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
+| `emitTableFooter` | `ENGINE=... CHARSET=... COMMENT='...'` | `);` | `);` | `);` |
+| `emitTableComment` | no-op (in footer) | `COMMENT ON TABLE` | `-- comment` | no-op (sp_addextendedproperty) |
+| `emitColumnComment` | no-op (inline) | `COMMENT ON COLUMN` | `-- table.col: comment` | no-op (sp_addextendedproperty) |
+| `emitAutoIncrement` | `AUTO_INCREMENT` | `GENERATED ALWAYS AS IDENTITY` | no-op | no-op |
+| `emitPrimaryKey` | `PRIMARY KEY` | `PRIMARY KEY` | `PRIMARY KEY [AUTOINCREMENT]` | `PRIMARY KEY` |
+| `emitInlineIndex` | `INDEX`/`UNIQUE INDEX` | `UNIQUE (...)` | `UNIQUE (...)` | `INDEX`/`UNIQUE INDEX` |
+| `emitStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
+| `emitInlineColumnComment` | `COMMENT '...'` | no-op (standalone) | no-op (standalone) | `/* comment */` |
+| `emitEnumTypeCheck` | no-op (native ENUM) | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` |
+| `emitInlineColumnStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
 | `renderType` | `int`, `bigint`, `smallint`, `decimal`, `varchar`, `text`, `blob`, `json`, `datetime`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `integer`, `bigint`, `smallint`, `numeric`, `varchar`, `text`, `bytea`, `json`, `timestamp`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `INTEGER`, `NUMERIC`, `varchar`, `TEXT`, `BLOB`, `INTEGER` |
 | `emitForeignKey` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` |
 
@@ -251,20 +251,20 @@ PG and SQLite share 4/5 method implementations. `emitCheckExpr` is a shared stan
 
 Each dialect backend declares feature flags via the `capability` field:
 
-| Capability | MySQL | PostgreSQL | SQLite | Description |
-|-----------|-------|-----------|--------|-------------|
-| `auto_increment` | ✓ | | | AUTO_INCREMENT keyword |
-| `unsigned` | ✓ | | | UNSIGNED integer modifier |
-| `create_database` | ✓ | ✓ | | CREATE DATABASE statement |
-| `enum_type` | ✓ | | | Native ENUM type |
-| `inline_comments` | ✓ | | | Inline column comments |
-| `standalone_comments` | | ✓ | | COMMENT ON statements |
-| `schemas` | | ✓ | | Schema-qualified names |
-| `sequences` | | ✓ | | Sequence objects |
-| `tablespace` | ✓ | | | TABLESPACE clauses |
-| `batch_separators` | | | | GO batch separators |
-| `generated_columns` | | ✓ | ✓ | GENERATED ALWAYS AS columns |
-| `alter_drop_column` | ✓ | ✓ | | ALTER TABLE ... DROP COLUMN |
+| Capability | MySQL | PostgreSQL | SQLite | MSSQL | Description |
+|-----------|-------|-----------|--------|-------|-------------|
+| `auto_increment` | ✓ | | | | AUTO_INCREMENT keyword |
+| `unsigned` | ✓ | | | | UNSIGNED integer modifier |
+| `create_database` | ✓ | ✓ | | | CREATE DATABASE statement |
+| `enum_type` | ✓ | | | | Native ENUM type |
+| `inline_comments` | ✓ | | | | Inline column comments |
+| `standalone_comments` | | ✓ | | | COMMENT ON statements |
+| `schemas` | | ✓ | | ✓ | Schema-qualified names |
+| `sequences` | | ✓ | | ✓ | Sequence objects |
+| `tablespace` | ✓ | | | | TABLESPACE clauses |
+| `batch_separators` | | | | ✓ | GO batch separators |
+| `generated_columns` | | ✓ | ✓ | ✓ | GENERATED ALWAYS AS columns |
+| `alter_drop_column` | ✓ | ✓ | | ✓ | ALTER TABLE ... DROP COLUMN |
 
 Adding a new dialect = set the appropriate capability flags in the backend struct. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names.
 

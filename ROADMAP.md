@@ -393,7 +393,7 @@ Ongoing improvements pursued alongside feature work.
 ### v0.1.0 – v0.10.0
 
 - Core forward pipeline (`.ss` → SQL)
-- Three dialect backends (MySQL, PostgreSQL, SQLite)
+- Four dialect backends (MySQL, PostgreSQL, SQLite, MSSQL)
 - Reverse engineering
 - Diff engine
 - Migration generation

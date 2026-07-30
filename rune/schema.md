@@ -132,25 +132,25 @@ field_name [type] [modifiers] [=default] [check] [> fk] [: comment]
 
 See [type.md](type.md) for the complete type reference.
 
-| Symbol | MySQL | PostgreSQL | SQLite |
-|--------|-------|-----------|--------|
-| `n` | int | integer | INTEGER |
-| `N` | bigint | bigint | INTEGER |
-| `i` | smallint | smallint | INTEGER |
-| `m` | decimal(16,2) | numeric(16,2) | NUMERIC(16,2) |
-| `M` | decimal(20,6) | numeric(20,6) | NUMERIC(20,6) |
-| `s` | varchar(255) | varchar(255) | TEXT |
-| `S` | text | text | TEXT |
-| `b` | boolean | boolean | INTEGER |
-| `B` | blob | bytea | BLOB |
-| `j` | json | json | TEXT |
-| `J` | jsonb | jsonb | TEXT |
-| `I` | inet | inet | TEXT |
-| `d` | date | date | TEXT |
-| `t` | datetime | timestamp | TEXT |
-| `T` | timestamptz | timestamptz | TEXT |
-| `U` | char(36) | uuid | TEXT |
-| `p` | int | serial | INTEGER |
+| Symbol | MySQL | PostgreSQL | SQLite | MSSQL |
+|--------|-------|-----------|--------|-------|
+| `n` | int | integer | INTEGER | INT |
+| `N` | bigint | bigint | INTEGER | BIGINT |
+| `i` | smallint | smallint | INTEGER | SMALLINT |
+| `m` | decimal(16,2) | numeric(16,2) | NUMERIC(16,2) | NUMERIC(16,2) |
+| `M` | decimal(20,6) | numeric(20,6) | NUMERIC(20,6) | NUMERIC(20,6) |
+| `s` | varchar(255) | varchar(255) | TEXT | NVARCHAR(255) |
+| `S` | text | text | TEXT | NVARCHAR(MAX) |
+| `b` | boolean | boolean | INTEGER | BIT |
+| `B` | blob | bytea | BLOB | VARBINARY(MAX) |
+| `j` | json | json | TEXT | NVARCHAR(MAX) |
+| `J` | jsonb | jsonb | TEXT | NVARCHAR(MAX) |
+| `I` | inet | inet | TEXT | NVARCHAR(45) |
+| `d` | date | date | TEXT | DATE |
+| `t` | datetime | timestamp | TEXT | DATETIME2 |
+| `T` | timestamptz | timestamptz | TEXT | DATETIMEOFFSET |
+| `U` | char(36) | uuid | TEXT | UNIQUEIDENTIFIER |
+| `p` | int | serial | INTEGER | INT |
 
 Multi-char types: `s128` = varchar(128), `16,2` = decimal(16,2), `e('a','b')` = enum.
 

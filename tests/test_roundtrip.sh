@@ -9,7 +9,7 @@ source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 FILTER="${1:-}"
 
-# Test schemas: .ss files that roundtrip cleanly across all 3 dialects.
+# Test schemas: .ss files that roundtrip cleanly across all 4 dialects.
 # Excluded: 20-index-types/39-index-autoname (FULLTEXT name double-prefix),
 # 03-all-types (decimal roundtrip lossy), 60-enum-type (ENUM→TEXT),
 # view-basic (CREATE OR REPLACE not reversible).
