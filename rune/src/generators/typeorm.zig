@@ -287,10 +287,18 @@ fn tsType(col: typed_ast.TypedColumn) []const u8 {
     };
 }
 
-fn typeormFormatBoolTrue(w: *Writer) !void { try w.writeAll("true"); }
-fn typeormFormatBoolFalse(w: *Writer) !void { try w.writeAll("false"); }
-fn typeormFormatNull(w: *Writer) !void { try w.writeAll("null"); }
-fn typeormFormatNow(w: *Writer) !void { try w.writeAll("() => new Date()"); }
+fn typeormFormatBoolTrue(w: *Writer) !void {
+    try w.writeAll("true");
+}
+fn typeormFormatBoolFalse(w: *Writer) !void {
+    try w.writeAll("false");
+}
+fn typeormFormatNull(w: *Writer) !void {
+    try w.writeAll("null");
+}
+fn typeormFormatNow(w: *Writer) !void {
+    try w.writeAll("() => new Date()");
+}
 fn typeormFormatString(w: *Writer, dflt: []const u8) !void {
     const trimmed = std.mem.trim(u8, dflt, "'");
     try w.print("'{s}'", .{trimmed});

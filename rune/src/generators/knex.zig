@@ -227,10 +227,18 @@ fn writeColumnOptions(w: *Writer, col: typed_ast.TypedColumn) !void {
     }
 }
 
-fn knexFormatBoolTrue(w: *Writer) !void { try w.writeAll("true"); }
-fn knexFormatBoolFalse(w: *Writer) !void { try w.writeAll("false"); }
-fn knexFormatNull(w: *Writer) !void { try w.writeAll("null"); }
-fn knexFormatNow(w: *Writer) !void { try w.writeAll("knex.fn.now()"); }
+fn knexFormatBoolTrue(w: *Writer) !void {
+    try w.writeAll("true");
+}
+fn knexFormatBoolFalse(w: *Writer) !void {
+    try w.writeAll("false");
+}
+fn knexFormatNull(w: *Writer) !void {
+    try w.writeAll("null");
+}
+fn knexFormatNow(w: *Writer) !void {
+    try w.writeAll("knex.fn.now()");
+}
 fn knexFormatString(w: *Writer, dflt: []const u8) !void {
     const trimmed = std.mem.trim(u8, dflt, "'");
     try w.print("'{s}'", .{trimmed});

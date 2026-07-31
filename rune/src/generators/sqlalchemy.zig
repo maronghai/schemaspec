@@ -265,10 +265,18 @@ fn writeColumnType(w: *Writer, col: typed_ast.TypedColumn) !void {
     }
 }
 
-fn sqlalchemyFormatBoolTrue(w: *Writer) !void { try w.writeAll("'true'"); }
-fn sqlalchemyFormatBoolFalse(w: *Writer) !void { try w.writeAll("'false'"); }
-fn sqlalchemyFormatNull(w: *Writer) !void { try w.writeAll("None"); }
-fn sqlalchemyFormatNow(w: *Writer) !void { try w.writeAll("'now()'"); }
+fn sqlalchemyFormatBoolTrue(w: *Writer) !void {
+    try w.writeAll("'true'");
+}
+fn sqlalchemyFormatBoolFalse(w: *Writer) !void {
+    try w.writeAll("'false'");
+}
+fn sqlalchemyFormatNull(w: *Writer) !void {
+    try w.writeAll("None");
+}
+fn sqlalchemyFormatNow(w: *Writer) !void {
+    try w.writeAll("'now()'");
+}
 fn sqlalchemyFormatString(w: *Writer, dflt: []const u8) !void {
     const trimmed = std.mem.trim(u8, dflt, "'");
     try w.print("'{s}'", .{trimmed});
