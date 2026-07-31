@@ -15,14 +15,37 @@ pub const TableHeader = struct {
     loc: ?SourceLocation,
 };
 
-/// Parse a table header line (# [template_ref] table_name [: comment]).
+/// Parse a table header line (# table_name > template_ref [: comment]).
+/// Also supports the legacy format (# template_ref table_name [: comment]).
 pub fn parseTableHeader(alloc: std.mem.Allocator, line: tk.Line) !TableHeader {
     var template_ref: ?[]const u8 = null;
     var table_name: []const u8 = "";
     var comment: ?[]const u8 = null;
 
     const tokens = line.tokens;
-    if (tokens.len == 2) {
+
+    // Check for > operator: # table_name > template_ref [: comment]
+    var gt_idx: ?usize = null;
+    for (tokens, 0..) |tok, i| {
+        if (std.mem.eql(u8, tok, ">")) {
+            gt_idx = i;
+            break;
+        }
+    }
+
+    if (gt_idx) |gt| {
+        // # table_name > template_ref [: comment]
+        if (gt >= 1 and gt + 1 < tokens.len) {
+            table_name = try alloc.dupe(u8, tokens[gt - 1]);
+            template_ref = try alloc.dupe(u8, tokens[gt + 1]);
+            if (gt + 2 < tokens.len) {
+                const cand = tokens[gt + 2];
+                if (cand.len >= 1 and cand[0] == ':') {
+                    comment = try alloc.dupe(u8, cand);
+                }
+            }
+        }
+    } else if (tokens.len == 2) {
         // # table_name  (no template ref)
         table_name = try alloc.dupe(u8, tokens[1]);
     } else if (tokens.len >= 3) {

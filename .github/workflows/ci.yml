@@ -16,6 +16,8 @@ jobs:
         uses: step-security/setup-zig@v2
         with:
           version: 0.16.0
+      - name: debug
+        run: pwd && ls
 
       - name: Check formatting
         run: zig fmt --check rune/src/

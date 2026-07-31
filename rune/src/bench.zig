@@ -301,7 +301,7 @@ fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8)
     const tree = try parseFileTimed(alloc, file_data, &times, io);
 
     // Stage 2: Semantic
-    sw_start = std.Io.Clock.Timestamp.now(io, .awake);
+    var sw_start = std.Io.Clock.Timestamp.now(io, .awake);
     var sa = semantic.SemanticAnalyzer.init(alloc);
     const resolved = try sa.analyze(tree);
     times.semantic = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
