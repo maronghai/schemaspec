@@ -6,5 +6,5 @@ name s64 * @u
 article_id *
 tag_id *
 
-> article_id articles.id
-> tag_id tags.id
+> article_id articles(id) -C
+> tag_id tags(id) -C

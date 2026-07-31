@@ -37,6 +37,9 @@ fn parseDottedRef(
                 }
                 start = if (end < rest.len) end + 1 else rest.len;
             }
+        } else if (trailing_dot_fallback) |fb| {
+            // Trailing dot: table. with nothing after the dot
+            try fields.append(alloc, try alloc.dupe(u8, fb));
         }
     }
     return .{ .table = table, .fields = try fields.toOwnedSlice(alloc) };
@@ -108,17 +111,25 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
         if (ref_is_at_fi) {
             // Inline ultra: table.field — no local field
             const ref = line.tokens[ref_effective];
-            const parsed = try parseDottedRef(alloc, ref, null);
-            ref_table = parsed.table;
-            for (parsed.fields) |f| {
-                try ref_fields.append(alloc, try alloc.dupe(u8, f));
+            if (std.mem.endsWith(u8, ref, ".") and ref.len > 1) {
+                // Trailing dot: infer local field, use it as ref field
+                ref_table = try alloc.dupe(u8, ref[0 .. ref.len - 1]);
+                const inferred = try std.fmt.allocPrint(alloc, "{s}_id", .{ref_table});
+                try local_fields.append(alloc, inferred);
+                try ref_fields.append(alloc, try alloc.dupe(u8, inferred));
+            } else {
+                const parsed = try parseDottedRef(alloc, ref, null);
+                ref_table = parsed.table;
+                for (parsed.fields) |f| {
+                    try ref_fields.append(alloc, try alloc.dupe(u8, f));
+                }
+                // Free parsed results after copying
+                for (parsed.fields) |f| alloc.free(f);
+                alloc.free(parsed.fields);
+                // Infer local field from ref_table (e.g. users.id → users_id)
+                const inferred = try std.fmt.allocPrint(alloc, "{s}_id", .{ref_table});
+                try local_fields.append(alloc, inferred);
             }
-            // Free parsed results after copying
-            for (parsed.fields) |f| alloc.free(f);
-            alloc.free(parsed.fields);
-            // Infer local field from ref_table (e.g. users.id → users_id)
-            const inferred = try std.fmt.allocPrint(alloc, "{s}_id", .{ref_table});
-            try local_fields.append(alloc, inferred);
         } else {
             // Standard: field(s) table.field(s)
             if (dot_tok_idx) |dti| {
@@ -150,7 +161,11 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
         // field_name ref_table (shorthand-no-dot)
         try local_fields.append(alloc, try alloc.dupe(u8, local_field_name));
         const ref = line.tokens[ref_effective];
-        if (std.mem.indexOfScalar(u8, ref, '.')) |dot| {
+        if (std.mem.endsWith(u8, ref, ".") and ref.len > 1) {
+            // Trailing dot: use local field name as ref field
+            ref_table = try alloc.dupe(u8, ref[0 .. ref.len - 1]);
+            try ref_fields.append(alloc, try alloc.dupe(u8, local_field_name));
+        } else if (std.mem.indexOfScalar(u8, ref, '.')) |dot| {
             ref_table = try alloc.dupe(u8, ref[0..dot]);
             try ref_fields.append(alloc, try alloc.dupe(u8, ref[dot + 1 ..]));
         } else {

@@ -4,4 +4,4 @@ name s128 *
 parent_id
 
 @ idx_parent (parent_id)
-> parent_id categories.id
+> parent_id categories(id) -N

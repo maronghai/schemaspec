@@ -5,7 +5,14 @@
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-COMPILER="$PROJECT_DIR/rune/zig-out/bin/rune.exe"
+
+# Detect binary name: .exe on Windows/MSYS, plain name on Linux/macOS
+if [[ "$OSTYPE" == msys* || "$OSTYPE" == cygwin* || "$OSTYPE" == win32 ]]; then
+  BIN_SUFFIX=".exe"
+else
+  BIN_SUFFIX=""
+fi
+COMPILER="$PROJECT_DIR/rune/zig-out/bin/rune${BIN_SUFFIX}"
 
 # Ensure compiler exists
 if [ ! -f "$COMPILER" ]; then

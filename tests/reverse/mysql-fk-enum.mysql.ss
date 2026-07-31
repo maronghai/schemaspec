@@ -6,4 +6,4 @@ status enum('pending','paid','shipped','done') * =pending
 created_at t ++ *
 
 @ idx_user (user_id)
-> user_id users.id
+> user_id users(id) -C
