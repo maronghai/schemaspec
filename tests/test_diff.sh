@@ -41,10 +41,10 @@ for diff_file in "$TEST_DIR"/*.diff.txt; do
     continue
   fi
 
-  if diff -u "$diff_file" "$tmp_file" > /dev/null 2>&1; then
+  if compare_files "$diff_file" "$tmp_file"; then
     pass "$base (mysql)"
   else
-    diff_output=$(diff -u "$diff_file" "$tmp_file" 2>&1 | head -20)
+    diff_output=$(diff_versions "$diff_file" "$tmp_file")
     fail "$base (mysql)" "$diff_output"
   fi
 
@@ -64,10 +64,10 @@ for diff_file in "$TEST_DIR"/*.diff.txt; do
       continue
     fi
 
-    if diff -u "$dialect_file" "$tmp_file" > /dev/null 2>&1; then
+    if compare_files "$dialect_file" "$tmp_file"; then
       pass "$base ($dialect)"
     else
-      diff_output=$(diff -u "$dialect_file" "$tmp_file" 2>&1 | head -20)
+      diff_output=$(diff_versions "$dialect_file" "$tmp_file")
       fail "$base ($dialect)" "$diff_output"
     fi
 

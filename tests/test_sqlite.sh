@@ -40,10 +40,10 @@ for ss_file in "$TEST_DIR"/*.ss; do
     continue
   fi
 
-  if diff -u "$expected_file" "$tmp_file" > /dev/null 2>&1; then
+  if compare_files "$expected_file" "$tmp_file"; then
     pass "$base"
   else
-    diff_output=$(diff -u "$expected_file" "$tmp_file" 2>&1 | head -20)
+    diff_output=$(diff_versions "$expected_file" "$tmp_file")
     fail "$base" "$diff_output"
   fi
 
