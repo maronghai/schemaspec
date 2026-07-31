@@ -22,7 +22,7 @@ pub fn main(init: std.process.Init) !void {
     // Parse args
     var file_path: []const u8 = "bench/small.ss";
     var iterations: usize = 50;
-    var warmup: usize = 3;
+    const warmup: usize = 3;
     var mode: enum { run, save, check, diff } = .run;
 
     var arg_it = try std.process.Args.Iterator.initAllocator(init.minimal.args, alloc);
@@ -304,7 +304,8 @@ fn printDiff(current: StageTimes, baseline: Baseline) void {
     for (stages) |s| {
         if (s.baseline > 0) {
             const change = ((s.current - s.baseline) / s.baseline) * 100.0;
-            std.debug.print("  {s: <15} {d:>9.2}ms {d:>9.2}ms {d:>+.1}%\n", .{ s.name, s.baseline, s.current, change });
+            const sign: []const u8 = if (change >= 0) "+" else "";
+            std.debug.print("  {s: <15} {d:>9.2}ms {d:>9.2}ms {s}{d:.1}%\n", .{ s.name, s.baseline, s.current, sign, change });
         } else {
             std.debug.print("  {s: <15} {s:>10} {d:>9.2}ms {s:>10}\n", .{ s.name, "N/A", s.current, "new" });
         }
@@ -314,7 +315,8 @@ fn printDiff(current: StageTimes, baseline: Baseline) void {
     const bas_total = baseline.tokenize + baseline.parse + baseline.semantic + baseline.type_resolve + baseline.codegen;
     if (bas_total > 0) {
         const change = ((cur_total - bas_total) / bas_total) * 100.0;
-        std.debug.print("  {s: <15} {d:>9.2}ms {d:>9.2}ms {d:>+.1}%\n", .{ "TOTAL", bas_total, cur_total, change });
+        const sign: []const u8 = if (change >= 0) "+" else "";
+        std.debug.print("  {s: <15} {d:>9.2}ms {d:>9.2}ms {s}{d:.1}%\n", .{ "TOTAL", bas_total, cur_total, sign, change });
     }
 }
 
