@@ -289,11 +289,13 @@ pub fn handleCompileRequest(
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
 /// Always succeeds (exit 0) as long as the pipeline runs. Errors are printed
 /// and the message "schema has errors" is shown, but the exit code is still 0.
+/// With strict=true, returns error.DiagnosticsError on errors (exit code 1).
 /// Use `handleCheck` for CI gates that need exit code 1 on errors.
-pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool) !void {
+pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool) !void {
     const result = compilePipelineVerbose(alloc, file_data, verbose_passes, json_errors) catch |err| {
         if (err == error.DiagnosticsError or err == error.SemanticError) {
             std.debug.print("schema has errors\n", .{});
+            if (strict) return err;
             return;
         }
         return err;

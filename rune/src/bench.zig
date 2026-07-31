@@ -21,8 +21,9 @@ pub fn main(init: std.process.Init) !void {
 
     // Parse args
     var file_path: []const u8 = "bench/small.ss";
-    var iterations: usize = 10;
-    var mode: enum { run, save, check } = .run;
+    var iterations: usize = 50;
+    var warmup: usize = 3;
+    var mode: enum { run, save, check, diff } = .run;
 
     var arg_it = try std.process.Args.Iterator.initAllocator(init.minimal.args, alloc);
     defer arg_it.deinit();
@@ -32,12 +33,17 @@ pub fn main(init: std.process.Init) !void {
             mode = .save;
         } else if (std.mem.eql(u8, arg, "--check")) {
             mode = .check;
+        } else if (std.mem.eql(u8, arg, "--diff")) {
+            mode = .diff;
         } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
-            std.debug.print("Usage: bench [--save|--check] [file] [iterations]\n", .{});
+            std.debug.print("Usage: bench [--save|--check|--diff] [file] [iterations]\n", .{});
+            std.debug.print("  --save   Save current run as baseline\n", .{});
+            std.debug.print("  --check  Check for regressions vs baseline (>20% = exit 1)\n", .{});
+            std.debug.print("  --diff   Show per-stage comparison with baseline\n", .{});
             return;
         } else {
             file_path = arg;
-            if (arg_it.next()) |n_str| iterations = std.fmt.parseInt(usize, n_str, 10) catch 10;
+            if (arg_it.next()) |n_str| iterations = std.fmt.parseInt(usize, n_str, 10) catch 50;
         }
     }
 
@@ -45,12 +51,15 @@ pub fn main(init: std.process.Init) !void {
     const file_data = try std.Io.Dir.cwd().readFileAlloc(init.io, file_path, alloc, .unlimited);
     defer alloc.free(file_data);
 
-    // Warm up (1 iteration)
+    // Warm up (3 iterations to stabilize CPU cache)
     {
-        var arena = std.heap.ArenaAllocator.init(alloc);
-        defer arena.deinit();
-        const a = arena.allocator();
-        _ = try runPipeline(a, file_data);
+        var w: usize = 0;
+        while (w < warmup) : (w += 1) {
+            var arena = std.heap.ArenaAllocator.init(alloc);
+            defer arena.deinit();
+            const a = arena.allocator();
+            _ = try runPipeline(a, file_data);
+        }
     }
 
     // Benchmark
@@ -91,6 +100,14 @@ pub fn main(init: std.process.Init) !void {
             } else {
                 std.debug.print("Benchmark OK — no regressions (threshold: 20%)\n", .{});
             }
+        },
+        .diff => {
+            const baseline = loadBaseline(init.io, alloc) catch |err| {
+                std.debug.print("error: cannot load bench/baseline.json: {s}\n", .{@errorName(err)});
+                std.debug.print("Run 'zig build bench -- --save' first to create baseline.\n", .{});
+                return error.BaselineNotFound;
+            };
+            printDiff(avg, baseline);
         },
     }
 }
@@ -268,6 +285,36 @@ fn printRegressionDetails(current: StageTimes, baseline: Baseline) void {
     if (bas_total > 0) {
         const change = ((cur_total - bas_total) / bas_total) * 100.0;
         std.debug.print("  total: {d:.2}ms → {d:.2}ms ({d:.1}% change)\n", .{ bas_total, cur_total, change });
+    }
+}
+
+fn printDiff(current: StageTimes, baseline: Baseline) void {
+    const stages = [_]struct { name: []const u8, current: f64, baseline: f64 }{
+        .{ .name = "tokenize", .current = current.tokenize, .baseline = baseline.tokenize },
+        .{ .name = "parse", .current = current.parse, .baseline = baseline.parse },
+        .{ .name = "semantic", .current = current.semantic, .baseline = baseline.semantic },
+        .{ .name = "type_resolve", .current = current.type_resolve, .baseline = baseline.type_resolve },
+        .{ .name = "codegen", .current = current.codegen, .baseline = baseline.codegen },
+    };
+
+    std.debug.print("\nStage Comparison (current vs baseline):\n", .{});
+    std.debug.print("  {s: <15} {s: >10} {s: >10} {s: >10}\n", .{ "Stage", "Baseline", "Current", "Change" });
+    std.debug.print("  {s: <15} {s: >10} {s: >10} {s: >10}\n", .{ "---", "---", "---", "---" });
+
+    for (stages) |s| {
+        if (s.baseline > 0) {
+            const change = ((s.current - s.baseline) / s.baseline) * 100.0;
+            std.debug.print("  {s: <15} {d:>9.2}ms {d:>9.2}ms {d:>+.1}%\n", .{ s.name, s.baseline, s.current, change });
+        } else {
+            std.debug.print("  {s: <15} {s:>10} {d:>9.2}ms {s:>10}\n", .{ s.name, "N/A", s.current, "new" });
+        }
+    }
+
+    const cur_total = current.total();
+    const bas_total = baseline.tokenize + baseline.parse + baseline.semantic + baseline.type_resolve + baseline.codegen;
+    if (bas_total > 0) {
+        const change = ((cur_total - bas_total) / bas_total) * 100.0;
+        std.debug.print("  {s: <15} {d:>9.2}ms {d:>9.2}ms {d:>+.1}%\n", .{ "TOTAL", bas_total, cur_total, change });
     }
 }
 

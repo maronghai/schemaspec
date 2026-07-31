@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.57.0 (2026-07-31)
+**Current version**: 0.58.0 (2026-07-31)
 
 ---
 
@@ -200,6 +200,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.58.0 (2026-07-31)
+
+- **Stabilize benchmark infrastructure** — Increased default iterations from 10 to 50 for more stable results. Added 3-iteration warmup phase to stabilize CPU cache. Added `--diff` mode for per-stage comparison with baseline.
+- **Add `rune validate --strict` mode** — `rune validate --strict` now exits with code 1 when the schema has errors, useful for CI/CD pipelines that need strict validation. Default behavior (exit 0) remains unchanged for backward compatibility.
+- **Add roundtrip golden tests** — Added 14 new roundtrip tests (23 total, up from 9) covering all-types, modifiers, suffix-inference, table-comment, template-deep, template-override, empty-lines, slot-beginning, slot-end, unicode-comments, bare-fields, many-defaults, generated-columns, and custom-types.
+- **Add PostgreSQL golden tests** — Added 2 new PostgreSQL tests (view-multi, warn-invalid-modifiers).
+- **Add SQLite golden test** — Added 1 new SQLite test (sqlite-types) covering boolean and JSON types.
+- Test results: All 14 test suites pass (688 total tests)
 
 ### v0.57.0 (2026-07-31)
 
