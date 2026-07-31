@@ -1,10 +1,10 @@
 {
   "file": "bench/small.ss",
   "stages": {
-    "tokenize": 0.10,
+    "tokenize": 0.12,
     "parse": 0.10,
-    "semantic": 0.07,
-    "type_resolve": 0.03,
+    "semantic": 0.23,
+    "type_resolve": 0.05,
     "codegen": 0.04
   }
 }
