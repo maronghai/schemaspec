@@ -13,13 +13,17 @@ pub fn parseForeignKey(self: *sp.SqlParser) !SqlForeignKey {
     self.skipSpaces();
     self.expectKeyword("KEY");
     self.skipSpaces();
-    var fk_fields = (try self.parseParenFieldList()).fields;
+    const fk_fl = try self.parseParenFieldList();
+    self.alloc.free(fk_fl.descending);
+    const fk_fields = fk_fl.fields;
     self.skipSpaces();
     self.expectKeyword("REFERENCES");
     self.skipSpaces();
     const ref_table = try self.parseIdentifier();
     self.skipSpaces();
-    var fk_ref_fields = (try self.parseParenFieldList()).fields;
+    const fk_ref_fl = try self.parseParenFieldList();
+    self.alloc.free(fk_ref_fl.descending);
+    const fk_ref_fields = fk_ref_fl.fields;
 
     var actions = try std.ArrayList(FkAction).initCapacity(self.alloc, 4);
     while (true) {
@@ -55,9 +59,9 @@ pub fn parseForeignKey(self: *sp.SqlParser) !SqlForeignKey {
     }
 
     return .{
-        .fields = try fk_fields.toOwnedSlice(self.alloc),
+        .fields = fk_fields,
         .ref_table = ref_table,
-        .ref_fields = try fk_ref_fields.toOwnedSlice(self.alloc),
+        .ref_fields = fk_ref_fields,
         .actions = try actions.toOwnedSlice(self.alloc),
     };
 }

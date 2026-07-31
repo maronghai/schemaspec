@@ -16,7 +16,7 @@ pub fn classifyFk(alloc: std.mem.Allocator, fk: sp.SqlForeignKey) FkClassificati
     const single = fk.fields.len == 1 and fk.ref_fields.len == 1;
     const ref_is_id = fk.ref_fields.len == 1 and std.mem.eql(u8, fk.ref_fields[0], "id");
 
-    if (single and ref_is_id) return .{ .form = .shorthand, .text = fmtFk(alloc, "> {s} {s}.id", .{ fk.fields[0], fk.ref_table }) };
+    if (single and ref_is_id and fk.actions.len == 0) return .{ .form = .shorthand, .text = fmtFk(alloc, "> {s} {s}.id", .{ fk.fields[0], fk.ref_table }) };
 
     // Full form — use ArrayList for dynamic sizing
     var buf = std.ArrayList(u8).initCapacity(alloc, 64) catch return .{ .form = .full, .text = null };
@@ -49,9 +49,9 @@ pub fn classifyFk(alloc: std.mem.Allocator, fk: sp.SqlForeignKey) FkClassificati
                 else => buf.appendSlice(alloc, "-?") catch {},
             },
             .on_update => switch (a.action) {
-                .cascade => buf.appendSlice(alloc, " C") catch {},
-                .set_null => buf.appendSlice(alloc, " N") catch {},
-                else => buf.appendSlice(alloc, " ?") catch {},
+                .cascade => buf.appendSlice(alloc, "C") catch {},
+                .set_null => buf.appendSlice(alloc, "N") catch {},
+                else => buf.appendSlice(alloc, "?") catch {},
             },
         }
     }

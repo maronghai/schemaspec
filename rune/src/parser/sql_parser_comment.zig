@@ -13,6 +13,7 @@ pub fn parseCommentOn(self: *sp.SqlParser, tables: []SqlTable) !void {
         if (self.matchKeyword("TABLE")) {
             self.skipSpaces();
             const full_ident = try self.parseDottedIdentifier();
+            defer self.alloc.free(full_ident);
             // Match against full table name (may include schema prefix)
             self.skipSpaces();
             if (self.matchKeyword("IS")) {
@@ -29,6 +30,7 @@ pub fn parseCommentOn(self: *sp.SqlParser, tables: []SqlTable) !void {
             self.skipSpaces();
             // PG: "schema"."table"."column" or "table"."column"
             const full_ident = try self.parseDottedIdentifier();
+            defer self.alloc.free(full_ident);
             // Split at last dot: tbl=everything_before, col=last_part
             var tbl_name: []const u8 = full_ident;
             var col_name: []const u8 = "";

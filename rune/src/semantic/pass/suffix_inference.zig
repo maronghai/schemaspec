@@ -70,7 +70,9 @@ fn runPassOnFields(alloc: std.mem.Allocator, fields: []const Field) !ResolvedTab
 }
 
 test "suffix inference: _id → int" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = makeTestField("user_id", .none);
     const result = try runPassOnFields(alloc, fields);
@@ -78,7 +80,9 @@ test "suffix inference: _id → int" {
 }
 
 test "suffix inference: _at → datetime" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = makeTestField("created_at", .none);
     const result = try runPassOnFields(alloc, fields);
@@ -86,7 +90,9 @@ test "suffix inference: _at → datetime" {
 }
 
 test "suffix inference: _on → date" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = makeTestField("paid_on", .none);
     const result = try runPassOnFields(alloc, fields);
@@ -94,7 +100,9 @@ test "suffix inference: _on → date" {
 }
 
 test "suffix inference: short name → varchar" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = makeTestField("ab", .none);
     const result = try runPassOnFields(alloc, fields);
@@ -102,7 +110,9 @@ test "suffix inference: short name → varchar" {
 }
 
 test "suffix inference: explicit type not overridden" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = makeTestField("point_id", .{ .varchar_explicit = 32 });
     const result = try runPassOnFields(alloc, fields);
@@ -110,7 +120,9 @@ test "suffix inference: explicit type not overridden" {
 }
 
 test "suffix inference: multiple fields in table" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 3);
     fields[0] = makeTestField("id", .none);
     fields[1] = makeTestField("name", .none);

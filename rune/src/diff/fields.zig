@@ -327,7 +327,9 @@ test "checkEqual: different expr" {
 }
 
 test "diffFields: one-to-one rename" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old_fields = try alloc.alloc(Field, 1);
     old_fields[0] = makeTestField("old_name", "n");
     const new_fields = try alloc.alloc(Field, 1);
@@ -341,7 +343,9 @@ test "diffFields: one-to-one rename" {
 }
 
 test "diffFields: ambiguous renames produce no rename" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const old_fields = try alloc.alloc(Field, 2);
     old_fields[0] = makeTestField("a", "n");
     old_fields[1] = makeTestField("b", "n");

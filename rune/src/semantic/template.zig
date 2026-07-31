@@ -196,12 +196,12 @@ fn applyTemplate(
         const insert_pos = template_slot orelse template_fields.len;
         var result = try std.ArrayList(Field).initCapacity(alloc, 8);
         for (template_fields[0..insert_pos]) |f| {
-            if (!table_names.contains(f.name)) try result.append(alloc, f);
+            if (!std.mem.eql(u8, f.name, "...") and !table_names.contains(f.name)) try result.append(alloc, f);
         }
         for (table.fields) |f| try result.append(alloc, f);
         if (insert_pos < template_fields.len) {
             for (template_fields[insert_pos..]) |f| {
-                if (!table_names.contains(f.name)) try result.append(alloc, f);
+                if (!std.mem.eql(u8, f.name, "...") and !table_names.contains(f.name)) try result.append(alloc, f);
             }
         }
         return try result.toOwnedSlice(alloc);

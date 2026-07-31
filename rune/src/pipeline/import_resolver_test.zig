@@ -52,12 +52,14 @@ test "splitLines: single line no trailing newline" {
 test "computeBaseDir: extracts directory from unix path" {
     const alloc = testing.allocator;
     const dir = ir.computeBaseDir(alloc, "/foo/bar/schema.ss");
+    defer alloc.free(dir);
     try testing.expectEqualStrings("/foo/bar", dir);
 }
 
 test "computeBaseDir: extracts directory from relative path" {
     const alloc = testing.allocator;
     const dir = ir.computeBaseDir(alloc, "src/schemas/main.ss");
+    defer alloc.free(dir);
     try testing.expectEqualStrings("src/schemas", dir);
 }
 

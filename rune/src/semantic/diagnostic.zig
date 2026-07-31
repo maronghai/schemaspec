@@ -130,7 +130,6 @@ pub const DiagnosticCollector = struct {
         if (self.overflow) return;
         if (d.severity == .@"error" and self.cached_error_count >= self.max_errors) {
             self.overflow = true;
-            std.debug.print("error: too many errors ({d}), stopping\n", .{self.max_errors});
             return;
         }
         if (d.severity == .@"error") self.cached_error_count += 1;
@@ -226,7 +225,8 @@ pub const DiagnosticCollector = struct {
             }
             try writer.writeAll("}");
         }
-        try writer.writeAll("\n]");
+        if (self.diagnostics.items.len > 0) try writer.writeAll("\n");
+        try writer.writeAll("]");
     }
 
     /// Format all diagnostics in terminal-friendly format with colors and source context.

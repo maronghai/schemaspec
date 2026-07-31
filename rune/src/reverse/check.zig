@@ -24,6 +24,7 @@ pub fn parseSqlCheckExpr(alloc: std.mem.Allocator, sql_expr: []const u8, col_nam
 /// Legacy: parse SQL CHECK expression and return SS bracket/brace syntax string.
 pub fn reverseCheck(alloc: std.mem.Allocator, sql_expr: []const u8, col_name: []const u8) ?[]const u8 {
     if (parseSqlCheckExpr(alloc, sql_expr, col_name)) |cc| {
+        defer alloc.free(cc.expr);
         return checkConstraintToSym(alloc, cc);
     }
     return null;
@@ -135,7 +136,9 @@ fn parseCompoundCmpExpr(alloc: std.mem.Allocator, e: []const u8, cn: []const u8)
     const l = std.mem.trim(u8, e[0..ap], " \t`");
     const r = std.mem.trim(u8, e[ap + 5 ..], " \t`");
     const lo = oneCmpStr(alloc, l, cn) orelse return null;
+    defer alloc.free(lo);
     const ro = oneCmpStr(alloc, r, cn) orelse return null;
+    defer alloc.free(ro);
     const expr = std.fmt.allocPrint(alloc, "{s},{s}", .{ lo, ro }) catch return null;
     return .{ .kind = .comparison, .expr = expr, .line_no = 0 };
 }
@@ -158,5 +161,5 @@ fn oneCmpStr(alloc: std.mem.Allocator, e: []const u8, cn: []const u8) ?[]const u
 }
 
 fn fieldMatches(raw: []const u8, expected: []const u8) bool {
-    return std.mem.eql(u8, std.mem.trim(u8, raw, " \t`"), expected);
+    return std.mem.eql(u8, std.mem.trim(u8, raw, " \t`\""), expected);
 }

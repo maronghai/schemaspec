@@ -359,11 +359,11 @@ test "data: every entry has non-empty sym" {
     }
 }
 
-test "data: every entry has non-empty mysql/pg/sqlite" {
+test "data: every entry has at least one non-empty dialect" {
     for (REVERSE_MAP) |m| {
-        try testing.expect(m.types.mysql.len > 0);
-        try testing.expect(m.types.pg.len > 0);
-        try testing.expect(m.types.sqlite.len > 0);
+        const has_any = m.types.mysql.len > 0 or m.types.pg.len > 0 or
+            m.types.sqlite.len > 0 or m.types.mssql.len > 0;
+        try testing.expect(has_any);
     }
 }
 

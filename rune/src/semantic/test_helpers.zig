@@ -51,7 +51,7 @@ pub fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_as
         .default = null,
         .check = null,
         .comment = null,
-        .enum_values = &.{},
+        .enum_values = if (sql_type == .enum_values) sql_type.enum_values else &.{},
         .line_no = 1,
     };
 }

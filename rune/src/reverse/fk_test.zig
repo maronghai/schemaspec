@@ -13,6 +13,7 @@ test "classifyFk shorthand single->id" {
         .actions = &.{},
     };
     const result = fk.classifyFk(alloc, fk_data);
+    defer if (result.text) |t| alloc.free(t);
     try testing.expectEqual(fk.FkForm.shorthand, result.form);
     try testing.expect(result.text != null);
     try testing.expectEqualStrings("> user_id user.id", result.text.?);
@@ -27,6 +28,7 @@ test "classifyFk full multi-field" {
         .actions = &.{},
     };
     const result = fk.classifyFk(alloc, fk_data);
+    defer if (result.text) |t| alloc.free(t);
     try testing.expectEqual(fk.FkForm.full, result.form);
 }
 
@@ -41,9 +43,10 @@ test "classifyFk full with actions" {
         },
     };
     const result = fk.classifyFk(alloc, fk_data);
+    defer if (result.text) |t| alloc.free(t);
     try testing.expectEqual(fk.FkForm.full, result.form);
     try testing.expect(result.text != null);
-    try testing.expectEqualStrings("> order_id orders.id -C", result.text.?);
+    try testing.expectEqualStrings("> order_id orders(id) -C", result.text.?);
 }
 
 test "classifyFk full with multiple actions" {
@@ -58,9 +61,10 @@ test "classifyFk full with multiple actions" {
         },
     };
     const result = fk.classifyFk(alloc, fk_data);
+    defer if (result.text) |t| alloc.free(t);
     try testing.expectEqual(fk.FkForm.full, result.form);
     try testing.expect(result.text != null);
-    try testing.expectEqualStrings("> order_id orders.id -C N", result.text.?);
+    try testing.expectEqualStrings("> order_id orders(id) -C N", result.text.?);
 }
 
 test "classifyFk shorthand with non-id reference" {
@@ -72,6 +76,7 @@ test "classifyFk shorthand with non-id reference" {
         .actions = &.{},
     };
     const result = fk.classifyFk(alloc, fk_data);
+    defer if (result.text) |t| alloc.free(t);
     try testing.expectEqual(fk.FkForm.full, result.form);
     try testing.expect(result.text != null);
     try testing.expectEqualStrings("> email auth(email)", result.text.?);

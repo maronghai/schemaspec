@@ -16,27 +16,35 @@ test "tokenColumn: empty inputs" {
 }
 
 test "DiagnosticCollector: init starts empty" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     try testing.expect(!dc.hasErrors());
     try testing.expectEqual(@as(usize, 0), dc.errorCount());
 }
 
 test "DiagnosticCollector: push warning" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     dc.push(.{ .severity = .warning, .line_no = 1, .message = "test warning" });
     try testing.expect(!dc.hasErrors());
     try testing.expectEqual(@as(usize, 0), dc.errorCount());
 }
 
 test "DiagnosticCollector: push error" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     dc.push(.{ .severity = .@"error", .line_no = 5, .message = "test error" });
     try testing.expect(dc.hasErrors());
     try testing.expectEqual(@as(usize, 1), dc.errorCount());
 }
 
 test "DiagnosticCollector: mixed severity" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     dc.push(.{ .severity = .warning, .line_no = 1, .message = "w1" });
     dc.push(.{ .severity = .@"error", .line_no = 2, .message = "e1" });
     dc.push(.{ .severity = .warning, .line_no = 3, .message = "w2" });
@@ -46,7 +54,9 @@ test "DiagnosticCollector: mixed severity" {
 }
 
 test "DiagnosticCollector: formatJson" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     dc.push(.{ .severity = .@"error", .line_no = 10, .col = 5, .message = "syntax error" });
 
     var aw = std.Io.Writer.Allocating.init(testing.allocator);
@@ -63,7 +73,9 @@ test "DiagnosticCollector: formatJson" {
 }
 
 test "DiagnosticCollector: formatJson with expected/actual" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     dc.push(.{
         .severity = .@"error",
         .line_no = 1,
@@ -84,7 +96,9 @@ test "DiagnosticCollector: formatJson with expected/actual" {
 }
 
 test "DiagnosticCollector: formatLsp produces LSP-compatible output" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     dc.push(.{ .severity = .@"error", .line_no = 10, .col = 5, .message = "syntax error" });
     dc.push(.{ .severity = .warning, .line_no = 20, .col = 1, .message = "unused variable" });
 
@@ -104,7 +118,9 @@ test "DiagnosticCollector: formatLsp produces LSP-compatible output" {
 }
 
 test "DiagnosticCollector: overflow stops at max_errors" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     dc.max_errors = 5;
     // Push exactly 5 errors
     var i: usize = 0;
@@ -123,7 +139,9 @@ test "DiagnosticCollector: overflow stops at max_errors" {
 }
 
 test "DiagnosticCollector: warnings don't count toward max_errors" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
     dc.max_errors = 2;
     var i: usize = 0;
     while (i < 10) : (i += 1) {
@@ -134,7 +152,9 @@ test "DiagnosticCollector: warnings don't count toward max_errors" {
 }
 
 test "DiagnosticCollector: formatJson empty" {
-    var dc = try diag.DiagnosticCollector.init(testing.allocator);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
 
     var aw = std.Io.Writer.Allocating.init(testing.allocator);
     defer aw.deinit();

@@ -110,7 +110,9 @@ fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diag
 }
 
 test "validate_indexes: duplicate index name emits diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 2);
     fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
     fields[1] = test_helpers.makeTestField("email", .{ .simple = "s" });
@@ -140,7 +142,9 @@ test "validate_indexes: duplicate index name emits diagnostic" {
 }
 
 test "validate_indexes: index on non-existent column emits diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 1);
     fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
 
@@ -168,7 +172,9 @@ test "validate_indexes: index on non-existent column emits diagnostic" {
 }
 
 test "validate_indexes: valid index produces no diagnostics" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 2);
     fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
     fields[1] = test_helpers.makeTestField("email", .{ .simple = "s" });
@@ -195,7 +201,9 @@ test "validate_indexes: valid index produces no diagnostics" {
 }
 
 test "validate_indexes: semantically identical indexes emit warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 2);
     fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
     fields[1] = test_helpers.makeTestField("email", .{ .simple = "s" });
@@ -230,7 +238,9 @@ test "validate_indexes: semantically identical indexes emit warning" {
 }
 
 test "validate_indexes: index on misspelled column suggests correction" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 2);
     fields[0] = test_helpers.makeTestField("username", .{ .simple = "s" });
     fields[1] = test_helpers.makeTestField("email", .{ .simple = "s" });

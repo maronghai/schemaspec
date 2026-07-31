@@ -188,6 +188,8 @@ fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diag
         .alloc = alloc,
         .tables = tables,
         .schema = null,
+        .templates = std.StringHashMap(*const ast.Template).init(alloc),
+        .template_refs = std.StringHashMap(void).init(alloc),
         .diagnostics = diagnostics,
         .symbol_table = st,
     };
@@ -216,7 +218,9 @@ fn makeCtxWithTemplates(
 }
 
 test "validate_schema: duplicate table names emit diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const a_fields = try alloc.alloc(ast.Field, 1);
     a_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
@@ -259,7 +263,9 @@ test "validate_schema: duplicate table names emit diagnostic" {
 }
 
 test "validate_schema: circular FK emits diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const a_fields = try alloc.alloc(ast.Field, 1);
     a_fields[0] = test_helpers.makeTestField("b_id", .{ .simple = "n" });
@@ -320,7 +326,9 @@ test "validate_schema: circular FK emits diagnostic" {
 }
 
 test "validate_schema: non-circular FK produces no circular diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const order_fields = try alloc.alloc(ast.Field, 1);
     order_fields[0] = test_helpers.makeTestField("user_id", .{ .simple = "n" });
@@ -367,7 +375,9 @@ test "validate_schema: non-circular FK produces no circular diagnostic" {
 }
 
 test "validate_schema: unused template emits warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const fields = try alloc.alloc(ast.Field, 1);
     fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
@@ -406,7 +416,9 @@ test "validate_schema: unused template emits warning" {
 }
 
 test "validate_schema: used template produces no unused warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const fields = try alloc.alloc(ast.Field, 1);
     fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });

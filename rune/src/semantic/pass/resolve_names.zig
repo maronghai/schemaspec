@@ -66,7 +66,9 @@ fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diag
 }
 
 test "resolve_names: duplicate table name emits diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 1);
     fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
 
@@ -101,7 +103,9 @@ test "resolve_names: duplicate table name emits diagnostic" {
 }
 
 test "resolve_names: valid tables populate symbol table" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 1);
     fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
 

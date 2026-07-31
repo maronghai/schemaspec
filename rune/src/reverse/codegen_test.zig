@@ -28,9 +28,11 @@ test "ReverseCodegen basic generate" {
     var rgen = ReverseCodegen.init(alloc, .sqlite);
     const output = try rgen.generate(schema);
     defer alloc.free(output);
+    defer alloc.free(schema.tables);
+    defer alloc.free(columns);
 
     try testing.expect(std.mem.indexOf(u8, output, "$ testdb") != null);
     try testing.expect(std.mem.indexOf(u8, output, "# users") != null);
-    try testing.expect(std.mem.indexOf(u8, output, "id n++") != null);
+    try testing.expect(std.mem.indexOf(u8, output, "id n ++") != null);
     try testing.expect(std.mem.indexOf(u8, output, "name s32") != null);
 }

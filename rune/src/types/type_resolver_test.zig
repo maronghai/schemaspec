@@ -53,25 +53,33 @@ test "buildSymType: simple single-char type" {
 }
 
 test "buildSymType: unsigned int gets + prefix" {
-    const result = try type_resolver.buildSymType(testing.allocator, .{ .simple = "n" }, true);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const result = try type_resolver.buildSymType(arena.allocator(), .{ .simple = "n" }, true);
     try testing.expect(result != null);
     try testing.expectEqualStrings("+n", result.?);
 }
 
 test "buildSymType: unsigned N (bigint) gets + prefix" {
-    const result = try type_resolver.buildSymType(testing.allocator, .{ .simple = "N" }, true);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const result = try type_resolver.buildSymType(arena.allocator(), .{ .simple = "N" }, true);
     try testing.expect(result != null);
     try testing.expectEqualStrings("+N", result.?);
 }
 
 test "buildSymType: varchar_explicit" {
-    const result = try type_resolver.buildSymType(testing.allocator, .{ .varchar_explicit = 255 }, false);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const result = try type_resolver.buildSymType(arena.allocator(), .{ .varchar_explicit = 255 }, false);
     try testing.expect(result != null);
     try testing.expectEqualStrings("s255", result.?);
 }
 
 test "buildSymType: decimal_explicit" {
-    const result = try type_resolver.buildSymType(testing.allocator, .{ .decimal_explicit = .{ .precision = 10, .scale = 2 } }, false);
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const result = try type_resolver.buildSymType(arena.allocator(), .{ .decimal_explicit = .{ .precision = 10, .scale = 2 } }, false);
     try testing.expect(result != null);
     try testing.expectEqualStrings("10,2", result.?);
 }

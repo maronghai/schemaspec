@@ -14,7 +14,9 @@ const ResolvedTable = resolved_ast.ResolvedTable;
 // ─── Tests ──────────────────────────────────────────────────
 
 test "suffix inference: _id → int" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = test_helpers.makeTestField("user_id", .none);
 
@@ -38,7 +40,9 @@ test "suffix inference: _id → int" {
 }
 
 test "suffix inference: _at → datetime" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = test_helpers.makeTestField("created_at", .none);
 
@@ -60,7 +64,9 @@ test "suffix inference: _at → datetime" {
 }
 
 test "suffix inference: _on → date" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = test_helpers.makeTestField("paid_on", .none);
 
@@ -82,7 +88,9 @@ test "suffix inference: _on → date" {
 }
 
 test "suffix inference: explicit type wins over suffix" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = test_helpers.makeTestField("point_id", .{ .varchar_explicit = 32 });
 
@@ -105,7 +113,9 @@ test "suffix inference: explicit type wins over suffix" {
 }
 
 test "suffix inference: no suffix keeps explicit type" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = test_helpers.makeTestField("data", .{ .simple = "b" });
 
@@ -129,7 +139,9 @@ test "suffix inference: no suffix keeps explicit type" {
 // ─── Type Modifier Validation Tests ─────────────────────────
 
 test "validate_type_modifiers: ++ on varchar produces warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .auto_inc_pk, .line_no = 3 };
     const fields = try alloc.alloc(Field, 1);
@@ -158,7 +170,9 @@ test "validate_type_modifiers: ++ on varchar produces warning" {
 }
 
 test "validate_type_modifiers: u on varchar produces warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .unsigned, .line_no = 2 };
     const fields = try alloc.alloc(Field, 1);
@@ -187,7 +201,9 @@ test "validate_type_modifiers: u on varchar produces warning" {
 }
 
 test "validate_type_modifiers: ++ on n produces no warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .auto_inc_pk, .line_no = 1 };
     const fields = try alloc.alloc(Field, 1);
@@ -216,7 +232,9 @@ test "validate_type_modifiers: ++ on n produces no warning" {
 }
 
 test "validate_type_modifiers: + on t produces no warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .auto_inc, .line_no = 1 };
     const fields = try alloc.alloc(Field, 1);
@@ -245,7 +263,9 @@ test "validate_type_modifiers: + on t produces no warning" {
 }
 
 test "validate_type_modifiers: u on n produces no warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const mods = try alloc.alloc(Modifier, 1);
     mods[0] = .{ .kind = .unsigned, .line_no = 1 };
     const fields = try alloc.alloc(Field, 1);

@@ -4,6 +4,35 @@ const SqlParser = sql_parser.SqlParser;
 const IndexKind = sql_parser.IndexKind;
 const FkActionType = sql_parser.FkActionType;
 const FkActionTrigger = sql_parser.FkActionTrigger;
+const SqlTable = sql_parser.SqlTable;
+
+/// Free the structural arrays from a parse result.
+/// String fields (name, type_sql, default_val, etc.) are sub-slices of the
+/// source buffer and must NOT be freed.
+fn freeResult(alloc: std.mem.Allocator, parser: *SqlParser, result: sql_parser.SqlParseResult) void {
+    alloc.free(parser.line_offsets);
+    for (result.diagnostics) |d| {
+        alloc.free(d.message);
+    }
+    alloc.free(result.diagnostics);
+    for (result.schema.tables) |tbl| {
+        alloc.free(tbl.name);
+        alloc.free(tbl.columns);
+        for (tbl.indexes) |idx| {
+            alloc.free(idx.fields);
+            alloc.free(idx.descending);
+        }
+        alloc.free(tbl.indexes);
+        for (tbl.foreign_keys) |fk| {
+            alloc.free(fk.fields);
+            alloc.free(fk.ref_fields);
+            alloc.free(fk.actions);
+        }
+        alloc.free(tbl.foreign_keys);
+        alloc.free(tbl.checks);
+    }
+    alloc.free(result.schema.tables);
+}
 
 test "parse basic CREATE TABLE" {
     const alloc = std.testing.allocator;
@@ -15,16 +44,7 @@ test "parse basic CREATE TABLE" {
     ;
     var parser = try SqlParser.init(alloc, sql, .sqlite);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqual(@as(usize, 1), result.schema.tables.len);
     const tbl = result.schema.tables[0];
@@ -52,16 +72,7 @@ test "parse multi-column table with modifiers" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqualStrings("orders", tbl.name);
@@ -100,16 +111,7 @@ test "parse VARCHAR and parameterized types" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqualStrings("varchar(255)", tbl.columns[0].type_sql);
@@ -131,22 +133,7 @@ test "parse FOREIGN KEY with actions" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            for (tbl.indexes) |idx| alloc.free(idx.fields);
-            alloc.free(tbl.indexes);
-            for (tbl.foreign_keys) |fk| {
-                alloc.free(fk.fields);
-                alloc.free(fk.ref_fields);
-                alloc.free(fk.actions);
-            }
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqual(@as(usize, 1), tbl.foreign_keys.len);
@@ -174,22 +161,7 @@ test "parse FOREIGN KEY composite fields" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            for (tbl.indexes) |idx| alloc.free(idx.fields);
-            alloc.free(tbl.indexes);
-            for (tbl.foreign_keys) |fk| {
-                alloc.free(fk.fields);
-                alloc.free(fk.ref_fields);
-                alloc.free(fk.actions);
-            }
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const fk = result.schema.tables[0].foreign_keys[0];
     try std.testing.expectEqual(@as(usize, 2), fk.fields.len);
@@ -212,20 +184,7 @@ test "parse CREATE INDEX standalone" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            for (tbl.indexes) |idx| {
-                alloc.free(idx.fields);
-                alloc.free(idx.name);
-            }
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqual(@as(usize, 2), tbl.indexes.len);
@@ -245,20 +204,7 @@ test "parse PG CREATE INDEX composite" {
     ;
     var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            for (tbl.indexes) |idx| {
-                alloc.free(idx.fields);
-                alloc.free(idx.name);
-            }
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqual(@as(usize, 1), tbl.indexes.len);
@@ -279,16 +225,7 @@ test "COMMENT ON TABLE" {
     ;
     var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqual(@as(usize, 1), result.schema.tables.len);
     try std.testing.expectEqualStrings("The user table", result.schema.tables[0].comment.?);
@@ -302,16 +239,7 @@ test "COMMENT ON COLUMN" {
     ;
     var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const col = result.schema.tables[0].columns[1];
     try std.testing.expectEqualStrings("name", col.name);
@@ -329,16 +257,7 @@ test "PG serial normalization" {
     ;
     var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqualStrings("integer", tbl.columns[0].type_sql);
@@ -358,16 +277,7 @@ test "PG GENERATED ALWAYS AS IDENTITY" {
     ;
     var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const col = result.schema.tables[0].columns[0];
     try std.testing.expectEqualStrings("integer", col.type_sql);
@@ -385,16 +295,7 @@ test "SQLite AUTOINCREMENT" {
     ;
     var parser = try SqlParser.init(alloc, sql, .sqlite);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const col = result.schema.tables[0].columns[0];
     try std.testing.expectEqualStrings("INTEGER", col.type_sql);
@@ -414,16 +315,7 @@ test "SQLite @sym metadata comments" {
     ;
     var parser = try SqlParser.init(alloc, sql, .sqlite);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqualStrings("n", tbl.columns[0].sym_override.?);
@@ -441,16 +333,7 @@ test "SQLite column comment via -- table.col: text" {
     ;
     var parser = try SqlParser.init(alloc, sql, .sqlite);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqualStrings("The user name", result.schema.tables[0].columns[1].comment.?);
 }
@@ -464,16 +347,7 @@ test "skip ALTER TABLE statement" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqual(@as(usize, 2), result.schema.tables.len);
     try std.testing.expectEqualStrings("t", result.schema.tables[0].name);
@@ -491,16 +365,7 @@ test "parse ALTER TABLE ADD FOREIGN KEY" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqual(@as(usize, 1), result.schema.tables.len);
     try std.testing.expectEqualStrings("orders", result.schema.tables[0].name);
@@ -520,16 +385,7 @@ test "parse ALTER TABLE ADD FOREIGN KEY without constraint name" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqual(@as(usize, 1), result.schema.tables.len);
     try std.testing.expectEqual(@as(usize, 1), result.schema.tables[0].foreign_keys.len);
@@ -546,16 +402,7 @@ test "skip CREATE EXTENSION/SCHEMA/TYPE" {
     ;
     var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqual(@as(usize, 1), result.schema.tables.len);
     try std.testing.expectEqualStrings("t", result.schema.tables[0].name);
@@ -569,16 +416,7 @@ test "parse CREATE DATABASE with charset" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqualStrings("mydb", result.schema.name.?);
     try std.testing.expectEqualStrings("utf8mb4", result.schema.charset.?);
@@ -592,16 +430,7 @@ test "parse PG CREATE DATABASE with encoding" {
     ;
     var parser = try SqlParser.init(alloc, sql, .pg);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqualStrings("mydb", result.schema.name.?);
     try std.testing.expectEqualStrings("UTF8", result.schema.charset.?);
@@ -617,26 +446,12 @@ test "parse CHECK constraint" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            for (tbl.checks) |ck| {
-                alloc.free(ck.field_name);
-                alloc.free(ck.expr);
-            }
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
-    try std.testing.expectEqual(@as(usize, 2), tbl.checks.len);
-    try std.testing.expectEqualStrings("age", tbl.checks[0].field_name);
-    try std.testing.expect(tbl.checks[0].expr.len > 0);
-    try std.testing.expectEqualStrings("status", tbl.checks[1].field_name);
+    // Column-level CHECK constraints are stored in col.check_expr
+    try std.testing.expect(tbl.columns[0].check_expr.?.len > 0);
+    try std.testing.expect(tbl.columns[1].check_expr.?.len > 0);
 }
 
 test "parse inline column DEFAULT values" {
@@ -652,20 +467,11 @@ test "parse inline column DEFAULT values" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqualStrings("42", tbl.columns[0].default_val.?);
-    try std.testing.expectEqualStrings("'hello'", tbl.columns[1].default_val.?);
+    try std.testing.expectEqualStrings("hello", tbl.columns[1].default_val.?);
     try std.testing.expectEqualStrings("NULL", tbl.columns[2].default_val.?);
     try std.testing.expectEqualStrings("0.00", tbl.columns[3].default_val.?);
     try std.testing.expectEqualStrings("b'0'", tbl.columns[4].default_val.?);
@@ -681,16 +487,7 @@ test "parse inline COMMENT on columns" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqualStrings("primary key", tbl.columns[0].comment.?);
@@ -707,16 +504,7 @@ test "parse multiple tables in one statement" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     try std.testing.expectEqual(@as(usize, 3), result.schema.tables.len);
     try std.testing.expectEqualStrings("user", result.schema.tables[0].name);
@@ -738,20 +526,7 @@ test "parse inline index MySQL" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            for (tbl.indexes) |idx| {
-                alloc.free(idx.fields);
-                alloc.free(idx.name);
-            }
-            alloc.free(tbl.indexes);
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const tbl = result.schema.tables[0];
     try std.testing.expectEqual(@as(usize, 3), tbl.indexes.len);
@@ -768,22 +543,7 @@ test "FK with ON DELETE SET NULL only" {
     ;
     var parser = try SqlParser.init(alloc, sql, .mysql);
     const result = try parser.parse();
-    defer {
-        alloc.free(result.diagnostics);
-        for (result.schema.tables) |tbl| {
-            alloc.free(tbl.columns);
-            for (tbl.indexes) |idx| alloc.free(idx.fields);
-            alloc.free(tbl.indexes);
-            for (tbl.foreign_keys) |fk| {
-                alloc.free(fk.fields);
-                alloc.free(fk.ref_fields);
-                alloc.free(fk.actions);
-            }
-            alloc.free(tbl.foreign_keys);
-            alloc.free(tbl.checks);
-        }
-        alloc.free(result.schema.tables);
-    }
+    defer freeResult(alloc, &parser, result);
 
     const fk = result.schema.tables[0].foreign_keys[0];
     try std.testing.expectEqual(@as(usize, 1), fk.actions.len);

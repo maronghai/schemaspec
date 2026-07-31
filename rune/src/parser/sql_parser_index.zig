@@ -11,12 +11,12 @@ pub fn parsePrimaryKey(self: *sp.SqlParser) !SqlIndex {
     self.skipSpaces();
     self.expectKeyword("KEY");
     self.skipSpaces();
-    var fl = try self.parseParenFieldList();
+    const fl = try self.parseParenFieldList();
     return .{
         .kind = .primary_key,
         .name = "",
-        .fields = try fl.fields.toOwnedSlice(self.alloc),
-        .descending = try fl.descending.toOwnedSlice(self.alloc),
+        .fields = fl.fields,
+        .descending = fl.descending,
     };
 }
 
@@ -30,12 +30,12 @@ pub fn parseUniqueIndex(self: *sp.SqlParser) !SqlIndex {
         name = try self.parseIdentifier();
     }
     self.skipSpaces();
-    var fl = try self.parseParenFieldList();
+    const fl = try self.parseParenFieldList();
     return .{
         .kind = .unique,
         .name = name,
-        .fields = try fl.fields.toOwnedSlice(self.alloc),
-        .descending = try fl.descending.toOwnedSlice(self.alloc),
+        .fields = fl.fields,
+        .descending = fl.descending,
     };
 }
 
@@ -46,12 +46,12 @@ pub fn parseFulltextIndex(self: *sp.SqlParser) !SqlIndex {
     self.skipSpaces();
     const name = try self.parseIdentifier();
     self.skipSpaces();
-    var fl = try self.parseParenFieldList();
+    const fl = try self.parseParenFieldList();
     return .{
         .kind = .fulltext,
         .name = name,
-        .fields = try fl.fields.toOwnedSlice(self.alloc),
-        .descending = try fl.descending.toOwnedSlice(self.alloc),
+        .fields = fl.fields,
+        .descending = fl.descending,
     };
 }
 
@@ -60,11 +60,11 @@ pub fn parseIndex(self: *sp.SqlParser) !SqlIndex {
     self.skipSpaces();
     const name = try self.parseIdentifier();
     self.skipSpaces();
-    var fl = try self.parseParenFieldList();
+    const fl = try self.parseParenFieldList();
     return .{
         .kind = .regular,
         .name = name,
-        .fields = try fl.fields.toOwnedSlice(self.alloc),
-        .descending = try fl.descending.toOwnedSlice(self.alloc),
+        .fields = fl.fields,
+        .descending = fl.descending,
     };
 }

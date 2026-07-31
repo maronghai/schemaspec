@@ -94,7 +94,9 @@ fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diag
 }
 
 test "autofk: _id suffix triggers FK inference" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const user_fields = try alloc.alloc(Field, 2);
     user_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });
@@ -142,7 +144,9 @@ test "autofk: _id suffix triggers FK inference" {
 }
 
 test "autofk: no suffix means no FK" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const fields = try alloc.alloc(Field, 2);
     fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });
@@ -175,7 +179,9 @@ test "autofk: no suffix means no FK" {
 }
 
 test "autofk: disabled schema skips inference" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const fields = try alloc.alloc(Field, 2);
     fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });

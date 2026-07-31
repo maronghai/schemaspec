@@ -41,7 +41,9 @@ test "registry: lookupSqlTypeDirect for all core types" {
 }
 
 test "registry: lookupSqlType renders correct strings" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const int_mysql = tr.lookupSqlType("n", .mysql, alloc);
     try testing.expect(int_mysql != null);
     try testing.expectEqualStrings("int", int_mysql.?);

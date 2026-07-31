@@ -219,31 +219,22 @@ pub const SqlParser = struct {
         };
         self.skipSpaces();
         if (self.peek() == '(') {
-            self.advance(); // skip (
-            var fields = try std.ArrayList([]const u8).initCapacity(self.alloc, 4);
-            while (self.peek() != ')' and self.pos < self.src.len) {
-                self.skipSpaces();
-                if (self.peek() == ')') break;
-                const field = try self.parseIdentifier();
-                try fields.append(self.alloc, field);
-                self.skipSpaces();
-                if (self.peek() == ',') self.advance();
-            }
-            if (self.peek() == ')') self.advance(); // skip )
+            const fl = try self.parseParenFieldList();
             const kind: IndexKind = if (is_unique) .unique else .regular;
             const idx = SqlIndex{
                 .kind = kind,
                 .name = idx_name,
-                .fields = try fields.toOwnedSlice(self.alloc),
-                .descending = &.{},
+                .fields = fl.fields,
+                .descending = fl.descending,
             };
             for (tables.items) |*tbl| {
                 if (std.mem.eql(u8, tbl.name, tbl_name)) {
                     const old = tbl.indexes;
-                    const new = try self.alloc.alloc(SqlIndex, old.len + 1);
-                    for (old, 0..) |o, i| new[i] = o;
-                    new[old.len] = idx;
-                    tbl.indexes = new;
+                    const new_indexes = try self.alloc.alloc(SqlIndex, old.len + 1);
+                    for (old, 0..) |o, i| new_indexes[i] = o;
+                    new_indexes[old.len] = idx;
+                    self.alloc.free(old);
+                    tbl.indexes = new_indexes;
                     break;
                 }
             }

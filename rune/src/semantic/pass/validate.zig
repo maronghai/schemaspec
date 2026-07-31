@@ -89,7 +89,9 @@ fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diag
 }
 
 test "validate: duplicate field name emits diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 2);
     fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
     fields[1] = test_helpers.makeTestField("name", .{ .simple = "s" });
@@ -115,7 +117,9 @@ test "validate: duplicate field name emits diagnostic" {
 }
 
 test "validate: valid table produces no diagnostics" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 2);
     fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
     fields[1] = test_helpers.makeTestField("name", .{ .simple = "s" });
@@ -139,7 +143,9 @@ test "validate: valid table produces no diagnostics" {
 }
 
 test "validate: FK to non-existent table emits diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(ast.Field, 1);
     fields[0] = test_helpers.makeTestField("user_id", .{ .simple = "n" });
 
@@ -173,7 +179,9 @@ test "validate: FK to non-existent table emits diagnostic" {
 }
 
 test "validate: FK to misspelled table suggests correction" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const user_fields = try alloc.alloc(ast.Field, 1);
     user_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n++" });

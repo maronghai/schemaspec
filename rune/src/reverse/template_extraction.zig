@@ -28,11 +28,11 @@ pub fn findTemplates(alloc: std.mem.Allocator, schema: sp.SqlSchema) ![]Template
     var template_idx: usize = 0;
     const max_templates = @max(1, schema.tables.len / 3);
     while (template_idx < max_templates) {
-        const result = findBestWithNewFields(alloc, covered_fields.items, schema, max_cols) orelse break;
+        const best = findBestWithNewFields(alloc, covered_fields.items, schema, max_cols) orelse break;
         template_idx += 1;
-        const name = if (template_idx == 1) "base" else try std.fmt.allocPrint(alloc, "base{d}", .{template_idx});
+        const name = try std.fmt.allocPrint(alloc, "base{d}", .{template_idx});
         // Track newly covered fields
-        for (result.fields) |col| {
+        for (best.fields) |col| {
             var already = false;
             for (covered_fields.items) |cf| {
                 if (std.mem.eql(u8, col.name, cf)) {
@@ -44,8 +44,8 @@ pub fn findTemplates(alloc: std.mem.Allocator, schema: sp.SqlSchema) ![]Template
         }
         try candidates.append(alloc, .{
             .name = name,
-            .fields = result.fields,
-            .table_indices = result.table_indices,
+            .fields = best.fields,
+            .table_indices = best.table_indices,
         });
     }
 
@@ -87,21 +87,36 @@ pub fn findTemplates(alloc: std.mem.Allocator, schema: sp.SqlSchema) ![]Template
     // Build final templates with assigned tables, renumber sequentially
     var result = try std.ArrayList(TemplateCandidate).initCapacity(alloc, candidates.items.len);
     var final_idx: usize = 0;
-    for (candidates.items, 0..) |cand, ci| {
+    for (candidates.items, 0..) |*cand, ci| {
         var assigned = try std.ArrayList(usize).initCapacity(alloc, 8);
         for (table_template_idx.items, 0..) |tti, ti| {
             if (tti == ci) try assigned.append(alloc, ti);
         }
         if (assigned.items.len >= 2) {
             final_idx += 1;
-            const name = if (final_idx == 1) "base" else try std.fmt.allocPrint(alloc, "base{d}", .{final_idx});
+            // Rename sequentially: first template is always "base"
+            if (final_idx > 1) {
+                alloc.free(cand.name);
+                cand.name = try std.fmt.allocPrint(alloc, "base{d}", .{final_idx});
+            } else {
+                // "base1" → "base"
+                alloc.free(cand.name);
+                cand.name = try alloc.dupe(u8, "base");
+            }
+            alloc.free(cand.table_indices);
             try result.append(alloc, .{
-                .name = name,
+                .name = cand.name,
                 .fields = cand.fields,
                 .table_indices = try assigned.toOwnedSlice(alloc),
             });
+        } else {
+            alloc.free(cand.name);
+            alloc.free(cand.table_indices);
         }
     }
+    candidates.deinit(alloc);
+    covered_fields.deinit(alloc);
+    table_template_idx.deinit(alloc);
     return try result.toOwnedSlice(alloc);
 }
 
@@ -177,13 +192,18 @@ fn findBestWithNewFields(alloc: std.mem.Allocator, covered: []const []const u8, 
                         score > best_score;
 
                     if (is_better) {
+                        if (best) |old_best| alloc.free(old_best.table_indices);
                         best_match_count = matching.items.len;
                         best_score = score;
                         best = .{
                             .fields = candidate_slice,
                             .table_indices = matching.toOwnedSlice(alloc) catch return null,
                         };
+                    } else {
+                        matching.deinit(alloc);
                     }
+                } else {
+                    matching.deinit(alloc);
                 }
             }
         }

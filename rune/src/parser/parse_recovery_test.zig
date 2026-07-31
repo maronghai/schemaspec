@@ -122,10 +122,10 @@ test "findNextBlockBoundary: skips past start index" {
 
 test "locFromLine: computes correct location" {
     var line = makeLine(.Table, 10);
-    line.raw = "  users id s32 !";
+    line.raw = "  id users s32 !";
     const tok = "id";
     const loc = recovery.locFromLine(line, tok);
     try testing.expectEqual(@as(usize, 10), loc.line);
-    // col should be 4 (after "  " + 1-based)
-    try testing.expect(loc.col >= 3 and loc.col <= 5);
+    // col should be 3 (after "  " + 1-based)
+    try testing.expect(loc.col >= 3 and loc.col <= 4);
 }

@@ -10,7 +10,9 @@ const test_helpers = struct {
 };
 
 test "template application: fields merged in order" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const tmpl_fields = try alloc.alloc(Field, 3);
     tmpl_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
@@ -49,7 +51,9 @@ test "template application: fields merged in order" {
 }
 
 test "template: 3-level inheritance" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const gp_fields = try alloc.alloc(Field, 1);
     gp_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
@@ -84,7 +88,9 @@ test "template: 3-level inheritance" {
 }
 
 test "template: multiple mixins" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const m1_fields = try alloc.alloc(Field, 1);
     m1_fields[0] = test_helpers.makeTestField("created_at", .none);
@@ -117,7 +123,9 @@ test "template: multiple mixins" {
 }
 
 test "template: child field type overrides parent" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const parent_fields = try alloc.alloc(Field, 1);
     parent_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });

@@ -77,7 +77,9 @@ fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diag
 }
 
 test "validate_type_modifiers: unsigned on numeric type — no diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     var fields = try std.ArrayList(Field).initCapacity(alloc, 1);
     var field = test_helpers.makeTestField("count", .{ .simple = "n" });
     field.modifiers = &.{.{ .kind = .unsigned, .line_no = 1 }};
@@ -102,7 +104,9 @@ test "validate_type_modifiers: unsigned on numeric type — no diagnostic" {
 }
 
 test "validate_type_modifiers: unsigned on string type — warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     var fields = try std.ArrayList(Field).initCapacity(alloc, 1);
     var field = test_helpers.makeTestField("name", .{ .simple = "s" });
     field.modifiers = &.{.{ .kind = .unsigned, .line_no = 1 }};
@@ -129,7 +133,9 @@ test "validate_type_modifiers: unsigned on string type — warning" {
 }
 
 test "validate_type_modifiers: auto_inc on non-numeric non-datetime — warning" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     var fields = try std.ArrayList(Field).initCapacity(alloc, 1);
     var field = test_helpers.makeTestField("tag", .{ .simple = "s" });
     field.modifiers = &.{.{ .kind = .auto_inc_pk, .line_no = 1 }};
@@ -156,7 +162,9 @@ test "validate_type_modifiers: auto_inc on non-numeric non-datetime — warning"
 }
 
 test "validate_type_modifiers: empty modifiers — no diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fields = try alloc.alloc(Field, 1);
     fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
 

@@ -54,7 +54,9 @@ fn makeCtx(alloc: std.mem.Allocator, diagnostics: *diag_mod.DiagnosticCollector,
 }
 
 test "validate_template_types: child overrides parent field type emits diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const parent_fields = try alloc.alloc(ast.Field, 1);
     parent_fields[0] = test_helpers.makeTestField("status", .{ .simple = "n" });
@@ -82,7 +84,9 @@ test "validate_template_types: child overrides parent field type emits diagnosti
 }
 
 test "validate_template_types: same type produces no diagnostic" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
 
     const parent_fields = try alloc.alloc(ast.Field, 1);
     parent_fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });

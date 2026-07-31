@@ -217,8 +217,8 @@ pub fn parseExpression(self: *sp.SqlParser) []const u8 {
 // ─── Expression Parsing ────────────────────────────────────────
 
 pub const FieldList = struct {
-    fields: std.ArrayList([]const u8),
-    descending: std.ArrayList(bool),
+    fields: []const []const u8,
+    descending: []const bool,
 };
 
 pub fn parseParenFieldList(self: *sp.SqlParser) !FieldList {
@@ -251,7 +251,11 @@ pub fn parseParenFieldList(self: *sp.SqlParser) !FieldList {
         self.skipSpaces();
         _ = self.parseStringLiteral() catch {};
     }
-    return .{ .fields = fields, .descending = descending };
+    const fields_slice = try fields.toOwnedSlice(self.alloc);
+    fields.deinit(self.alloc);
+    const descending_slice = try descending.toOwnedSlice(self.alloc);
+    descending.deinit(self.alloc);
+    return .{ .fields = fields_slice, .descending = descending_slice };
 }
 
 pub fn parseParenExpr(self: *sp.SqlParser) ![]const u8 {
