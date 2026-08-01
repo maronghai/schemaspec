@@ -66,6 +66,11 @@ pub const REGISTRY = [_]Generator{
         .description = "OpenAPI 3.1 spec from .ss schema",
         .generate = @import("generators/openapi.zig").generate,
     },
+    .{
+        .name = "graphql",
+        .description = "GraphQL type definitions from .ss schema",
+        .generate = @import("generators/graphql.zig").generate,
+    },
 };
 
 /// Look up a generator by name. Returns null if not found.

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.64.0 (2026-08-01)
+**Current version**: 0.65.0 (2026-08-01)
 
 ---
 
@@ -78,7 +78,7 @@ Bridge the gap between database schema and application code.
 ### API Schema
 
 - [x] `rune generate openapi schema.ss` — OpenAPI 3.1 spec
-- [ ] `rune generate graphql schema.ss` — GraphQL type definitions
+- [x] `rune generate graphql schema.ss` — GraphQL type definitions
 - [x] `rune generate json-schema schema.ss` — `$defs`, `$ref`, proper `required` arrays
 
 ### Generator Infrastructure (done)
@@ -200,6 +200,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.65.0 (2026-08-01)
+
+- **GraphQL type definitions generator** (`rune generate graphql`) — generates GraphQL SDL type definitions from `.ss` files. Produces object types, input types, enum types, Query fields (single + list), and Mutation fields (create/update/delete). SQL type mapping: int→Int, varchar→String, boolean→Boolean, datetime→DateTime (custom scalar), decimal→Float, bigint→String, json→JSON (custom scalar). Enum columns generate standalone `enum` types. FK columns produce relation fields. Views generate read-only types with Query entries (no mutations).
+- 9 new unit tests for GraphQL generator (`generators/graphql_test.zig`).
+- 4 new golden tests (`test_graphql.sh`) covering basic types, FK references, enums, and views.
+- Generator registry expanded from 10 to 11 generators.
+- Documentation: updated Source Layout, Generator Registry, Module Roles, and test counts.
 
 ### v0.64.0 (2026-08-01)
 

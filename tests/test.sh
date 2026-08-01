@@ -24,8 +24,8 @@ for ss_file in "$TEST_DIR"/*.ss; do
     continue
   fi
 
-  # Skip SQLite-only and non-SQL test files
-  if [[ "$base" == sqlite-* ]] || [[ "$base" == openapi-* ]]; then
+  # Skip SQLite-only, OpenAPI, and GraphQL test files
+  if [[ "$base" == sqlite-* ]] || [[ "$base" == openapi-* ]] || [[ "$base" == graphql-* ]]; then
     continue
   fi
 

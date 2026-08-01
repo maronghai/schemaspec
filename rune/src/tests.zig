@@ -74,6 +74,7 @@ comptime {
     _ = @import("generators/sqlalchemy_test.zig");
     _ = @import("generators/knex_test.zig");
     _ = @import("generators/openapi_test.zig");
+    _ = @import("generators/graphql_test.zig");
     // utils
     _ = @import("utils/edit_distance.zig");
 }
