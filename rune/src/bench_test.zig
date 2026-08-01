@@ -51,3 +51,35 @@ test "parseDialect: unknown returns error" {
 test "parseDialect: empty string returns error" {
     try testing.expectError(error.UnknownDialect, bench.parseDialect(""));
 }
+
+test "stagePairs: returns 5 stages" {
+    const current = bench.StageTimes{
+        .tokenize = 1.0,
+        .parse = 2.0,
+        .semantic = 3.0,
+        .type_resolve = 4.0,
+        .codegen = 5.0,
+    };
+    const baseline = bench.Baseline{
+        .tokenize = 1.0,
+        .parse = 2.0,
+        .semantic = 3.0,
+        .type_resolve = 4.0,
+        .codegen = 5.0,
+    };
+    const pairs = bench.stagePairs(current, baseline);
+    try testing.expectEqual(@as(usize, 5), pairs.len);
+    try testing.expectEqualStrings("tokenize", pairs[0].name);
+    try testing.expectEqualStrings("codegen", pairs[4].name);
+}
+
+test "Baseline.total: sums all stages" {
+    const b = bench.Baseline{
+        .tokenize = 1.0,
+        .parse = 2.0,
+        .semantic = 3.0,
+        .type_resolve = 4.0,
+        .codegen = 5.0,
+    };
+    try testing.expectEqual(@as(f64, 15.0), b.total());
+}

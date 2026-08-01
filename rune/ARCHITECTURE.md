@@ -404,7 +404,7 @@ No changes needed in `codegen.zig` — it is fully dialect-agnostic.
 
 ## Benchmark Infrastructure
 
-`src/bench.zig` measures per-stage latency for the forward pipeline using `Io.Clock.Timestamp` (nanosecond precision). Supports per-dialect benchmarking via `--dialect` flag.
+`src/bench.zig` measures per-stage latency for the forward pipeline using `Io.Clock.Timestamp` (nanosecond precision). Supports per-dialect benchmarking via `--dialect` flag. Refactored into `BenchArgs` config struct, `parseBenchArgs` helper, `stagePairs` shared iteration, and `Baseline.total()` method.
 
 ### Schema Sizes
 
@@ -437,16 +437,23 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 60 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~567 | Core logic + pipeline + colocated |
+| Unit tests | 62 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~620+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
-| PG golden | `tests/test_postgres.sh` | 85 | Full pipeline |
-| SQLite golden | `tests/test_sqlite.sh` | 25 | Full pipeline |
+| PG golden | `tests/test_postgres.sh` | 87 | Full pipeline |
+| SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |
 | MSSQL golden | `tests/test_mssql.sh` | 26 | Full pipeline |
 | Oracle golden | `tests/test_oracle.sh` | 103 | Full pipeline |
+| Db2 golden | `tests/test_db2.sh` | 103 | Full pipeline |
 | Migrate golden | `tests/test_migrate.sh` | 34 | Diff + migration SQL |
-| Reverse golden | `tests/test_reverse.sh` | 15 | SQL → .ss |
+| Reverse golden | `tests/test_reverse.sh` | 21 | SQL → .ss |
+| Reverse Oracle | `tests/test_reverse_oracle.sh` | 5 | Oracle SQL → .ss |
+| Reverse Db2 | `tests/test_reverse_db2.sh` | 5 | Db2 SQL → .ss |
 | Diff golden | `tests/test_diff.sh` | 12 | Schema comparison |
 | Error recovery | `tests/test_error_recovery.sh` | 12 | Parse error handling + schema-level validation |
 | JSON Schema | `tests/test_json_schema.sh` | 3 | JSON Schema output |
-| Roundtrip | `tests/test_roundtrip.sh` | 26 | Forward → reverse fidelity |
-| **Total** | | **~634+** | |
+| Roundtrip | `tests/test_roundtrip.sh` | 68 | Forward → reverse fidelity |
+| Imports | `tests/test_imports.sh` | 6 | Import system |
+| Stdin | `tests/test_stdin.sh` | 4 | Stdin pipeline |
+| Reverse confidence | `tests/test_reverse_confidence.sh` | 4 | Reverse confidence scores |
+| Init & completions | `tests/test_init.sh` | 12 | Init & completions |
+| **Total** | | **~753+** | |

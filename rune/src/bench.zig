@@ -20,58 +20,25 @@ const dialect_enum = @import("dialect/enum.zig");
 pub fn main(init: std.process.Init) !void {
     const alloc = init.arena.allocator();
 
-    // Parse args
-    var file_path: []const u8 = "bench/small.ss";
-    var iterations: usize = 50;
-    const warmup: usize = 3;
-    var mode: enum { run, save, check, diff } = .run;
-    var dialect: dialect_enum.Dialect = .mysql;
+    const args = try parseBenchArgs(init.minimal.args);
 
-    var arg_it = try std.process.Args.Iterator.initAllocator(init.minimal.args, alloc);
-    defer arg_it.deinit();
-    _ = arg_it.next(); // skip program name
-    while (arg_it.next()) |arg| {
-        if (std.mem.eql(u8, arg, "--save")) {
-            mode = .save;
-        } else if (std.mem.eql(u8, arg, "--check")) {
-            mode = .check;
-        } else if (std.mem.eql(u8, arg, "--diff")) {
-            mode = .diff;
-        } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
-            std.debug.print("Usage: bench [--save|--check|--diff] [--dialect <d>] [file] [iterations]\n", .{});
-            std.debug.print("  --save      Save current run as baseline\n", .{});
-            std.debug.print("  --check     Check for regressions vs baseline (>20% = exit 1)\n", .{});
-            std.debug.print("  --diff      Show per-stage comparison with baseline\n", .{});
-            std.debug.print("  --dialect   SQL dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
-            return;
-        } else if (std.mem.eql(u8, arg, "--dialect") or std.mem.eql(u8, arg, "-d")) {
-            if (arg_it.next()) |d| {
-                dialect = parseDialect(d) catch {
-                    std.debug.print("error: unknown dialect '{s}'. Expected: mysql, pg, sqlite, mssql, oracle, db2\n", .{d});
-                    return error.UnknownDialect;
-                };
-            } else {
-                std.debug.print("error: --dialect requires a value\n", .{});
-                return error.MissingDialectValue;
-            }
-        } else {
-            file_path = arg;
-            if (arg_it.next()) |n_str| iterations = std.fmt.parseInt(usize, n_str, 10) catch 50;
-        }
+    if (args.help) {
+        printUsage();
+        return;
     }
 
     // Read file
-    const file_data = try std.Io.Dir.cwd().readFileAlloc(init.io, file_path, alloc, .unlimited);
+    const file_data = try std.Io.Dir.cwd().readFileAlloc(init.io, args.file_path, alloc, .unlimited);
     defer alloc.free(file_data);
 
     // Warm up (3 iterations to stabilize CPU cache)
     {
         var w: usize = 0;
-        while (w < warmup) : (w += 1) {
+        while (w < args.warmup) : (w += 1) {
             var arena = std.heap.ArenaAllocator.init(alloc);
             defer arena.deinit();
             const a = arena.allocator();
-            _ = try runPipeline(a, file_data, dialect);
+            _ = try runPipeline(a, file_data, args.dialect);
         }
     }
 
@@ -79,30 +46,30 @@ pub fn main(init: std.process.Init) !void {
     var times = StageTimes{};
 
     var i: usize = 0;
-    while (i < iterations) : (i += 1) {
+    while (i < args.iterations) : (i += 1) {
         var arena = std.heap.ArenaAllocator.init(alloc);
         defer arena.deinit();
         const a = arena.allocator();
 
-        var t = try runPipelineTimed(init.io, a, file_data, dialect);
+        var t = try runPipelineTimed(init.io, a, file_data, args.dialect);
         times.add(&t);
     }
 
-    const avg = times.avg(iterations);
+    const avg = times.avg(args.iterations);
 
-    switch (mode) {
+    switch (args.mode) {
         .run => {
-            printJson(file_path, iterations, avg, dialect);
+            printJson(args.file_path, args.iterations, avg, args.dialect);
         },
         .save => {
-            printJson(file_path, iterations, avg, dialect);
-            try saveBaseline(init.io, alloc, file_path, avg, dialect);
-            std.debug.print("\nBaseline saved to bench/baseline-{s}.json\n", .{@tagName(dialect)});
+            printJson(args.file_path, args.iterations, avg, args.dialect);
+            try saveBaseline(init.io, alloc, args.file_path, avg, args.dialect);
+            std.debug.print("\nBaseline saved to bench/baseline-{s}.json\n", .{@tagName(args.dialect)});
         },
         .check => {
-            const baseline = loadBaseline(init.io, alloc, dialect) catch |err| {
-                std.debug.print("error: cannot load bench/baseline-{s}.json: {s}\n", .{ @tagName(dialect), @errorName(err) });
-                std.debug.print("Run 'zig build bench -- --save --dialect {s}' first to create baseline.\n", .{@tagName(dialect)});
+            const baseline = loadBaseline(init.io, alloc, args.dialect) catch |err| {
+                std.debug.print("error: cannot load bench/baseline-{s}.json: {s}\n", .{ @tagName(args.dialect), @errorName(err) });
+                std.debug.print("Run 'zig build bench -- --save --dialect {s}' first to create baseline.\n", .{@tagName(args.dialect)});
                 return error.BaselineNotFound;
             };
             const regressions = checkRegressions(avg, baseline);
@@ -115,9 +82,9 @@ pub fn main(init: std.process.Init) !void {
             }
         },
         .diff => {
-            const baseline = loadBaseline(init.io, alloc, dialect) catch |err| {
-                std.debug.print("error: cannot load bench/baseline-{s}.json: {s}\n", .{ @tagName(dialect), @errorName(err) });
-                std.debug.print("Run 'zig build bench -- --save --dialect {s}' first to create baseline.\n", .{@tagName(dialect)});
+            const baseline = loadBaseline(init.io, alloc, args.dialect) catch |err| {
+                std.debug.print("error: cannot load bench/baseline-{s}.json: {s}\n", .{ @tagName(args.dialect), @errorName(err) });
+                std.debug.print("Run 'zig build bench -- --save --dialect {s}' first to create baseline.\n", .{@tagName(args.dialect)});
                 return error.BaselineNotFound;
             };
             printDiff(avg, baseline);
@@ -125,7 +92,57 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-const StageTimes = struct {
+const BenchArgs = struct {
+    file_path: []const u8 = "bench/small.ss",
+    iterations: usize = 50,
+    warmup: usize = 3,
+    mode: enum { run, save, check, diff } = .run,
+    dialect: dialect_enum.Dialect = .mysql,
+    help: bool = false,
+};
+
+fn parseBenchArgs(minimal_args: anytype) !BenchArgs {
+    var args = BenchArgs{};
+
+    var arg_it = try std.process.Args.Iterator.initAllocator(minimal_args, std.heap.page_allocator);
+    defer arg_it.deinit();
+    _ = arg_it.next(); // skip program name
+    while (arg_it.next()) |arg| {
+        if (std.mem.eql(u8, arg, "--save")) {
+            args.mode = .save;
+        } else if (std.mem.eql(u8, arg, "--check")) {
+            args.mode = .check;
+        } else if (std.mem.eql(u8, arg, "--diff")) {
+            args.mode = .diff;
+        } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
+            args.help = true;
+        } else if (std.mem.eql(u8, arg, "--dialect") or std.mem.eql(u8, arg, "-d")) {
+            if (arg_it.next()) |d| {
+                args.dialect = parseDialect(d) catch {
+                    std.debug.print("error: unknown dialect '{s}'. Expected: mysql, pg, sqlite, mssql, oracle, db2\n", .{d});
+                    return error.UnknownDialect;
+                };
+            } else {
+                std.debug.print("error: --dialect requires a value\n", .{});
+                return error.MissingDialectValue;
+            }
+        } else {
+            args.file_path = arg;
+            if (arg_it.next()) |n_str| args.iterations = std.fmt.parseInt(usize, n_str, 10) catch 50;
+        }
+    }
+    return args;
+}
+
+fn printUsage() void {
+    std.debug.print("Usage: bench [--save|--check|--diff] [--dialect <d>] [file] [iterations]\n", .{});
+    std.debug.print("  --save      Save current run as baseline\n", .{});
+    std.debug.print("  --check     Check for regressions vs baseline (>20% = exit 1)\n", .{});
+    std.debug.print("  --diff      Show per-stage comparison with baseline\n", .{});
+    std.debug.print("  --dialect   SQL dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
+}
+
+pub const StageTimes = struct {
     tokenize: f64 = 0,
     parse: f64 = 0,
     semantic: f64 = 0,
@@ -189,12 +206,16 @@ fn printJson(file_path: []const u8, iterations: usize, avg: StageTimes, dialect:
     });
 }
 
-const Baseline = struct {
+pub const Baseline = struct {
     tokenize: f64,
     parse: f64,
     semantic: f64,
     type_resolve: f64,
     codegen: f64,
+
+    pub fn total(self: Baseline) f64 {
+        return self.tokenize + self.parse + self.semantic + self.type_resolve + self.codegen;
+    }
 };
 
 fn saveBaseline(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, avg: StageTimes, dialect: dialect_enum.Dialect) !void {
@@ -278,23 +299,16 @@ fn loadBaseline(io: std.Io, alloc: std.mem.Allocator, dialect: dialect_enum.Dial
 fn checkRegressions(current: StageTimes, baseline: Baseline) usize {
     const threshold = 1.20; // 20% regression threshold
     var count: usize = 0;
-    if (current.tokenize / baseline.tokenize > threshold) count += 1;
-    if (current.parse / baseline.parse > threshold) count += 1;
-    if (current.semantic / baseline.semantic > threshold) count += 1;
-    if (current.type_resolve / baseline.type_resolve > threshold) count += 1;
-    if (current.codegen / baseline.codegen > threshold) count += 1;
+    const stages = stagePairs(current, baseline);
+    for (stages) |s| {
+        if (s.baseline > 0 and s.current / s.baseline > threshold) count += 1;
+    }
     return count;
 }
 
 fn printRegressionDetails(current: StageTimes, baseline: Baseline) void {
     const threshold = 1.20;
-    const stages = [_]struct { name: []const u8, current: f64, baseline: f64 }{
-        .{ .name = "tokenize", .current = current.tokenize, .baseline = baseline.tokenize },
-        .{ .name = "parse", .current = current.parse, .baseline = baseline.parse },
-        .{ .name = "semantic", .current = current.semantic, .baseline = baseline.semantic },
-        .{ .name = "type_resolve", .current = current.type_resolve, .baseline = baseline.type_resolve },
-        .{ .name = "codegen", .current = current.codegen, .baseline = baseline.codegen },
-    };
+    const stages = stagePairs(current, baseline);
 
     for (stages) |s| {
         if (s.baseline > 0 and s.current / s.baseline > threshold) {
@@ -304,7 +318,7 @@ fn printRegressionDetails(current: StageTimes, baseline: Baseline) void {
     }
 
     const cur_total = current.total();
-    const bas_total = baseline.tokenize + baseline.parse + baseline.semantic + baseline.type_resolve + baseline.codegen;
+    const bas_total = baseline.total();
     if (bas_total > 0) {
         const change = ((cur_total - bas_total) / bas_total) * 100.0;
         std.debug.print("  total: {d:.2}ms → {d:.2}ms ({d:.1}% change)\n", .{ bas_total, cur_total, change });
@@ -312,13 +326,7 @@ fn printRegressionDetails(current: StageTimes, baseline: Baseline) void {
 }
 
 fn printDiff(current: StageTimes, baseline: Baseline) void {
-    const stages = [_]struct { name: []const u8, current: f64, baseline: f64 }{
-        .{ .name = "tokenize", .current = current.tokenize, .baseline = baseline.tokenize },
-        .{ .name = "parse", .current = current.parse, .baseline = baseline.parse },
-        .{ .name = "semantic", .current = current.semantic, .baseline = baseline.semantic },
-        .{ .name = "type_resolve", .current = current.type_resolve, .baseline = baseline.type_resolve },
-        .{ .name = "codegen", .current = current.codegen, .baseline = baseline.codegen },
-    };
+    const stages = stagePairs(current, baseline);
 
     std.debug.print("\nStage Comparison (current vs baseline):\n", .{});
     std.debug.print("  {s: <15} {s: >10} {s: >10} {s: >10}\n", .{ "Stage", "Baseline", "Current", "Change" });
@@ -335,12 +343,24 @@ fn printDiff(current: StageTimes, baseline: Baseline) void {
     }
 
     const cur_total = current.total();
-    const bas_total = baseline.tokenize + baseline.parse + baseline.semantic + baseline.type_resolve + baseline.codegen;
+    const bas_total = baseline.total();
     if (bas_total > 0) {
         const change = ((cur_total - bas_total) / bas_total) * 100.0;
         const sign: []const u8 = if (change >= 0) "+" else "";
         std.debug.print("  {s: <15} {d:>9.2}ms {d:>9.2}ms {s}{d:.1}%\n", .{ "TOTAL", bas_total, cur_total, sign, change });
     }
+}
+
+pub const StagePair = struct { name: []const u8, current: f64, baseline: f64 };
+
+pub fn stagePairs(current: StageTimes, baseline: Baseline) [5]StagePair {
+    return .{
+        .{ .name = "tokenize", .current = current.tokenize, .baseline = baseline.tokenize },
+        .{ .name = "parse", .current = current.parse, .baseline = baseline.parse },
+        .{ .name = "semantic", .current = current.semantic, .baseline = baseline.semantic },
+        .{ .name = "type_resolve", .current = current.type_resolve, .baseline = baseline.type_resolve },
+        .{ .name = "codegen", .current = current.codegen, .baseline = baseline.codegen },
+    };
 }
 
 /// Shared pipeline initialization: tokenize → parse. Returns the parsed AST.
