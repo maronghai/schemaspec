@@ -234,6 +234,7 @@ pub fn getBackend(dialect: Dialect) DialectBackend {
         .sqlite => @import("../dialect/sqlite.zig").sqlite_backend,
         .mssql => @import("../dialect/mssql.zig").mssql_backend,
         .oracle => @import("../dialect/oracle.zig").oracle_backend,
+        .db2 => @import("../dialect/db2.zig").db2_backend,
     };
 }
 
@@ -299,11 +300,13 @@ comptime {
     validateBackend(@import("../dialect/sqlite.zig").sqlite_backend);
     validateBackend(@import("../dialect/mssql.zig").mssql_backend);
     validateBackend(@import("../dialect/oracle.zig").oracle_backend);
+    validateBackend(@import("../dialect/db2.zig").db2_backend);
     validateOptionalMethods(@import("../dialect/mysql.zig").mysql_backend, "mysql");
     validateOptionalMethods(@import("../dialect/pg.zig").pg_backend, "pg");
     validateOptionalMethods(@import("../dialect/sqlite.zig").sqlite_backend, "sqlite");
     validateOptionalMethods(@import("../dialect/mssql.zig").mssql_backend, "mssql");
     validateOptionalMethods(@import("../dialect/oracle.zig").oracle_backend, "oracle");
+    validateOptionalMethods(@import("../dialect/db2.zig").db2_backend, "db2");
 }
 
 // ─── Table-Driven Type Rendering ────────────────────────────

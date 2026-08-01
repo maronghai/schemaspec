@@ -362,7 +362,7 @@ test "data: every entry has non-empty sym" {
 test "data: every entry has at least one non-empty dialect" {
     for (REVERSE_MAP) |m| {
         const has_any = m.types.mysql.len > 0 or m.types.pg.len > 0 or
-            m.types.sqlite.len > 0 or m.types.mssql.len > 0 or m.types.oracle.len > 0;
+            m.types.sqlite.len > 0 or m.types.mssql.len > 0 or m.types.oracle.len > 0 or m.types.db2.len > 0;
         try testing.expect(has_any);
     }
 }

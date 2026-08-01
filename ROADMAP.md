@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.69.0 (2026-08-01)
+**Current version**: 0.70.0 (2026-08-01)
 
 ---
 
@@ -48,7 +48,7 @@ Add enterprise SQL dialects. Dialect infrastructure (capability flags) is done.
 
 - [x] **Oracle** — `dialect/oracle.zig` (~300 lines). No `AUTO_INCREMENT` (sequences + triggers), `NUMBER` precision/scale, `VARCHAR2`/`NVARCHAR2`, `CLOB`/`NCLOB`, double-quote identifier quoting
 - [x] **Microsoft SQL Server** — `dialect/mssql.zig` (~250 lines). `IDENTITY`, `NVARCHAR`/`NTEXT`, schema-qualified names (`dbo.table`), `GO` batch separators
-- [ ] **IBM Db2** — `dialect/db2.zig` (~200 lines). `GENERATED ALWAYS AS IDENTITY`, `BIGINT`/`SMALLINT`, `FOR ROW ACCESS`
+- [x] **IBM Db2** — `dialect/db2.zig` (~250 lines). `GENERATED ALWAYS AS IDENTITY`, `BIGINT`/`INTEGER`/`SMALLINT`, `DECIMAL(p,s)`, `VARCHAR(n)`, `CLOB`/`BLOB`, double-quote identifier quoting, `COMMENT ON`, `GENERATED ALWAYS AS (expr) STORED`, `RENAME COLUMN`.
 
 ### Dialect Infrastructure (done)
 
@@ -200,6 +200,17 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.70.0 (2026-08-01)
+
+- **IBM Db2 dialect** (`dialect/db2.zig`, ~250 lines) — complete Db2 LUW backend with double-quote identifier quoting, GENERATED ALWAYS AS IDENTITY for auto-increment, INTEGER/BIGINT/SMALLINT/DECIMAL(p,s)/VARCHAR(n)/CLOB/BLOB type mappings, BOOLEAN type (Db2 9.7+), CHECK constraints for enums, COMMENT ON for table/column comments, GENERATED ALWAYS AS (expr) STORED for generated columns (Db2 11.1+), and RENAME COLUMN support (Db2 10.5+).
+- **Db2 dialect registration** — Added to `Dialect` enum, `getBackend()` switch, comptime validation, CLI `parseDialect` (accepts `db2` or `idb2`), and help text.
+- **Db2 reverse mapping** — `DialectTypeMap` extended with `db2` field; 41+ REVERSE_MAP entries updated with Db2 type equivalents; reverse lookup includes Db2 types. Added Db2-specific passthrough types (DECFLOAT, GRAPHIC, VARGRAPHIC).
+- **103 new golden tests** in `tests/test_db2.sh` covering all-types, modifiers, defaults, templates, FK, indexes, checks, enums, inline indexes, generated columns, views, and imports.
+- **Drizzle ORM generator** — Db2 support via `pg-core` driver fallback.
+- **Test coverage** — Added Oracle and Db2 test suites to `test_coverage.sh` (18 suites total).
+- **Fixed unit tests** — Updated CLI test for new Db2 dialect, updated reverse map test to include Db2 field.
+- Documentation: updated Source Layout, Dialect Enum, Quick Usage, and test counts.
 
 ### v0.69.0 (2026-08-01)
 

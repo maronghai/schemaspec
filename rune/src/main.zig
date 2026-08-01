@@ -187,8 +187,8 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
 /// Map CLI argument errors to human-readable messages.
 fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
     return switch (err) {
-        error.UnknownDialect => "unknown dialect, expected one of: mysql, pg, postgres, sqlite, mssql, oracle",
-        error.MissingDialectValue => "--dialect requires a value, expected one of: mysql, pg, postgres, sqlite, mssql, oracle",
+        error.UnknownDialect => "unknown dialect, expected one of: mysql, pg, postgres, sqlite, mssql, oracle, db2",
+        error.MissingDialectValue => "--dialect requires a value, expected one of: mysql, pg, postgres, sqlite, mssql, oracle, db2",
         error.UnknownTarget => "unknown target, expected one of: sql, json-schema",
         error.MissingTargetValue => "--target requires a value, expected one of: sql, json-schema",
         error.UnknownFormat => "unknown format, expected one of: text, json, sarif",

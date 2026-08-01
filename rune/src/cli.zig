@@ -274,6 +274,7 @@ fn parseDialect(s: []const u8) !dialect_enum.Dialect {
     if (std.mem.eql(u8, s, "sqlite") or std.mem.eql(u8, s, "sq")) return .sqlite;
     if (std.mem.eql(u8, s, "mssql") or std.mem.eql(u8, s, "sqlserver")) return .mssql;
     if (std.mem.eql(u8, s, "oracle") or std.mem.eql(u8, s, "ora")) return .oracle;
+    if (std.mem.eql(u8, s, "db2") or std.mem.eql(u8, s, "idb2")) return .db2;
     return error.UnknownDialect;
 }
 
@@ -505,7 +506,7 @@ pub fn printUsage() void {
     }
     std.debug.print("                                                       -T: extract shared templates (reverse only)\n", .{});
     std.debug.print("\nOptions:\n", .{});
-    std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql, oracle\n", .{});
+    std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql, oracle, db2\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
     std.debug.print("  --format        Output format: text (default), json, sarif (for diff/migrate)\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});

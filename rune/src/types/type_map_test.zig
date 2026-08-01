@@ -106,6 +106,7 @@ fn expectForwardMatchesReverse(dialect: Dialect, forward_sql: []const u8, rev_en
         .sqlite => rev_entry.types.sqlite,
         .mssql => rev_entry.types.mssql,
         .oracle => rev_entry.types.oracle,
+        .db2 => rev_entry.types.db2,
     };
     try std.testing.expectEqualStrings(rev_sql, forward_sql);
 }

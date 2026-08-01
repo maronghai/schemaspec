@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Rune is a minimal DSL for declaring database schemas using single-character symbols, implemented in Zig. It compiles `.ss` schema files into SQL DDL (MySQL/PostgreSQL/SQLite/MSSQL/Oracle), and supports reverse engineering (SQL→.ss), schema diff, and migration generation.
+Rune is a minimal DSL for declaring database schemas using single-character symbols, implemented in Zig. It compiles `.ss` schema files into SQL DDL (MySQL/PostgreSQL/SQLite/MSSQL/Oracle/Db2), and supports reverse engineering (SQL→.ss), schema diff, and migration generation.
 
 ## Build & Test Commands
 
@@ -26,6 +26,7 @@ bash tests/test_postgres.sh         # PostgreSQL (87 tests)
 bash tests/test_sqlite.sh           # SQLite (26 tests)
 bash tests/test_mssql.sh            # MSSQL (26 tests)
 bash tests/test_oracle.sh           # Oracle (103 tests)
+bash tests/test_db2.sh              # Db2 (103 tests)
 bash tests/test_migrate.sh          # Migration (34 tests)
 bash tests/test_reverse.sh          # Reverse engineering (21 tests)
 bash tests/test_diff.sh             # Schema diff (12 tests)
@@ -37,7 +38,7 @@ bash tests/test_stdin.sh            # Stdin pipeline (4 tests)
 bash tests/test_bench.sh            # Benchmark regression (--save/--check/--diff)
 bash tests/test_reverse_confidence.sh  # Reverse confidence (4 tests)
 bash tests/test_init.sh             # Init & completions (12 tests)
-bash tests/test_coverage.sh         # Full test suite runner (all 17 suites)
+bash tests/test_coverage.sh         # Full test suite runner (all 18 suites)
 ```
 
 Run a single golden test by filter: `bash tests/test.sh 01` (matches test name substring).
@@ -51,6 +52,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune schema.ss -d sqlite              # SQLite output
 ./rune/zig-out/bin/rune schema.ss -d mssql               # MSSQL output
 ./rune/zig-out/bin/rune schema.ss -d oracle              # Oracle output
+./rune/zig-out/bin/rune schema.ss -d db2                 # Db2 output
 ./rune/zig-out/bin/rune init                             # Create starter schema
 ./rune/zig-out/bin/rune init myapp                       # Create starter schema with name
 ./rune/zig-out/bin/rune completions bash                 # Generate bash completions
@@ -117,9 +119,9 @@ rune/src/
 
 - **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`.
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
+- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
 
-- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. MySQL/PostgreSQL/SQLite/MSSQL/Oracle dialects done; ready for Db2.
+- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. MySQL/PostgreSQL/SQLite/MSSQL/Oracle/Db2 dialects done.
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)`.
 
@@ -170,7 +172,7 @@ rune/src/
 | | `indexes.zig` | Inline and standalone index emission |
 | `dialect/` | `dialect.zig` | DialectBackend vtable + getBackend() + ReverseResult |
 | | `enum.zig` | Dialect enum (mysql, pg, sqlite, mssql, oracle) |
-| | `mysql.zig`, `pg.zig`, `sqlite.zig`, `mssql.zig`, `oracle.zig` | Per-dialect backend implementations |
+| | `mysql.zig`, `pg.zig`, `sqlite.zig`, `mssql.zig`, `oracle.zig`, `db2.zig` | Per-dialect backend implementations |
 | | `common.zig` | Shared PG/SQLite dialect functions |
 | | `sqlite_hints.zig` | SQLite type affinity hints + column heuristics |
 | `reverse/` | `codegen.zig` | SQL → `.ss` orchestration |

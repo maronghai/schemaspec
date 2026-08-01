@@ -79,7 +79,7 @@ test "parseArgs: unknown dialect returns error" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const args = makeArgs(3, .{ "rune", "-d", "db2" });
+    const args = makeArgs(3, .{ "rune", "-d", "db9" });
     try testing.expectError(error.UnknownDialect, cli.parseArgs(alloc, &args));
 }
 

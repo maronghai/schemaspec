@@ -111,6 +111,7 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst, dialect: Dialect, has_enu
         .sqlite => "sqliteTable",
         .mssql => "mssqlTable",
         .oracle => "pgTable", // Drizzle Oracle uses pg-core driver
+        .db2 => "pgTable", // Drizzle Db2 uses pg-core driver
     };
 
     const mod_name = switch (dialect) {
@@ -119,6 +120,7 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst, dialect: Dialect, has_enu
         .sqlite => "sqlite-core",
         .mssql => "mssql-core",
         .oracle => "pg-core", // Drizzle Oracle uses pg-core driver
+        .db2 => "pg-core", // Drizzle Db2 uses pg-core driver
     };
 
     try w.print("import {{ {s}", .{table_fn});
@@ -217,6 +219,7 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
         .sqlite => "sqliteTable",
         .mssql => "mssqlTable",
         .oracle => "pgTable", // Drizzle Oracle uses pg-core driver
+        .db2 => "pgTable", // Drizzle Db2 uses pg-core driver
     };
 
     try w.print("export const {s} = {s}('{s}', {{\n", .{ table.name, table_fn, table.name });
