@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.73.0] - 2026-08-02
+
+### Added
+- **Dialect-aware reverse engineering for Oracle and Db2** — `reverseLookup` in `reverse/map.zig` now matches against Oracle and Db2 type columns in `REVERSE_MAP`, enabling accurate reverse engineering of Oracle DDL (`VARCHAR2(N)`, `NUMBER(P,S)`, `CLOB`, `BLOB`, etc.) and Db2 DDL (`VARCHAR(N)`, `DECIMAL(P,S)`, `INTEGER`, `SMALLINT`, `BIGINT`, etc.) to `.ss` format.
+- **Case-insensitive parameterized type matching** — Added `matchPrefix` helper for case-insensitive prefix matching in `reverseLookup`. Oracle and Db2 DDL uses uppercase type names (`VARCHAR2(100)`, `NUMBER(10)`, `DECIMAL(10,2)`) which now correctly match against parameterized type patterns.
+- **Oracle parameterized type handlers** — Added reverse mapping for `VARCHAR2(N)` → `sN`, `NUMBER(P,S)` → `P,S`, and `NUMBER(P)` → `N` (with case-insensitive matching).
+- **3 Oracle reverse golden tests** (`tests/test_reverse_oracle.sh`) — basic types, indexes, and full type coverage.
+- **3 Db2 reverse golden tests** (`tests/test_reverse_db2.sh`) — basic types, indexes, and full type coverage.
+
+### Changed
+- `test_coverage.sh` now runs 20 suites (was 18) — added Reverse Oracle and Reverse Db2.
+
 ## [0.64.0] - 2026-08-01
 
 ### Fixed

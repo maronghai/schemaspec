@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.72.0 (2026-08-02)
+**Current version**: 0.73.0 (2026-08-02)
 
 ---
 
@@ -59,7 +59,7 @@ Add enterprise SQL dialects. Dialect infrastructure (capability flags) is done.
 ### Dialect Testing & Reverse
 
 - [x] Dialect-specific test suites — `tests/test_oracle.sh`, `tests/test_mssql.sh`
-- [ ] `rune reverse --dialect oracle` — dialect-aware reverse engineering per backend
+- [x] `rune reverse --dialect oracle` — dialect-aware reverse engineering per backend
 
 ---
 
@@ -201,7 +201,10 @@ Ongoing improvements pursued alongside feature work.
 
 ## Release History
 
-### v0.72.0 (2026-08-02)
+### v0.73.0 (2026-08-02)
+
+- **Dialect-aware reverse engineering for Oracle and Db2** — `reverseLookup` now matches Oracle and Db2 type columns in `REVERSE_MAP`. Case-insensitive parameterized type matching (`VARCHAR2(N)`, `NUMBER(P,S)`, `DECIMAL(P,S)`) enables accurate reverse engineering of Oracle and Db2 DDL. 6 new golden tests across 2 new test suites.
+- **Consolidated `emitAlterDropFk`** — Extracted FK name-joining logic from PG, MSSQL, Oracle into shared `common.emitAlterDropFkShared` / `common.emitAlterDropFkMssql` helpers. Each dialect's `emitAlterDropFk` is now a one-line call. MySQL and Db2 kept separate (use `DROP FOREIGN KEY` syntax instead of `DROP CONSTRAINT`).
 
 - **Consolidated `emitAlterDropFk`** — Extracted FK name-joining logic from PG, MSSQL, Oracle into shared `common.emitAlterDropFkShared` / `common.emitAlterDropFkMssql` helpers. Each dialect's `emitAlterDropFk` is now a one-line call. MySQL and Db2 kept separate (use `DROP FOREIGN KEY` syntax instead of `DROP CONSTRAINT`).
 - **Consolidated `emitAlterAddIndex`** — Extracted standalone CREATE INDEX logic from PG, Oracle, Db2, MSSQL into shared `common.emitAlterAddIndexStandalone` helper. Eliminates ~45 lines of duplicated index emission code across 4 dialects.

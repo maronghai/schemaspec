@@ -1,7 +1,11 @@
 {
   "file": "03-all-types.ss",
   "iterations": 3,
-  "avg_us": 87913,
-  "min_us": 87225,
-  "max_us": 88786
+  "avg_us": 102523,
+  "min_us": 97070,
+  "max_us": 111828,
+  "git_commit": "89ad6aa",
+  "git_branch": "main",
+  "timestamp": "2026-08-01T19:28:19Z",
+  "platform": "MINGW64_NT-10.0-19044"
 }

@@ -1,0 +1,7 @@
+CREATE TABLE users (
+  id NUMBER(10) NOT NULL,
+  name VARCHAR2(100) NOT NULL,
+  email VARCHAR2(255),
+  bio CLOB,
+  PRIMARY KEY (id)
+);

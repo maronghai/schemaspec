@@ -1,0 +1,9 @@
+CREATE TABLE products (
+  id INTEGER NOT NULL GENERATED ALWAYS AS IDENTITY,
+  name VARCHAR(200) NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  description CLOB,
+  photo BLOB,
+  is_active SMALLINT DEFAULT 1,
+  PRIMARY KEY (id)
+);

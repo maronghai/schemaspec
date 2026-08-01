@@ -29,6 +29,8 @@ bash tests/test_oracle.sh           # Oracle (103 tests)
 bash tests/test_db2.sh              # Db2 (103 tests)
 bash tests/test_migrate.sh          # Migration (34 tests)
 bash tests/test_reverse.sh          # Reverse engineering (21 tests)
+bash tests/test_reverse_oracle.sh   # Oracle reverse engineering (3 tests)
+bash tests/test_reverse_db2.sh      # Db2 reverse engineering (3 tests)
 bash tests/test_diff.sh             # Schema diff (12 tests)
 bash tests/test_error_recovery.sh   # Error recovery (12 tests)
 bash tests/test_json_schema.sh      # JSON Schema (3 tests)
@@ -38,7 +40,7 @@ bash tests/test_stdin.sh            # Stdin pipeline (4 tests)
 bash tests/test_bench.sh            # Benchmark regression (--save/--check/--diff)
 bash tests/test_reverse_confidence.sh  # Reverse confidence (4 tests)
 bash tests/test_init.sh             # Init & completions (12 tests)
-bash tests/test_coverage.sh         # Full test suite runner (all 18 suites)
+bash tests/test_coverage.sh         # Full test suite runner (all 20 suites)
 ```
 
 Run a single golden test by filter: `bash tests/test.sh 01` (matches test name substring).
@@ -147,7 +149,7 @@ rune/src/
 
 - **Two-Pass FK Diffing** (`diff/fks.zig`): First pass matches identical FKs (structure + actions). Second pass matches structurally identical FKs with different actions → `modify`. Remaining unmatched FKs → `drop`/`add`.
 
-- **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null. Reverse mapping data lives in `types/reverse_map.zig` (canonical location), consumed by both `reverse/map.zig` and `diff/semantic.zig`.
+- **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null. The general path now matches all 6 dialects (MySQL, PG, MSSQL, Oracle, Db2, SQLite) via `REVERSE_MAP` data, with case-insensitive parameterized type matching for Oracle (`VARCHAR2(N)`, `NUMBER(P,S)`) and Db2 (`DECIMAL(P,S)`, `VARCHAR(N)`). Reverse mapping data lives in `types/reverse_map.zig` (canonical location), consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
 - **Unified ReverseResult** (`dialect/dialect.zig`): Single `ReverseResult` struct shared by dialect backends and `reverse/column.zig` — zero duplication across the reverse pipeline.
 

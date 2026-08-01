@@ -330,7 +330,7 @@ Rune uses a three-layer type mapping system:
   - `lookupSqlType(sym, dialect)` → `?[]const u8` (SQL name string, for backward compat)
   - `lookupSqlTypeDirect(sym, dialect)` → `?SqlType` (direct variant, avoids stringly-typed round-trip)
 
-- **`reverse_map.zig` (REVERSE_MAP)**: ~51 entries covering all SQL type variants → SS symbols. Used by `reverseLookup()` and `reverseLookupSqlite()`. Includes core entries (for SQLite lossy affinity) plus MySQL/PG variant types and PostgreSQL-specific passthrough types (xml, cidr, macaddr).
+- **`reverse_map.zig` (REVERSE_MAP)**: ~59 entries covering all SQL type variants → SS symbols across 6 dialects (MySQL, PG, SQLite, MSSQL, Oracle, Db2). Used by `reverseLookup()` and `reverseLookupSqlite()`. Includes core entries (for SQLite lossy affinity) plus MySQL/PG variant types, Oracle-specific types (`VARCHAR2(N)`, `NUMBER(P,S)`), Db2-specific types (`DECIMAL(P,S)`), and PostgreSQL-specific passthrough types (xml, cidr, macaddr). Case-insensitive parameterized type matching via `matchPrefix` helper.
 
 - **`type_map.zig`**: Helper functions (`lookupCustomType`, `isNumericSymType`, `isDatetimeSymType`) + `SqlType` re-export for backward compatibility. No longer contains rendering logic.
 
