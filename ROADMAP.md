@@ -201,6 +201,14 @@ Ongoing improvements pursued alongside feature work.
 
 ## Release History
 
+### v0.62.0 (2026-08-01)
+
+- **TypeInfo methods** — Added `isNumeric()`, `isString()`, `isDatetime()`, `isBoolean()` directly on `TypeInfo` in `types/ast.zig`. Collocates type classification behavior with the type definition. Updated `type_map.zig` and `pipeline/forward.zig` to delegate to the new methods (also fixes `isNumericSymType` missing `m`, `M`, `p` symbols).
+- **Table-driven CLI subcommand dispatch** — Replaced the 11-branch sequential if/else chain in `cli.zig` with a comptime `parsers` array of `{name, parse_fn}` entries. Adding a new subcommand now requires only one table entry plus a parser function.
+- **Pipeline stats extraction** — Moved `computeStats()` and `classifyFieldType()` from `pipeline/forward.zig` into `pipeline/stats.zig`. Single-responsibility module for schema statistics.
+- **Documentation sync** — Removed references to non-existent `detectConflicts()`/`getParallelGroups()` from CLAUDE.md. Added `TypeInfo Methods` and `Table-Driven Subcommand Dispatch` to Key Design Patterns. Added `stats.zig` to Module Roles.
+- Version bumped to 0.62.0.
+
 ### v0.61.0 (2026-08-01)
 
 - **View UNION/UNION ALL/INTERSECT/EXCEPT support** — Views now support set operations. The parser detects UNION keywords in view queries and splits them into structured AST fields (`union_op`, `second_query`). Codegen emits the combined query. Diff engine properly compares union views. Docs generator shows the full query including set operations.

@@ -14,18 +14,11 @@ pub const Dialect = dialect_enum.Dialect;
 // ─── Helper: classify SS type symbols ───────────────────────
 
 pub fn isNumericSymType(ti: TypeInfo) bool {
-    switch (ti) {
-        .simple => |s| return std.mem.eql(u8, s, "n") or std.mem.eql(u8, s, "N") or std.mem.eql(u8, s, "i"),
-        .int_explicit, .decimal_explicit => return true,
-        else => return false,
-    }
+    return ti.isNumeric();
 }
 
 pub fn isDatetimeSymType(ti: TypeInfo) bool {
-    switch (ti) {
-        .simple => |s| return std.mem.eql(u8, s, "t") or std.mem.eql(u8, s, "d"),
-        else => return false,
-    }
+    return ti.isDatetime();
 }
 
 // ─── Custom Type Lookup ──────────────────────────────────────

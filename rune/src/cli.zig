@@ -217,29 +217,22 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     const sub = fargs[0];
 
-    if (std.mem.eql(u8, sub, "diff")) return parseDiffArgs(fargs, dialect, target, flags);
-    if (std.mem.eql(u8, sub, "migrate")) return parseMigrateArgs(fargs, dialect, target, flags);
-    if (std.mem.eql(u8, sub, "reverse")) return parseReverseArgs(fargs, dialect, target, flags);
-    if (std.mem.eql(u8, sub, "generate")) return parseGenerateArgs(fargs, dialect, target, flags);
-
-    if (std.mem.eql(u8, sub, "validate")) {
-        const input = if (fargs.len > 1) fargs[1] else null;
-        return parseSimpleSubcommand(dialect, target, .{ .validate = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, flags);
-    }
-
-    if (std.mem.eql(u8, sub, "check")) {
-        const input = if (fargs.len > 1) fargs[1] else null;
-        return parseSimpleSubcommand(dialect, target, .{ .check = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, flags);
-    }
-
-    if (std.mem.eql(u8, sub, "stats")) {
-        const input = if (fargs.len > 1) fargs[1] else null;
-        return parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input } }, flags);
-    }
-
-    if (std.mem.eql(u8, sub, "docs")) {
-        const input = if (fargs.len > 1) fargs[1] else null;
-        return parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, flags);
+    // Table-driven subcommand dispatch.
+    const SubcommandParser = *const fn ([]const []const u8, dialect_enum.Dialect, Target, GlobalFlags) anyerror!ParsedArgs;
+    const parsers = [_]struct { name: []const u8, parse: SubcommandParser }{
+        .{ .name = "diff", .parse = parseDiffArgs },
+        .{ .name = "migrate", .parse = parseMigrateArgs },
+        .{ .name = "reverse", .parse = parseReverseArgs },
+        .{ .name = "generate", .parse = parseGenerateArgs },
+        .{ .name = "validate", .parse = parseValidateArgs },
+        .{ .name = "check", .parse = parseCheckArgs },
+        .{ .name = "stats", .parse = parseStatsArgs },
+        .{ .name = "docs", .parse = parseDocsArgs },
+    };
+    for (parsers) |entry| {
+        if (std.mem.eql(u8, sub, entry.name)) {
+            return entry.parse(fargs, dialect, target, flags);
+        }
     }
 
     // Unknown command detection
@@ -444,7 +437,6 @@ const GlobalFlags = struct {
     import_paths: []const []const u8,
 };
 
-/// Shared single-argument subcommand builder (validate, check, docs).
 fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
     return .{
         .dialect = dialect,
@@ -455,6 +447,26 @@ fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Com
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
     };
+}
+
+fn parseValidateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const input = if (fargs.len > 1) fargs[1] else null;
+    return parseSimpleSubcommand(dialect, target, .{ .validate = .{ .input = input, .stats = opts.stats, .verbose_passes = opts.verbose_passes } }, opts);
+}
+
+fn parseCheckArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const input = if (fargs.len > 1) fargs[1] else null;
+    return parseSimpleSubcommand(dialect, target, .{ .check = .{ .input = input, .stats = opts.stats, .verbose_passes = opts.verbose_passes } }, opts);
+}
+
+fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const input = if (fargs.len > 1) fargs[1] else null;
+    return parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input } }, opts);
+}
+
+fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const input = if (fargs.len > 1) fargs[1] else null;
+    return parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, opts);
 }
 
 // ─── Usage ─────────────────────────────────────────────────────

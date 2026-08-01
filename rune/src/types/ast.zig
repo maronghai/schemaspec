@@ -42,6 +42,52 @@ pub const TypeInfo = union(enum) {
             },
         };
     }
+
+    /// True if the SS symbol maps to a numeric SQL type (int, bigint, decimal, etc.).
+    pub fn isNumeric(self: TypeInfo) bool {
+        return switch (self) {
+            .none => false,
+            .simple => |s| if (s.len == 1) switch (s[0]) {
+                'n', 'N', 'i', 'm', 'M', 'p' => true,
+                else => false,
+            } else false,
+            .int_explicit, .decimal_explicit => true,
+            .varchar_explicit, .enum_type, .raw_sql => false,
+        };
+    }
+
+    /// True if the SS symbol maps to a string/text SQL type (varchar, char, json, etc.).
+    pub fn isString(self: TypeInfo) bool {
+        return switch (self) {
+            .none => false,
+            .simple => |s| if (s.len == 1) switch (s[0]) {
+                's', 'S', 'j', 'J', 'I', 'U', 'B' => true,
+                else => false,
+            } else true, // multi-char simple types are passthrough (string)
+            .varchar_explicit, .enum_type, .raw_sql => true,
+            .int_explicit, .decimal_explicit => false,
+        };
+    }
+
+    /// True if the SS symbol maps to a datetime/date/time SQL type.
+    pub fn isDatetime(self: TypeInfo) bool {
+        return switch (self) {
+            .none => false,
+            .simple => |s| if (s.len == 1) switch (s[0]) {
+                'd', 't', 'T' => true,
+                else => false,
+            } else false,
+            else => false,
+        };
+    }
+
+    /// True if the SS symbol maps to a boolean SQL type.
+    pub fn isBoolean(self: TypeInfo) bool {
+        return switch (self) {
+            .simple => |s| s.len == 1 and s[0] == 'b',
+            else => false,
+        };
+    }
 };
 
 pub const ModifierType = enum {

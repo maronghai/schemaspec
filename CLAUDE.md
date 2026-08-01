@@ -70,7 +70,8 @@ rune/src/
   generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig  # generator implementations (10)
   tests.zig                                                       # colocated test index (51 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
-  pipeline/    forward.zig, reverse.zig, diff.zig        # pipeline orchestration
+  pipeline/    forward.zig, reverse.zig, diff.zig,       # pipeline orchestration
+               stats.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig     # SQL code generation
@@ -113,11 +114,15 @@ rune/src/
 
 - **CLI Unknown-Flag Detection** (`cli.zig`): Unrecognized `--` flags produce `error.UnknownFlag` with the flag name in the error message, instead of silently treating them as file paths. Known flags are checked against a hardcoded list of 16 global flags.
 
-- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (8 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`) for conflict detection. `detectConflicts()` returns write-write conflict pairs. `getParallelGroups()` returns pass groups that can run concurrently. `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
+- **Table-Driven Subcommand Dispatch** (`cli.zig`): Subcommand routing uses a comptime `parsers` array of `{name, parse_fn}` entries. Adding a new subcommand = add an entry to `COMMAND_REGISTRY` + add a `parseXxxArgs` function + add an entry to the `parsers` table.
+
+- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (8 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
 
 - **ResolvedAst IR** (`types/resolved_ast.zig`): `ResolvedTable` + `ResolvedAst` — output of template resolution + semantic passes. Separated from `types/ast.zig` (parser output) for clean IR boundary. Re-exported from `ast.zig` for backward compatibility.
 
 - **TypedAst IR** (`types/typed_ast.zig`): Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
+
+- **TypeInfo Methods** (`types/ast.zig`): `TypeInfo` carries embedded `isNumeric()`, `isString()`, `isDatetime()`, `isBoolean()` methods that classify SS type symbols. Collocates type behavior with the type definition — no external lookup tables needed for classification.
 
 - **Template Slot Merging** (`semantic/template.zig`): Template inheritance with `...` slot controls field insertion order. Merge formula: `parent_before + child_before + <concrete> + child_after + parent_after`. Max 4 parents via mixin syntax (`+`).
 
@@ -138,6 +143,7 @@ rune/src/
 | `pipeline/` | `forward.zig` | `.ss` → SQL orchestration (tokenizer → parser → semantic → type resolver → codegen) |
 | | `reverse.zig` | SQL → `.ss` orchestration + dialect auto-detection |
 | | `diff.zig` | Diff/migrate pipeline orchestration |
+| | `stats.zig` | Schema statistics (field type classification, table/field/view counts) |
 | `parser/` | `parser.zig` | Token-level `.ss` parser → AST, dispatches to parse_* modules |
 | | `parse_field.zig` | Field declaration parsing (type, modifiers, default, inline FK) |
 | | `parse_fk.zig`, `parse_check.zig`, `parse_index.zig` | FK/Check/Index parsing |
