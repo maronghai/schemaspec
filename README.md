@@ -26,7 +26,7 @@ Database schema DDL is verbose. A simple user table takes 15+ lines of SQL with 
 
 ## The Solution
 
-Rune is a minimal DSL that compresses database schema declarations into single-character symbols. One symbol = one SQL type. Modifiers fuse multiple keywords into postfix notation. Templates eliminate repetition. The compiler handles dialect differences — write once, generate MySQL/PostgreSQL/SQLite/MSSQL/Oracle.
+Rune is a minimal DSL that compresses database schema declarations into single-character symbols. One symbol = one SQL type. Modifiers fuse multiple keywords into postfix notation. Templates eliminate repetition. The compiler handles dialect differences — write once, generate MySQL/PostgreSQL/SQLite/MSSQL/Oracle/Db2.
 
 **Average compression: 3-5x per field** — common declarations shrink dramatically.
 
@@ -378,7 +378,7 @@ rune completions fish > ~/.config/fish/completions/rune.fish
 - [ ] LSP language server (completion, diagnostics, go-to-definition)
 - [x] Oracle dialect support
 - [x] Microsoft SQL Server dialect support
-- [ ] IBM Db2 dialect support
+- [x] IBM Db2 dialect support
 - [x] JSON Schema output for API layer generation
 - [x] Prisma schema output
 - [x] Drizzle ORM schema output

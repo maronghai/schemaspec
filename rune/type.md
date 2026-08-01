@@ -1,28 +1,28 @@
 # Rune Type System Reference
 
-Rune uses single-character symbols to represent SQL types. Each symbol compiles to the appropriate type for the target dialect (MySQL, PostgreSQL, SQLite, MSSQL, or Oracle).
+Rune uses single-character symbols to represent SQL types. Each symbol compiles to the appropriate type for the target dialect (MySQL, PostgreSQL, SQLite, MSSQL, Oracle, or Db2).
 
 ## Core Type Symbols
 
-| Symbol | MySQL | PostgreSQL | SQLite | MSSQL | Oracle | Description |
-|--------|-------|-----------|--------|-------|--------|-------------|
-| `n` | `int` | `integer` | `INTEGER` | `INT` | `NUMBER(10)` | 32-bit integer |
-| `N` | `bigint` | `bigint` | `INTEGER` | `BIGINT` | `NUMBER(19)` | 64-bit integer |
-| `i` | `smallint` | `smallint` | `INTEGER` | `SMALLINT` | `NUMBER(5)` | 16-bit integer |
-| `m` | `decimal(16,2)` | `numeric(16,2)` | `NUMERIC(16,2)` | `NUMERIC(16,2)` | `NUMBER(16,2)` | Money (2 decimal places) |
-| `M` | `decimal(20,6)` | `numeric(20,6)` | `NUMERIC(20,6)` | `NUMERIC(20,6)` | `NUMBER(20,6)` | High-precision decimal |
-| `s` | `varchar(255)` | `varchar(255)` | `TEXT` | `NVARCHAR(255)` | `VARCHAR2(255)` | Short string |
-| `S` | `text` | `text` | `TEXT` | `NVARCHAR(MAX)` | `CLOB` | Long text |
-| `b` | `boolean` | `boolean` | `INTEGER` | `BIT` | `NUMBER(1)` | Boolean |
-| `B` | `blob` | `bytea` | `BLOB` | `VARBINARY(MAX)` | `BLOB` | Binary data |
-| `j` | `json` | `json` | `TEXT` | `NVARCHAR(MAX)` | `CLOB` | JSON text |
-| `J` | `jsonb` | `jsonb` | `TEXT` | `NVARCHAR(MAX)` | `CLOB` | Binary JSON (PostgreSQL) |
-| `I` | `varchar(45)` | `inet` | `TEXT` | `NVARCHAR(45)` | `VARCHAR2(45)` | IP address |
-| `d` | `date` | `date` | `TEXT` | `DATE` | `DATE` | Date only |
-| `t` | `datetime` | `timestamp` | `TEXT` | `DATETIME2` | `TIMESTAMP` | Date + time |
-| `T` | `timestamp` | `timestamptz` | `TEXT` | `DATETIMEOFFSET` | `TIMESTAMP WITH TIME ZONE` | Timestamp with timezone |
-| `U` | `char(36)` | `uuid` | `TEXT` | `UNIQUEIDENTIFIER` | `RAW(16)` | UUID |
-| `p` | `int` | `serial` | `INTEGER` | `INT` | `NUMBER(10)` | Auto-incrementing integer |
+| Symbol | MySQL | PostgreSQL | SQLite | MSSQL | Oracle | Db2 | Description |
+|--------|-------|-----------|--------|-------|--------|-----|-------------|
+| `n` | `int` | `integer` | `INTEGER` | `INT` | `NUMBER(10)` | `INTEGER` | 32-bit integer |
+| `N` | `bigint` | `bigint` | `INTEGER` | `BIGINT` | `NUMBER(19)` | `BIGINT` | 64-bit integer |
+| `i` | `smallint` | `smallint` | `INTEGER` | `SMALLINT` | `NUMBER(5)` | `SMALLINT` | 16-bit integer |
+| `m` | `decimal(16,2)` | `numeric(16,2)` | `NUMERIC(16,2)` | `NUMERIC(16,2)` | `NUMBER(16,2)` | `DECIMAL(16, 2)` | Money (2 decimal places) |
+| `M` | `decimal(20,6)` | `numeric(20,6)` | `NUMERIC(20,6)` | `NUMERIC(20,6)` | `NUMBER(20,6)` | `DECIMAL(20, 6)` | High-precision decimal |
+| `s` | `varchar(255)` | `varchar(255)` | `TEXT` | `NVARCHAR(255)` | `VARCHAR2(255)` | `VARCHAR(255)` | Short string |
+| `S` | `text` | `text` | `TEXT` | `NVARCHAR(MAX)` | `CLOB` | `CLOB` | Long text |
+| `b` | `boolean` | `boolean` | `INTEGER` | `BIT` | `NUMBER(1)` | `BOOLEAN` | Boolean |
+| `B` | `blob` | `bytea` | `BLOB` | `VARBINARY(MAX)` | `BLOB` | `BLOB` | Binary data |
+| `j` | `json` | `json` | `TEXT` | `NVARCHAR(MAX)` | `CLOB` | `CLOB` | JSON text |
+| `J` | `jsonb` | `jsonb` | `TEXT` | `NVARCHAR(MAX)` | `CLOB` | `CLOB` | Binary JSON (PostgreSQL) |
+| `I` | `varchar(45)` | `inet` | `TEXT` | `NVARCHAR(45)` | `VARCHAR2(45)` | `VARCHAR(45)` | IP address |
+| `d` | `date` | `date` | `TEXT` | `DATE` | `DATE` | `DATE` | Date only |
+| `t` | `datetime` | `timestamp` | `TEXT` | `DATETIME2` | `TIMESTAMP` | `TIMESTAMP` | Date + time |
+| `T` | `timestamp` | `timestamptz` | `TEXT` | `DATETIMEOFFSET` | `TIMESTAMP WITH TIME ZONE` | `TIMESTAMP WITH TIME ZONE` | Timestamp with timezone |
+| `U` | `char(36)` | `uuid` | `TEXT` | `UNIQUEIDENTIFIER` | `RAW(16)` | `CHAR(16) FOR BIT DATA` | UUID |
+| `p` | `int` | `serial` | `INTEGER` | `INT` | `NUMBER(10)` | `INTEGER` | Auto-incrementing integer |
 
 ## Parameterized Types
 

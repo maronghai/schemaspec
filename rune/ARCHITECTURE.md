@@ -225,25 +225,25 @@ DialectBackend = struct {
 };
 ```
 
-| Method | MySQL | PostgreSQL | SQLite | MSSQL | Oracle |
-|--------|-------|-----------|--------|-------|--------|
-| `quoteIdent` | backticks | double-quotes | double-quotes | square brackets | double-quotes |
-| `emitIndex` | inline INDEX/UNIQUE/FULLTEXT | UNIQUE (...) inline | UNIQUE (...) inline | INDEX/UNIQUE inline | INDEX/UNIQUE inline |
-| `emitCreateDatabase` | CHARACTER SET | ENCODING | no-op | no-op | no-op |
-| `emitUnsigned` | `UNSIGNED` | no-op | no-op | no-op | no-op |
-| `emitTimestampModifier` | `DEFAULT CURRENT_TIMESTAMP [ON UPDATE ...]` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
-| `emitTableFooter` | `ENGINE=... CHARSET=... COMMENT='...'` | `);` | `);` | `);` | `);` |
-| `emitTableComment` | no-op (in footer) | `COMMENT ON TABLE` | `-- comment` | no-op (sp_addextendedproperty) | `COMMENT ON TABLE` |
-| `emitColumnComment` | no-op (inline) | `COMMENT ON COLUMN` | `-- table.col: comment` | no-op (sp_addextendedproperty) | `COMMENT ON COLUMN` |
-| `emitAutoIncrement` | `AUTO_INCREMENT` | `GENERATED ALWAYS AS IDENTITY` | no-op | no-op | no-op |
-| `emitPrimaryKey` | `PRIMARY KEY` | `PRIMARY KEY` | `PRIMARY KEY [AUTOINCREMENT]` | `PRIMARY KEY` | `PRIMARY KEY` |
-| `emitInlineIndex` | `INDEX`/`UNIQUE INDEX` | `UNIQUE (...)` | `UNIQUE (...)` | `INDEX`/`UNIQUE INDEX` | `INDEX`/`UNIQUE INDEX` |
-| `emitStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
-| `emitInlineColumnComment` | `COMMENT '...'` | no-op (standalone) | no-op (standalone) | `/* comment */` | `/* comment */` |
-| `emitEnumTypeCheck` | no-op (native ENUM) | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` |
-| `emitInlineColumnStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
-| `renderType` | `int`, `bigint`, `smallint`, `decimal`, `varchar`, `text`, `blob`, `json`, `datetime`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `integer`, `bigint`, `smallint`, `numeric`, `varchar`, `text`, `bytea`, `json`, `timestamp`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `INTEGER`, `NUMERIC`, `varchar`, `TEXT`, `BLOB`, `INTEGER` | `INT`, `BIGINT`, `SMALLINT`, `NUMERIC`, `NVARCHAR`, `NVARCHAR(MAX)`, `VARBINARY(MAX)`, `DATETIME2`, `BIT`, `UNIQUEIDENTIFIER` | `NUMBER(10)`, `NUMBER(19)`, `NUMBER(5)`, `NUMBER(p,s)`, `VARCHAR2`, `CLOB`, `BLOB`, `TIMESTAMP`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `NUMBER(1)`, `RAW(16)` |
-| `emitForeignKey` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` |
+| Method | MySQL | PostgreSQL | SQLite | MSSQL | Oracle | Db2 |
+|--------|-------|-----------|--------|-------|--------|-----|
+| `quoteIdent` | backticks | double-quotes | double-quotes | square brackets | double-quotes | double-quotes |
+| `emitIndex` | inline INDEX/UNIQUE/FULLTEXT | UNIQUE (...) inline | UNIQUE (...) inline | INDEX/UNIQUE inline | INDEX/UNIQUE inline | INDEX/UNIQUE inline |
+| `emitCreateDatabase` | CHARACTER SET | ENCODING | no-op | no-op | no-op | no-op |
+| `emitUnsigned` | `UNSIGNED` | no-op | no-op | no-op | no-op | no-op |
+| `emitTimestampModifier` | `DEFAULT CURRENT_TIMESTAMP [ON UPDATE ...]` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
+| `emitTableFooter` | `ENGINE=... CHARSET=... COMMENT='...'` | `);` | `);` | `);` | `);` | `);` |
+| `emitTableComment` | no-op (in footer) | `COMMENT ON TABLE` | `-- comment` | no-op (sp_addextendedproperty) | `COMMENT ON TABLE` | `COMMENT ON TABLE` |
+| `emitColumnComment` | no-op (inline) | `COMMENT ON COLUMN` | `-- table.col: comment` | no-op (sp_addextendedproperty) | `COMMENT ON COLUMN` | `COMMENT ON COLUMN` |
+| `emitAutoIncrement` | `AUTO_INCREMENT` | `GENERATED ALWAYS AS IDENTITY` | no-op | no-op | no-op | `GENERATED ALWAYS AS IDENTITY` |
+| `emitPrimaryKey` | `PRIMARY KEY` | `PRIMARY KEY` | `PRIMARY KEY [AUTOINCREMENT]` | `PRIMARY KEY` | `PRIMARY KEY` | `PRIMARY KEY` |
+| `emitInlineIndex` | `INDEX`/`UNIQUE INDEX` | `UNIQUE (...)` | `UNIQUE (...)` | `INDEX`/`UNIQUE INDEX` | `INDEX`/`UNIQUE INDEX` | `INDEX`/`UNIQUE INDEX` |
+| `emitStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
+| `emitInlineColumnComment` | `COMMENT '...'` | no-op (standalone) | no-op (standalone) | `/* comment */` | `/* comment */` | `/* comment */` |
+| `emitEnumTypeCheck` | no-op (native ENUM) | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` |
+| `emitInlineColumnStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
+| `renderType` | `int`, `bigint`, `smallint`, `decimal`, `varchar`, `text`, `blob`, `json`, `datetime`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `integer`, `bigint`, `smallint`, `numeric`, `varchar`, `text`, `bytea`, `json`, `timestamp`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `INTEGER`, `NUMERIC`, `varchar`, `TEXT`, `BLOB`, `INTEGER` | `INT`, `BIGINT`, `SMALLINT`, `NUMERIC`, `NVARCHAR`, `NVARCHAR(MAX)`, `VARBINARY(MAX)`, `DATETIME2`, `BIT`, `UNIQUEIDENTIFIER` | `NUMBER(10)`, `NUMBER(19)`, `NUMBER(5)`, `NUMBER(p,s)`, `VARCHAR2`, `CLOB`, `BLOB`, `TIMESTAMP`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `NUMBER(1)`, `RAW(16)` | `INTEGER`, `BIGINT`, `SMALLINT`, `DECIMAL(p,s)`, `VARCHAR`, `CLOB`, `BLOB`, `TIMESTAMP`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `BOOLEAN`, `CHAR(16) FOR BIT DATA` |
+| `emitForeignKey` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` |
 
 PG and SQLite share 4/5 method implementations. `emitCheckExpr` is a shared standalone function (all dialects use identical CHECK syntax). `emitForeignKey` is shared via `dialect_common.zig:emitForeignKeyShared` (takes `quoteIdent` function pointer).
 
@@ -251,20 +251,20 @@ PG and SQLite share 4/5 method implementations. `emitCheckExpr` is a shared stan
 
 Each dialect backend declares feature flags via the `capability` field:
 
-| Capability | MySQL | PostgreSQL | SQLite | MSSQL | Oracle | Description |
-|-----------|-------|-----------|--------|-------|--------|-------------|
-| `auto_increment` | ✓ | | | | | AUTO_INCREMENT keyword |
-| `unsigned` | ✓ | | | | | UNSIGNED integer modifier |
-| `create_database` | ✓ | ✓ | | | | CREATE DATABASE statement |
-| `enum_type` | ✓ | | | | | Native ENUM type |
-| `inline_comments` | ✓ | | | | | Inline column comments |
-| `standalone_comments` | | ✓ | | | ✓ | COMMENT ON statements |
-| `schemas` | | ✓ | | ✓ | ✓ | Schema-qualified names |
-| `sequences` | | ✓ | | ✓ | ✓ | Sequence objects |
-| `tablespace` | ✓ | | | | | TABLESPACE clauses |
-| `batch_separators` | | | | ✓ | | GO batch separators |
-| `generated_columns` | | ✓ | ✓ | ✓ | ✓ | GENERATED ALWAYS AS columns |
-| `alter_drop_column` | ✓ | ✓ | | ✓ | ✓ | ALTER TABLE ... DROP COLUMN |
+| Capability | MySQL | PostgreSQL | SQLite | MSSQL | Oracle | Db2 | Description |
+|-----------|-------|-----------|--------|-------|--------|-----|-------------|
+| `auto_increment` | ✓ | | | | | | AUTO_INCREMENT keyword |
+| `unsigned` | ✓ | | | | | | UNSIGNED integer modifier |
+| `create_database` | ✓ | ✓ | | | | | CREATE DATABASE statement |
+| `enum_type` | ✓ | | | | | | Native ENUM type |
+| `inline_comments` | ✓ | | | | | | Inline column comments |
+| `standalone_comments` | | ✓ | | | ✓ | ✓ | COMMENT ON statements |
+| `schemas` | | ✓ | | ✓ | ✓ | ✓ | Schema-qualified names |
+| `sequences` | | ✓ | | ✓ | ✓ | | Sequence objects |
+| `tablespace` | ✓ | | | | | | TABLESPACE clauses |
+| `batch_separators` | | | | ✓ | | | GO batch separators |
+| `generated_columns` | | ✓ | ✓ | ✓ | ✓ | ✓ | GENERATED ALWAYS AS columns |
+| `alter_drop_column` | ✓ | ✓ | | ✓ | ✓ | ✓ | ALTER TABLE ... DROP COLUMN |
 
 Adding a new dialect = set the appropriate capability flags in the backend struct. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names.
 
@@ -339,7 +339,7 @@ Rune uses a three-layer type mapping system:
 1. **TypedAst IR layer**: Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 2. **TypeResolver namespace**: Stateless functions (`TypeResolver.resolve`, `TypeResolver.resolveColumn`) that take `Allocator` directly. No struct instantiation — eliminates `init` boilerplate and per-loop allocation overhead in migrate.zig.
 2. **DialectBackend vtable**: 23 core + 6 optional function pointers + 3 behavioral flags + 1 capability field cover all dialect differences. Adding a new dialect requires < 100 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect_common.zig:emitForeignKeyShared`.
-3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. MySQL/PostgreSQL/SQLite/MSSQL/Oracle dialects done; ready for Db2.
+3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. MySQL/PostgreSQL/SQLite/MSSQL/Oracle/Db2 dialects done.
 4. **CompileConfig struct**: Replaces 13 positional parameters in `handleCompileRequest`. All fields have named defaults; callers specify only what they need. Improves readability and reduces parameter-ordering bugs.
 3. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
 4. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).

@@ -1,6 +1,6 @@
 # Rune
 
-A minimal DSL for declaring database schemas using single-character symbols. Compiles `.ss` schema files into SQL DDL (MySQL, PostgreSQL, SQLite, MSSQL, Oracle), and supports reverse engineering, schema diff, and migration generation.
+A minimal DSL for declaring database schemas using single-character symbols. Compiles `.ss` schema files into SQL DDL (MySQL, PostgreSQL, SQLite, MSSQL, Oracle, Db2), and supports reverse engineering, schema diff, and migration generation.
 
 ## Quick Start
 
