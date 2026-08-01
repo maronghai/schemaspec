@@ -27,8 +27,8 @@ comptime {
     _ = @import("diff/format/text_test.zig");
     _ = @import("diff/format/sarif_test.zig");
     _ = @import("diff/format/json_test.zig");
-    // docs
-    _ = @import("docs_test.zig");
+    // formatter
+    _ = @import("formatter.zig");
     // io
     _ = @import("io_test.zig");
     // json_schema

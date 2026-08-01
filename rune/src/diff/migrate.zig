@@ -83,7 +83,8 @@ pub fn generateRollback(
 
     // Rollback: reverse the order of operations
     // 1. Reverse table diffs (create→drop, drop→create, alter→reverse alter)
-    try emitTableDiffs(alloc, w, d.table_diffs, old_resolved, dialect, null, &has_operations);
+    var cg = codegen.Codegen.init(alloc, dialect);
+    try emitTableDiffs(alloc, w, d.table_diffs, old_resolved, dialect, &cg, &has_operations);
 
     // 2. Reverse view diffs
     try emitViewDiffs(w, dialect_mod.getBackend(dialect), d.view_diffs, old_typed);

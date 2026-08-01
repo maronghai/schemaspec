@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.67.0 (2026-08-01)
+**Current version**: 0.68.0 (2026-08-01)
 
 ---
 
@@ -142,7 +142,7 @@ Make Rune delightful to use day-to-day.
 - [ ] `rune init` — scaffold a new project with example schema
 - [ ] `rune playground` — web-based `.ss` editor with live compilation (WASM)
 - [ ] Shell completion scripts — `rune completions bash|zsh|fish|powershell`
-- [ ] `rune fmt` — auto-format `.ss` files
+- [x] `rune fmt` — auto-format `.ss` files
 - [ ] Colored output — syntax-highlighted SQL and diff output
 
 ---
@@ -200,6 +200,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.68.0 (2026-08-01)
+
+- **`rune fmt` command** — Auto-format `.ss` schema files with consistent style: 2-space indentation for fields inside tables/templates, trailing whitespace removal, single blank line between blocks, no trailing blank lines. 10 unit tests.
+- **Unified docs generators** — Removed duplicate `src/docs.zig` (215 lines). The `docs` CLI command now routes through the generator registry (`generators/docs.zig`), same as `rune generate docs`. Eliminates code duplication and ensures consistent output.
+- **Fixed GraphQL view placeholder** — Removed fake `_placeholder: String` field from GraphQL view types. Views now emit a comment explaining columns are derived from the SQL query.
+- **Fixed migration rollback MODIFY COLUMN** — Rollback SQL generation now passes the codegen instance through, ensuring column definitions are emitted for dialects that require them (MySQL, MSSQL, Oracle). Previously produced incomplete rollback SQL.
+- **Inlined type_registry.zig** — Removed thin delegation layer; `lookupSqlTypeDirect` is now called directly from `sql_type.zig`. Reduces indirection.
+- Documentation: updated Source Layout, Quick Usage, shell completions, and test counts.
 
 ### v0.67.0 (2026-08-01)
 

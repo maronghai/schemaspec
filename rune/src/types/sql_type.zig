@@ -1,6 +1,6 @@
 const std = @import("std");
-const type_registry = @import("../types/type_registry.zig");
 const dialect_enum = @import("../dialect/enum.zig");
+const dialect_mod = @import("../dialect/dialect.zig");
 const ast_mod = @import("../types/ast.zig");
 const TypeInfo = ast_mod.TypeInfo;
 const Writer = std.Io.Writer;
@@ -97,7 +97,7 @@ pub const SqlType = union(enum) {
             .none => .{ .varchar = 0 },
             .simple => |s| {
                 if (s.len == 1) {
-                    if (type_registry.lookupSqlTypeDirect(s, dialect)) |sql_type| {
+                    if (dialect_mod.getBackend(dialect).lookupSym(s)) |sql_type| {
                         return sql_type;
                     }
                     return .{ .passthrough = s };

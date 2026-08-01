@@ -178,8 +178,7 @@ fn writeViewType(w: *Writer, view: typed_ast.TypedView) !void {
         }
     }
     try w.print("type {s} {{\n", .{view.name});
-    try w.writeAll("  # View columns (inspect the SQL query for details)\n");
-    try w.writeAll("  _placeholder: String\n");
+    try w.writeAll("  # Read-only view — columns derived from the SQL query\n");
     try w.writeAll("}\n");
 }
 

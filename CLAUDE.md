@@ -61,6 +61,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune reverse schema.sql --format json  # Reverse-engineer to JSON
 ./rune/zig-out/bin/rune stats schema.ss                   # Print schema statistics
 ./rune/zig-out/bin/rune docs schema.ss                   # Generate Markdown documentation
+./rune/zig-out/bin/rune fmt schema.ss                     # Auto-format .ss file
 ./rune/zig-out/bin/rune diff old.ss new.ss --format sarif # SARIF diff output
 ./rune/zig-out/bin/rune diff old.ss new.ss --check       # CI gate (exit 1 if differences)
 ./rune/zig-out/bin/rune generate json-schema schema.ss   # Generate JSON Schema
@@ -74,10 +75,10 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ```
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig                           # CLI + glue
-  bench.zig, ast_visitor.zig                                       # standalone modules
+  bench.zig, ast_visitor.zig, formatter.zig                       # standalone modules
   generator.zig                                                   # generator registry (pluggable)
   generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations (11)
-  tests.zig                                                       # colocated test index (60 files)
+  tests.zig                                                       # colocated test index (61 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig,       # pipeline orchestration
                stats.zig

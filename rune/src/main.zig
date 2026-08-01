@@ -5,7 +5,6 @@ const diff_pipe = @import("pipeline/diff.zig");
 const reverse_pipe = @import("pipeline/reverse.zig");
 const io_mod = @import("io.zig");
 const version = @import("version.zig");
-const docs = @import("docs.zig");
 const generator = @import("generator.zig");
 
 // ─── Entry Point ───────────────────────────────────────────────
@@ -143,10 +142,13 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace, cmd.stats, cmd.validate_only, cmd.format);
         },
         .docs => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
-            const pipeline = try forward.compilePipeline(alloc, file_data);
-            const markdown = try docs.generate(alloc, pipeline.resolved);
-            try io_mod.writeOutput(io, markdown, cmd.output, parsed.quiet);
+            if (generator.get("docs")) |gen| {
+                const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+                const pipeline = try forward.compilePipeline(alloc, file_data);
+                const typed = try @import("types/type_resolver.zig").TypeResolver.resolve(alloc, pipeline.resolved, parsed.dialect);
+                const output_text = try gen.generate(alloc, typed, parsed.dialect);
+                try io_mod.writeOutput(io, output_text, cmd.output, parsed.quiet);
+            }
         },
         .generate => |cmd| {
             if (cmd.list) {
@@ -166,6 +168,12 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .init => |cmd| {
             return handleInit(io, alloc, cmd.name, cmd.output);
+        },
+        .format_cmd => |cmd| {
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const formatter = @import("formatter.zig");
+            const formatted = try formatter.format(alloc, file_data);
+            try io_mod.writeOutput(io, formatted, cmd.output, parsed.quiet);
         },
         .completions => |cmd| {
             return handleCompletions(io, alloc, cmd.shell);
@@ -267,7 +275,7 @@ const COMPLETIONS_BASH =
     \\    COMPREPLY=()
     \\    cur="${COMP_WORDS[COMP_CWORD]}"
     \\    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    \\    commands="init validate check stats diff migrate reverse docs generate completions"
+    \\    commands="init validate check stats diff migrate reverse docs format generate completions"
     \\
     \\    if [[ ${cur} == -* ]]; then
     \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template" -- ${cur}) )
@@ -296,7 +304,7 @@ const COMPLETIONS_BASH =
     \\        completions)
     \\            COMPREPLY=( $(compgen -W "bash zsh fish powershell" -- ${cur}) )
     \\            ;;
-    \\        validate|check|stats|docs|init)
+    \\        validate|check|stats|docs|format|init)
     \\            COMPREPLY=( $(compgen -f -X '!*.ss' -- ${cur}) )
     \\            ;;
     \\    esac
@@ -324,6 +332,7 @@ const COMPLETIONS_ZSH =
     \\        'migrate:Generate ALTER TABLE migration SQL'
     \\        'reverse:Reverse SQL DDL to .ss schema'
     \\        'docs:Generate Markdown documentation'
+    \\        'format:Auto-format .ss schema file'
     \\        'generate:Generate output in specified format'
     \\        'completions:Generate shell completions'
     \\    )
@@ -384,6 +393,7 @@ const COMPLETIONS_FISH =
     \\complete -c rune -n __fish_use_subcommand -a migrate -d 'Generate ALTER TABLE migration SQL'
     \\complete -c rune -n __fish_use_subcommand -a reverse -d 'Reverse SQL DDL to .ss schema'
     \\complete -c rune -n __fish_use_subcommand -a docs -d 'Generate Markdown documentation'
+    \\complete -c rune -n __fish_use_subcommand -a format -d 'Auto-format .ss schema file'
     \\complete -c rune -n __fish_use_subcommand -a generate -d 'Generate output in specified format'
     \\complete -c rune -n __fish_use_subcommand -a completions -d 'Generate shell completions'
     \\
@@ -411,7 +421,7 @@ const COMPLETIONS_FISH =
     \\complete -c rune -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish powershell' -d 'Shell'
     \\
     \\# File arguments
-    \\complete -c rune -n '__fish_seen_subcommand_from validate check stats docs init' -F -r
+    \\complete -c rune -n '__fish_seen_subcommand_from validate check stats docs format init' -F -r
     \\complete -c rune -n '__fish_seen_subcommand_from diff migrate' -F -r
     \\complete -c rune -n '__fish_seen_subcommand_from reverse' -F -r
     \\
@@ -434,6 +444,7 @@ const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('migrate', 'migrate', 'ParameterValue', 'Generate ALTER TABLE migration SQL')
     \\        [System.Management.Automation.CompletionResult]::new('reverse', 'reverse', 'ParameterValue', 'Reverse SQL DDL to .ss schema')
     \\        [System.Management.Automation.CompletionResult]::new('docs', 'docs', 'ParameterValue', 'Generate Markdown documentation')
+    \\        [System.Management.Automation.CompletionResult]::new('format', 'format', 'ParameterValue', 'Auto-format .ss schema file')
     \\        [System.Management.Automation.CompletionResult]::new('generate', 'generate', 'ParameterValue', 'Generate output in specified format')
     \\        [System.Management.Automation.CompletionResult]::new('completions', 'completions', 'ParameterValue', 'Generate shell completions')
     \\    )

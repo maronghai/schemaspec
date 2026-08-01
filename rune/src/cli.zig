@@ -16,6 +16,7 @@ pub const Command = union(enum) {
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
+    format_cmd: struct { input: ?[]const u8, output: ?[]const u8 },
     generate: struct { generator: []const u8, input: ?[]const u8, output: ?[]const u8, list: bool },
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },
@@ -230,6 +231,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .{ .name = "check", .parse = parseCheckArgs },
         .{ .name = "stats", .parse = parseStatsArgs },
         .{ .name = "docs", .parse = parseDocsArgs },
+        .{ .name = "format", .parse = parseFormatArgs },
         .{ .name = "init", .parse = parseInitArgs },
         .{ .name = "completions", .parse = parseCompletionsArgs },
     };
@@ -299,6 +301,7 @@ const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "migrate", .args = "<old.ss> <new.ss>", .description = "Generate ALTER TABLE migration SQL" },
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
     .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
+    .{ .name = "format", .args = "[input.ss]", .description = "Auto-format .ss schema file" },
     .{ .name = "generate", .args = "<generator> [input.ss]", .description = "Generate output in specified format" },
     .{ .name = "init", .args = "[name]", .description = "Create a starter .ss schema file" },
     .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
@@ -474,6 +477,11 @@ fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
 fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
     return parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, opts);
+}
+
+fn parseFormatArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const input = if (fargs.len > 1) fargs[1] else null;
+    return parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, opts);
 }
 
 fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
