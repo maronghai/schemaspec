@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.75.0] - 2026-08-02
+
+### Changed
+- **Pipeline config structs** — Added `DiffConfig`, `MigrateConfig`, and `ReverseConfig` structs to replace 8-11 positional parameters in pipeline handlers. Follows the existing `CompileConfig` pattern from `pipeline/forward.zig`.
+- **Unified diff handler** — Merged `handleDiff`, `handleDiffJson`, `handleDiffSarif` into a single `handleDiff(io, alloc, DiffConfig)` function that switches on `cfg.format`. Eliminated ~30 lines of duplicated prepare→trace→format→write logic.
+- **Unified migrate handler** — Merged `handleMigrate` and `handleMigrateDiffJson` into a single `handleMigrate(io, alloc, MigrateConfig)` function.
+- **Simplified reverse handler** — `handleReverse` now takes a `ReverseConfig` struct instead of 11 positional parameters.
+- **Extracted `generateFromSchema` helper** — New `pipeline/forward.zig` function handles the full compile→generate→write pipeline. Used by both `rune generate` and `rune docs` in `main.zig`, eliminating duplicate dispatch logic.
+- **Simplified main.zig dispatch** — `.diff`, `.migrate`, `.reverse`, `.docs`, `.generate` branches now construct config structs and delegate to pipeline handlers, reducing dispatch from ~80 lines to ~50 lines.
+
 ## [0.74.0] - 2026-08-02
 
 ### Added

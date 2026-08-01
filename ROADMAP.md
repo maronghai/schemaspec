@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.74.0 (2026-08-02)
+**Current version**: 0.75.0 (2026-08-02)
 
 ---
 
@@ -201,6 +201,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.75.0 (2026-08-02)
+
+- **Pipeline config structs** — Added `DiffConfig`, `MigrateConfig`, and `ReverseConfig` structs to replace 8-11 positional parameters in pipeline handlers, following the existing `CompileConfig` pattern.
+- **Unified diff/migrate handlers** — Merged 3 diff format handlers and 2 migrate format handlers into single functions that switch on `cfg.format`.
+- **`generateFromSchema` helper** — Extracted compile→generate→write pattern from `main.zig` into `pipeline/forward.zig`, eliminating duplicate dispatch logic for `rune generate` and `rune docs`.
 
 ### v0.74.0 (2026-08-02)
 

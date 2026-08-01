@@ -85,13 +85,11 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return;
         },
         .compile => |cmd| {
-            // Determine input path (null = stdin, "-" = stdin, else = file)
             const input_path = if (cmd.input) |path|
                 if (std.mem.eql(u8, path, "-")) null else path
             else
                 null;
 
-            // Determine output format
             const format: forward.OutputFormat = switch (parsed.target) {
                 .sql => .sql,
                 .json_schema => .json_schema,
@@ -124,48 +122,53 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return forward.handleStats(io, alloc, file_data);
         },
         .diff => |cmd| {
-            return switch (cmd.format) {
-                .text => diff_pipe.handleDiff(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace, cmd.stats, cmd.check),
-                .json => diff_pipe.handleDiffJson(io, alloc, cmd.old, cmd.new, null, parsed.dialect, cmd.trace, cmd.stats, cmd.check),
-                .sarif => diff_pipe.handleDiffSarif(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace, cmd.stats, cmd.check),
-            };
+            return diff_pipe.handleDiff(io, alloc, .{
+                .old_path = cmd.old,
+                .new_path = cmd.new,
+                .dialect = parsed.dialect,
+                .format = cmd.format,
+                .trace = cmd.trace,
+                .stats = cmd.stats,
+                .check = cmd.check,
+            });
         },
         .migrate => |cmd| {
-            return switch (cmd.format) {
-                .text => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats, cmd.dry_run),
-                .json => diff_pipe.handleMigrateDiffJson(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.stats),
-                .sarif => diff_pipe.handleMigrate(io, alloc, cmd.old, cmd.new, cmd.output, parsed.dialect, cmd.trace, cmd.rollback, cmd.stats, cmd.dry_run),
-            };
+            return diff_pipe.handleMigrate(io, alloc, .{
+                .old_path = cmd.old,
+                .new_path = cmd.new,
+                .dialect = parsed.dialect,
+                .format = cmd.format,
+                .output_path = cmd.output,
+                .trace = cmd.trace,
+                .stats = cmd.stats,
+                .rollback = cmd.rollback,
+                .dry_run = cmd.dry_run,
+            });
         },
         .reverse => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
-            const name = cmd.input orelse "<stdin>";
-            return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace, cmd.stats, cmd.validate_only, cmd.format);
+            return reverse_pipe.handleReverse(io, alloc, file_data, .{
+                .input_name = cmd.input orelse "<stdin>",
+                .output_path = cmd.output,
+                .dialect = parsed.dialect,
+                .format = cmd.format,
+                .with_templates = cmd.with_templates,
+                .trace = cmd.trace,
+                .stats = cmd.stats,
+                .validate_only = cmd.validate_only,
+            });
         },
         .docs => |cmd| {
-            if (generator.get("docs")) |gen| {
-                const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
-                const pipeline = try forward.compilePipeline(alloc, file_data);
-                const typed = try @import("types/type_resolver.zig").TypeResolver.resolve(alloc, pipeline.resolved, parsed.dialect);
-                const output_text = try gen.generate(alloc, typed, parsed.dialect);
-                try io_mod.writeOutput(io, output_text, cmd.output, parsed.quiet);
-            }
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            return forward.generateFromSchema(io, alloc, file_data, "docs", parsed.dialect, cmd.output, parsed.quiet);
         },
         .generate => |cmd| {
             if (cmd.list) {
                 generator.listAll();
                 return;
             }
-            if (generator.get(cmd.generator)) |gen| {
-                const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
-                const pipeline = try forward.compilePipeline(alloc, file_data);
-                const typed = try @import("types/type_resolver.zig").TypeResolver.resolve(alloc, pipeline.resolved, parsed.dialect);
-                const output_text = try gen.generate(alloc, typed, parsed.dialect);
-                try io_mod.writeOutput(io, output_text, cmd.output, parsed.quiet);
-            } else {
-                std.debug.print("error: unknown generator '{s}'. Run 'rune generate --list' for available generators.\n", .{cmd.generator});
-                std.process.exit(1);
-            }
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            return forward.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
         },
         .init => |cmd| {
             return completions.handleInit(io, alloc, cmd.name, cmd.output);

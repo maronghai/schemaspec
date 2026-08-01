@@ -128,6 +128,10 @@ rune/src/
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)`.
 
+- **DiffConfig / MigrateConfig / ReverseConfig** (`pipeline/diff.zig`, `pipeline/reverse.zig`): Configuration structs for diff, migrate, and reverse handlers, replacing 8-11 positional parameters each. Follows the `CompileConfig` pattern. `handleDiff(io, alloc, DiffConfig)`, `handleMigrate(io, alloc, MigrateConfig)`, and `handleReverse(io, alloc, file_data, ReverseConfig)` are the unified entry points.
+
+- **`generateFromSchema`** (`pipeline/forward.zig`): Shared helper that handles the full compile→generate→write pipeline. Used by both `rune generate` and `rune docs` in `main.zig`, eliminating duplicate dispatch logic.
+
 - **CLI Unknown-Flag Detection** (`cli.zig`): Unrecognized `--` flags produce `error.UnknownFlag` with the flag name in the error message, instead of silently treating them as file paths. Known flags are checked against a hardcoded list of 16 global flags.
 
 - **Table-Driven Subcommand Dispatch** (`cli.zig`): Subcommand routing uses a comptime `parsers` array of `{name, parse_fn}` entries. Adding a new subcommand = add an entry to `COMMAND_REGISTRY` + add a `parseXxxArgs` function + add an entry to the `parsers` table.

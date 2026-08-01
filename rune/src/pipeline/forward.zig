@@ -344,3 +344,28 @@ pub fn handleStats(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !
     std.debug.print("fields:  {d}\n", .{s.fields});
     std.debug.print("views:   {d}\n", .{s.views});
 }
+
+/// Compile a schema and run a named generator on it. Handles the full pipeline:
+/// read input → compile → resolve types → lookup generator → generate → write output.
+/// Used by both `rune generate <name>` and `rune docs` (which delegates to the "docs" generator).
+pub fn generateFromSchema(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    file_data: []const u8,
+    generator_name: []const u8,
+    dialect: codegen.Dialect,
+    output_path: ?[]const u8,
+    quiet: bool,
+) !void {
+    const pipeline = try compilePipeline(alloc, file_data);
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+
+    const generator = @import("../generator.zig");
+    if (generator.get(generator_name)) |gen| {
+        const output_text = try gen.generate(alloc, typed, dialect);
+        try io_mod.writeOutput(io, output_text, output_path, quiet);
+    } else {
+        std.debug.print("error: unknown generator '{s}'. Run 'rune generate --list' for available generators.\n", .{generator_name});
+        std.process.exit(1);
+    }
+}

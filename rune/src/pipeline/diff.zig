@@ -10,8 +10,34 @@ const typed_ast = @import("../types/typed_ast.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const pipeline_forward = @import("../pipeline/forward.zig");
 const io_mod = @import("../io.zig");
+const cli = @import("../cli.zig");
 
 // ─── Diff/Migrate Pipeline ────────────────────────────────────
+
+/// Configuration for `rune diff` — replaces 8-9 positional parameters.
+pub const DiffConfig = struct {
+    old_path: []const u8,
+    new_path: []const u8,
+    dialect: codegen.Dialect = .mysql,
+    format: cli.DiffFormat = .text,
+    output_path: ?[]const u8 = null,
+    trace: bool = false,
+    stats: bool = false,
+    check: bool = false,
+};
+
+/// Configuration for `rune migrate` — replaces 10 positional parameters.
+pub const MigrateConfig = struct {
+    old_path: []const u8,
+    new_path: []const u8,
+    dialect: codegen.Dialect = .mysql,
+    format: cli.DiffFormat = .text,
+    output_path: ?[]const u8 = null,
+    trace: bool = false,
+    stats: bool = false,
+    rollback: bool = false,
+    dry_run: bool = false,
+};
 
 const DiffResult = struct {
     old_ast: resolved_ast.ResolvedAst,
@@ -27,74 +53,64 @@ fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_p
     return .{ .old_ast = old_ast, .new_ast = new_ast, .schema_diff = schema_diff };
 }
 
-/// Handle `rune diff`: output human-readable text diff between two .ss files.
-pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
-    const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-    emitTraceAndStats(result, trace, stats);
-    const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, dialect);
-    if (check) {
+/// Handle `rune diff`: output schema differences between two .ss files.
+/// Supports text, JSON, and SARIF output formats via DiffConfig.format.
+pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
+    const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path, cfg.dialect);
+    emitTraceAndStats(result, cfg.trace, cfg.stats);
+
+    if (cfg.check) {
         if (result.schema_diff.hasChanges()) {
-            try io_mod.writeOutput(io, diff_text, null, false);
+            // Text format writes the diff before failing (useful for CI output)
+            if (cfg.format == .text) {
+                const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, cfg.dialect);
+                try io_mod.writeOutput(io, diff_text, null, false);
+            }
             return error.CheckFailed;
         }
         return;
     }
-    try io_mod.writeOutput(io, diff_text, null, false);
-}
 
-/// Handle `rune diff --format json`: output structured JSON diff.
-pub fn handleDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
-    const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-    emitTraceAndStats(result, trace, stats);
-    if (check) {
-        if (result.schema_diff.hasChanges()) return error.CheckFailed;
-        return;
+    switch (cfg.format) {
+        .text => {
+            const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, cfg.dialect);
+            try io_mod.writeOutput(io, diff_text, null, false);
+        },
+        .json => {
+            const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
+            try io_mod.writeOutput(io, json_text, cfg.output_path, false);
+        },
+        .sarif => {
+            const sarif_text = try diff_format.formatDiffSarif(alloc, result.schema_diff, cfg.dialect);
+            try io_mod.writeOutput(io, sarif_text, null, false);
+        },
     }
-    const json_text = try diff_format.formatDiffJson(alloc, result.schema_diff);
-    try io_mod.writeOutput(io, json_text, output_path, false);
-}
-
-/// Handle `rune diff --format sarif`: output SARIF-formatted diff for CI/CD integration.
-pub fn handleDiffSarif(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect, trace: bool, stats: bool, check: bool) !void {
-    const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-    emitTraceAndStats(result, trace, stats);
-    if (check) {
-        if (result.schema_diff.hasChanges()) return error.CheckFailed;
-        return;
-    }
-    const sarif_text = try diff_format.formatDiffSarif(alloc, result.schema_diff, dialect);
-    try io_mod.writeOutput(io, sarif_text, null, false);
 }
 
 /// Handle `rune migrate`: generate ALTER TABLE migration SQL (or rollback SQL with --rollback).
-pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, rollback: bool, stats: bool, dry_run: bool) !void {
-    const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-    emitTraceAndStats(result, trace, stats);
-    if (rollback) {
-        const old_typed = try TypeResolver.resolve(alloc, result.old_ast, dialect);
-        const rollback_sql = try migrate.generateRollback(alloc, result.schema_diff, old_typed, result.old_ast, dialect);
-        if (dry_run) {
-            try io_mod.writeOutput(io, rollback_sql, null, false);
-        } else {
-            try io_mod.writeOutput(io, rollback_sql, output_path, false);
-        }
-    } else {
-        const new_typed = try TypeResolver.resolve(alloc, result.new_ast, dialect);
-        const migration_sql = try migrate.generateFromDiff(alloc, result.schema_diff, new_typed, result.new_ast, dialect);
-        if (dry_run) {
-            try io_mod.writeOutput(io, migration_sql, null, false);
-        } else {
-            try io_mod.writeOutput(io, migration_sql, output_path, false);
-        }
-    }
-}
+/// Supports text and JSON output formats via MigrateConfig.format.
+pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !void {
+    const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path, cfg.dialect);
+    emitTraceAndStats(result, cfg.trace, cfg.stats);
 
-/// Handle `rune migrate --format json`: output structured JSON migration operations.
-pub fn handleMigrateDiffJson(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, output_path: ?[]const u8, dialect: codegen.Dialect, trace: bool, stats: bool) !void {
-    const result = try prepareDiff(io, alloc, old_path, new_path, dialect);
-    emitTraceAndStats(result, trace, stats);
-    const json_text = try migrate_json.generateMigrationJson(alloc, result.schema_diff, dialect);
-    try io_mod.writeOutput(io, json_text, output_path, false);
+    switch (cfg.format) {
+        .json => {
+            const json_text = try migrate_json.generateMigrationJson(alloc, result.schema_diff, cfg.dialect);
+            try io_mod.writeOutput(io, json_text, cfg.output_path, false);
+        },
+        .text, .sarif => {
+            // Both text and SARIF produce the same migration SQL; SARIF is diff-only
+            if (cfg.rollback) {
+                const old_typed = try TypeResolver.resolve(alloc, result.old_ast, cfg.dialect);
+                const rollback_sql = try migrate.generateRollback(alloc, result.schema_diff, old_typed, result.old_ast, cfg.dialect);
+                try io_mod.writeOutput(io, rollback_sql, if (cfg.dry_run) null else cfg.output_path, false);
+            } else {
+                const new_typed = try TypeResolver.resolve(alloc, result.new_ast, cfg.dialect);
+                const migration_sql = try migrate.generateFromDiff(alloc, result.schema_diff, new_typed, result.new_ast, cfg.dialect);
+                try io_mod.writeOutput(io, migration_sql, if (cfg.dry_run) null else cfg.output_path, false);
+            }
+        },
+    }
 }
 
 /// Emit trace and stats for a diff result — extracted to eliminate 4x duplication.

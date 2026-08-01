@@ -9,10 +9,22 @@ const cli = @import("../cli.zig");
 
 // ─── Reverse Pipeline: SQL → .ss ─────────────────────────────
 
+/// Configuration for `rune reverse` — replaces 11 positional parameters.
+pub const ReverseConfig = struct {
+    input_name: []const u8 = "<stdin>",
+    output_path: ?[]const u8 = null,
+    dialect: codegen.Dialect = .mysql,
+    format: cli.DiffFormat = .text,
+    with_templates: bool = false,
+    trace: bool = false,
+    stats: bool = false,
+    validate_only: bool = false,
+};
+
 /// Handle the `rune reverse` command: parse SQL DDL and generate .ss schema output.
-pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, with_templates: bool, dialect: codegen.Dialect, trace: bool, stats: bool, validate_only: bool, format: cli.DiffFormat) !void {
+pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, cfg: ReverseConfig) !void {
     // Auto-detect dialect from SQL content when not explicitly specified
-    const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect.detectSqlDialect(file_data) else dialect;
+    const sql_dialect: sql_parser.Dialect = if (cfg.dialect == .mysql) dialect_detect.detectSqlDialect(file_data) else cfg.dialect;
 
     // Use DiagnosticCollector for consistent error handling with forward pipeline
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
@@ -25,7 +37,7 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
             .severity = .@"error",
             .line_no = lc.line,
             .col = lc.col,
-            .file = input_name,
+            .file = cfg.input_name,
             .message = "SQL syntax error",
             .source_line = src_line,
             .actual = @errorName(err),
@@ -41,7 +53,7 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
             .severity = d.severity,
             .line_no = d.line_no,
             .col = d.col,
-            .file = input_name,
+            .file = cfg.input_name,
             .message = d.message,
             .source_line = d.source_line,
         });
@@ -57,11 +69,11 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
         std.debug.print("warning: no tables found in SQL input\n", .{});
     }
 
-    if (trace) {
+    if (cfg.trace) {
         traceSqlSchema(schema);
     }
 
-    if (stats) {
+    if (cfg.stats) {
         var col_count: usize = 0;
         for (schema.tables) |table| {
             col_count += table.columns.len;
@@ -69,24 +81,24 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
         std.debug.print("tables: {d}  columns: {d}\n", .{ schema.tables.len, col_count });
     }
 
-    if (validate_only) {
+    if (cfg.validate_only) {
         std.debug.print("SQL is valid\n", .{});
         return;
     }
 
-    switch (format) {
+    switch (cfg.format) {
         .json => {
             const json_text = try generateReverseJson(alloc, schema);
-            try io_mod.writeOutput(io, json_text, output_path, false);
+            try io_mod.writeOutput(io, json_text, cfg.output_path, false);
         },
         else => {
             var rcg = reverse_codegen.ReverseCodegen.init(alloc, sql_dialect);
-            const ss_text = if (with_templates)
+            const ss_text = if (cfg.with_templates)
                 try rcg.generateWithTemplates(schema)
             else
                 try rcg.generate(schema);
 
-            try io_mod.writeOutput(io, ss_text, output_path, false);
+            try io_mod.writeOutput(io, ss_text, cfg.output_path, false);
         },
     }
 }
