@@ -132,25 +132,25 @@ field_name [type] [modifiers] [=default] [check] [> fk] [: comment]
 
 See [type.md](type.md) for the complete type reference.
 
-| Symbol | MySQL | PostgreSQL | SQLite | MSSQL |
-|--------|-------|-----------|--------|-------|
-| `n` | int | integer | INTEGER | INT |
-| `N` | bigint | bigint | INTEGER | BIGINT |
-| `i` | smallint | smallint | INTEGER | SMALLINT |
-| `m` | decimal(16,2) | numeric(16,2) | NUMERIC(16,2) | NUMERIC(16,2) |
-| `M` | decimal(20,6) | numeric(20,6) | NUMERIC(20,6) | NUMERIC(20,6) |
-| `s` | varchar(255) | varchar(255) | TEXT | NVARCHAR(255) |
-| `S` | text | text | TEXT | NVARCHAR(MAX) |
-| `b` | boolean | boolean | INTEGER | BIT |
-| `B` | blob | bytea | BLOB | VARBINARY(MAX) |
-| `j` | json | json | TEXT | NVARCHAR(MAX) |
-| `J` | jsonb | jsonb | TEXT | NVARCHAR(MAX) |
-| `I` | inet | inet | TEXT | NVARCHAR(45) |
-| `d` | date | date | TEXT | DATE |
-| `t` | datetime | timestamp | TEXT | DATETIME2 |
-| `T` | timestamptz | timestamptz | TEXT | DATETIMEOFFSET |
-| `U` | char(36) | uuid | TEXT | UNIQUEIDENTIFIER |
-| `p` | int | serial | INTEGER | INT |
+| Symbol | MySQL | PostgreSQL | SQLite | MSSQL | Oracle |
+|--------|-------|-----------|--------|-------|--------|
+| `n` | int | integer | INTEGER | INT | NUMBER(10) |
+| `N` | bigint | bigint | INTEGER | BIGINT | NUMBER(19) |
+| `i` | smallint | smallint | INTEGER | SMALLINT | NUMBER(5) |
+| `m` | decimal(16,2) | numeric(16,2) | NUMERIC(16,2) | NUMERIC(16,2) | NUMBER(16,2) |
+| `M` | decimal(20,6) | numeric(20,6) | NUMERIC(20,6) | NUMERIC(20,6) | NUMBER(20,6) |
+| `s` | varchar(255) | varchar(255) | TEXT | NVARCHAR(255) | VARCHAR2(255) |
+| `S` | text | text | TEXT | NVARCHAR(MAX) | CLOB |
+| `b` | boolean | boolean | INTEGER | BIT | NUMBER(1) |
+| `B` | blob | bytea | BLOB | VARBINARY(MAX) | BLOB |
+| `j` | json | json | TEXT | NVARCHAR(MAX) | CLOB |
+| `J` | jsonb | jsonb | TEXT | NVARCHAR(MAX) | CLOB |
+| `I` | inet | inet | TEXT | NVARCHAR(45) | VARCHAR2(45) |
+| `d` | date | date | TEXT | DATE | DATE |
+| `t` | datetime | timestamp | TEXT | DATETIME2 | TIMESTAMP |
+| `T` | timestamptz | timestamptz | TEXT | DATETIMEOFFSET | TIMESTAMP WITH TIME ZONE |
+| `U` | char(36) | uuid | TEXT | UNIQUEIDENTIFIER | RAW(16) |
+| `p` | int | serial | INTEGER | INT | NUMBER(10) |
 
 Multi-char types: `s128` = varchar(128), `16,2` = decimal(16,2), `e('a','b')` = enum.
 

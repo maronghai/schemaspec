@@ -225,25 +225,25 @@ DialectBackend = struct {
 };
 ```
 
-| Method | MySQL | PostgreSQL | SQLite | MSSQL |
-|--------|-------|-----------|--------|-------|
-| `quoteIdent` | backticks | double-quotes | double-quotes | square brackets |
-| `emitIndex` | inline INDEX/UNIQUE/FULLTEXT | UNIQUE (...) inline | UNIQUE (...) inline | INDEX/UNIQUE inline |
-| `emitCreateDatabase` | CHARACTER SET | ENCODING | no-op | no-op |
-| `emitUnsigned` | `UNSIGNED` | no-op | no-op | no-op |
-| `emitTimestampModifier` | `DEFAULT CURRENT_TIMESTAMP [ON UPDATE ...]` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
-| `emitTableFooter` | `ENGINE=... CHARSET=... COMMENT='...'` | `);` | `);` | `);` |
-| `emitTableComment` | no-op (in footer) | `COMMENT ON TABLE` | `-- comment` | no-op (sp_addextendedproperty) |
-| `emitColumnComment` | no-op (inline) | `COMMENT ON COLUMN` | `-- table.col: comment` | no-op (sp_addextendedproperty) |
-| `emitAutoIncrement` | `AUTO_INCREMENT` | `GENERATED ALWAYS AS IDENTITY` | no-op | no-op |
-| `emitPrimaryKey` | `PRIMARY KEY` | `PRIMARY KEY` | `PRIMARY KEY [AUTOINCREMENT]` | `PRIMARY KEY` |
-| `emitInlineIndex` | `INDEX`/`UNIQUE INDEX` | `UNIQUE (...)` | `UNIQUE (...)` | `INDEX`/`UNIQUE INDEX` |
-| `emitStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
-| `emitInlineColumnComment` | `COMMENT '...'` | no-op (standalone) | no-op (standalone) | `/* comment */` |
-| `emitEnumTypeCheck` | no-op (native ENUM) | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` |
-| `emitInlineColumnStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
-| `renderType` | `int`, `bigint`, `smallint`, `decimal`, `varchar`, `text`, `blob`, `json`, `datetime`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `integer`, `bigint`, `smallint`, `numeric`, `varchar`, `text`, `bytea`, `json`, `timestamp`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `INTEGER`, `NUMERIC`, `varchar`, `TEXT`, `BLOB`, `INTEGER` |
-| `emitForeignKey` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` |
+| Method | MySQL | PostgreSQL | SQLite | MSSQL | Oracle |
+|--------|-------|-----------|--------|-------|--------|
+| `quoteIdent` | backticks | double-quotes | double-quotes | square brackets | double-quotes |
+| `emitIndex` | inline INDEX/UNIQUE/FULLTEXT | UNIQUE (...) inline | UNIQUE (...) inline | INDEX/UNIQUE inline | INDEX/UNIQUE inline |
+| `emitCreateDatabase` | CHARACTER SET | ENCODING | no-op | no-op | no-op |
+| `emitUnsigned` | `UNSIGNED` | no-op | no-op | no-op | no-op |
+| `emitTimestampModifier` | `DEFAULT CURRENT_TIMESTAMP [ON UPDATE ...]` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
+| `emitTableFooter` | `ENGINE=... CHARSET=... COMMENT='...'` | `);` | `);` | `);` | `);` |
+| `emitTableComment` | no-op (in footer) | `COMMENT ON TABLE` | `-- comment` | no-op (sp_addextendedproperty) | `COMMENT ON TABLE` |
+| `emitColumnComment` | no-op (inline) | `COMMENT ON COLUMN` | `-- table.col: comment` | no-op (sp_addextendedproperty) | `COMMENT ON COLUMN` |
+| `emitAutoIncrement` | `AUTO_INCREMENT` | `GENERATED ALWAYS AS IDENTITY` | no-op | no-op | no-op |
+| `emitPrimaryKey` | `PRIMARY KEY` | `PRIMARY KEY` | `PRIMARY KEY [AUTOINCREMENT]` | `PRIMARY KEY` | `PRIMARY KEY` |
+| `emitInlineIndex` | `INDEX`/`UNIQUE INDEX` | `UNIQUE (...)` | `UNIQUE (...)` | `INDEX`/`UNIQUE INDEX` | `INDEX`/`UNIQUE INDEX` |
+| `emitStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
+| `emitInlineColumnComment` | `COMMENT '...'` | no-op (standalone) | no-op (standalone) | `/* comment */` | `/* comment */` |
+| `emitEnumTypeCheck` | no-op (native ENUM) | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` | `CHECK (... IN (...))` |
+| `emitInlineColumnStandaloneIndex` | no-op (inline) | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` | `CREATE INDEX` |
+| `renderType` | `int`, `bigint`, `smallint`, `decimal`, `varchar`, `text`, `blob`, `json`, `datetime`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `integer`, `bigint`, `smallint`, `numeric`, `varchar`, `text`, `bytea`, `json`, `timestamp`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `INTEGER`, `NUMERIC`, `varchar`, `TEXT`, `BLOB`, `INTEGER` | `INT`, `BIGINT`, `SMALLINT`, `NUMERIC`, `NVARCHAR`, `NVARCHAR(MAX)`, `VARBINARY(MAX)`, `DATETIME2`, `BIT`, `UNIQUEIDENTIFIER` | `NUMBER(10)`, `NUMBER(19)`, `NUMBER(5)`, `NUMBER(p,s)`, `VARCHAR2`, `CLOB`, `BLOB`, `TIMESTAMP`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `NUMBER(1)`, `RAW(16)` |
+| `emitForeignKey` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` |
 
 PG and SQLite share 4/5 method implementations. `emitCheckExpr` is a shared standalone function (all dialects use identical CHECK syntax). `emitForeignKey` is shared via `dialect_common.zig:emitForeignKeyShared` (takes `quoteIdent` function pointer).
 
@@ -251,20 +251,20 @@ PG and SQLite share 4/5 method implementations. `emitCheckExpr` is a shared stan
 
 Each dialect backend declares feature flags via the `capability` field:
 
-| Capability | MySQL | PostgreSQL | SQLite | MSSQL | Description |
-|-----------|-------|-----------|--------|-------|-------------|
-| `auto_increment` | ✓ | | | | AUTO_INCREMENT keyword |
-| `unsigned` | ✓ | | | | UNSIGNED integer modifier |
-| `create_database` | ✓ | ✓ | | | CREATE DATABASE statement |
-| `enum_type` | ✓ | | | | Native ENUM type |
-| `inline_comments` | ✓ | | | | Inline column comments |
-| `standalone_comments` | | ✓ | | | COMMENT ON statements |
-| `schemas` | | ✓ | | ✓ | Schema-qualified names |
-| `sequences` | | ✓ | | ✓ | Sequence objects |
-| `tablespace` | ✓ | | | | TABLESPACE clauses |
-| `batch_separators` | | | | ✓ | GO batch separators |
-| `generated_columns` | | ✓ | ✓ | ✓ | GENERATED ALWAYS AS columns |
-| `alter_drop_column` | ✓ | ✓ | | ✓ | ALTER TABLE ... DROP COLUMN |
+| Capability | MySQL | PostgreSQL | SQLite | MSSQL | Oracle | Description |
+|-----------|-------|-----------|--------|-------|--------|-------------|
+| `auto_increment` | ✓ | | | | | AUTO_INCREMENT keyword |
+| `unsigned` | ✓ | | | | | UNSIGNED integer modifier |
+| `create_database` | ✓ | ✓ | | | | CREATE DATABASE statement |
+| `enum_type` | ✓ | | | | | Native ENUM type |
+| `inline_comments` | ✓ | | | | | Inline column comments |
+| `standalone_comments` | | ✓ | | | ✓ | COMMENT ON statements |
+| `schemas` | | ✓ | | ✓ | ✓ | Schema-qualified names |
+| `sequences` | | ✓ | | ✓ | ✓ | Sequence objects |
+| `tablespace` | ✓ | | | | | TABLESPACE clauses |
+| `batch_separators` | | | | ✓ | | GO batch separators |
+| `generated_columns` | | ✓ | ✓ | ✓ | ✓ | GENERATED ALWAYS AS columns |
+| `alter_drop_column` | ✓ | ✓ | | ✓ | ✓ | ALTER TABLE ... DROP COLUMN |
 
 Adding a new dialect = set the appropriate capability flags in the backend struct. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names.
 
@@ -339,7 +339,7 @@ Rune uses a three-layer type mapping system:
 1. **TypedAst IR layer**: Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 2. **TypeResolver namespace**: Stateless functions (`TypeResolver.resolve`, `TypeResolver.resolveColumn`) that take `Allocator` directly. No struct instantiation — eliminates `init` boilerplate and per-loop allocation overhead in migrate.zig.
 2. **DialectBackend vtable**: 23 core + 6 optional function pointers + 3 behavioral flags + 1 capability field cover all dialect differences. Adding a new dialect requires < 100 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect_common.zig:emitForeignKeyShared`.
-3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. MSSQL dialect done; ready for Oracle and Db2.
+3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. MySQL/PostgreSQL/SQLite/MSSQL/Oracle dialects done; ready for Db2.
 4. **CompileConfig struct**: Replaces 13 positional parameters in `handleCompileRequest`. All fields have named defaults; callers specify only what they need. Improves readability and reduces parameter-ordering bugs.
 3. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
 4. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).
@@ -391,13 +391,14 @@ No code changes needed — users define types in `.ss` files. For built-in suppo
 ## Adding a New SQL Dialect
 
 1. Add variant to `Dialect` enum in `dialect_enum.zig`
-2. Add type mappings to `CORE_TYPES` in `type_registry.zig`
-3. Add reverse mappings to `REVERSE_MAP` in `types/reverse_map.zig`
-4. Update `SqlType.toSql()` in `sql_type.zig` with new dialect case
-5. Create `DialectBackend` instance in `dialect/<name>.zig` (implement 22 required methods + 7 optional methods + 3 behavioral flags + `capability` field)
-6. Register in `getBackend()` switch in `dialect.zig`
-7. Optionally implement `reverseLookup` for dialect-specific reverse engineering (e.g., SQLite's heuristic-based type disambiguation)
+2. Create `DialectBackend` instance in `dialect/<name>.zig` (~300 lines, self-contained type mapping)
+3. Register in `getBackend()` switch in `dialect.zig`
+4. Add comptime validation in `dialect.zig`
+5. Update CLI `parseDialect` to accept dialect aliases
+6. Add reverse mappings to `REVERSE_MAP` in `types/reverse_map.zig`
+7. Update `DialectTypeMap` struct with new dialect field
 8. Add golden file tests in `tests/`
+9. Update documentation (README.md, type.md, schema.md, ARCHITECTURE.md)
 
 No changes needed in `codegen.zig` — it is fully dialect-agnostic.
 
@@ -438,10 +439,11 @@ zig build bench -- bench/large.ss 5         # large schema
 | PG golden | `tests/test_postgres.sh` | 85 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 25 | Full pipeline |
 | MSSQL golden | `tests/test_mssql.sh` | 26 | Full pipeline |
+| Oracle golden | `tests/test_oracle.sh` | 103 | Full pipeline |
 | Migrate golden | `tests/test_migrate.sh` | 34 | Diff + migration SQL |
 | Reverse golden | `tests/test_reverse.sh` | 15 | SQL → .ss |
 | Diff golden | `tests/test_diff.sh` | 12 | Schema comparison |
 | Error recovery | `tests/test_error_recovery.sh` | 12 | Parse error handling + schema-level validation |
 | JSON Schema | `tests/test_json_schema.sh` | 3 | JSON Schema output |
 | Roundtrip | `tests/test_roundtrip.sh` | 26 | Forward → reverse fidelity |
-| **Total** | | **~531+** | |
+| **Total** | | **~634+** | |

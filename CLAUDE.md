@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-Rune is a minimal DSL for declaring database schemas using single-character symbols, implemented in Zig. It compiles `.ss` schema files into SQL DDL (MySQL/PostgreSQL/SQLite/MSSQL), and supports reverse engineering (SQL→.ss), schema diff, and migration generation.
+Rune is a minimal DSL for declaring database schemas using single-character symbols, implemented in Zig. It compiles `.ss` schema files into SQL DDL (MySQL/PostgreSQL/SQLite/MSSQL/Oracle), and supports reverse engineering (SQL→.ss), schema diff, and migration generation.
 
 ## Build & Test Commands
 
@@ -24,6 +24,8 @@ cd rune && zig build bench -- --check          # Check for regressions vs baseli
 bash tests/test.sh                  # MySQL (86 tests)
 bash tests/test_postgres.sh         # PostgreSQL (87 tests)
 bash tests/test_sqlite.sh           # SQLite (26 tests)
+bash tests/test_mssql.sh            # MSSQL (26 tests)
+bash tests/test_oracle.sh           # Oracle (103 tests)
 bash tests/test_migrate.sh          # Migration (34 tests)
 bash tests/test_reverse.sh          # Reverse engineering (21 tests)
 bash tests/test_diff.sh             # Schema diff (12 tests)
@@ -35,7 +37,7 @@ bash tests/test_stdin.sh            # Stdin pipeline (4 tests)
 bash tests/test_bench.sh            # Benchmark regression (--save/--check/--diff)
 bash tests/test_reverse_confidence.sh  # Reverse confidence (4 tests)
 bash tests/test_init.sh             # Init & completions (12 tests)
-bash tests/test_coverage.sh         # Full test suite runner (all 16 suites)
+bash tests/test_coverage.sh         # Full test suite runner (all 17 suites)
 ```
 
 Run a single golden test by filter: `bash tests/test.sh 01` (matches test name substring).
@@ -47,6 +49,8 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune schema.ss -o out.sql             # Compile to file
 ./rune/zig-out/bin/rune schema.ss -d pg                  # PostgreSQL output
 ./rune/zig-out/bin/rune schema.ss -d sqlite              # SQLite output
+./rune/zig-out/bin/rune schema.ss -d mssql               # MSSQL output
+./rune/zig-out/bin/rune schema.ss -d oracle              # Oracle output
 ./rune/zig-out/bin/rune init                             # Create starter schema
 ./rune/zig-out/bin/rune init myapp                       # Create starter schema with name
 ./rune/zig-out/bin/rune completions bash                 # Generate bash completions
@@ -80,8 +84,9 @@ rune/src/
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig     # SQL code generation
-  dialect/     dialect.zig, enum.zig, mysql.zig,          # dialect backends (7 files)
-               pg.zig, sqlite.zig, common.zig, sqlite_hints.zig
+  dialect/     dialect.zig, enum.zig, mysql.zig,          # dialect backends (8 files)
+               pg.zig, sqlite.zig, mssql.zig, oracle.zig,
+               common.zig, sqlite_hints.zig
   reverse/     codegen.zig, column.zig, map.zig,          # reverse engineering (7 files)
                map_data.zig, fk.zig, check.zig, template_extraction.zig
   diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (13 files)
@@ -111,9 +116,9 @@ rune/src/
 
 - **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`.
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~200 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
+- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (26 required + 6 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
 
-- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. MSSQL dialect done; ready for Oracle and Db2.
+- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. MySQL/PostgreSQL/SQLite/MSSQL/Oracle dialects done; ready for Db2.
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)`.
 
@@ -163,8 +168,8 @@ rune/src/
 | | `columns.zig` | Column definition rendering |
 | | `indexes.zig` | Inline and standalone index emission |
 | `dialect/` | `dialect.zig` | DialectBackend vtable + getBackend() + ReverseResult |
-| | `enum.zig` | Dialect enum (mysql, pg, sqlite, mssql) |
-| | `mysql.zig`, `pg.zig`, `sqlite.zig`, `mssql.zig` | Per-dialect backend implementations |
+| | `enum.zig` | Dialect enum (mysql, pg, sqlite, mssql, oracle) |
+| | `mysql.zig`, `pg.zig`, `sqlite.zig`, `mssql.zig`, `oracle.zig` | Per-dialect backend implementations |
 | | `common.zig` | Shared PG/SQLite dialect functions |
 | | `sqlite_hints.zig` | SQLite type affinity hints + column heuristics |
 | `reverse/` | `codegen.zig` | SQL → `.ss` orchestration |
@@ -217,7 +222,7 @@ rune/src/
 ### Testing
 
 - **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 62 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
-- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 17 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 87), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (21), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_openapi.sh` (3), `test_roundtrip.sh` (68), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_init.sh` (12), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
+- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 18 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 87), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_oracle.sh` (Oracle, 103), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (21), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_openapi.sh` (3), `test_roundtrip.sh` (68), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_init.sh` (12), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
 ## Conventions

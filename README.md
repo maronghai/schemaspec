@@ -26,7 +26,7 @@ Database schema DDL is verbose. A simple user table takes 15+ lines of SQL with 
 
 ## The Solution
 
-Rune is a minimal DSL that compresses database schema declarations into single-character symbols. One symbol = one SQL type. Modifiers fuse multiple keywords into postfix notation. Templates eliminate repetition. The compiler handles dialect differences — write once, generate MySQL/PostgreSQL/SQLite/MSSQL.
+Rune is a minimal DSL that compresses database schema declarations into single-character symbols. One symbol = one SQL type. Modifiers fuse multiple keywords into postfix notation. Templates eliminate repetition. The compiler handles dialect differences — write once, generate MySQL/PostgreSQL/SQLite/MSSQL/Oracle.
 
 **Average compression: 3-5x per field** — common declarations shrink dramatically.
 
@@ -106,24 +106,24 @@ CREATE TABLE `user` (
 
 One character = one type. Case matters.
 
-| Symbol | MySQL | PostgreSQL | Description |
-|--------|-------|-----------|-------------|
-| `n` | int | integer | 32-bit integer |
-| `N` | bigint | bigint | 64-bit integer |
-| `i` | smallint | smallint | 16-bit integer |
-| `m` | decimal(16,2) | numeric(16,2) | Standard currency |
-| `M` | decimal(20,6) | numeric(20,6) | High-precision currency |
-| `s` | varchar(255) | varchar(255) | Default string |
-| `s\d+` | varchar(n) | varchar(n) | Explicit length |
-| `S` | text | text | Unlimited text |
-| `b` | boolean | boolean | True/false |
-| `B` | blob | bytea | Binary data |
-| `j` / `J` | json / json | json / jsonb | JSON / binary JSON |
-| `d` / `t` / `T` | date / datetime / timestamp | date / timestamp / timestamptz | Temporal |
-| `U` | char(36) | uuid | UUID |
-| `p` | int | serial | Auto-increment |
-| `I` | varchar(45) | inet | IP address |
-| `e(...)` | ENUM('...') | text + CHECK | Enumeration |
+| Symbol | MySQL | PostgreSQL | Oracle | Description |
+|--------|-------|-----------|--------|-------------|
+| `n` | int | integer | NUMBER(10) | 32-bit integer |
+| `N` | bigint | bigint | NUMBER(19) | 64-bit integer |
+| `i` | smallint | smallint | NUMBER(5) | 16-bit integer |
+| `m` | decimal(16,2) | numeric(16,2) | NUMBER(16,2) | Standard currency |
+| `M` | decimal(20,6) | numeric(20,6) | NUMBER(20,6) | High-precision currency |
+| `s` | varchar(255) | varchar(255) | VARCHAR2(255) | Default string |
+| `s\d+` | varchar(n) | varchar(n) | VARCHAR2(n) | Explicit length |
+| `S` | text | text | CLOB | Unlimited text |
+| `b` | boolean | boolean | NUMBER(1) | True/false |
+| `B` | blob | bytea | BLOB | Binary data |
+| `j` / `J` | json / json | json / jsonb | CLOB | JSON / binary JSON |
+| `d` / `t` / `T` | date / datetime / timestamp | date / timestamp / timestamptz | DATE / TIMESTAMP / TIMESTAMP WITH TIME ZONE | Temporal |
+| `U` | char(36) | uuid | RAW(16) | UUID |
+| `p` | int | serial | NUMBER(10) | Auto-increment |
+| `I` | varchar(45) | inet | VARCHAR2(45) | IP address |
+| `e(...)` | ENUM('...') | text + CHECK | VARCHAR2 + CHECK | Enumeration |
 
 **Suffix inference** — no type symbol needed: `_id` → int, `_on` → date, `_at` → datetime, *(none)* → varchar(255). Explicit type always wins.
 
@@ -283,6 +283,15 @@ rune schema.ss -d sqlserver        # alias
 
 Type differences: `b` → `BIT`, `t` → `DATETIME2`, `B` → `VARBARCHAR(MAX)`, `s` → `NVARCHAR(255)`. Identifiers use square brackets `[name]`.
 
+### Oracle
+
+```bash
+rune schema.ss -d oracle           # → Oracle DDL
+rune schema.ss -d ora              # alias
+```
+
+Type differences: `b` → `NUMBER(1)`, `t` → `TIMESTAMP`, `B` → `BLOB`, `s` → `VARCHAR2(255)`, `S` → `CLOB`. Uses double-quote identifiers, COMMENT ON for comments, and sequences for auto-increment.
+
 ### Migration
 
 ```bash
@@ -367,7 +376,7 @@ rune completions fish > ~/.config/fish/completions/rune.fish
 ## Roadmap
 
 - [ ] LSP language server (completion, diagnostics, go-to-definition)
-- [ ] Oracle dialect support
+- [x] Oracle dialect support
 - [x] Microsoft SQL Server dialect support
 - [ ] IBM Db2 dialect support
 - [x] JSON Schema output for API layer generation
