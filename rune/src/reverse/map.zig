@@ -143,6 +143,20 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
         }
     }
 
+    // NVARCHAR2(N) → sN (Oracle, guard: inner must fit in 16-byte buffer)
+    if (matchPrefix(t, "nvarchar2(")) |rest| {
+        if (std.mem.endsWith(u8, rest, ")")) {
+            const inner = std.mem.trim(u8, rest[0 .. rest.len - 1], " ");
+            if (inner.len > 15) return .{ .sym = t, .omit = false };
+            const sbuf = struct {
+                var buf: [16]u8 = undefined;
+            };
+            sbuf.buf[0] = 's';
+            for (inner, 0..) |ch, i| sbuf.buf[i + 1] = ch;
+            return .{ .sym = sbuf.buf[0 .. 1 + inner.len], .omit = false };
+        }
+    }
+
     // NUMBER(P,S) → P,S or NUMBER(P) → N (Oracle, guard: inner must fit in 32-byte buffer)
     if (matchPrefix(t, "number(")) |rest| {
         if (std.mem.endsWith(u8, rest, ")")) {

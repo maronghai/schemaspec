@@ -396,3 +396,142 @@ test "reverse: numeric with long P,S falls back to raw" {
     const r = reverseLookup("numeric(99999999999999999,99999999999999999)", "col", false, false, .pg);
     try testing.expectEqualStrings("numeric(99999999999999999,99999999999999999)", r.sym);
 }
+
+// ─── Oracle-specific reverse tests ──────────────────────────────
+
+test "reverse oracle: NUMBER(10) maps to n" {
+    const r = reverseLookup("NUMBER(10)", "id", false, false, .oracle);
+    try testing.expectEqualStrings("n", r.sym);
+}
+
+test "reverse oracle: NUMBER(19) maps to N" {
+    const r = reverseLookup("NUMBER(19)", "id", false, false, .oracle);
+    try testing.expectEqualStrings("N", r.sym);
+}
+
+test "reverse oracle: NUMBER(10,2) maps to 10,2" {
+    const r = reverseLookup("NUMBER(10,2)", "amount", false, false, .oracle);
+    try testing.expectEqualStrings("10,2", r.sym);
+}
+
+test "reverse oracle: VARCHAR2(100) maps to s100" {
+    const r = reverseLookup("VARCHAR2(100)", "name", false, false, .oracle);
+    try testing.expectEqualStrings("s100", r.sym);
+}
+
+test "reverse oracle: NVARCHAR2(50) maps to s50" {
+    const r = reverseLookup("NVARCHAR2(50)", "name", false, false, .oracle);
+    try testing.expectEqualStrings("s50", r.sym);
+}
+
+test "reverse oracle: CLOB maps to S" {
+    const r = reverseLookup("CLOB", "data", false, false, .oracle);
+    try testing.expectEqualStrings("S", r.sym);
+}
+
+test "reverse oracle: BLOB maps to B" {
+    const r = reverseLookup("BLOB", "data", false, false, .oracle);
+    try testing.expectEqualStrings("B", r.sym);
+}
+
+test "reverse oracle: DATE maps to d" {
+    const r = reverseLookup("DATE", "created", false, false, .oracle);
+    try testing.expectEqualStrings("d", r.sym);
+}
+
+test "reverse oracle: TIMESTAMP maps to t" {
+    const r = reverseLookup("TIMESTAMP", "created", false, false, .oracle);
+    try testing.expectEqualStrings("t", r.sym);
+}
+
+test "reverse oracle: TIMESTAMP WITH TIME ZONE maps to T" {
+    const r = reverseLookup("TIMESTAMP WITH TIME ZONE", "created", false, false, .oracle);
+    try testing.expectEqualStrings("T", r.sym);
+}
+
+test "reverse oracle: RAW(16) maps to U (uuid)" {
+    const r = reverseLookup("RAW(16)", "uuid", false, false, .oracle);
+    try testing.expectEqualStrings("U", r.sym);
+}
+
+test "reverse oracle: NUMBER maps to NUMBER passthrough" {
+    const r = reverseLookup("NUMBER", "col", false, false, .oracle);
+    try testing.expectEqualStrings("NUMBER", r.sym);
+}
+
+test "reverse oracle: VARCHAR2 maps to VARCHAR2 passthrough" {
+    const r = reverseLookup("VARCHAR2", "col", false, false, .oracle);
+    try testing.expectEqualStrings("VARCHAR2", r.sym);
+}
+
+// ─── Db2-specific reverse tests ─────────────────────────────────
+
+test "reverse db2: INTEGER maps to n" {
+    const r = reverseLookup("INTEGER", "id", false, false, .db2);
+    try testing.expectEqualStrings("n", r.sym);
+}
+
+test "reverse db2: SMALLINT maps to i" {
+    const r = reverseLookup("SMALLINT", "id", false, false, .db2);
+    try testing.expectEqualStrings("i", r.sym);
+}
+
+test "reverse db2: BIGINT maps to N" {
+    const r = reverseLookup("BIGINT", "id", false, false, .db2);
+    try testing.expectEqualStrings("N", r.sym);
+}
+
+test "reverse db2: DECIMAL(10,2) maps to 10,2" {
+    const r = reverseLookup("DECIMAL(10,2)", "amount", false, false, .db2);
+    try testing.expectEqualStrings("10,2", r.sym);
+}
+
+test "reverse db2: VARCHAR(100) maps to s100" {
+    const r = reverseLookup("VARCHAR(100)", "name", false, false, .db2);
+    try testing.expectEqualStrings("s100", r.sym);
+}
+
+test "reverse db2: CLOB maps to S" {
+    const r = reverseLookup("CLOB", "data", false, false, .db2);
+    try testing.expectEqualStrings("S", r.sym);
+}
+
+test "reverse db2: BLOB maps to B" {
+    const r = reverseLookup("BLOB", "data", false, false, .db2);
+    try testing.expectEqualStrings("B", r.sym);
+}
+
+test "reverse db2: DATE maps to d" {
+    const r = reverseLookup("DATE", "created", false, false, .db2);
+    try testing.expectEqualStrings("d", r.sym);
+}
+
+test "reverse db2: TIMESTAMP maps to t" {
+    const r = reverseLookup("TIMESTAMP", "created", false, false, .db2);
+    try testing.expectEqualStrings("t", r.sym);
+}
+
+test "reverse db2: TIMESTAMP WITH TIME ZONE maps to T" {
+    const r = reverseLookup("TIMESTAMP WITH TIME ZONE", "created", false, false, .db2);
+    try testing.expectEqualStrings("T", r.sym);
+}
+
+test "reverse db2: BOOLEAN maps to b" {
+    const r = reverseLookup("BOOLEAN", "flag", false, false, .db2);
+    try testing.expectEqualStrings("b", r.sym);
+}
+
+test "reverse db2: REAL maps to r" {
+    const r = reverseLookup("REAL", "col", false, false, .db2);
+    try testing.expectEqualStrings("r", r.sym);
+}
+
+test "reverse db2: DOUBLE PRECISION maps to r" {
+    const r = reverseLookup("DOUBLE PRECISION", "col", false, false, .db2);
+    try testing.expectEqualStrings("r", r.sym);
+}
+
+test "reverse db2: CHAR(16) FOR BIT DATA maps to U" {
+    const r = reverseLookup("CHAR(16) FOR BIT DATA", "uuid", false, false, .db2);
+    try testing.expectEqualStrings("U", r.sym);
+}

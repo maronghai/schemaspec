@@ -403,4 +403,73 @@ pub const SqlParser = struct {
     pub fn captureTrailingComments(self: *SqlParser, tables: []SqlTable) void {
         sql_parser_helpers.captureTrailingComments(self, tables);
     }
+
+    /// Skip Oracle/Db2 identity options after GENERATED ... AS IDENTITY.
+    /// Options: START WITH, INCREMENT BY, MINVALUE, MAXVALUE, NOCYCLE, CACHE, NOORDER, etc.
+    pub fn skipIdentityOptions(self: *SqlParser) void {
+        while (self.pos < self.src.len) {
+            self.skipSpacesAndNewlines();
+            // Stop at column结束 markers
+            const ch = self.peek();
+            if (ch == ',' or ch == ')' or ch == ';' or ch == 0) break;
+
+            // Stop at column modifier keywords (these are NOT identity options)
+            if (self.lookaheadIs("PRIMARY") or self.lookaheadIs("NOT") or
+                self.lookaheadIs("NULL") or self.lookaheadIs("DEFAULT") or
+                self.lookaheadIs("COMMENT") or self.lookaheadIs("UNIQUE") or
+                self.lookaheadIs("CHECK") or self.lookaheadIs("REFERENCES") or
+                self.lookaheadIs("ON") or self.lookaheadIs("GENERATED") or
+                self.lookaheadIs("AS") or self.lookaheadIs("AUTO_INCREMENT") or
+                self.lookaheadIs("UNSIGNED"))
+            {
+                break;
+            }
+
+            // Try to match identity option keywords
+            if (self.matchKeyword("START") or self.matchKeyword("INCREMENT") or
+                self.matchKeyword("MINVALUE") or self.matchKeyword("MAXVALUE") or
+                self.matchKeyword("NOCYCLE") or self.matchKeyword("CYCLE") or
+                self.matchKeyword("CACHE") or self.matchKeyword("NOCACHE") or
+                self.matchKeyword("NOORDER") or self.matchKeyword("ORDER") or
+                self.matchKeyword("NOMAXVALUE") or self.matchKeyword("NOMINVALUE") or
+                self.matchKeyword("GLOBAL") or self.matchKeyword("LOCAL"))
+            {
+                self.skipSpaces();
+                // Some options take a value (e.g., START WITH 1, INCREMENT BY 1, CACHE 10)
+                // Skip the value if present
+                if (self.peek() == '-' or self.peek() == '+' or
+                    (self.peek() >= '0' and self.peek() <= '9'))
+                {
+                    // Skip numeric value
+                    while (self.pos < self.src.len) {
+                        const c = self.peek();
+                        if (c >= '0' and c <= '9' or c == '.' or c == '-' or c == '+') {
+                            self.advance();
+                        } else break;
+                    }
+                } else if (self.peek() == '(') {
+                    // Skip parenthesized value (e.g., CACHE 100)
+                    self.advance();
+                    var depth: usize = 1;
+                    while (self.pos < self.src.len and depth > 0) {
+                        const c = self.peek();
+                        if (c == '(') depth += 1 else if (c == ')') depth -= 1;
+                        if (depth > 0) self.advance();
+                    }
+                    if (self.peek() == ')') self.advance();
+                } else if (self.peek() == 'N' or self.peek() == 'n') {
+                    // Skip NULL or NOCYCLE-like keywords
+                    while (self.pos < self.src.len) {
+                        const c = self.peek();
+                        if (c >= 'A' and c <= 'Z' or c >= 'a' and c <= 'z' or c >= '0' and c <= '9' or c == '_') {
+                            self.advance();
+                        } else break;
+                    }
+                }
+            } else {
+                // Unknown keyword - stop to let the caller handle it
+                break;
+            }
+        }
+    }
 };
