@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.65.0 (2026-08-01)
+**Current version**: 0.66.0 (2026-08-01)
 
 ---
 
@@ -34,7 +34,7 @@ Polish the existing foundation. Most items shipped in v0.38–v0.40.
 
 ### Testing
 
-- [ ] Fuzz testing infrastructure — random `.ss` input to find parser crashes
+- [x] Fuzz testing infrastructure — random `.ss` input to find parser crashes
 - [ ] Property-based tests for roundtrip fidelity (`.ss` → compile → reverse → compile → compare)
 - [x] Golden test parallelization — `tests/test_parallel.sh` runs suites concurrently
 
@@ -200,6 +200,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.66.0 (2026-08-01)
+
+- **`rune init` command** — scaffolds a new project with a starter `.ss` file containing users, posts, and comments tables with FK references, indexes, and enum types. Usage: `rune init [name] [-o output]`.
+- **Shell completion scripts** — `rune completions bash|zsh|fish|powershell` generates completion scripts for each shell. Install: `source <(rune completions bash)`.
+- **Fuzz testing infrastructure** — `tests/fuzz.sh` generates random `.ss` input and checks for parser crashes. Usage: `bash tests/fuzz.sh [iterations]`.
+- 12 new golden tests in `tests/test_init.sh` covering init, completions, and dialect output.
+- Documentation: updated Source Layout, Generator Registry, Module Roles, and test counts.
 
 ### v0.65.0 (2026-08-01)
 

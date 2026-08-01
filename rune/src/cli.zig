@@ -17,6 +17,8 @@ pub const Command = union(enum) {
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
     generate: struct { generator: []const u8, input: ?[]const u8, output: ?[]const u8, list: bool },
+    init: struct { name: ?[]const u8, output: ?[]const u8 },
+    completions: struct { shell: []const u8 },
     version,
     help,
 };
@@ -228,6 +230,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .{ .name = "check", .parse = parseCheckArgs },
         .{ .name = "stats", .parse = parseStatsArgs },
         .{ .name = "docs", .parse = parseDocsArgs },
+        .{ .name = "init", .parse = parseInitArgs },
+        .{ .name = "completions", .parse = parseCompletionsArgs },
     };
     for (parsers) |entry| {
         if (std.mem.eql(u8, sub, entry.name)) {
@@ -295,6 +299,8 @@ const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
     .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
     .{ .name = "generate", .args = "<generator> [input.ss]", .description = "Generate output in specified format" },
+    .{ .name = "init", .args = "[name]", .description = "Create a starter .ss schema file" },
+    .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
 };
 
 /// Check if a long flag (--flag) is recognized by the parser.
@@ -467,6 +473,16 @@ fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
 fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
     return parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, opts);
+}
+
+fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const name = if (fargs.len > 1) fargs[1] else null;
+    return parseSimpleSubcommand(dialect, target, .{ .init = .{ .name = name, .output = parseOutputFlag(fargs, 1) } }, opts);
+}
+
+fn parseCompletionsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const shell = if (fargs.len > 1) fargs[1] else "bash";
+    return parseSimpleSubcommand(dialect, target, .{ .completions = .{ .shell = shell } }, opts);
 }
 
 // ─── Usage ─────────────────────────────────────────────────────

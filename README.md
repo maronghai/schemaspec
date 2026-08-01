@@ -330,6 +330,40 @@ rune generate --list                  # → list available generators
 
 10 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, OpenAPI 3.1, GraphQL, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
 
+### Init
+
+```bash
+rune init                    # Create schema.ss with starter content
+rune init myapp              # Create myapp.ss
+rune init -o custom.ss       # Create custom.ss
+```
+
+Scaffolds a new project with a starter `.ss` file containing users, posts, and comments tables with FK references, indexes, and enum types.
+
+### Completions
+
+```bash
+rune completions bash        # → Bash completion script
+rune completions zsh         # → Zsh completion script
+rune completions fish        # → Fish completion script
+rune completions powershell  # → PowerShell completion script
+```
+
+Install for your shell:
+```bash
+# Bash
+source <(rune completions bash)
+
+# Zsh
+eval "$(rune completions zsh)"
+
+# Fish
+rune completions fish > ~/.config/fish/completions/rune.fish
+
+# PowerShell
+. $(rune completions powershell)
+```
+
 ## Roadmap
 
 - [ ] LSP language server (completion, diagnostics, go-to-definition)

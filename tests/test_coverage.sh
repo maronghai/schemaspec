@@ -65,6 +65,7 @@ run_suite "Round-trip (68 tests)" "bash tests/test_roundtrip.sh"
 run_suite "Imports (6 tests)" "bash tests/test_imports.sh"
 run_suite "Stdin (4 tests)" "bash tests/test_stdin.sh"
 run_suite "Reverse Confidence (4 tests)" "bash tests/test_reverse_confidence.sh"
+run_suite "Init & Completions (12 tests)" "bash tests/test_init.sh"
 
 if [ "$QUICK" = false ]; then
   echo ""

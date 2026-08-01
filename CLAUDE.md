@@ -34,7 +34,8 @@ bash tests/test_imports.sh          # Import system (6 tests)
 bash tests/test_stdin.sh            # Stdin pipeline (4 tests)
 bash tests/test_bench.sh            # Benchmark regression (--save/--check/--diff)
 bash tests/test_reverse_confidence.sh  # Reverse confidence (4 tests)
-bash tests/test_coverage.sh         # Full test suite runner (all 15 suites)
+bash tests/test_init.sh             # Init & completions (12 tests)
+bash tests/test_coverage.sh         # Full test suite runner (all 16 suites)
 ```
 
 Run a single golden test by filter: `bash tests/test.sh 01` (matches test name substring).
@@ -46,6 +47,10 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune schema.ss -o out.sql             # Compile to file
 ./rune/zig-out/bin/rune schema.ss -d pg                  # PostgreSQL output
 ./rune/zig-out/bin/rune schema.ss -d sqlite              # SQLite output
+./rune/zig-out/bin/rune init                             # Create starter schema
+./rune/zig-out/bin/rune init myapp                       # Create starter schema with name
+./rune/zig-out/bin/rune completions bash                 # Generate bash completions
+./rune/zig-out/bin/rune completions zsh                  # Generate zsh completions
 ./rune/zig-out/bin/rune migrate old.ss new.ss           # Migration SQL
 ./rune/zig-out/bin/rune migrate old.ss new.ss --rollback # Rollback SQL
 ./rune/zig-out/bin/rune reverse schema.sql -t             # Reverse-engineer with template extraction
@@ -211,8 +216,8 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 61 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
-- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 16 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 87), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (21), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_openapi.sh` (3), `test_roundtrip.sh` (68), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 62 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 17 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 87), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (21), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_openapi.sh` (3), `test_roundtrip.sh` (68), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_init.sh` (12), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
 ## Conventions
