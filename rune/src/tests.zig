@@ -21,6 +21,7 @@ comptime {
     _ = @import("dialect/sqlite_hints_test.zig");
     // diff
     _ = @import("diff/diff_test.zig");
+    _ = @import("diff/engine_test.zig");
     _ = @import("diff/fields_test.zig");
     _ = @import("diff/fks_test.zig");
     _ = @import("diff/indexes_test.zig");

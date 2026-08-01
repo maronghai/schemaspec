@@ -1,4 +1,5 @@
 const std = @import("std");
+const dialect_mod = @import("../dialect/dialect.zig");
 const ast_mod = @import("../types/ast.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
 const SqlType = sql_type_mod.SqlType;
@@ -53,6 +54,46 @@ pub fn lookupSymDefault(overrides: []const SymEntry, sym: []const u8) ?SqlType {
         if (entry.char == ch) return entry.sql_type;
     }
     return null;
+}
+
+// ─── Shared Type Rendering ──────────────────────────────────
+
+/// Shared renderType implementation for all dialect backends.
+/// Handles raw_sql/passthrough passthrough, delegates to dialect-specific render table.
+pub fn renderTypeFromTable(w: *Writer, sql_type: SqlType, comptime table: []const dialect_mod.RenderEntry) anyerror!void {
+    switch (sql_type) {
+        .raw_sql => |sql| try w.writeAll(sql),
+        .passthrough => |t| try w.writeAll(t),
+        else => try dialect_mod.renderFromTable(w, sql_type, table),
+    }
+}
+
+// ─── Shared Comment Emission ────────────────────────────────
+
+/// Shared standalone COMMENT ON TABLE implementation (PG, Oracle, Db2, MSSQL).
+pub fn emitTableCommentStandalone(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
+    const ct = stripCommentPrefix(comment);
+    const tr = std.mem.trim(u8, ct, " ");
+    if (tr.len > 0) try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n", .{ table_name, tr });
+}
+
+/// Shared standalone COMMENT ON COLUMN implementation (PG, Oracle, Db2).
+pub fn emitColumnCommentStandalone(w: *Writer, table_name: []const u8, col_name: []const u8, comment: []const u8) anyerror!void {
+    if (comment.len >= 1 and comment[0] == ':') {
+        const ct = std.mem.trim(u8, stripCommentPrefix(comment), " ");
+        if (ct.len > 0) try w.print("COMMENT ON COLUMN \"{s}\".\"{s}\" IS '{s}';\n", .{ table_name, col_name, ct });
+    }
+}
+
+// ─── Shared View Rendering ──────────────────────────────────
+
+/// Shared CREATE OR REPLACE VIEW implementation (MySQL, PG, Oracle, Db2).
+pub fn emitCreateViewShared(w: *Writer, name: []const u8, query: []const u8, quoteIdent: QuoteIdentFn) anyerror!void {
+    try w.writeAll("CREATE OR REPLACE VIEW ");
+    try quoteIdent(w, name);
+    try w.writeAll(" AS\n");
+    try w.writeAll(query);
+    try w.writeAll(";\n");
 }
 
 // ─── Shared PG/SQLite Dialect Logic ──────────────────────────

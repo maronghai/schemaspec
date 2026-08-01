@@ -63,16 +63,11 @@ fn pgCommentResult() CommentResult {
 // ─── PG-specific helpers ──────────────────────────────────────
 
 fn pgEmitTableComment(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
-    const ct = common.stripCommentPrefix(comment);
-    const tr = std.mem.trim(u8, ct, " ");
-    if (tr.len > 0) try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n", .{ table_name, tr });
+    try common.emitTableCommentStandalone(w, table_name, comment);
 }
 
 fn pgEmitColumnComment(w: *Writer, table_name: []const u8, col_name: []const u8, comment: []const u8) anyerror!void {
-    if (comment.len >= 1 and comment[0] == ':') {
-        const ct = std.mem.trim(u8, common.stripCommentPrefix(comment), " ");
-        if (ct.len > 0) try w.print("COMMENT ON COLUMN \"{s}\".\"{s}\" IS '{s}';\n", .{ table_name, col_name, ct });
-    }
+    try common.emitColumnCommentStandalone(w, table_name, col_name, comment);
 }
 
 fn pgEmitAutoIncrement(w: *Writer) anyerror!void {
@@ -116,21 +111,13 @@ const PG_RENDER_TABLE = [_]dialect.RenderEntry{
 };
 
 fn pgRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
-    switch (sql_type) {
-        .raw_sql => |sql| try w.writeAll(sql),
-        .passthrough => |t| try w.writeAll(t),
-        else => try dialect.renderFromTable(w, sql_type, &PG_RENDER_TABLE),
-    }
+    try common.renderTypeFromTable(w, sql_type, &PG_RENDER_TABLE);
 }
 
 // ─── View ──────────────────────────────────────────────────
 
 fn pgEmitCreateView(w: *Writer, name: []const u8, query: []const u8) anyerror!void {
-    try w.writeAll("CREATE OR REPLACE VIEW ");
-    try common.quoteIdentDoubleQuote(w, name);
-    try w.writeAll(" AS\n");
-    try w.writeAll(query);
-    try w.writeAll(";\n");
+    try common.emitCreateViewShared(w, name, query, common.quoteIdentDoubleQuote);
 }
 
 // ─── Forward Type Mapping (SS symbol → SqlType) ─────────────

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.77.0 (2026-08-02)
+**Current version**: 0.78.0 (2026-08-02)
 
 ---
 
@@ -201,6 +201,17 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.78.0 (2026-08-02)
+
+- **Consolidated dialect backend duplication** — Extracted 5 shared helpers into `dialect/common.zig`:
+  - `renderTypeFromTable` — eliminates identical 4-line renderType functions across all 6 dialect backends
+  - `emitTableCommentStandalone` — shared COMMENT ON TABLE for PG, Oracle, Db2 (was duplicated in each)
+  - `emitColumnCommentStandalone` — shared COMMENT ON COLUMN for PG, Oracle, Db2 (was duplicated in each)
+  - `emitCreateViewShared` — shared CREATE OR REPLACE VIEW for MySQL, PG, Oracle, Db2 (only quote function differs)
+  - Oracle and Db2 now use existing `common.emitEnumTypeCheck` instead of local copies
+- **New unit tests** — Added `diff/engine_test.zig` with 7 tests covering the core diff engine (empty schemas, added/dropped/modified tables, added/dropped/modified fields, mixed changes)
+- Net reduction: ~80 lines of duplicated dialect code replaced with shared helpers
 
 ### v0.77.0 (2026-08-02)
 

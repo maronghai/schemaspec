@@ -243,21 +243,13 @@ const MYSQL_RENDER_TABLE = [_]dialect.RenderEntry{
 };
 
 fn mysqlRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
-    switch (sql_type) {
-        .raw_sql => |sql| try w.writeAll(sql),
-        .passthrough => |t| try w.writeAll(t),
-        else => try dialect.renderFromTable(w, sql_type, &MYSQL_RENDER_TABLE),
-    }
+    try common.renderTypeFromTable(w, sql_type, &MYSQL_RENDER_TABLE);
 }
 
 // ─── View ──────────────────────────────────────────────────
 
 fn mysqlEmitCreateView(w: *Writer, name: []const u8, query: []const u8) anyerror!void {
-    try w.writeAll("CREATE OR REPLACE VIEW ");
-    try mysqlQuoteIdent(w, name);
-    try w.writeAll(" AS\n");
-    try w.writeAll(query);
-    try w.writeAll(";\n");
+    try common.emitCreateViewShared(w, name, query, mysqlQuoteIdent);
 }
 
 // ─── Forward Type Mapping (SS symbol → SqlType) ─────────────

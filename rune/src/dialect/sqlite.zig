@@ -132,11 +132,7 @@ const SQLITE_RENDER_TABLE = [_]dialect.RenderEntry{
 };
 
 fn sqliteRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
-    switch (sql_type) {
-        .raw_sql => |sql| try w.writeAll(sql),
-        .passthrough => |t| try w.writeAll(t),
-        else => try dialect.renderFromTable(w, sql_type, &SQLITE_RENDER_TABLE),
-    }
+    try common.renderTypeFromTable(w, sql_type, &SQLITE_RENDER_TABLE);
 }
 
 // ─── View ──────────────────────────────────────────────────
