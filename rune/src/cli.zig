@@ -271,6 +271,7 @@ fn parseDialect(s: []const u8) !dialect_enum.Dialect {
     if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
     if (std.mem.eql(u8, s, "sqlite") or std.mem.eql(u8, s, "sq")) return .sqlite;
     if (std.mem.eql(u8, s, "mssql") or std.mem.eql(u8, s, "sqlserver")) return .mssql;
+    if (std.mem.eql(u8, s, "oracle") or std.mem.eql(u8, s, "ora")) return .oracle;
     return error.UnknownDialect;
 }
 
@@ -489,14 +490,14 @@ fn parseCompletionsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
 
 pub fn printUsage() void {
     std.debug.print("Usage:\n", .{});
-    std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite|mssql] [--target sql|json-schema]\n", .{});
+    std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite|mssql|oracle] [--target sql|json-schema]\n", .{});
     std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
     inline for (COMMAND_REGISTRY) |cmd| {
         std.debug.print("  rune {s:<32}{s}\n", .{ cmd.name ++ " " ++ cmd.args, cmd.description });
     }
     std.debug.print("                                                       -T: extract shared templates (reverse only)\n", .{});
     std.debug.print("\nOptions:\n", .{});
-    std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql\n", .{});
+    std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql, oracle\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
     std.debug.print("  --format        Output format: text (default), json, sarif (for diff/migrate)\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
@@ -513,6 +514,7 @@ pub fn printUsage() void {
     std.debug.print("\nExamples:\n", .{});
     std.debug.print("  rune schema.ss                       # Compile to MySQL DDL\n", .{});
     std.debug.print("  rune schema.ss -d pg                 # Compile to PostgreSQL\n", .{});
+    std.debug.print("  rune schema.ss -d oracle             # Compile to Oracle\n", .{});
     std.debug.print("  rune --stats schema.ss               # Show compilation stats\n", .{});
     std.debug.print("  rune --check schema.ss               # Validate without output\n", .{});
     std.debug.print("  rune diff old.ss new.ss              # Show schema differences\n", .{});

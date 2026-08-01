@@ -1,6 +1,6 @@
 # Rune
 
-A minimal DSL for declaring database schemas using single-character symbols. Compiles `.ss` schema files into SQL DDL (MySQL, PostgreSQL, SQLite, MSSQL), and supports reverse engineering, schema diff, and migration generation.
+A minimal DSL for declaring database schemas using single-character symbols. Compiles `.ss` schema files into SQL DDL (MySQL, PostgreSQL, SQLite, MSSQL, Oracle), and supports reverse engineering, schema diff, and migration generation.
 
 ## Quick Start
 
@@ -9,6 +9,8 @@ cd rune && zig build                              # Build
 ./zig-out/bin/rune schema.ss                      # Compile to MySQL DDL
 ./zig-out/bin/rune schema.ss -d pg                # Compile to PostgreSQL
 ./zig-out/bin/rune schema.ss -d sqlite            # Compile to SQLite
+./zig-out/bin/rune schema.ss -d mssql             # Compile to MSSQL
+./zig-out/bin/rune schema.ss -d oracle            # Compile to Oracle
 ./zig-out/bin/rune migrate old.ss new.ss          # Generate migration SQL
 ./zig-out/bin/rune reverse schema.sql             # Reverse SQL to .ss
 ./zig-out/bin/rune reverse schema.sql --format json  # Reverse SQL to JSON
@@ -37,7 +39,7 @@ cd rune && zig build                              # Build
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `-d`, `--dialect` | | Target SQL dialect: `mysql` (default), `pg`, `sqlite`, `mssql` |
+| `-d`, `--dialect` | | Target SQL dialect: `mysql` (default), `pg`, `sqlite`, `mssql`, `oracle` |
 | `--target` | | Output format: `sql` (default), `json-schema` |
 | `-o` | | Write output to file instead of stdout |
 | `-v`, `--version` | | Print version and exit |
@@ -114,7 +116,7 @@ rune/src/
   pipeline/    forward.zig, reverse.zig, diff.zig, import_resolver.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig, sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig
-  dialect/     dialect.zig, mysql.zig, pg.zig, sqlite.zig, mssql.zig, common.zig
+  dialect/     dialect.zig, mysql.zig, pg.zig, sqlite.zig, mssql.zig, oracle.zig, common.zig
   reverse/     codegen.zig, column.zig, map.zig, fk.zig, check.zig
   diff/        engine.zig, fields.zig, fks.zig, indexes.zig, migrate.zig, migrate_helpers.zig
   types/       ast.zig, resolved_ast.zig, typed_ast.zig, sql_type.zig, ...

@@ -178,8 +178,8 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
 /// Map CLI argument errors to human-readable messages.
 fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
     return switch (err) {
-        error.UnknownDialect => "unknown dialect, expected one of: mysql, pg, postgres, sqlite",
-        error.MissingDialectValue => "--dialect requires a value, expected one of: mysql, pg, postgres, sqlite",
+        error.UnknownDialect => "unknown dialect, expected one of: mysql, pg, postgres, sqlite, mssql, oracle",
+        error.MissingDialectValue => "--dialect requires a value, expected one of: mysql, pg, postgres, sqlite, mssql, oracle",
         error.UnknownTarget => "unknown target, expected one of: sql, json-schema",
         error.MissingTargetValue => "--target requires a value, expected one of: sql, json-schema",
         error.UnknownFormat => "unknown format, expected one of: text, json, sarif",
@@ -390,7 +390,7 @@ const COMPLETIONS_FISH =
     \\# Global flags
     \\complete -c rune -l help -s h -d 'Show help'
     \\complete -c rune -l version -s v -d 'Show version'
-    \\complete -c rune -l dialect -s d -r -d 'Target SQL dialect' -xa 'mysql pg postgres sqlite mssql sqlserver'
+    \\complete -c rune -l dialect -s d -r -d 'Target SQL dialect' -xa 'mysql pg postgres sqlite mssql sqlserver oracle ora'
     \\complete -c rune -l target -r -d 'Output format' -xa 'sql json-schema'
     \\complete -c rune -l trace -s t -d 'Print compilation trace'
     \\complete -c rune -l stats -s s -d 'Print compilation stats'

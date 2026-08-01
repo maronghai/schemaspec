@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.66.0 (2026-08-01)
+**Current version**: 0.67.0 (2026-08-01)
 
 ---
 
@@ -46,7 +46,7 @@ Add enterprise SQL dialects. Dialect infrastructure (capability flags) is done.
 
 ### New Dialect Backends
 
-- [ ] **Oracle** — `dialect/oracle.zig` (~250 lines). No `AUTO_INCREMENT` (sequences + triggers), `NUMBER` precision/scale, `VARCHAR2`/`NVARCHAR2`, `CLOB`/`NCLOB`, tablespace clauses
+- [x] **Oracle** — `dialect/oracle.zig` (~300 lines). No `AUTO_INCREMENT` (sequences + triggers), `NUMBER` precision/scale, `VARCHAR2`/`NVARCHAR2`, `CLOB`/`NCLOB`, double-quote identifier quoting
 - [x] **Microsoft SQL Server** — `dialect/mssql.zig` (~250 lines). `IDENTITY`, `NVARCHAR`/`NTEXT`, schema-qualified names (`dbo.table`), `GO` batch separators
 - [ ] **IBM Db2** — `dialect/db2.zig` (~200 lines). `GENERATED ALWAYS AS IDENTITY`, `BIGINT`/`SMALLINT`, `FOR ROW ACCESS`
 
@@ -58,7 +58,7 @@ Add enterprise SQL dialects. Dialect infrastructure (capability flags) is done.
 
 ### Dialect Testing & Reverse
 
-- [ ] Dialect-specific test suites — `tests/test_oracle.sh`, `tests/test_mssql.sh`, `tests/test_db2.sh`
+- [x] Dialect-specific test suites — `tests/test_oracle.sh`, `tests/test_mssql.sh`
 - [ ] `rune reverse --dialect oracle` — dialect-aware reverse engineering per backend
 
 ---
@@ -200,6 +200,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.67.0 (2026-08-01)
+
+- **Oracle SQL dialect** (`dialect/oracle.zig`, ~300 lines) — complete Oracle backend with double-quote identifier quoting, NUMBER precision/scale, VARCHAR2/CLOB/BLOB type mappings, CHECK constraints for enums, COMMENT ON for table/column comments, GENERATED ALWAYS AS for generated columns (12c+), and RENAME COLUMN support.
+- **Oracle dialect registration** — Added to `Dialect` enum, `getBackend()` switch, comptime validation, CLI `parseDialect` (accepts `oracle` or `ora`), and help text.
+- **Oracle reverse mapping** — `DialectTypeMap` extended with `oracle` field; 41 REVERSE_MAP entries updated with Oracle type equivalents.
+- **103 new golden tests** in `tests/test_oracle.sh` covering all-types, modifiers, defaults, templates, FK, indexes, checks, enums, inline indexes, generated columns, views, and imports.
+- **Drizzle ORM generator** — Oracle support via `pg-core` driver fallback.
+- Documentation: updated Source Layout, Dialect Enum, CLI help, and test counts.
 
 ### v0.66.0 (2026-08-01)
 

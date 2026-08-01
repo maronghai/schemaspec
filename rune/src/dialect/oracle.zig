@@ -1,0 +1,307 @@
+const std = @import("std");
+const dialect = @import("../dialect/dialect.zig");
+const common = @import("common.zig");
+const ast_mod = @import("../types/ast.zig");
+const sql_type_mod = @import("../types/sql_type.zig");
+const DialectBackend = dialect.DialectBackend;
+const CommentResult = dialect.CommentResult;
+const IndexDecl = ast_mod.IndexDecl;
+const Writer = std.Io.Writer;
+const SqlType = sql_type_mod.SqlType;
+
+// ─── Oracle Backend ────────────────────────────────────────────
+
+fn oracleQuoteIdent(w: *Writer, name: []const u8) anyerror!void {
+    try w.print("\"{s}\"", .{name});
+}
+
+fn oracleEmitForeignKey(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
+    try common.emitForeignKeyShared(w, fk, oracleQuoteIdent);
+}
+
+fn oracleEmitCreateView(w: *Writer, name: []const u8, query: []const u8) anyerror!void {
+    try w.writeAll("CREATE OR REPLACE VIEW ");
+    try oracleQuoteIdent(w, name);
+    try w.writeAll(" AS\n");
+    try w.writeAll(query);
+    try w.writeAll(";\n");
+}
+
+// ─── Forward Methods ─────────────────────────────────────────
+
+fn oracleEmitIndex(w: *Writer, idx: IndexDecl, needs_comma: *bool) anyerror!void {
+    if (needs_comma.*) try w.writeAll(",\n");
+    needs_comma.* = true;
+    try w.writeAll("  ");
+    switch (idx.kind) {
+        .regular => {
+            try w.writeAll("INDEX ");
+            try oracleQuoteIdent(w, idx.name);
+            try w.writeAll(" (");
+        },
+        .unique => {
+            try w.writeAll("UNIQUE ");
+            try oracleQuoteIdent(w, idx.name);
+            try w.writeAll(" (");
+        },
+        .fulltext => {
+            // Oracle: no native FULLTEXT INDEX, emit as regular INDEX
+            try w.writeAll("INDEX ");
+            try oracleQuoteIdent(w, idx.name);
+            try w.writeAll(" (");
+        },
+        .primary_key => {
+            try w.writeAll("PRIMARY KEY (");
+        },
+    }
+    for (idx.fields, 0..) |f, fi| {
+        if (fi > 0) try w.writeAll(", ");
+        try oracleQuoteIdent(w, f);
+    }
+    try w.writeAll(")");
+}
+
+fn oracleEmitTimestampModifier(w: *Writer, _: bool) anyerror!void {
+    // Oracle: DEFAULT CURRENT_TIMESTAMP (no ON UPDATE equivalent)
+    try w.writeAll(" DEFAULT CURRENT_TIMESTAMP");
+}
+
+fn oracleEmitTableFooter(w: *Writer, _: ?[]const u8, _: ?[]const u8, _: ?[]const u8) anyerror!void {
+    try w.writeAll(");\n");
+}
+
+fn oracleEmitTableComment(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
+    const ct = common.stripCommentPrefix(comment);
+    const tr = std.mem.trim(u8, ct, " ");
+    if (tr.len > 0) try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n", .{ table_name, tr });
+}
+
+fn oracleEmitColumnComment(w: *Writer, table_name: []const u8, col_name: []const u8, comment: []const u8) anyerror!void {
+    if (comment.len >= 1 and comment[0] == ':') {
+        const ct = std.mem.trim(u8, common.stripCommentPrefix(comment), " ");
+        if (ct.len > 0) try w.print("COMMENT ON COLUMN \"{s}\".\"{s}\" IS '{s}';\n", .{ table_name, col_name, ct });
+    }
+}
+
+fn oracleEmitPrimaryKey(w: *Writer, _: bool) anyerror!void {
+    // Oracle: PRIMARY KEY (no AUTO_INCREMENT; uses sequences separately)
+    try w.writeAll(" PRIMARY KEY");
+}
+
+fn oracleEmitInlineIndex(w: *Writer, col_name: []const u8, is_unique: bool, needs_comma: *bool) anyerror!void {
+    if (needs_comma.*) try w.writeAll(",\n");
+    needs_comma.* = true;
+    if (is_unique) {
+        try w.print("  UNIQUE INDEX \"uk_{s}\" (\"{s}\")", .{ col_name, col_name });
+    } else {
+        try w.print("  INDEX \"idx_{s}\" (\"{s}\")", .{ col_name, col_name });
+    }
+}
+
+fn oracleEmitStandaloneIndex(_: *Writer, _: []const u8, _: IndexDecl) anyerror!void {
+    // Oracle: regular indexes are emitted as standalone CREATE INDEX by common helper
+}
+
+fn oracleEmitInlineColumnComment(w: *Writer, comment: []const u8) anyerror!void {
+    const ct = common.stripCommentPrefix(comment);
+    const tr = std.mem.trim(u8, ct, " ");
+    if (tr.len > 0) try w.print(" /* {s} */", .{tr});
+}
+
+fn oracleEmitEnumTypeCheck(w: *Writer, col_name: []const u8, enum_values: []const []const u8) anyerror!void {
+    // Oracle: no native ENUM, use CHECK constraint
+    try w.writeAll(" CHECK (");
+    try w.print("\"{s}\" IN (", .{col_name});
+    for (enum_values, 0..) |v, vi| {
+        if (vi > 0) try w.writeAll(", ");
+        try w.print("'{s}'", .{v});
+    }
+    try w.writeAll("))");
+}
+
+fn oracleEmitInlineColumnStandaloneIndex(w: *Writer, table_name: []const u8, col_name: []const u8) anyerror!void {
+    try w.writeAll("CREATE INDEX ");
+    try w.print("\"idx_{s}_{s}\"", .{ table_name, col_name });
+    try w.writeAll(" ON ");
+    try oracleQuoteIdent(w, table_name);
+    try w.writeAll(" (");
+    try oracleQuoteIdent(w, col_name);
+    try w.writeAll(");\n");
+}
+
+// ─── ALTER TABLE Methods ─────────────────────────────────────
+
+fn oracleEmitAlterDropColumn(w: *Writer, col_name: []const u8) anyerror!void {
+    try w.writeAll("DROP COLUMN ");
+    try oracleQuoteIdent(w, col_name);
+}
+
+fn oracleEmitAlterModifyColumn(w: *Writer, col_name: []const u8) anyerror!void {
+    // Oracle: ALTER TABLE ... MODIFY (col_name TYPE)
+    try w.print("MODIFY (\"{s}\" ", .{col_name});
+}
+
+fn oracleEmitAlterRenameColumn(w: *Writer, old_name: []const u8, new_name: []const u8) anyerror!void {
+    // Oracle: RENAME COLUMN old TO new
+    try w.print("RENAME COLUMN \"{s}\" TO \"{s}\"", .{ old_name, new_name });
+}
+
+fn oracleEmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void {
+    // Oracle: CREATE INDEX is standalone, not part of ALTER TABLE
+    try w.writeAll(";\n\nCREATE ");
+    if (idx.kind == .unique) try w.writeAll("UNIQUE ");
+    try w.writeAll("INDEX ");
+    try oracleQuoteIdent(w, idx.name);
+    try w.writeAll(" ON ");
+    try oracleQuoteIdent(w, table_name);
+    try w.writeAll(" (");
+    for (idx.fields, 0..) |f, fi| {
+        if (fi > 0) try w.writeAll(", ");
+        try oracleQuoteIdent(w, f);
+    }
+    try w.writeAll(");\n\nALTER TABLE ");
+    try oracleQuoteIdent(w, table_name);
+    try w.writeAll("\n");
+}
+
+fn oracleEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
+    switch (idx.kind) {
+        .primary_key => try w.writeAll("DROP PRIMARY KEY"),
+        else => try w.print("DROP INDEX {s}", .{idx.name}),
+    }
+}
+
+fn oracleEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
+    try w.writeAll("DROP CONSTRAINT \"fk_");
+    for (fk.fields, 0..) |f, i| {
+        if (i > 0) try w.writeAll("_");
+        try w.writeAll(f);
+    }
+    try w.writeAll("\"");
+}
+
+fn oracleCommentResult() CommentResult {
+    return .standalone_emitted;
+}
+
+fn oracleEmitAlterTableComment(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
+    try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n\n", .{ table_name, comment });
+}
+
+fn oracleEmitAlterEngine(w: *Writer, _: ?[]const u8) anyerror!void {
+    try w.writeAll("-- NOTE: ENGINE change is MySQL-only, ignored for this dialect\n");
+}
+
+// ─── Type Rendering ────────────────────────────────────────
+
+fn oracleRenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
+    try w.print("NUMBER({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
+}
+
+fn oracleRenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
+    if (sql_type.varchar > 0) {
+        try w.print("VARCHAR2({d})", .{sql_type.varchar});
+    } else {
+        try w.writeAll("VARCHAR2(255)");
+    }
+}
+
+fn oracleRenderEnumValues(w: *Writer, sql_type: SqlType) anyerror!void {
+    // Oracle: no native ENUM, use VARCHAR2 with CHECK constraint
+    try w.writeAll("VARCHAR2(255)");
+    _ = sql_type;
+}
+
+const ORACLE_RENDER_TABLE = [_]dialect.RenderEntry{
+    .{ .comptime_str = "NUMBER(10)" }, // int → NUMBER(10)
+    .{ .comptime_str = "NUMBER(19)" }, // bigint → NUMBER(19)
+    .{ .comptime_str = "NUMBER(5)" }, // smallint → NUMBER(5)
+    .{ .render_fn = oracleRenderDecimal }, // decimal → NUMBER(p, s)
+    .{ .render_fn = oracleRenderVarchar }, // varchar → VARCHAR2
+    .{ .comptime_str = "CLOB" }, // text → CLOB
+    .{ .comptime_str = "BLOB" }, // blob → BLOB
+    .{ .comptime_str = "CLOB" }, // json → CLOB
+    .{ .comptime_str = "CLOB" }, // jsonb → CLOB
+    .{ .comptime_str = "TIMESTAMP" }, // datetime → TIMESTAMP
+    .{ .comptime_str = "DATE" }, // date → DATE
+    .{ .comptime_str = "TIMESTAMP WITH TIME ZONE" }, // timestamptz
+    .{ .comptime_str = "NUMBER(1)" }, // boolean → NUMBER(1)
+    .{ .comptime_str = "RAW(16)" }, // uuid → RAW(16)
+    .{ .comptime_str = "VARCHAR2(45)" }, // inet → VARCHAR2(45)
+    .{ .comptime_str = "NUMBER(10)" }, // serial → NUMBER(10)
+    .{ .render_fn = oracleRenderEnumValues }, // enum_values → VARCHAR2(255)
+    .{ .comptime_str = "" }, // raw_sql — handled by passthrough fallback
+    .{ .comptime_str = "" }, // passthrough — written from variant
+};
+
+fn oracleRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
+    switch (sql_type) {
+        .raw_sql => |sql| try w.writeAll(sql),
+        .passthrough => |t| try w.writeAll(t),
+        else => try dialect.renderFromTable(w, sql_type, &ORACLE_RENDER_TABLE),
+    }
+}
+
+// ─── View ──────────────────────────────────────────────────
+
+// ─── Forward Type Mapping (SS symbol → SqlType) ─────────────
+
+fn oracleLookupSym(sym: []const u8) ?SqlType {
+    return common.lookupSymDefault(&.{}, sym);
+}
+
+// ─── Generated Columns ──────────────────────────────────────
+
+fn oracleEmitGeneratedColumn(w: *Writer, expr: []const u8, is_stored: bool) anyerror!void {
+    // Oracle 12c+: GENERATED ALWAYS AS (expr) [VIRTUAL|STORED]
+    try w.writeAll("GENERATED ALWAYS AS (");
+    try w.writeAll(expr);
+    try w.writeAll(") ");
+    if (is_stored) {
+        try w.writeAll("STORED");
+    } else {
+        try w.writeAll("VIRTUAL");
+    }
+}
+
+// ─── Backend Instance ──────────────────────────────────────
+
+pub const oracle_backend = DialectBackend{
+    .quoteIdent = oracleQuoteIdent,
+    .emitIndex = oracleEmitIndex,
+    .emitTimestampModifier = oracleEmitTimestampModifier,
+    .emitTableFooter = oracleEmitTableFooter,
+    .emitTableComment = oracleEmitTableComment,
+    .emitColumnComment = oracleEmitColumnComment,
+    .emitPrimaryKey = oracleEmitPrimaryKey,
+    .emitInlineIndex = oracleEmitInlineIndex,
+    .emitStandaloneIndex = oracleEmitStandaloneIndex,
+    .emitInlineColumnComment = oracleEmitInlineColumnComment,
+    .emitEnumTypeCheck = oracleEmitEnumTypeCheck,
+    .emitInlineColumnStandaloneIndex = oracleEmitInlineColumnStandaloneIndex,
+    .emitAlterDropColumn = oracleEmitAlterDropColumn,
+    .emitAlterModifyColumn = oracleEmitAlterModifyColumn,
+    .emitAlterRenameColumn = oracleEmitAlterRenameColumn,
+    .emitAlterAddIndex = oracleEmitAlterAddIndex,
+    .emitAlterDropIndex = oracleEmitAlterDropIndex,
+    .emitAlterDropFk = oracleEmitAlterDropFk,
+    .commentResult = oracleCommentResult,
+    .emitAlterTableComment = oracleEmitAlterTableComment,
+    .emitAlterEngine = oracleEmitAlterEngine,
+    .emitCreateView = oracleEmitCreateView,
+    .renderType = oracleRenderType,
+    .emitForeignKey = oracleEmitForeignKey,
+    .emitGeneratedColumn = oracleEmitGeneratedColumn,
+    .lookupSym = oracleLookupSym,
+    .quoteChar = '"',
+    .rename_needs_column_def = false,
+    .modify_needs_column_def = true,
+    .modify_column_def_skips_name = true,
+    .capability = .{
+        .standalone_comments = true,
+        .schemas = true,
+        .sequences = true,
+        .generated_columns = true,
+        .alter_drop_column = true,
+    },
+};
