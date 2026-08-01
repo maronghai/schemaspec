@@ -4,7 +4,7 @@
 
 ## Overview
 
-Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists of two independent pipelines:
+Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists of three independent pipelines:
 
 1. **Forward pipeline**: `.ss` → SQL DDL (CREATE TABLE, indexes, FKs)
 2. **Reverse pipeline**: SQL DDL → `.ss` schema
@@ -433,7 +433,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 59 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~558 | Core logic + pipeline + colocated |
+| Unit tests | 60 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~567 | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 85 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 25 | Full pipeline |
