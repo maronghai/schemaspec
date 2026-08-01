@@ -279,12 +279,17 @@ Example:
 
 ```
 & view_name = SQL query
+& view_name = SQL query UNION ALL SQL query
 ```
 
-Example:
+Examples:
 ```
 & active_users = SELECT * FROM users WHERE active = 1
+& all_accounts = SELECT id, name FROM users UNION ALL SELECT id, name FROM admins
+& unique_roles = SELECT role FROM user_roles INTERSECT SELECT role FROM admin_roles
 ```
+
+Supported set operators: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`. Set operators are detected at the top level (outside string literals) and stored as structured AST fields.
 
 ## Imports
 

@@ -20,8 +20,8 @@ for ss_file in "$TEST_DIR"/*.ss; do
     continue
   fi
 
-  # Skip SQLite-only and error-recovery files
-  if [[ "$base" == sqlite-* ]] || [[ "$base" == migrate-* ]] || [[ "$base" == error-recovery* ]]; then
+  # Skip SQLite-only, error-recovery, and non-SQL test files
+  if [[ "$base" == sqlite-* ]] || [[ "$base" == migrate-* ]] || [[ "$base" == error-recovery* ]] || [[ "$base" == openapi-* ]]; then
     continue
   fi
 

@@ -4,6 +4,25 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.61.0] - 2026-08-01
+
+### Added
+- **View UNION/UNION ALL/INTERSECT/EXCEPT support** — Views now support set operations. Parser detects UNION keywords in view queries and splits them into structured AST fields (`union_op`, `second_query`). Codegen emits the combined query. Diff engine properly compares union views via `viewQueriesEql()`. Docs generator shows the full query including set operations.
+- **`rune stats` command** — New subcommand that prints detailed schema statistics including field type breakdown: non-null count, numeric, string, datetime, boolean, and other types.
+- **PostgreSQL type expansion** — Added `xml`, `cidr`, `macaddr` as passthrough types in `REVERSE_MAP`. These PostgreSQL-specific types are now properly recognized during reverse engineering and emitted as-is in `.ss` output.
+- **Reverse engineering JSON output** (`rune reverse --format json`) — Reverse command now supports `--format json` to output structured JSON with table names, column definitions (name, type, primary_key, auto_increment, nullable, default), indexes, and foreign keys.
+
+### Changed
+- `View` AST type now has `union_op: ?ViewUnionOp` and `second_query: ?[]const u8` fields (both optional, default null)
+- `TypedView` carries union fields through type resolution
+- `parse_table.zig` detects set operation keywords at the top level (outside quotes)
+- `codegen.zig` recombines query parts when emitting CREATE VIEW for union views
+- `diff/engine.zig` uses `viewQueriesEql()` for structural view comparison
+- `docs.zig` shows full query including union parts
+- `grammar.ebnf` updated with set operator syntax
+- `schema.md` updated with union view examples
+- `type.md` updated with PG passthrough types
+
 ## [0.53.0] - 2026-07-30
 
 ### Changed

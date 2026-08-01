@@ -50,6 +50,10 @@ pub const TypedView = struct {
     query: []const u8,
     comment: ?[]const u8,
     line_no: usize,
+    /// UNION/INTERSECT/EXCEPT operator (null if no set operation).
+    union_op: ?ast_mod.ViewUnionOp = null,
+    /// Second SELECT query for set operations (null if no set operation).
+    second_query: ?[]const u8 = null,
 };
 
 pub const TypedTable = struct {

@@ -322,11 +322,12 @@ rune generate drizzle schema.ss       # → Drizzle ORM TypeScript schema
 rune generate typeorm schema.ss       # → TypeORM entity classes
 rune generate sqlalchemy schema.ss    # → SQLAlchemy ORM models
 rune generate knex schema.ss          # → Knex.js migration files
+rune generate openapi schema.ss        # → OpenAPI 3.1 spec
 rune generate docs schema.ss          # → Markdown documentation
 rune generate --list                  # → list available generators
 ```
 
-8 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
+9 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, OpenAPI 3.1, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
 
 ## Roadmap
 
@@ -340,6 +341,7 @@ rune generate --list                  # → list available generators
 - [x] TypeORM entity class output
 - [x] SQLAlchemy ORM model output
 - [x] Knex.js migration file output
+- [x] OpenAPI 3.1 spec output
 - [ ] Incremental migration (only changed tables)
 
 ## Vision

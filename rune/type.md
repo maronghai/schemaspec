@@ -4,25 +4,25 @@ Rune uses single-character symbols to represent SQL types. Each symbol compiles 
 
 ## Core Type Symbols
 
-| Symbol | MySQL | PostgreSQL | SQLite | Description |
-|--------|-------|-----------|--------|-------------|
-| `n` | `int` | `integer` | `INTEGER` | 32-bit integer |
-| `N` | `bigint` | `bigint` | `INTEGER` | 64-bit integer |
-| `i` | `smallint` | `smallint` | `INTEGER` | 16-bit integer |
-| `m` | `decimal(16,2)` | `numeric(16,2)` | `NUMERIC(16,2)` | Money (2 decimal places) |
-| `M` | `decimal(20,6)` | `numeric(20,6)` | `NUMERIC(20,6)` | High-precision decimal |
-| `s` | `varchar(255)` | `varchar(255)` | `TEXT` | Short string |
-| `S` | `text` | `text` | `TEXT` | Long text |
-| `b` | `boolean` | `boolean` | `INTEGER` | Boolean |
-| `B` | `blob` | `bytea` | `BLOB` | Binary data |
-| `j` | `json` | `json` | `TEXT` | JSON text |
-| `J` | `jsonb` | `jsonb` | `TEXT` | Binary JSON (PostgreSQL) |
-| `I` | `varchar(45)` | `inet` | `TEXT` | IP address |
-| `d` | `date` | `date` | `TEXT` | Date only |
-| `t` | `datetime` | `timestamp` | `TEXT` | Date + time |
-| `T` | `timestamp` | `timestamptz` | `TEXT` | Timestamp with timezone |
-| `U` | `char(36)` | `uuid` | `TEXT` | UUID |
-| `p` | `int` | `serial` | `INTEGER` | Auto-incrementing integer |
+| Symbol | MySQL | PostgreSQL | SQLite | MSSQL | Description |
+|--------|-------|-----------|--------|-------|-------------|
+| `n` | `int` | `integer` | `INTEGER` | `INT` | 32-bit integer |
+| `N` | `bigint` | `bigint` | `INTEGER` | `BIGINT` | 64-bit integer |
+| `i` | `smallint` | `smallint` | `INTEGER` | `SMALLINT` | 16-bit integer |
+| `m` | `decimal(16,2)` | `numeric(16,2)` | `NUMERIC(16,2)` | `NUMERIC(16,2)` | Money (2 decimal places) |
+| `M` | `decimal(20,6)` | `numeric(20,6)` | `NUMERIC(20,6)` | `NUMERIC(20,6)` | High-precision decimal |
+| `s` | `varchar(255)` | `varchar(255)` | `TEXT` | `NVARCHAR(255)` | Short string |
+| `S` | `text` | `text` | `TEXT` | `NVARCHAR(MAX)` | Long text |
+| `b` | `boolean` | `boolean` | `INTEGER` | `BIT` | Boolean |
+| `B` | `blob` | `bytea` | `BLOB` | `VARBINARY(MAX)` | Binary data |
+| `j` | `json` | `json` | `TEXT` | `NVARCHAR(MAX)` | JSON text |
+| `J` | `jsonb` | `jsonb` | `TEXT` | `NVARCHAR(MAX)` | Binary JSON (PostgreSQL) |
+| `I` | `varchar(45)` | `inet` | `TEXT` | `NVARCHAR(45)` | IP address |
+| `d` | `date` | `date` | `TEXT` | `DATE` | Date only |
+| `t` | `datetime` | `timestamp` | `TEXT` | `DATETIME2` | Date + time |
+| `T` | `timestamp` | `timestamptz` | `TEXT` | `DATETIMEOFFSET` | Timestamp with timezone |
+| `U` | `char(36)` | `uuid` | `TEXT` | `UNIQUEIDENTIFIER` | UUID |
+| `p` | `int` | `serial` | `INTEGER` | `INT` | Auto-incrementing integer |
 
 ## Parameterized Types
 
@@ -125,6 +125,7 @@ Custom types resolve at compile time. Dialect overrides apply only when compilin
 - `timestamptz` → `timestamptz` (native type)
 - `serial` → `serial` (native auto-increment)
 - `enum_values` → `TEXT` + `CHECK (col IN (...))`
+- Passthrough types: `xml`, `cidr`, `macaddr` (emitted as-is, recognized during reverse engineering)
 
 ### SQLite
 - All integer types → `INTEGER` (affinity-based)

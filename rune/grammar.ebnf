@@ -45,7 +45,8 @@ table_decl      = "#" [ IDENT ] IDENT [ ":" comment_text ] [ "^" [ IDENT ] ] ;
 
 (* ─── View Declaration ────────────────────────────────────── *)
 
-view_decl       = "&" IDENT "=" query_text ;
+view_decl       = "&" IDENT "=" query_text [ set_operator query_text ] ;
+set_operator    = "UNION" [ "ALL" ] | "INTERSECT" | "EXCEPT" ;
 
 (* ─── Import Directive ────────────────────────────────────── *)
 
@@ -90,10 +91,10 @@ modifier         = "++"                (* auto-increment primary key *)
                  | "+"                 (* auto-increment *)
                  | "!"                 (* primary key *)
                  | "*"                 (* not null *)
-                 | "@u"                (* inline unique index *)
+                 | "@u"               (* inline unique index *)
                  | "@" ;              (* inline index *)
 
-unsigned_prefix  = "+" ( "n" | "N" | "i" ) ; (* unsigned integer *)
+unsigned_modifier = "+" ( "n" | "N" | "i" ) ; (* unsigned integer prefix, MySQL only *)
 
 (* ─── Default Values ──────────────────────────────────────── *)
 

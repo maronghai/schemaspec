@@ -130,7 +130,24 @@ pub const Codegen = struct {
 
     /// Emit a CREATE VIEW statement.
     pub fn generateTypedView(self: Codegen, w: *Writer, view: typed_ast_mod.TypedView) !void {
-        try self.backend.emitCreateView(w, view.name, view.query);
+        // Build the full query, combining UNION/INTERSECT/EXCEPT parts
+        if (view.union_op) |op| {
+            const second = view.second_query orelse "";
+            const op_str: []const u8 = switch (op) {
+                .union_all => " UNION ALL ",
+                .union_distinct => " UNION ",
+                .intersect => " INTERSECT ",
+                .except => " EXCEPT ",
+            };
+            var buf = std.Io.Writer.Allocating.init(self.alloc);
+            try buf.writer.writeAll(view.query);
+            try buf.writer.writeAll(op_str);
+            try buf.writer.writeAll(second);
+            const full_query = try buf.toOwnedSlice();
+            try self.backend.emitCreateView(w, view.name, full_query);
+        } else {
+            try self.backend.emitCreateView(w, view.name, view.query);
+        }
         if (view.comment) |c| {
             try self.backend.emitTableComment(w, view.name, c);
         }

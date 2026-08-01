@@ -215,26 +215,92 @@ pub const Stats = struct {
     tables: usize,
     fields: usize,
     views: usize,
+    not_null_fields: usize,
+    numeric_fields: usize,
+    string_fields: usize,
+    datetime_fields: usize,
+    boolean_fields: usize,
+    other_fields: usize,
 };
+
+/// Classify a field's type_info into a stat category.
+fn classifyFieldType(type_info: ast_mod.TypeInfo) enum { numeric, string, datetime, boolean, other } {
+    return switch (type_info) {
+        .none => .other,
+        .simple => |s| {
+            if (s.len == 1) {
+                return switch (s[0]) {
+                    'n', 'N', 'i', 'm', 'M', 'p' => .numeric,
+                    's', 'S', 'j', 'J', 'I', 'U', 'B' => .string,
+                    'd', 't', 'T' => .datetime,
+                    'b' => .boolean,
+                    else => .other,
+                };
+            }
+            // Multi-char simple types are passthrough (string)
+            return .string;
+        },
+        .int_explicit => .numeric,
+        .decimal_explicit => .numeric,
+        .varchar_explicit => .string,
+        .enum_type => .string,
+        .raw_sql => .string,
+    };
+}
 
 /// Compute stats from a ResolvedAst.
 pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
     var field_count: usize = 0;
+    var not_null: usize = 0;
+    var numeric: usize = 0;
+    var string: usize = 0;
+    var datetime: usize = 0;
+    var boolean: usize = 0;
+    var other: usize = 0;
     for (resolved.tables) |table| {
-        field_count += table.fields.len;
+        for (table.fields) |field| {
+            field_count += 1;
+            var has_not_null = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .not_null) {
+                    has_not_null = true;
+                    break;
+                }
+            }
+            if (has_not_null) not_null += 1;
+            switch (classifyFieldType(field.type_info)) {
+                .numeric => numeric += 1,
+                .string => string += 1,
+                .datetime => datetime += 1,
+                .boolean => boolean += 1,
+                .other => other += 1,
+            }
+        }
     }
     return .{
         .tables = resolved.tables.len,
         .fields = field_count,
         .views = resolved.views.len,
+        .not_null_fields = not_null,
+        .numeric_fields = numeric,
+        .string_fields = string,
+        .datetime_fields = datetime,
+        .boolean_fields = boolean,
+        .other_fields = other,
     };
 }
 
 /// Print stats to stderr.
 pub fn printStats(stats: Stats) void {
-    std.debug.print("tables: {d}  fields: {d}  views: {d}\n", .{
-        stats.tables, stats.fields, stats.views,
-    });
+    std.debug.print("tables:           {d}\n", .{stats.tables});
+    std.debug.print("fields:           {d}\n", .{stats.fields});
+    std.debug.print("  non-null:       {d}\n", .{stats.not_null_fields});
+    std.debug.print("  numeric:        {d}\n", .{stats.numeric_fields});
+    std.debug.print("  string:         {d}\n", .{stats.string_fields});
+    std.debug.print("  datetime:       {d}\n", .{stats.datetime_fields});
+    std.debug.print("  boolean:        {d}\n", .{stats.boolean_fields});
+    std.debug.print("  other:          {d}\n", .{stats.other_fields});
+    std.debug.print("views:            {d}\n", .{stats.views});
 }
 
 // ─── Output Handlers ───────────────────────────────────────────
@@ -315,4 +381,13 @@ pub fn handleCheck(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, s
         printStats(computeStats(result.resolved));
     }
     std.debug.print("schema is valid\n", .{});
+}
+
+/// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.
+pub fn handleStats(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !void {
+    const result = try compilePipelineVerbose(alloc, file_data, false, false);
+    const s = computeStats(result.resolved);
+    std.debug.print("tables:  {d}\n", .{s.tables});
+    std.debug.print("fields:  {d}\n", .{s.fields});
+    std.debug.print("views:   {d}\n", .{s.views});
 }

@@ -44,7 +44,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
 - `type_map.zig`: Helper functions (`lookupCustomType`, `isNumericSymType`, etc.) + `SqlType` re-export
 - `type_registry.zig`: SS symbol → `SqlType` direct mapping (`lookupSqlTypeDirect`) and reverse lookup. 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
-- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (45 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
+- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (51 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
 ### Extracted Sub-Modules
 
@@ -148,7 +148,7 @@ Input (SQL DDL text)
     PG/SQLite-style "idx_table_field" as inline index suffixes (@, @u).
     Non-standard index names preserved in full form: @ idx_name (field).
     Confidence comments suppressed on fields with inline index suffixes.
-    Output: .ss text
+    Output: .ss text (or JSON with --format json)
 ```
 
 ## Diff/Migrate Pipeline
@@ -330,7 +330,7 @@ Rune uses a three-layer type mapping system:
   - `lookupSqlType(sym, dialect)` → `?[]const u8` (SQL name string, for backward compat)
   - `lookupSqlTypeDirect(sym, dialect)` → `?SqlType` (direct variant, avoids stringly-typed round-trip)
 
-- **`reverse_map.zig` (REVERSE_MAP)**: ~35 entries covering all SQL type variants → SS symbols. Used by `reverseLookup()` and `reverseLookupSqlite()`. Includes core entries (for SQLite lossy affinity) plus MySQL/PG variant types.
+- **`reverse_map.zig` (REVERSE_MAP)**: ~51 entries covering all SQL type variants → SS symbols. Used by `reverseLookup()` and `reverseLookupSqlite()`. Includes core entries (for SQLite lossy affinity) plus MySQL/PG variant types and PostgreSQL-specific passthrough types (xml, cidr, macaddr).
 
 - **`type_map.zig`**: Helper functions (`lookupCustomType`, `isNumericSymType`, `isDatetimeSymType`) + `SqlType` re-export for backward compatibility. No longer contains rendering logic.
 
@@ -351,7 +351,8 @@ Rune uses a three-layer type mapping system:
 10. **Custom type system**: Users can define named type aliases via `~` directives in the schema block. Custom types support dialect-specific overrides and are resolved during type resolution (not parsing).
 11. **SQLite roundtrip preservation**: `-- @sym col_name type` metadata comments preserve original SS types through lossy SQLite type affinity. Forward compiler emits comments; reverse compiler parses them for exact type restoration.
 12. **Unified ReverseResult**: `dialect.zig` defines the single `ReverseResult` struct (`sym`, `omit`, `score`). Both `reverse/map.zig` and `reverse/column.zig` re-export it — zero type duplication across the reverse pipeline.
-13. **Generator Registry**: `generator.zig` defines a `Generator` struct (name, description, generate fn ptr) and a `REGISTRY` array. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. Shared helper `generators/common.zig` provides `DefaultFormatter` for ORM generators (drizzle, knex, typeorm, sqlalchemy) to eliminate duplicated default-value formatting. Current generators: `json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`.
+13. **Generator Registry**: `generator.zig` defines a `Generator` struct (name, description, generate fn ptr) and a `REGISTRY` array. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. Shared helper `generators/common.zig` provides `DefaultFormatter` for ORM generators (drizzle, knex, typeorm, sqlalchemy) to eliminate duplicated default-value formatting. Current generators: `json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`.
+14. **View UNION support**: Views support set operations (UNION, UNION ALL, INTERSECT, EXCEPT). The tokenizer keeps the entire query as a single token. The parser (`parse_table.zig`) detects set operation keywords at the top level (outside quotes) and splits into `query` + `union_op` + `second_query`. The codegen recombines the parts. The diff engine compares views using `viewQueriesEql()` which checks query, union_op, and second_query.
 
 ## Custom Type System
 

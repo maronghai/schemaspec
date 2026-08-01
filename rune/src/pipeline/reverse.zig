@@ -5,11 +5,12 @@ const reverse_codegen = @import("../reverse/codegen.zig");
 const dialect_detect = @import("../reverse/dialect_detect.zig");
 const codegen = @import("../codegen/codegen.zig");
 const io_mod = @import("../io.zig");
+const cli = @import("../cli.zig");
 
 // ─── Reverse Pipeline: SQL → .ss ─────────────────────────────
 
 /// Handle the `rune reverse` command: parse SQL DDL and generate .ss schema output.
-pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, with_templates: bool, dialect: codegen.Dialect, trace: bool, stats: bool, validate_only: bool) !void {
+pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, input_name: []const u8, output_path: ?[]const u8, with_templates: bool, dialect: codegen.Dialect, trace: bool, stats: bool, validate_only: bool, format: cli.DiffFormat) !void {
     // Auto-detect dialect from SQL content when not explicitly specified
     const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect.detectSqlDialect(file_data) else dialect;
 
@@ -73,13 +74,114 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
         return;
     }
 
-    var rcg = reverse_codegen.ReverseCodegen.init(alloc, sql_dialect);
-    const ss_text = if (with_templates)
-        try rcg.generateWithTemplates(schema)
-    else
-        try rcg.generate(schema);
+    switch (format) {
+        .json => {
+            const json_text = try generateReverseJson(alloc, schema);
+            try io_mod.writeOutput(io, json_text, output_path, false);
+        },
+        else => {
+            var rcg = reverse_codegen.ReverseCodegen.init(alloc, sql_dialect);
+            const ss_text = if (with_templates)
+                try rcg.generateWithTemplates(schema)
+            else
+                try rcg.generate(schema);
 
-    try io_mod.writeOutput(io, ss_text, output_path, false);
+            try io_mod.writeOutput(io, ss_text, output_path, false);
+        },
+    }
+}
+
+// ─── Reverse JSON Output ──────────────────────────────────────
+
+fn generateReverseJson(alloc: std.mem.Allocator, schema: sql_parser.SqlSchema) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+
+    try w.writeAll("{\n");
+    if (schema.name) |name| {
+        try w.print("  \"schema\": \"{s}\",\n", .{name});
+    }
+    try w.print("  \"tables\": [\n", .{});
+
+    for (schema.tables, 0..) |table, ti| {
+        try w.writeAll("    {\n");
+        try w.print("      \"name\": \"{s}\",\n", .{table.name});
+        if (table.comment) |c| {
+            try w.print("      \"comment\": \"{s}\",\n", .{c});
+        }
+        // Columns
+        try w.writeAll("      \"columns\": [\n");
+        for (table.columns, 0..) |col, ci| {
+            try w.writeAll("        {\n");
+            try w.print("          \"name\": \"{s}\",\n", .{col.name});
+            try w.print("          \"type\": \"{s}\",\n", .{col.type_sql});
+            if (col.primary_key) try w.writeAll("          \"primary_key\": true,\n");
+            if (col.auto_increment) try w.writeAll("          \"auto_increment\": true,\n");
+            if (col.nullable) try w.writeAll("          \"nullable\": true,\n");
+            if (col.default_val) |dv| {
+                try w.print("          \"default\": \"{s}\",\n", .{dv});
+            }
+            // Remove trailing comma from last property
+            try w.writeAll("          \"_end\": true\n");
+            try w.writeAll("        }");
+            if (ci < table.columns.len - 1) try w.writeAll(",");
+            try w.writeAll("\n");
+        }
+        try w.writeAll("      ],\n");
+        // Indexes
+        if (table.indexes.len > 0) {
+            try w.writeAll("      \"indexes\": [\n");
+            for (table.indexes, 0..) |idx, ii| {
+                try w.writeAll("        {\n");
+                try w.print("          \"name\": \"{s}\",\n", .{idx.name});
+                try w.print("          \"kind\": \"{s}\",\n", .{@tagName(idx.kind)});
+                try w.writeAll("          \"fields\": [");
+                for (idx.fields, 0..) |f, fi| {
+                    if (fi > 0) try w.writeAll(", ");
+                    try w.print("\"{s}\"", .{f});
+                }
+                try w.writeAll("]\n");
+                try w.writeAll("        }");
+                if (ii < table.indexes.len - 1) try w.writeAll(",");
+                try w.writeAll("\n");
+            }
+            try w.writeAll("      ],\n");
+        }
+        // Foreign keys
+        if (table.foreign_keys.len > 0) {
+            try w.writeAll("      \"foreign_keys\": [\n");
+            for (table.foreign_keys, 0..) |fk, fi| {
+                try w.writeAll("        {\n");
+                try w.writeAll("          \"fields\": [");
+                for (fk.fields, 0..) |f, ffi| {
+                    if (ffi > 0) try w.writeAll(", ");
+                    try w.print("\"{s}\"", .{f});
+                }
+                try w.writeAll("],\n");
+                try w.print("          \"ref_table\": \"{s}\",\n", .{fk.ref_table});
+                try w.writeAll("          \"ref_fields\": [");
+                for (fk.ref_fields, 0..) |f, rfi| {
+                    if (rfi > 0) try w.writeAll(", ");
+                    try w.print("\"{s}\"", .{f});
+                }
+                try w.writeAll("]\n");
+                try w.writeAll("        }");
+                if (fi < table.foreign_keys.len - 1) try w.writeAll(",");
+                try w.writeAll("\n");
+            }
+            try w.writeAll("      ]\n");
+        } else {
+            try w.writeAll("      \"_end\": true\n");
+        }
+        try w.writeAll("    }");
+        if (ti < schema.tables.len - 1) try w.writeAll(",");
+        try w.writeAll("\n");
+    }
+    try w.writeAll("  ]\n");
+    try w.writeAll("}\n");
+
+    try w.flush();
+    return try aw.toOwnedSlice();
 }
 
 // ─── Trace Helper ──────────────────────────────────────────────

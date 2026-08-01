@@ -49,7 +49,21 @@ pub fn generate(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst) ![
         for (resolved.views) |view| {
             try w.print("### `{s}`\n\n", .{view.name});
             if (view.query.len > 0) {
-                try w.print("```sql\n{s}\n```\n\n", .{view.query});
+                try w.writeAll("```sql\n");
+                try w.writeAll(view.query);
+                if (view.union_op) |op| {
+                    const op_str: []const u8 = switch (op) {
+                        .union_all => " UNION ALL ",
+                        .union_distinct => " UNION ",
+                        .intersect => " INTERSECT ",
+                        .except => " EXCEPT ",
+                    };
+                    try w.writeAll(op_str);
+                    if (view.second_query) |sq| {
+                        try w.writeAll(sq);
+                    }
+                }
+                try w.writeAll("\n```\n\n");
             }
         }
     }

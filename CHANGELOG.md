@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.60.0] - 2026-08-01
+
+### Added
+- **OpenAPI 3.1 generator** (`rune generate openapi`) — generates OpenAPI 3.1 specification from `.ss` files. Produces `components/schemas` with table object definitions, property type mappings (via JSON Schema), required arrays, FK `$ref` references, enum values, CHECK constraint metadata, and default values. Views included as read-only schemas.
+- 8 new unit tests for OpenAPI generator (`generators/openapi_test.zig`).
+- 3 new golden tests (`test_openapi.sh`) covering basic schemas, FK references, and template inheritance.
+
+### Changed
+- Generator registry expanded from 8 to 9 generators.
+- All new generator registered in `REGISTRY` — no `main.zig` changes needed.
+
 ## [0.53.0] - 2026-07-30
 
 ### Changed

@@ -61,6 +61,11 @@ pub const REGISTRY = [_]Generator{
         .description = "Knex.js migration files from .ss schema",
         .generate = @import("generators/knex.zig").generate,
     },
+    .{
+        .name = "openapi",
+        .description = "OpenAPI 3.1 spec from .ss schema",
+        .generate = @import("generators/openapi.zig").generate,
+    },
 };
 
 /// Look up a generator by name. Returns null if not found.

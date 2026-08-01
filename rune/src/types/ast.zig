@@ -189,12 +189,23 @@ pub const SqlComment = struct {
     line_no: usize,
 };
 
+pub const ViewUnionOp = enum {
+    union_all,
+    union_distinct,
+    intersect,
+    except,
+};
+
 pub const View = struct {
     name: []const u8,
     query: []const u8,
     comment: ?[]const u8,
     line_no: usize,
     loc: ?SourceLocation = null,
+    /// UNION/INTERSECT/EXCEPT operator (null if no set operation).
+    union_op: ?ViewUnionOp = null,
+    /// Second SELECT query for set operations (null if no set operation).
+    second_query: ?[]const u8 = null,
 };
 
 pub const Ast = struct {

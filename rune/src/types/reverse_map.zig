@@ -100,4 +100,8 @@ pub const REVERSE_MAP = [_]ReverseMapping{
     .{ .sym = "float8", .types = .{ .mysql = "float8", .pg = "float8", .sqlite = "REAL" }, .rev_priority = 10, .confidence_base = 70 },
     .{ .sym = "float8", .types = .{ .mysql = "double precision", .pg = "double precision", .sqlite = "REAL" }, .rev_priority = 10, .confidence_base = 70 },
     .{ .sym = "s", .types = .{ .mysql = "character", .pg = "character", .sqlite = "TEXT" }, .rev_priority = 10, .confidence_base = 70 },
+    // ─── PostgreSQL-specific passthrough types ───
+    .{ .sym = "xml", .types = .{ .pg = "xml" }, .rev_priority = 10, .confidence_base = 70 },
+    .{ .sym = "cidr", .types = .{ .pg = "cidr" }, .rev_priority = 10, .confidence_base = 70 },
+    .{ .sym = "macaddr", .types = .{ .pg = "macaddr" }, .rev_priority = 10, .confidence_base = 70 },
 };

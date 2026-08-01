@@ -109,12 +109,16 @@ pub fn processViewLine(alloc: std.mem.Allocator, tokens: []const []const u8, lin
                 break;
             }
         }
+        // Detect UNION/INTERSECT/EXCEPT in query
+        const union_result = detectSetOperation(query);
         return .{
             .name = view_name,
-            .query = query,
+            .query = if (union_result) |u| u.first else query,
             .comment = null,
             .line_no = line_no,
             .loc = locFromLine(.{ .line_no = line_no, .raw = "", .trimmed = "", .tokens = tokens, .line_type = .View, .offset = 0 }, tokens[0]),
+            .union_op = if (union_result) |u| u.op else null,
+            .second_query = if (union_result) |u| u.second else null,
         };
     } else if (tokens.len == 2) {
         return .{
@@ -126,6 +130,55 @@ pub fn processViewLine(alloc: std.mem.Allocator, tokens: []const []const u8, lin
         };
     }
     return error.InvalidView;
+}
+
+const SetOperationResult = struct {
+    first: []const u8,
+    op: ast_mod.ViewUnionOp,
+    second: []const u8,
+};
+
+/// Detect UNION/UNION ALL/INTERSECT/EXCEPT in a query string.
+/// Returns null if no set operation found at the top level (outside quotes).
+fn detectSetOperation(query: ?[]const u8) ?SetOperationResult {
+    const q = query orelse return null;
+    if (q.len == 0) return null;
+
+    // Keywords to search for (ordered by length, longest first for UNION ALL)
+    const keywords = [_]struct { text: []const u8, op: ast_mod.ViewUnionOp }{
+        .{ .text = " UNION ALL ", .op = .union_all },
+        .{ .text = " union all ", .op = .union_all },
+        .{ .text = " UNION ", .op = .union_distinct },
+        .{ .text = " union ", .op = .union_distinct },
+        .{ .text = " INTERSECT ", .op = .intersect },
+        .{ .text = " intersect ", .op = .intersect },
+        .{ .text = " EXCEPT ", .op = .except },
+        .{ .text = " except ", .op = .except },
+    };
+
+    // Track quote state to avoid matching inside string literals
+    var in_single_quote = false;
+    var in_double_quote = false;
+    var i: usize = 0;
+    while (i < q.len) : (i += 1) {
+        const c = q[i];
+        if (c == '\'' and !in_double_quote) {
+            in_single_quote = !in_single_quote;
+        } else if (c == '"' and !in_single_quote) {
+            in_double_quote = !in_double_quote;
+        } else if (!in_single_quote and !in_double_quote) {
+            for (keywords) |kw| {
+                if (i + kw.text.len <= q.len and std.mem.eql(u8, q[i..i + kw.text.len], kw.text)) {
+                    return .{
+                        .first = std.mem.trimEnd(u8, q[0..i], " "),
+                        .op = kw.op,
+                        .second = std.mem.trimStart(u8, q[i + kw.text.len ..], " "),
+                    };
+                }
+            }
+        }
+    }
+    return null;
 }
 
 /// Compute SourceLocation from a tokenized line and a token within it.

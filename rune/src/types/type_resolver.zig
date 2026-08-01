@@ -61,6 +61,8 @@ pub const TypeResolver = struct {
                 .query = v.query,
                 .comment = v.comment,
                 .line_no = v.line_no,
+                .union_op = v.union_op,
+                .second_query = v.second_query,
             });
         }
         return try result.toOwnedSlice(alloc);

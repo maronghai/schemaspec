@@ -102,7 +102,7 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
     for (old.views) |old_view| {
         if (new_view_map.get(old_view.name)) |new_idx| {
             const new_view = new.views[new_idx];
-            if (!std.mem.eql(u8, old_view.query, new_view.query)) {
+            if (!viewQueriesEql(old_view, new_view)) {
                 try view_diffs.append(alloc, .{ .name = old_view.name, .action = .modify });
             }
         }
@@ -121,6 +121,17 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
         .dropped_tables = dropped_tables_slice,
         .view_diffs = view_diffs_slice,
     };
+}
+
+/// Compare two views for equality (query + union parts).
+fn viewQueriesEql(old: ast_mod.View, new: ast_mod.View) bool {
+    if (!std.mem.eql(u8, old.query, new.query)) return false;
+    if (old.union_op == null and new.union_op == null) return true;
+    if (old.union_op == null or new.union_op == null) return false;
+    if (old.union_op.? != new.union_op.?) return false;
+    const old_second = old.second_query orelse "";
+    const new_second = new.second_query orelse "";
+    return std.mem.eql(u8, old_second, new_second);
 }
 
 fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: resolved_ast.ResolvedTable, dialect: ?Dialect) !TableDiff {

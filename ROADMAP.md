@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.59.0 (2026-07-31)
+**Current version**: 0.61.0 (2026-08-01)
 
 ---
 
@@ -77,7 +77,7 @@ Bridge the gap between database schema and application code.
 
 ### API Schema
 
-- [ ] `rune generate openapi schema.ss` — OpenAPI 3.1 spec
+- [x] `rune generate openapi schema.ss` — OpenAPI 3.1 spec
 - [ ] `rune generate graphql schema.ss` — GraphQL type definitions
 - [x] `rune generate json-schema schema.ss` — `$defs`, `$ref`, proper `required` arrays
 
@@ -200,6 +200,22 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.61.0 (2026-08-01)
+
+- **View UNION/UNION ALL/INTERSECT/EXCEPT support** — Views now support set operations. The parser detects UNION keywords in view queries and splits them into structured AST fields (`union_op`, `second_query`). Codegen emits the combined query. Diff engine properly compares union views. Docs generator shows the full query including set operations.
+- **PostgreSQL type expansion** — Added `xml`, `cidr`, `macaddr` as passthrough types in `REVERSE_MAP`. These PostgreSQL-specific types are now properly recognized during reverse engineering and emitted as-is in `.ss` output.
+- **`rune stats` command** — New subcommand that prints detailed schema statistics including field type breakdown: non-null count, numeric, string, datetime, boolean, and other types.
+- **Reverse engineering JSON output** (`rune reverse --format json`) — Reverse command now supports `--format json` to output structured JSON with table names, column definitions (name, type, primary_key, auto_increment, nullable, default), indexes, and foreign keys.
+- Version bumped to 0.61.0.
+
+### v0.60.0 (2026-08-01)
+
+- **OpenAPI 3.1 generator** (`rune generate openapi`) — generates OpenAPI 3.1 specification from `.ss` files. Produces `components/schemas` with table object definitions, property type mappings (via JSON Schema), required arrays, FK `$ref` references, enum values, CHECK constraint metadata, and default values. Views included as read-only schemas.
+- 8 new unit tests for OpenAPI generator (`generators/openapi_test.zig`).
+- 3 new golden tests (`test_openapi.sh`) covering basic schemas, FK references, and template inheritance.
+- Generator registry expanded from 8 to 9 generators.
+- Documentation: added MSSQL column to `type.md` core types table, fixed unsigned prefix in `grammar.ebnf`, updated test counts across all docs.
 
 ### v0.59.0 (2026-07-31)
 

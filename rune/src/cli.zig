@@ -11,9 +11,10 @@ pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool },
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
+    stats: struct { input: ?[]const u8 },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool },
-    reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool },
+    reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
     generate: struct { generator: []const u8, input: ?[]const u8, output: ?[]const u8, list: bool },
     version,
@@ -231,6 +232,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         return parseSimpleSubcommand(dialect, target, .{ .check = .{ .input = input, .stats = want_stats, .verbose_passes = want_verbose_passes } }, flags);
     }
 
+    if (std.mem.eql(u8, sub, "stats")) {
+        const input = if (fargs.len > 1) fargs[1] else null;
+        return parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input } }, flags);
+    }
+
     if (std.mem.eql(u8, sub, "docs")) {
         const input = if (fargs.len > 1) fargs[1] else null;
         return parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, flags);
@@ -290,6 +296,7 @@ const CommandInfo = struct {
 const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "validate", .args = "[input.ss]", .description = "Validate .ss schema (no output)" },
     .{ .name = "check", .args = "[input.ss]", .description = "Check schema validity (exit 1 on error)" },
+    .{ .name = "stats", .args = "[input.ss]", .description = "Print schema statistics (table/field/view counts)" },
     .{ .name = "diff", .args = "<old.ss> <new.ss>", .description = "Show schema differences" },
     .{ .name = "migrate", .args = "<old.ss> <new.ss>", .description = "Generate ALTER TABLE migration SQL" },
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
@@ -384,6 +391,7 @@ fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
             .trace = parseTraceFlag(fargs, 1),
             .stats = opts.stats,
             .validate_only = opts.validate_only,
+            .format = opts.format,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,

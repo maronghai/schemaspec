@@ -11,6 +11,8 @@ cd rune && zig build                              # Build
 ./zig-out/bin/rune schema.ss -d sqlite            # Compile to SQLite
 ./zig-out/bin/rune migrate old.ss new.ss          # Generate migration SQL
 ./zig-out/bin/rune reverse schema.sql             # Reverse SQL to .ss
+./zig-out/bin/rune reverse schema.sql --format json  # Reverse SQL to JSON
+./zig-out/bin/rune stats schema.ss                # Print schema statistics
 ./zig-out/bin/rune diff old.ss new.ss             # Show schema differences
 ./zig-out/bin/rune docs schema.ss                 # Generate Markdown docs
 ```
@@ -21,11 +23,13 @@ cd rune && zig build                              # Build
 |---------|-------|-------------|
 | *(default)* | `rune [input.ss]` | Compile `.ss` to SQL DDL |
 | `validate` | `rune validate [input.ss]` | Validate schema without output |
+| `check` | `rune check [input.ss]` | Check schema validity (exit 1 on error) |
+| `stats` | `rune stats [input.ss]` | Print schema statistics with field type breakdown (numeric/string/datetime/boolean/other) |
 | `diff` | `rune diff <old.ss> <new.ss>` | Show schema differences |
 | `migrate` | `rune migrate <old.ss> <new.ss>` | Generate ALTER TABLE migration SQL |
-| `reverse` | `rune reverse [input.sql]` | Reverse SQL DDL to `.ss` schema |
+| `reverse` | `rune reverse [input.sql]` | Reverse SQL DDL to `.ss` schema (supports `--format json`) |
 | `docs` | `rune docs [input.ss]` | Generate Markdown documentation |
-| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`) |
+| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`) |
 
 ## Flags Reference
 
@@ -53,11 +57,11 @@ cd rune && zig build                              # Build
 
 **Note**: Unrecognized `--` flags produce an error with the flag name, instead of being silently treated as file paths.
 
-### Diff / Migrate
+### Diff / Migrate / Reverse
 
 | Flag | Description |
 |------|-------------|
-| `--format text\|json\|sarif` | Output format for diff/migrate results |
+| `--format text\|json\|sarif` | Output format for diff/migrate/reverse results |
 | `--check` | Exit with code 1 if differences exist (CI gate) |
 | `--dry-run` | Show migration SQL without writing to file |
 | `--rollback` | Generate rollback SQL instead of forward migration |
@@ -67,6 +71,7 @@ cd rune && zig build                              # Build
 | Flag | Description |
 |------|-------------|
 | `-T` | Extract shared templates from SQL |
+| `--format json` | Output reverse-engineered schema as structured JSON |
 
 ## Testing
 

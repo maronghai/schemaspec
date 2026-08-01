@@ -119,6 +119,10 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
             return forward.handleCheck(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
         },
+        .stats => |cmd| {
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            return forward.handleStats(io, alloc, file_data);
+        },
         .diff => |cmd| {
             return switch (cmd.format) {
                 .text => diff_pipe.handleDiff(io, alloc, cmd.old, cmd.new, parsed.dialect, cmd.trace, cmd.stats, cmd.check),
@@ -136,7 +140,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         .reverse => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
             const name = cmd.input orelse "<stdin>";
-            return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace, cmd.stats, cmd.validate_only);
+            return reverse_pipe.handleReverse(io, alloc, file_data, name, cmd.output, cmd.with_templates, parsed.dialect, cmd.trace, cmd.stats, cmd.validate_only, cmd.format);
         },
         .docs => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
