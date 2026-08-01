@@ -28,7 +28,7 @@ comptime {
     _ = @import("diff/format/sarif_test.zig");
     _ = @import("diff/format/json_test.zig");
     // formatter
-    _ = @import("formatter.zig");
+    _ = @import("formatter_test.zig");
     // io
     _ = @import("io_test.zig");
     // json_schema
@@ -76,5 +76,5 @@ comptime {
     _ = @import("generators/openapi_test.zig");
     _ = @import("generators/graphql_test.zig");
     // utils
-    _ = @import("utils/edit_distance.zig");
+    _ = @import("utils/edit_distance_test.zig");
 }
