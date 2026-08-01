@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "app",
-    "version": "0.59.0"
+    "version": "0.68.0"
   },
   "paths": {},
   "components": {

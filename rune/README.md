@@ -101,7 +101,7 @@ For deep dives into the codebase architecture, IR boundaries, dialect backend vt
 
 ```
 rune/src/
-  main.zig, cli.zig, io.zig         # CLI entry point + argument parsing
+  main.zig, cli.zig, io.zig, completions.zig  # CLI entry point + argument parsing
   generator.zig                      # generator registry (pluggable, dialect-aware)
   generators/                        # generator implementations
     common.zig                       #   shared generator utilities + DefaultFormatter

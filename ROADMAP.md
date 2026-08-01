@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.68.0 (2026-08-01)
+**Current version**: 0.69.0 (2026-08-01)
 
 ---
 
@@ -200,6 +200,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.69.0 (2026-08-01)
+
+- **Extracted CHECK constraint parsers** — Moved `parseRange`, `parseComparison`, `parseInList`, `writeJsonValue`, and `findFkRefTable` from `json_schema.zig` and `openapi.zig` into shared `generators/common.zig`. Eliminates ~160 lines of verbatim duplicated code across two generators.
+- **Extracted shell completions from main.zig** — Moved `COMPLETIONS_BASH/ZSH/FISH/POWERSHELL` constants, `STARTER_SCHEMA`, `handleInit`, and `handleCompletions` into a new `completions.zig` module. Reduces `main.zig` from ~500 to ~200 lines.
+- **Refactored migrate.zig emitFieldDiffs** — Extracted each action branch (add/drop/modify/rename) into its own focused function (`emitAddField`, `emitDropField`, `emitModifyField`, `emitRenameField`). Improved readability of 56-line switch statement.
+- **Unified reverse codegen column emission** — Merged duplicate template vs non-template column loops in `reverse/codegen.zig` into a single loop with inline template filtering.
+- **Added FieldDiff re-export** — `diff/engine.zig` now re-exports `FieldDiff` from `diff/types.zig` for consistent access.
+- **Fixed OpenAPI golden test versions** — Updated expected files from `0.59.0` to `0.69.0`.
 
 ### v0.68.0 (2026-08-01)
 

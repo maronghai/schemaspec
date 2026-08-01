@@ -74,7 +74,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 
 ```
 rune/src/
-  main.zig, cli.zig, io.zig, utils.zig                           # CLI + glue
+  main.zig, cli.zig, io.zig, utils.zig, completions.zig             # CLI + glue
   bench.zig, ast_visitor.zig, formatter.zig                       # standalone modules
   generator.zig                                                   # generator registry (pluggable)
   generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations (11)

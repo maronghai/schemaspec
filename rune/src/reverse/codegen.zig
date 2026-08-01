@@ -169,9 +169,9 @@ fn emitTables(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_list
         }
         try w.writeAll("\n");
 
-        if (table_template != null) {
-            // Output fields not in template
-            for (table.columns) |col| {
+        // Output columns, skipping template fields if this table has a template
+        for (table.columns) |col| {
+            if (table_template != null) {
                 var in_template = false;
                 for (table_template_fields) |tcol| {
                     if (std.mem.eql(u8, col.name, tcol.name)) {
@@ -180,19 +180,11 @@ fn emitTables(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_list
                     }
                 }
                 if (in_template) continue;
-                try w.writeAll(col.name);
-                const ck = if (col.check_expr) |ce| rc.reverseCheck(self.alloc, ce, col.name) else check_map.get(col.name);
-                try rc.writeColumnSuffix(w, col, table.indexes, ck, self.dialect);
-                try w.writeAll("\n");
             }
-        } else {
-            // No template — output all columns
-            for (table.columns) |col| {
-                try w.writeAll(col.name);
-                const ck = if (col.check_expr) |ce| rc.reverseCheck(self.alloc, ce, col.name) else check_map.get(col.name);
-                try rc.writeColumnSuffix(w, col, table.indexes, ck, self.dialect);
-                try w.writeAll("\n");
-            }
+            try w.writeAll(col.name);
+            const ck = if (col.check_expr) |ce| rc.reverseCheck(self.alloc, ce, col.name) else check_map.get(col.name);
+            try rc.writeColumnSuffix(w, col, table.indexes, ck, self.dialect);
+            try w.writeAll("\n");
         }
 
         try emitStandaloneIndexes(self, w, table);

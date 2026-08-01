@@ -181,47 +181,95 @@ fn emitFieldDiffs(
 ) !void {
     for (td.field_diffs) |fd| {
         switch (fd.action) {
-            .add => {
-                if (cg) |c| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else continue;
-                    try emit.emitComma(w, sub_needs_comma);
-                    try w.writeAll("ADD COLUMN ");
-                    const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
-                    try c.emitColumnDef(w, typed_col);
-                }
-            },
-            .drop => {
-                try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                try emit.emitComma(w, sub_needs_comma);
-                try backend.emitAlterDropColumn(w, fd.name);
-            },
-            .modify => {
-                try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else continue;
-                try emit.emitComma(w, sub_needs_comma);
-                try backend.emitAlterModifyColumn(w, field_to_use.name);
-                if (backend.modify_needs_column_def) {
-                    const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
-                    if (cg) |c| {
-                        try c.emitColumnDefEx(w, typed_col, backend.modify_column_def_skips_name);
-                    }
-                }
-            },
-            .rename => {
-                try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                if (fd.rename_from) |old_name| {
-                    try emit.emitComma(w, sub_needs_comma);
-                    try backend.emitAlterRenameColumn(w, old_name, fd.name);
-                    if (backend.rename_needs_column_def) {
-                        const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else continue;
-                        if (cg) |c| {
-                            const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
-                            try c.emitColumnDef(w, typed_col);
-                        }
-                    }
-                }
-            },
+            .add => try emitAddField(alloc, w, backend, td.name, fd, cg, dialect, resolved, table_has_ops, sub_needs_comma),
+            .drop => try emitDropField(w, backend, td.name, fd, table_has_ops, sub_needs_comma),
+            .modify => try emitModifyField(alloc, w, backend, td.name, fd, cg, dialect, resolved, table_has_ops, sub_needs_comma),
+            .rename => try emitRenameField(alloc, w, backend, td.name, fd, cg, dialect, resolved, table_has_ops, sub_needs_comma),
+        }
+    }
+}
+
+fn emitAddField(
+    alloc: std.mem.Allocator,
+    w: anytype,
+    backend: dialect_mod.DialectBackend,
+    table_name: []const u8,
+    fd: diff_mod.FieldDiff,
+    cg: ?*codegen.Codegen,
+    dialect: Dialect,
+    resolved: resolved_ast.ResolvedAst,
+    table_has_ops: *bool,
+    sub_needs_comma: *bool,
+) !void {
+    if (cg) |c| {
+        try emit.beginAlterTable(w, backend, table_name, table_has_ops);
+        const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else return;
+        try emit.emitComma(w, sub_needs_comma);
+        try w.writeAll("ADD COLUMN ");
+        const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
+        try c.emitColumnDef(w, typed_col);
+    }
+}
+
+fn emitDropField(
+    w: anytype,
+    backend: dialect_mod.DialectBackend,
+    table_name: []const u8,
+    fd: diff_mod.FieldDiff,
+    table_has_ops: *bool,
+    sub_needs_comma: *bool,
+) !void {
+    try emit.beginAlterTable(w, backend, table_name, table_has_ops);
+    try emit.emitComma(w, sub_needs_comma);
+    try backend.emitAlterDropColumn(w, fd.name);
+}
+
+fn emitModifyField(
+    alloc: std.mem.Allocator,
+    w: anytype,
+    backend: dialect_mod.DialectBackend,
+    table_name: []const u8,
+    fd: diff_mod.FieldDiff,
+    cg: ?*codegen.Codegen,
+    dialect: Dialect,
+    resolved: resolved_ast.ResolvedAst,
+    table_has_ops: *bool,
+    sub_needs_comma: *bool,
+) !void {
+    try emit.beginAlterTable(w, backend, table_name, table_has_ops);
+    const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else return;
+    try emit.emitComma(w, sub_needs_comma);
+    try backend.emitAlterModifyColumn(w, field_to_use.name);
+    if (backend.modify_needs_column_def) {
+        const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
+        if (cg) |c| {
+            try c.emitColumnDefEx(w, typed_col, backend.modify_column_def_skips_name);
+        }
+    }
+}
+
+fn emitRenameField(
+    alloc: std.mem.Allocator,
+    w: anytype,
+    backend: dialect_mod.DialectBackend,
+    table_name: []const u8,
+    fd: diff_mod.FieldDiff,
+    cg: ?*codegen.Codegen,
+    dialect: Dialect,
+    resolved: resolved_ast.ResolvedAst,
+    table_has_ops: *bool,
+    sub_needs_comma: *bool,
+) !void {
+    try emit.beginAlterTable(w, backend, table_name, table_has_ops);
+    if (fd.rename_from) |old_name| {
+        try emit.emitComma(w, sub_needs_comma);
+        try backend.emitAlterRenameColumn(w, old_name, fd.name);
+        if (backend.rename_needs_column_def) {
+            const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else return;
+            if (cg) |c| {
+                const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
+                try c.emitColumnDef(w, typed_col);
+            }
         }
     }
 }

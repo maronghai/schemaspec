@@ -1,6 +1,7 @@
 const std = @import("std");
 const typed_ast = @import("../types/typed_ast.zig");
 const utils = @import("../utils.zig");
+const common = @import("common.zig");
 const version = @import("../version.zig");
 const Writer = std.Io.Writer;
 
@@ -114,14 +115,7 @@ fn writeColumnProp(alloc: std.mem.Allocator, w: *Writer, col: typed_ast.TypedCol
     try w.print("{s}\"{s}\": ", .{ indent, col.name });
 
     // Check if this column has an FK reference — emit $ref
-    const fk_ref_table: ?[]const u8 = blk: {
-        for (table.fks) |fk| {
-            if (fk.fields.len == 1 and std.mem.eql(u8, fk.fields[0], col.name)) {
-                break :blk fk.ref_table;
-            }
-        }
-        break :blk null;
-    };
+    const fk_ref_table = common.findFkRefTable(col.name, table.fks);
 
     if (fk_ref_table) |ref_table| {
         // FK column: emit $ref to referenced table with description
@@ -139,7 +133,7 @@ fn writeColumnProp(alloc: std.mem.Allocator, w: *Writer, col: typed_ast.TypedCol
         if (col.check) |check| {
             switch (check.kind) {
                 .range, .range_upper_exclusive, .range_lower_exclusive, .range_both_exclusive => {
-                    if (parseRange(check.expr)) |range| {
+                    if (common.parseRange(check.expr)) |range| {
                         try w.writeAll(",\n");
                         if (range.min) |min| {
                             try w.print("{s}  \"minimum\": {d}", .{ indent, min });
@@ -153,7 +147,7 @@ fn writeColumnProp(alloc: std.mem.Allocator, w: *Writer, col: typed_ast.TypedCol
                     }
                 },
                 .comparison => {
-                    if (parseComparison(check.expr)) |cmp| {
+                    if (common.parseComparison(check.expr)) |cmp| {
                         try w.writeAll(",\n");
                         if (cmp.op[0] == '>') {
                             try w.print("{s}  \"exclusiveMinimum\": {d}", .{ indent, cmp.value });
@@ -163,7 +157,7 @@ fn writeColumnProp(alloc: std.mem.Allocator, w: *Writer, col: typed_ast.TypedCol
                     }
                 },
                 .in_list => {
-                    if (parseInList(alloc, check.expr)) |items| {
+                    if (common.parseInList(alloc, check.expr)) |items| {
                         try w.writeAll(",\n");
                         try w.print("{s}  \"enum\": [", .{indent});
                         for (items, 0..) |item, ii| {
@@ -181,7 +175,7 @@ fn writeColumnProp(alloc: std.mem.Allocator, w: *Writer, col: typed_ast.TypedCol
             if (def.len > 0) {
                 try w.writeAll(",\n");
                 try w.print("{s}  \"default\": ", .{indent});
-                try writeJsonValue(w, def);
+                try common.writeJsonValue(w, def);
             }
         }
 
@@ -213,169 +207,4 @@ fn writeViewSchema(w: *Writer, view: typed_ast.TypedView) !void {
 
     try w.writeAll("        \"readOnly\": true\n");
     try w.writeAll("      }");
-}
-
-// ─── JSON Value Writer ────────────────────────────────────────
-
-fn writeJsonValue(w: *Writer, val: []const u8) !void {
-    if (std.mem.eql(u8, val, "NULL") or std.mem.eql(u8, val, "null")) {
-        try w.writeAll("null");
-    } else if (std.mem.eql(u8, val, "true") or std.mem.eql(u8, val, "TRUE")) {
-        try w.writeAll("true");
-    } else if (std.mem.eql(u8, val, "false") or std.mem.eql(u8, val, "FALSE")) {
-        try w.writeAll("false");
-    } else if (std.fmt.parseInt(i64, val, 10)) |num| {
-        try w.print("{d}", .{num});
-    } else |_| {
-        if (std.fmt.parseFloat(f64, val)) |num| {
-            try w.print("{d}", .{num});
-        } else |_| {
-            try w.writeAll("\"");
-            try utils.jsonEscapeString(w, val);
-            try w.writeAll("\"");
-        }
-    }
-}
-
-// ─── CHECK Constraint Parsers ─────────────────────────────────
-
-const Range = struct {
-    min: ?i64,
-    max: ?i64,
-};
-
-fn parseRange(expr: []const u8) ?Range {
-    var min_val: ?i64 = null;
-    var max_val: ?i64 = null;
-
-    var i: usize = 0;
-    while (i < expr.len) {
-        if (i + 1 < expr.len and expr[i] == '>' and expr[i + 1] == '=') {
-            const num_start = i + 2;
-            var num_end = num_start;
-            if (num_end < expr.len and expr[num_end] == '-') num_end += 1;
-            while (num_end < expr.len and (expr[num_end] >= '0' and expr[num_end] <= '9')) {
-                num_end += 1;
-            }
-            if (num_end > num_start) {
-                if (std.fmt.parseInt(i64, expr[num_start..num_end], 10)) |num| {
-                    min_val = num;
-                } else |_| {}
-            }
-            i = num_end;
-        } else if (i + 1 < expr.len and expr[i] == '<' and expr[i + 1] == '=') {
-            const num_start = i + 2;
-            var num_end = num_start;
-            if (num_end < expr.len and expr[num_end] == '-') num_end += 1;
-            while (num_end < expr.len and (expr[num_end] >= '0' and expr[num_end] <= '9')) {
-                num_end += 1;
-            }
-            if (num_end > num_start) {
-                if (std.fmt.parseInt(i64, expr[num_start..num_end], 10)) |num| {
-                    max_val = num;
-                } else |_| {}
-            }
-            i = num_end;
-        } else {
-            i += 1;
-        }
-    }
-
-    if (min_val != null or max_val != null) {
-        return .{ .min = min_val, .max = max_val };
-    }
-    return null;
-}
-
-const Comparison = struct {
-    op: []const u8,
-    value: i64,
-};
-
-fn parseComparison(expr: []const u8) ?Comparison {
-    var i: usize = 0;
-    while (i < expr.len and expr[i] == ' ') : (i += 1) {}
-
-    if (i < expr.len and (expr[i] == '>' or expr[i] == '<' or expr[i] == '=')) {
-        const op_start = i;
-        i += 1;
-        if (i < expr.len and expr[i] == '=') i += 1;
-        const op = expr[op_start..i];
-
-        while (i < expr.len and expr[i] == ' ') : (i += 1) {}
-
-        const num_start = i;
-        if (i < expr.len and expr[i] == '-') i += 1;
-        while (i < expr.len and ((expr[i] >= '0' and expr[i] <= '9') or expr[i] == '.')) {
-            i += 1;
-        }
-        if (i > num_start) {
-            if (std.fmt.parseInt(i64, expr[num_start..i], 10)) |num| {
-                return .{ .op = op, .value = num };
-            } else |_| {}
-        }
-    }
-    return null;
-}
-
-fn parseInList(alloc: std.mem.Allocator, expr: []const u8) ?[]const []const u8 {
-    const trimmed = std.mem.trim(u8, expr, " ");
-    if (trimmed.len < 2) return null;
-
-    const inner = if (trimmed[0] == '(' and trimmed[trimmed.len - 1] == ')')
-        trimmed[1 .. trimmed.len - 1]
-    else
-        trimmed;
-
-    var items = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return null;
-    var start: usize = 0;
-    var in_quote = false;
-    var i: usize = 0;
-
-    while (i < inner.len) {
-        if (inner[i] == '\'') {
-            if (in_quote) {
-                const item = std.mem.trim(u8, inner[start..i], " '");
-                items.append(alloc, item) catch {
-                    items.deinit(alloc);
-                    return null;
-                };
-                in_quote = false;
-                start = i + 1;
-            } else {
-                in_quote = true;
-                start = i + 1;
-            }
-        } else if (inner[i] == ',' and !in_quote) {
-            const item = std.mem.trim(u8, inner[start..i], " ");
-            if (item.len > 0) {
-                items.append(alloc, item) catch {
-                    items.deinit(alloc);
-                    return null;
-                };
-            }
-            start = i + 1;
-        }
-        i += 1;
-    }
-
-    if (start < inner.len) {
-        const item = std.mem.trim(u8, inner[start..], " '");
-        if (item.len > 0) {
-            items.append(alloc, item) catch {
-                items.deinit(alloc);
-                return null;
-            };
-        }
-    }
-
-    if (items.items.len == 0) {
-        items.deinit(alloc);
-        return null;
-    }
-
-    return items.toOwnedSlice(alloc) catch {
-        items.deinit(alloc);
-        return null;
-    };
 }

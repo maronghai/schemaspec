@@ -19,6 +19,7 @@ pub const IndexAction = diff_types.IndexAction;
 
 pub const TableAction = diff_types.TableAction;
 pub const TableMetadataDiff = diff_types.TableMetadataDiff;
+pub const FieldDiff = diff_types.FieldDiff;
 pub const ViewAction = diff_types.ViewAction;
 pub const ViewDiff = diff_types.ViewDiff;
 pub const SchemaDiff = diff_types.SchemaDiff;
