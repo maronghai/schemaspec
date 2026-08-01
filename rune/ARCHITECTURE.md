@@ -404,7 +404,7 @@ No changes needed in `codegen.zig` — it is fully dialect-agnostic.
 
 ## Benchmark Infrastructure
 
-`src/bench.zig` measures per-stage latency for the forward pipeline using `Io.Clock.Timestamp` (nanosecond precision).
+`src/bench.zig` measures per-stage latency for the forward pipeline using `Io.Clock.Timestamp` (nanosecond precision). Supports per-dialect benchmarking via `--dialect` flag.
 
 ### Schema Sizes
 
@@ -417,7 +417,10 @@ No changes needed in `codegen.zig` — it is fully dialect-agnostic.
 ### Usage
 
 ```bash
-zig build bench                              # default: small, 10 iterations
+zig build bench                              # default: small, mysql, 50 iterations
+zig build bench -- --dialect pg              # benchmark PostgreSQL dialect
+zig build bench -- --dialect oracle          # benchmark Oracle dialect
+zig build bench -- --save --dialect pg       # save PG baseline
 zig build bench -- bench/medium.ss 20       # custom file + count
 zig build bench -- bench/large.ss 5         # large schema
 ```

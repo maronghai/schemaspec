@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.73.0 (2026-08-02)
+**Current version**: 0.74.0 (2026-08-02)
 
 ---
 
@@ -183,6 +183,7 @@ Ongoing improvements pursued alongside feature work.
 - [ ] Parallel table compilation — compile independent tables concurrently
 - [ ] Memory-mapped file I/O — for large schema files (>10MB)
 - [ ] Benchmark CI gate — enforce no regressions beyond 10% (currently 20%)
+- [x] Benchmark dialect parameterization — `rune bench --dialect <d>` supports all 6 dialects (v0.74.0)
 
 ### Code Quality
 
@@ -200,6 +201,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.74.0 (2026-08-02)
+
+- **Benchmark dialect parameterization** — `rune bench --dialect <d>` benchmarks any SQL dialect instead of hardcoding MySQL. Per-dialect baseline files enable cross-dialect performance comparison.
+- **Dialect auto-detection for all 6 dialects** — `reverse/dialect_detect.zig` now detects MSSQL, Oracle, and Db2 DDL patterns, completing the reverse engineering story for all supported dialects.
+- **CLI help text fix** — Added missing `db2` to the `-d` flag example.
+- 12 new benchmark unit tests, 7 new dialect detection tests.
 
 ### v0.73.0 (2026-08-02)
 

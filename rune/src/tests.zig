@@ -2,6 +2,8 @@
 comptime {
     // ast_visitor
     _ = @import("ast_visitor_test.zig");
+    // bench
+    _ = @import("bench_test.zig");
     // cli
     _ = @import("cli_test.zig");
     // codegen

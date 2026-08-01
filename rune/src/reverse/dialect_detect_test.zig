@@ -71,3 +71,70 @@ test "detectSqlDialect: ambiguous defaults to MySQL" {
     ;
     try testing.expectEqual(codegen.Dialect.mysql, detect.detectSqlDialect(sql));
 }
+
+test "detectSqlDialect: MSSQL patterns" {
+    const sql =
+        \\CREATE TABLE [dbo].[users] (
+        \\  [id] INT IDENTITY(1,1) NOT NULL,
+        \\  [name] NVARCHAR(100) NOT NULL,
+        \\  PRIMARY KEY CLUSTERED ([id])
+        \\);
+    ;
+    try testing.expectEqual(codegen.Dialect.mssql, detect.detectSqlDialect(sql));
+}
+
+test "detectSqlDialect: MSSQL DATETIME2 and NTEXT" {
+    const sql =
+        \\CREATE TABLE [dbo].[logs] (
+        \\  [id] INT IDENTITY(1,1) NOT NULL,
+        \\  [message] NTEXT,
+        \\  [created_at] DATETIME2 DEFAULT GETDATE()
+        \\);
+    ;
+    try testing.expectEqual(codegen.Dialect.mssql, detect.detectSqlDialect(sql));
+}
+
+test "detectSqlDialect: Oracle patterns" {
+    const sql =
+        \\CREATE TABLE users (
+        \\  id NUMBER(10) NOT NULL,
+        \\  name VARCHAR2(100) NOT NULL,
+        \\  created_at DATE DEFAULT SYSDATE,
+        \\  CONSTRAINT pk_users PRIMARY KEY (id)
+        \\);
+    ;
+    try testing.expectEqual(codegen.Dialect.oracle, detect.detectSqlDialect(sql));
+}
+
+test "detectSqlDialect: Oracle NCLOB and sequences" {
+    const sql =
+        \\CREATE SEQUENCE users_seq START WITH 1 INCREMENT BY 1;
+        \\CREATE TABLE users (
+        \\  id NUMBER(10) NOT NULL,
+        \\  bio NCLOB
+        \\);
+    ;
+    try testing.expectEqual(codegen.Dialect.oracle, detect.detectSqlDialect(sql));
+}
+
+test "detectSqlDialect: Db2 patterns" {
+    const sql =
+        \\CREATE TABLE users (
+        \\  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        \\  name VARCHAR(100) NOT NULL,
+        \\  score DECFLOAT DEFAULT 0
+        \\);
+    ;
+    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
+}
+
+test "detectSqlDialect: Db2 generated columns" {
+    const sql =
+        \\CREATE TABLE orders (
+        \\  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        \\  total DECIMAL(10,2),
+        \\  tax DECIMAL(10,2) GENERATED ALWAYS AS (total * 0.1) STORED
+        \\);
+    ;
+    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
+}

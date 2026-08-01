@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.74.0] - 2026-08-02
+
+### Added
+- **Benchmark dialect parameterization** — `rune bench --dialect <d>` now benchmarks any SQL dialect (mysql, pg, sqlite, mssql, oracle, db2) instead of hardcoding MySQL. Baseline files are per-dialect (`bench/baseline-mysql.json`, `bench/baseline-pg.json`, etc.).
+- **Dialect auto-detection for all 6 dialects** — `reverse/dialect_detect.zig` now detects MSSQL, Oracle, and Db2 DDL patterns in addition to MySQL, PostgreSQL, and SQLite. Previously, MSSQL/Oracle/Db2 DDL fell through to MySQL default.
+- **Benchmark unit tests** (`bench_test.zig`) — 12 tests covering `parseDialect` for all 6 dialects plus aliases and error cases.
+- **Dialect detection tests expanded** — 7 new tests in `dialect_detect_test.zig` covering MSSQL (`IDENTITY(1,1)`, `NVARCHAR`, `[dbo]`), Oracle (`VARCHAR2`, `NUMBER`, `SYSDATE`, `SEQUENCE`), and Db2 (`GENERATED ALWAYS AS IDENTITY`, `DECFLOAT`) patterns.
+
+### Fixed
+- **CLI help text** — Added missing `db2` to the `-d` flag example in usage output.
+
+### Changed
+- Benchmark baseline files renamed from `baseline.json` to `baseline-{dialect}.json` (backward-compatible migration applied).
+
 ## [0.73.0] - 2026-08-02
 
 ### Added

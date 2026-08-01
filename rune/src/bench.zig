@@ -7,6 +7,7 @@ const codegen = @import("codegen/codegen.zig");
 const typed_ast = @import("types/typed_ast.zig");
 const TypeResolver = @import("types/type_resolver.zig").TypeResolver;
 const diag = @import("semantic/diagnostic.zig");
+const dialect_enum = @import("dialect/enum.zig");
 
 // ─── Rune Benchmark ─────────────────────────────────────────
 // Measures per-stage latency for the forward pipeline.
@@ -24,6 +25,7 @@ pub fn main(init: std.process.Init) !void {
     var iterations: usize = 50;
     const warmup: usize = 3;
     var mode: enum { run, save, check, diff } = .run;
+    var dialect: dialect_enum.Dialect = .mysql;
 
     var arg_it = try std.process.Args.Iterator.initAllocator(init.minimal.args, alloc);
     defer arg_it.deinit();
@@ -36,11 +38,22 @@ pub fn main(init: std.process.Init) !void {
         } else if (std.mem.eql(u8, arg, "--diff")) {
             mode = .diff;
         } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
-            std.debug.print("Usage: bench [--save|--check|--diff] [file] [iterations]\n", .{});
-            std.debug.print("  --save   Save current run as baseline\n", .{});
-            std.debug.print("  --check  Check for regressions vs baseline (>20% = exit 1)\n", .{});
-            std.debug.print("  --diff   Show per-stage comparison with baseline\n", .{});
+            std.debug.print("Usage: bench [--save|--check|--diff] [--dialect <d>] [file] [iterations]\n", .{});
+            std.debug.print("  --save      Save current run as baseline\n", .{});
+            std.debug.print("  --check     Check for regressions vs baseline (>20% = exit 1)\n", .{});
+            std.debug.print("  --diff      Show per-stage comparison with baseline\n", .{});
+            std.debug.print("  --dialect   SQL dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
             return;
+        } else if (std.mem.eql(u8, arg, "--dialect") or std.mem.eql(u8, arg, "-d")) {
+            if (arg_it.next()) |d| {
+                dialect = parseDialect(d) catch {
+                    std.debug.print("error: unknown dialect '{s}'. Expected: mysql, pg, sqlite, mssql, oracle, db2\n", .{d});
+                    return error.UnknownDialect;
+                };
+            } else {
+                std.debug.print("error: --dialect requires a value\n", .{});
+                return error.MissingDialectValue;
+            }
         } else {
             file_path = arg;
             if (arg_it.next()) |n_str| iterations = std.fmt.parseInt(usize, n_str, 10) catch 50;
@@ -58,7 +71,7 @@ pub fn main(init: std.process.Init) !void {
             var arena = std.heap.ArenaAllocator.init(alloc);
             defer arena.deinit();
             const a = arena.allocator();
-            _ = try runPipeline(a, file_data);
+            _ = try runPipeline(a, file_data, dialect);
         }
     }
 
@@ -71,7 +84,7 @@ pub fn main(init: std.process.Init) !void {
         defer arena.deinit();
         const a = arena.allocator();
 
-        var t = try runPipelineTimed(init.io, a, file_data);
+        var t = try runPipelineTimed(init.io, a, file_data, dialect);
         times.add(&t);
     }
 
@@ -79,17 +92,17 @@ pub fn main(init: std.process.Init) !void {
 
     switch (mode) {
         .run => {
-            printJson(file_path, iterations, avg);
+            printJson(file_path, iterations, avg, dialect);
         },
         .save => {
-            printJson(file_path, iterations, avg);
-            try saveBaseline(init.io, alloc, file_path, avg);
-            std.debug.print("\nBaseline saved to bench/baseline.json\n", .{});
+            printJson(file_path, iterations, avg, dialect);
+            try saveBaseline(init.io, alloc, file_path, avg, dialect);
+            std.debug.print("\nBaseline saved to bench/baseline-{s}.json\n", .{@tagName(dialect)});
         },
         .check => {
-            const baseline = loadBaseline(init.io, alloc) catch |err| {
-                std.debug.print("error: cannot load bench/baseline.json: {s}\n", .{@errorName(err)});
-                std.debug.print("Run 'zig build bench -- --save' first to create baseline.\n", .{});
+            const baseline = loadBaseline(init.io, alloc, dialect) catch |err| {
+                std.debug.print("error: cannot load bench/baseline-{s}.json: {s}\n", .{ @tagName(dialect), @errorName(err) });
+                std.debug.print("Run 'zig build bench -- --save --dialect {s}' first to create baseline.\n", .{@tagName(dialect)});
                 return error.BaselineNotFound;
             };
             const regressions = checkRegressions(avg, baseline);
@@ -102,9 +115,9 @@ pub fn main(init: std.process.Init) !void {
             }
         },
         .diff => {
-            const baseline = loadBaseline(init.io, alloc) catch |err| {
-                std.debug.print("error: cannot load bench/baseline.json: {s}\n", .{@errorName(err)});
-                std.debug.print("Run 'zig build bench -- --save' first to create baseline.\n", .{});
+            const baseline = loadBaseline(init.io, alloc, dialect) catch |err| {
+                std.debug.print("error: cannot load bench/baseline-{s}.json: {s}\n", .{ @tagName(dialect), @errorName(err) });
+                std.debug.print("Run 'zig build bench -- --save --dialect {s}' first to create baseline.\n", .{@tagName(dialect)});
                 return error.BaselineNotFound;
             };
             printDiff(avg, baseline);
@@ -147,10 +160,11 @@ fn nsToMs(ns: i96) f64 {
     return @as(f64, @floatFromInt(ns)) / 1_000_000.0;
 }
 
-fn printJson(file_path: []const u8, iterations: usize, avg: StageTimes) void {
+fn printJson(file_path: []const u8, iterations: usize, avg: StageTimes, dialect: dialect_enum.Dialect) void {
     std.debug.print(
         \\{{
         \\  "file": "{s}",
+        \\  "dialect": "{s}",
         \\  "iterations": {d},
         \\  "stages": {{
         \\    "tokenize": {d:.2},
@@ -164,6 +178,7 @@ fn printJson(file_path: []const u8, iterations: usize, avg: StageTimes) void {
         \\
     , .{
         file_path,
+        @tagName(dialect),
         iterations,
         avg.tokenize,
         avg.parse,
@@ -182,10 +197,11 @@ const Baseline = struct {
     codegen: f64,
 };
 
-fn saveBaseline(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, avg: StageTimes) !void {
+fn saveBaseline(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, avg: StageTimes, dialect: dialect_enum.Dialect) !void {
     const json = try std.fmt.allocPrint(alloc,
         \\{{
         \\  "file": "{s}",
+        \\  "dialect": "{s}",
         \\  "stages": {{
         \\    "tokenize": {d:.2},
         \\    "parse": {d:.2},
@@ -197,6 +213,7 @@ fn saveBaseline(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, avg
         \\
     , .{
         file_path,
+        @tagName(dialect),
         avg.tokenize,
         avg.parse,
         avg.semantic,
@@ -205,18 +222,24 @@ fn saveBaseline(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, avg
     });
     defer alloc.free(json);
 
+    const path = try std.fmt.allocPrint(alloc, "bench/baseline-{s}.json", .{@tagName(dialect)});
+    defer alloc.free(path);
+
     std.Io.Dir.cwd().writeFile(io, .{
-        .sub_path = "bench/baseline.json",
+        .sub_path = path,
         .data = json,
     }) catch |err| {
-        std.debug.print("error: cannot write bench/baseline.json: {s}\n", .{@errorName(err)});
+        std.debug.print("error: cannot write {s}: {s}\n", .{ path, @errorName(err) });
         std.debug.print("Make sure the bench/ directory exists: mkdir -p bench\n", .{});
         return err;
     };
 }
 
-fn loadBaseline(io: std.Io, alloc: std.mem.Allocator) !Baseline {
-    const data = try std.Io.Dir.cwd().readFileAlloc(io, "bench/baseline.json", alloc, .unlimited);
+fn loadBaseline(io: std.Io, alloc: std.mem.Allocator, dialect: dialect_enum.Dialect) !Baseline {
+    const path = try std.fmt.allocPrint(alloc, "bench/baseline-{s}.json", .{@tagName(dialect)});
+    defer alloc.free(path);
+
+    const data = try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited);
     defer alloc.free(data);
 
     // Simple JSON parsing — extract stage values
@@ -343,7 +366,7 @@ fn parseFileTimed(alloc: std.mem.Allocator, file_data: []const u8, times: *Stage
     return tree;
 }
 
-fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !StageTimes {
+fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, dialect: dialect_enum.Dialect) !StageTimes {
     var times = StageTimes{};
 
     // Stage 1: Tokenize + Parse (separate timing)
@@ -357,12 +380,12 @@ fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8)
 
     // Stage 3: Type Resolve
     sw_start = std.Io.Clock.Timestamp.now(io, .awake);
-    const typed = try TypeResolver.resolve(alloc, resolved, .mysql);
+    const typed = try TypeResolver.resolve(alloc, resolved, dialect);
     times.type_resolve = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
     // Stage 4: Codegen
     sw_start = std.Io.Clock.Timestamp.now(io, .awake);
-    var cg = codegen.Codegen.init(alloc, .mysql);
+    var cg = codegen.Codegen.init(alloc, dialect);
     _ = try cg.generateFromTypedAst(typed);
     times.codegen = nsToMs(std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - sw_start.raw.nanoseconds);
 
@@ -384,14 +407,24 @@ fn parseFile(alloc: std.mem.Allocator, file_data: []const u8) !ast_mod.Ast {
     return try p.parse(tokenized);
 }
 
-fn runPipeline(alloc: std.mem.Allocator, file_data: []const u8) ![]const u8 {
+fn runPipeline(alloc: std.mem.Allocator, file_data: []const u8, dialect: dialect_enum.Dialect) ![]const u8 {
     const tree = try parseFile(alloc, file_data);
 
     var sa = semantic.SemanticAnalyzer.init(alloc);
     const resolved = try sa.analyze(tree);
 
-    const typed = try TypeResolver.resolve(alloc, resolved, .mysql);
+    const typed = try TypeResolver.resolve(alloc, resolved, dialect);
 
-    var cg = codegen.Codegen.init(alloc, .mysql);
+    var cg = codegen.Codegen.init(alloc, dialect);
     return try cg.generateFromTypedAst(typed);
+}
+
+pub fn parseDialect(s: []const u8) !dialect_enum.Dialect {
+    if (std.mem.eql(u8, s, "mysql")) return .mysql;
+    if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
+    if (std.mem.eql(u8, s, "sqlite")) return .sqlite;
+    if (std.mem.eql(u8, s, "mssql") or std.mem.eql(u8, s, "sqlserver")) return .mssql;
+    if (std.mem.eql(u8, s, "oracle") or std.mem.eql(u8, s, "ora")) return .oracle;
+    if (std.mem.eql(u8, s, "db2") or std.mem.eql(u8, s, "idb2")) return .db2;
+    return error.UnknownDialect;
 }
