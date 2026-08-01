@@ -70,22 +70,37 @@ pub fn concatSlices(alloc: std.mem.Allocator, comptime T: type, a: []const T, b:
 /// Tokenize and parse a .ss file into AST and tokenized lines.
 /// Returns both the parsed tree and the tokenized lines so callers
 /// don't need to re-tokenize for trace output.
+/// The tree is always returned (even on errors) — check tree.error_count
+/// for the number of parse errors. The pipeline can then attempt semantic
+/// analysis on the partial AST to discover additional errors.
 pub fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []const u8, json_errors: bool) !struct { tree: ast_mod.Ast, tokenized: []tokenizer.Line } {
     const tok = tokenizer.Tokenizer.init(lines);
     const tokenized = try tok.tokenizeAll(alloc);
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
     diagnostics.json_errors = json_errors;
     var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
-    const tree = p.parse(tokenized) catch |err| {
-        if (!diagnostics.hasErrors()) {
-            std.debug.print("error: {s}\n", .{@errorName(err)});
-        }
-        return err;
-    };
+    // Parser always succeeds when diagnostics are present — errors are recorded
+    // in the DiagnosticCollector and the tree contains all successfully parsed elements.
+    var tree = try p.parse(tokenized);
     if (diagnostics.hasErrors()) {
+        tree.error_count = diagnostics.errorCount();
         diagnostics.printAll();
         diagnostics.printSummary();
-        return error.DiagnosticsError;
+    }
+    return .{ .tree = tree, .tokenized = tokenized };
+}
+
+/// Tokenize and parse without printing errors. Returns the tree with
+/// error_count set. Used by the pipeline for multi-error recovery —
+/// errors are collected and printed together at the end.
+pub fn tokenizeAndParseLenient(alloc: std.mem.Allocator, lines: []const []const u8) !struct { tree: ast_mod.Ast, tokenized: []tokenizer.Line } {
+    const tok = tokenizer.Tokenizer.init(lines);
+    const tokenized = try tok.tokenizeAll(alloc);
+    var diagnostics = try diag.DiagnosticCollector.init(alloc);
+    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
+    var tree = try p.parse(tokenized);
+    if (diagnostics.hasErrors()) {
+        tree.error_count = diagnostics.errorCount();
     }
     return .{ .tree = tree, .tokenized = tokenized };
 }

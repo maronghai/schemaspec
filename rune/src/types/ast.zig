@@ -260,4 +260,7 @@ pub const Ast = struct {
     tables: []const Table,
     views: []const View,
     sql_comments: []const SqlComment,
+    /// Number of parse errors recorded during parsing.
+    /// When > 0, the AST is partial (some tables/templates may be missing).
+    error_count: usize = 0,
 };

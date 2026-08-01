@@ -70,6 +70,9 @@ pub const CompileConfig = struct {
 /// Unified internal compilation pipeline.
 /// Handles tokenize → parse → (optional imports) → (optional semantic) → ResolvedAst.
 /// `io` is only used when `resolve_imports` is true; pass null when imports are disabled.
+/// When parse errors exist, prints them and returns early.
+/// When parsing succeeds but semantic errors exist, those are also printed.
+/// All errors from both phases are visible to the user.
 fn compileInternal(
     io: ?std.Io,
     alloc: std.mem.Allocator,
@@ -88,7 +91,8 @@ fn compileInternal(
     // Use processed lines (with imports stripped) or raw lines
     const final_lines = if (imports_result) |r| r.processed_lines else raw_lines;
 
-    // Tokenize and parse
+    // Tokenize and parse — returns error on parse errors (which are printed internally).
+    // The tree is always valid; error_count indicates partial results.
     const result = try import_res.tokenizeAndParseWithLines(alloc, final_lines, flags.json_errors);
 
     // Merge imported definitions if requested
@@ -97,6 +101,7 @@ fn compileInternal(
         if (imports.templates.len > 0 or imports.tables.len > 0) {
             tree = .{
                 .schema = tree.schema,
+                .error_count = tree.error_count,
                 .templates = try import_res.concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
                 .tables = try import_res.concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
                 .views = if (flags.merge_imports)

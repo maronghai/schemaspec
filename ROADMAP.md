@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.61.0 (2026-08-01)
+**Current version**: 0.63.0 (2026-08-01)
 
 ---
 
@@ -21,7 +21,7 @@ Polish the existing foundation. Most items shipped in v0.38–v0.40.
 
 ### Parser & Error Recovery
 
-- [ ] Synchronized multi-error recovery — report all syntax errors in one pass instead of fail-fast
+- [x] Synchronized multi-error recovery — report all syntax errors in one pass instead of fail-fast
 - [ ] Partial schema compilation — emit valid SQL for correct tables even when others have errors
 
 ### Semantic Analysis (all done)
@@ -200,6 +200,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.63.0 (2026-08-01)
+
+- **Synchronized multi-error recovery** — Parser now records all syntax errors in a single pass via `DiagnosticCollector` and returns a partial AST with `error_count` field. Users see all parse errors at once instead of stopping at the first one. Pipeline uses `tokenizeAndParseWithLines` which always returns the tree (even with errors), enabling future partial schema compilation.
+- **`Ast.error_count` field** — New field on `types/ast.zig` Ast struct tracks the number of parse errors recorded during parsing. When > 0, the AST is partial (some tables/templates may be missing). Used by the pipeline to determine whether semantic analysis should proceed.
+- **`tokenizeAndParseLenient` function** — New function in `pipeline/import_resolver.zig` that returns the parsed tree without printing errors. Used internally by the pipeline for scenarios where error printing should be deferred.
+- **VERSION sync** — Fixed VERSION file (was 0.61.0, now 0.63.0 to match version.zig).
+- Version bumped to 0.63.0.
 
 ### v0.62.0 (2026-08-01)
 

@@ -68,7 +68,7 @@ rune/src/
   bench.zig, ast_visitor.zig                                       # standalone modules
   generator.zig                                                   # generator registry (pluggable)
   generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig  # generator implementations (10)
-  tests.zig                                                       # colocated test index (51 files)
+  tests.zig                                                       # colocated test index (59 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig,       # pipeline orchestration
                stats.zig
@@ -125,6 +125,8 @@ rune/src/
 - **TypeInfo Methods** (`types/ast.zig`): `TypeInfo` carries embedded `isNumeric()`, `isString()`, `isDatetime()`, `isBoolean()` methods that classify SS type symbols. Collocates type behavior with the type definition — no external lookup tables needed for classification.
 
 - **Template Slot Merging** (`semantic/template.zig`): Template inheritance with `...` slot controls field insertion order. Merge formula: `parent_before + child_before + <concrete> + child_after + parent_after`. Max 4 parents via mixin syntax (`+`).
+
+- **Multi-Error Recovery** (`pipeline/import_resolver.zig`, `types/ast.zig`): Parser records all syntax errors via `DiagnosticCollector` and returns a partial AST with `error_count` field. `tokenizeAndParseWithLines` always returns the tree (even with errors), enabling the pipeline to report all errors in one pass. When `error_count > 0`, the AST is partial (some tables/templates may be missing). Future: semantic analysis on partial ASTs for additional error discovery.
 
 - **Self-contained SqlType** (`types/sql_type.zig`): `SqlType.toSql()` delegates to `DialectBackend.renderType` for dialect-aware rendering. `toJsonSchema()` provides dialect-agnostic JSON Schema output.
 

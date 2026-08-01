@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.63.0] - 2026-08-01
+
+### Added
+- **Synchronized multi-error recovery** — Parser records all syntax errors in a single pass via `DiagnosticCollector` and returns a partial AST with `error_count` field. Users see all parse errors at once instead of stopping at the first one.
+- **`Ast.error_count` field** — New field on `types/ast.zig` Ast struct tracks the number of parse errors recorded during parsing. When > 0, the AST is partial (some tables/templates may be missing).
+- **`tokenizeAndParseLenient` function** — New function in `pipeline/import_resolver.zig` that returns the parsed tree without printing errors, for scenarios where error printing should be deferred.
+
+### Fixed
+- VERSION file sync (was 0.61.0, now matches version.zig at 0.63.0).
+
 ## [0.60.0] - 2026-08-01
 
 ### Added
