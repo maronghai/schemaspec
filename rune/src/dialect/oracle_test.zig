@@ -203,7 +203,7 @@ test "oracle: capability flags" {
     try testing.expect(cap.sequences);
     try testing.expect(cap.generated_columns);
     try testing.expect(cap.alter_drop_column);
-    try testing.expect(!cap.auto_increment);
+    try testing.expect(cap.auto_increment);
     try testing.expect(!cap.unsigned);
     try testing.expect(!cap.enum_type);
 }

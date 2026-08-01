@@ -76,6 +76,8 @@ pub fn parseFusedTypeModifier(tok: []const u8, line_no: usize) ?FusedTypeResult 
                         const suffix = rest[end..];
                         if (std.mem.eql(u8, suffix, "++")) {
                             modifier = .{ .kind = .auto_inc_pk, .line_no = line_no };
+                        } else if (std.mem.eql(u8, suffix, "+")) {
+                            modifier = .{ .kind = .auto_inc, .line_no = line_no };
                         } else if (std.mem.eql(u8, suffix, "*")) {
                             modifier = .{ .kind = .not_null, .line_no = line_no };
                         } else if (std.mem.eql(u8, suffix, "!")) {
