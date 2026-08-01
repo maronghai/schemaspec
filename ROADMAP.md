@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.76.0 (2026-08-02)
+**Current version**: 0.77.0 (2026-08-02)
 
 ---
 
@@ -139,10 +139,10 @@ Make Rune delightful to use day-to-day.
 
 ### CLI Improvements
 
-- [ ] `rune init` — scaffold a new project with example schema
+- [x] `rune init` — scaffold a new project with example schema (v0.66.0)
 - [ ] `rune playground` — web-based `.ss` editor with live compilation (WASM)
-- [ ] Shell completion scripts — `rune completions bash|zsh|fish|powershell`
-- [x] `rune fmt` — auto-format `.ss` files
+- [x] Shell completion scripts — `rune completions bash|zsh|fish|powershell` (v0.66.0)
+- [x] `rune fmt` — auto-format `.ss` files (v0.68.0)
 - [ ] Colored output — syntax-highlighted SQL and diff output
 
 ---
@@ -201,6 +201,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.77.0 (2026-08-02)
+
+- **Fixed duplicate detection patterns** — Removed duplicate `GENERATED ALWAYS AS (` and `DECFLOAT` checks in `reverse/dialect_detect.zig` that double-counted Db2 detection scores.
+- **Fixed test_bench.sh cross-platform path** — Removed hardcoded Windows `.exe` suffix; now uses `lib.sh`'s `BIN_SUFFIX` variable for Linux/macOS/Windows compatibility.
+- **Expanded test coverage runner** — Added OpenAPI and GraphQL test suites to `test_coverage.sh` (were present but not included in the full runner).
+- **ROADMAP accuracy** — Marked `rune init` (v0.66.0), `rune completions` (v0.66.0), and `rune fmt` (v0.68.0) as done.
 
 ### v0.76.0 (2026-08-02)
 

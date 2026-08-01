@@ -79,10 +79,8 @@ pub fn detectSqlDialect(sql: []const u8) codegen.Dialect {
     if (std.mem.indexOf(u8, sql, "GRAPHIC") != null) scores[5] += 3;
     if (std.mem.indexOf(u8, sql, "VARGRAPHIC") != null) scores[5] += 3;
     if (std.mem.indexOf(u8, sql, "GENERATED ALWAYS AS (") != null) scores[5] += 3;
-    if (std.mem.indexOf(u8, sql, "GENERATED ALWAYS AS (") != null) scores[5] += 3;
     if (std.mem.indexOf(u8, sql, "SMALLINT") != null) scores[5] += 1;
     if (std.mem.indexOf(u8, sql, "BIGINT") != null) scores[5] += 1;
-    if (std.mem.indexOf(u8, sql, "DECFLOAT") != null) scores[5] += 3;
     if (std.mem.indexOf(u8, sql, "DATALINKS") != null) scores[5] += 3;
 
     // Determine winner (ties → MySQL)

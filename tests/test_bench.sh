@@ -13,7 +13,6 @@ source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 TEST_DIR="$SCRIPT_DIR"
 BENCH_DIR="$TEST_DIR/../bench"
-COMPILER="$TEST_DIR/../rune/zig-out/bin/rune.exe"
 BASELINE_FILE="$BENCH_DIR/baseline.json"
 BENCH_FILE="$TEST_DIR/03-all-types.ss"
 ITERATIONS=3
