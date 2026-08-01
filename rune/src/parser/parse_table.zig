@@ -168,7 +168,7 @@ fn detectSetOperation(query: ?[]const u8) ?SetOperationResult {
             in_double_quote = !in_double_quote;
         } else if (!in_single_quote and !in_double_quote) {
             for (keywords) |kw| {
-                if (i + kw.text.len <= q.len and std.mem.eql(u8, q[i..i + kw.text.len], kw.text)) {
+                if (i + kw.text.len <= q.len and std.mem.eql(u8, q[i .. i + kw.text.len], kw.text)) {
                     return .{
                         .first = std.mem.trimEnd(u8, q[0..i], " "),
                         .op = kw.op,
