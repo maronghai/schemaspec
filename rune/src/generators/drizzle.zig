@@ -342,32 +342,9 @@ fn columnConstructor(col: typed_ast.TypedColumn, dialect: Dialect) []const u8 {
     };
 }
 
-fn drizzleFormatBoolTrue(w: *Writer) !void {
-    try w.writeAll("true");
-}
-fn drizzleFormatBoolFalse(w: *Writer) !void {
-    try w.writeAll("false");
-}
-fn drizzleFormatNull(w: *Writer) !void {
-    try w.writeAll("null");
-}
-fn drizzleFormatNow(w: *Writer) !void {
-    try w.writeAll("new Date()");
-}
-fn drizzleFormatString(w: *Writer, dflt: []const u8) !void {
-    const trimmed = std.mem.trim(u8, dflt, "'");
-    try w.print("'{s}'", .{trimmed});
-}
-
 fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
     _ = col;
-    try common.writeFormattedDefault(w, dflt, .{
-        .boolTrue = drizzleFormatBoolTrue,
-        .boolFalse = drizzleFormatBoolFalse,
-        .nullValue = drizzleFormatNull,
-        .now = drizzleFormatNow,
-        .formatString = drizzleFormatString,
-    });
+    try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.drizzle));
 }
 
 // ─── FK Constraint Generation (composite) ──────────────────────

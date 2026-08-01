@@ -276,30 +276,7 @@ fn writeColumnType(w: *Writer, col: typed_ast.TypedColumn) !void {
     }
 }
 
-fn sqlalchemyFormatBoolTrue(w: *Writer) !void {
-    try w.writeAll("'true'");
-}
-fn sqlalchemyFormatBoolFalse(w: *Writer) !void {
-    try w.writeAll("'false'");
-}
-fn sqlalchemyFormatNull(w: *Writer) !void {
-    try w.writeAll("None");
-}
-fn sqlalchemyFormatNow(w: *Writer) !void {
-    try w.writeAll("'now()'");
-}
-fn sqlalchemyFormatString(w: *Writer, dflt: []const u8) !void {
-    const trimmed = std.mem.trim(u8, dflt, "'");
-    try w.print("'{s}'", .{trimmed});
-}
-
 fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
     _ = col;
-    try common.writeFormattedDefault(w, dflt, .{
-        .boolTrue = sqlalchemyFormatBoolTrue,
-        .boolFalse = sqlalchemyFormatBoolFalse,
-        .nullValue = sqlalchemyFormatNull,
-        .now = sqlalchemyFormatNow,
-        .formatString = sqlalchemyFormatString,
-    });
+    try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.sqlalchemy));
 }

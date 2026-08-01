@@ -290,32 +290,9 @@ fn tsType(col: typed_ast.TypedColumn) []const u8 {
     };
 }
 
-fn typeormFormatBoolTrue(w: *Writer) !void {
-    try w.writeAll("true");
-}
-fn typeormFormatBoolFalse(w: *Writer) !void {
-    try w.writeAll("false");
-}
-fn typeormFormatNull(w: *Writer) !void {
-    try w.writeAll("null");
-}
-fn typeormFormatNow(w: *Writer) !void {
-    try w.writeAll("() => new Date()");
-}
-fn typeormFormatString(w: *Writer, dflt: []const u8) !void {
-    const trimmed = std.mem.trim(u8, dflt, "'");
-    try w.print("'{s}'", .{trimmed});
-}
-
 fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
     _ = col;
-    try common.writeFormattedDefault(w, dflt, .{
-        .boolTrue = typeormFormatBoolTrue,
-        .boolFalse = typeormFormatBoolFalse,
-        .nullValue = typeormFormatNull,
-        .now = typeormFormatNow,
-        .formatString = typeormFormatString,
-    });
+    try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.typeorm));
 }
 
 // ─── Helpers ────────────────────────────────────────────────────

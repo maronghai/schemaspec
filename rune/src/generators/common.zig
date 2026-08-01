@@ -44,6 +44,68 @@ pub const DefaultFormatter = struct {
     formatString: *const fn (w: *Writer, dflt: []const u8) anyerror!void,
 };
 
+/// Pre-defined ORM target languages for DefaultFormatter.
+pub const OrmTarget = enum {
+    drizzle,
+    knex,
+    sqlalchemy,
+    typeorm,
+};
+
+/// Shared callback: format string as single-quoted (used by all ORMs).
+fn formatStringSingleQuoted(w: *Writer, dflt: []const u8) !void {
+    const trimmed = std.mem.trim(u8, dflt, "'");
+    try w.print("'{s}'", .{trimmed});
+}
+
+// ─── Per-ORM Callbacks ────────────────────────────────────────
+
+fn jsBoolTrue(w: *Writer) !void { try w.writeAll("true"); }
+fn jsBoolFalse(w: *Writer) !void { try w.writeAll("false"); }
+fn jsNull(w: *Writer) !void { try w.writeAll("null"); }
+
+fn drizzleNow(w: *Writer) !void { try w.writeAll("new Date()"); }
+fn knexNow(w: *Writer) !void { try w.writeAll("knex.fn.now()"); }
+fn sqlalchemyBoolTrue(w: *Writer) !void { try w.writeAll("'true'"); }
+fn sqlalchemyBoolFalse(w: *Writer) !void { try w.writeAll("'false'"); }
+fn sqlalchemyNull(w: *Writer) !void { try w.writeAll("None"); }
+fn sqlalchemyNow(w: *Writer) !void { try w.writeAll("'now()'"); }
+fn typeormNow(w: *Writer) !void { try w.writeAll("() => new Date()"); }
+
+/// Get a pre-configured DefaultFormatter for the given ORM target.
+pub fn getOrmFormatter(target: OrmTarget) DefaultFormatter {
+    return switch (target) {
+        .drizzle => .{
+            .boolTrue = jsBoolTrue,
+            .boolFalse = jsBoolFalse,
+            .nullValue = jsNull,
+            .now = drizzleNow,
+            .formatString = formatStringSingleQuoted,
+        },
+        .knex => .{
+            .boolTrue = jsBoolTrue,
+            .boolFalse = jsBoolFalse,
+            .nullValue = jsNull,
+            .now = knexNow,
+            .formatString = formatStringSingleQuoted,
+        },
+        .sqlalchemy => .{
+            .boolTrue = sqlalchemyBoolTrue,
+            .boolFalse = sqlalchemyBoolFalse,
+            .nullValue = sqlalchemyNull,
+            .now = sqlalchemyNow,
+            .formatString = formatStringSingleQuoted,
+        },
+        .typeorm => .{
+            .boolTrue = jsBoolTrue,
+            .boolFalse = jsBoolFalse,
+            .nullValue = jsNull,
+            .now = typeormNow,
+            .formatString = formatStringSingleQuoted,
+        },
+    };
+}
+
 /// Shared default value writer. Parses the raw SQL default value and
 /// delegates formatting to language-specific callbacks.
 pub fn writeFormattedDefault(w: *Writer, dflt: []const u8, fmt: DefaultFormatter) !void {

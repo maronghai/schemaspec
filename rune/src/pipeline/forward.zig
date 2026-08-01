@@ -309,10 +309,8 @@ pub fn handleCompileRequest(
 }
 
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
-/// Always succeeds (exit 0) as long as the pipeline runs. Errors are printed
-/// and the message "schema has errors" is shown, but the exit code is still 0.
-/// With strict=true, returns error.DiagnosticsError on errors (exit code 1).
-/// Use `handleCheck` for CI gates that need exit code 1 on errors.
+/// With strict=false (default validate): always succeeds (exit 0), prints errors but doesn't fail.
+/// With strict=true (check mode): returns error.DiagnosticsError on errors (exit 1).
 pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool) !void {
     const result = compilePipelineVerbose(alloc, file_data, verbose_passes, json_errors) catch |err| {
         if (err == error.DiagnosticsError or err == error.SemanticError) {
@@ -333,18 +331,9 @@ pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8
     std.debug.print("schema is valid\n", .{});
 }
 
-/// Check a .ss file — runs the full semantic pipeline and fails on errors.
-/// Returns error.DiagnosticsError or error.SemanticError on errors (exit code 1).
-/// Used for CI gates: `rune check schema.ss` exits 1 if the schema has errors.
-pub fn handleCheck(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool) !void {
-    const result = try compilePipelineVerbose(alloc, file_data, verbose_passes, json_errors);
-    if (stats) {
-        printStats(computeStats(result.resolved));
-    }
-    if (result.partial) {
-        return error.DiagnosticsError;
-    }
-    std.debug.print("schema is valid\n", .{});
+/// Check a .ss file — CI gate mode. Fails on any schema error.
+pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool) !void {
+    return handleValidate(io, alloc, file_data, stats, verbose_passes, json_errors, true);
 }
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.

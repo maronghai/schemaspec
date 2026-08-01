@@ -4,30 +4,10 @@ const typed_ast = @import("../types/typed_ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 
 const testing = std.testing;
-const test_helpers = @import("../semantic/test_helpers.zig");
-const makeTestColumn = test_helpers.makeTestColumn;
-
-fn makeTestTable(name: []const u8, columns: []const typed_ast.TypedColumn) typed_ast.TypedTable {
-    return .{
-        .name = name,
-        .comment = null,
-        .engine = null,
-        .columns = columns,
-        .fks = &.{},
-        .indexes = &.{},
-        .line_no = 1,
-    };
-}
-
-fn makeTestAst(tables: []const typed_ast.TypedTable) typed_ast.TypedAst {
-    return .{
-        .schema_name = null,
-        .schema_charset = null,
-        .tables = tables,
-        .views = &.{},
-        .sql_comments = &.{},
-    };
-}
+const ct = @import("common_test.zig");
+const makeTestColumn = ct.makeTestColumn;
+const makeTestTable = ct.makeTestTable;
+const makeTestAst = ct.makeTestAst;
 
 test "docs: empty schema" {
     const alloc = testing.allocator;

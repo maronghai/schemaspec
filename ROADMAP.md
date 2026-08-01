@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.70.0 (2026-08-01)
+**Current version**: 0.71.0 (2026-08-02)
 
 ---
 
@@ -200,6 +200,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.71.0 (2026-08-02)
+
+- **Shared generator test helpers** (`generators/common_test.zig`) — Extracted `makeTestTable`, `makeTestTableWithFks`, `makeTestTableWithIndexes`, `makeTestAst`, `makeTestAstWithName`, `makeTestColumn`, `makeTestColumnWithFlags` into a shared module. Eliminated ~120 lines of duplicated helper definitions across 8 generator test files (drizzle, knex, typeorm, sqlalchemy, prisma, docs, json_schema, sql_ddl, graphql, openapi).
+- **Consolidated ORM default format callbacks** — Added `OrmTarget` enum and `getOrmFormatter()` factory to `generators/common.zig`. Pre-built formatters for drizzle, knex, sqlalchemy, and typeorm with shared `formatStringSingleQuoted`, `jsBoolTrue`/`jsBoolFalse`/`jsNull` callbacks. Eliminated ~60 lines of duplicated callback functions across 4 ORM generators.
+- **Unified validate/check handlers** — `handleCheck` now delegates to `handleValidate` with `strict=true`, eliminating ~10 lines of duplicated error handling logic in `pipeline/forward.zig`.
+- **Named constant for magic number** — Replaced magic number `32` with `MAX_CUSTOM_TYPE_DEPTH` in `types/type_resolver.zig` for circular custom type detection.
 
 ### v0.70.0 (2026-08-01)
 

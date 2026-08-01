@@ -8,6 +8,10 @@ const dialect_enum = @import("../dialect/enum.zig");
 const Field = ast_mod.Field;
 const Dialect = dialect_enum.Dialect;
 const TypedAst = typed_ast_mod.TypedAst;
+
+/// Maximum recursion depth for custom type resolution.
+/// Real schemas rarely exceed 3 levels; 32 catches circular references.
+const MAX_CUSTOM_TYPE_DEPTH = 32;
 const TypedTable = typed_ast_mod.TypedTable;
 const TypedView = typed_ast_mod.TypedView;
 const TypedColumn = typed_ast_mod.TypedColumn;
@@ -77,8 +81,7 @@ pub const TypeResolver = struct {
         if (field.type_info == .simple and field.type_info.simple.len > 1) {
             if (type_map.lookupCustomType(custom_types, field.type_info.simple, dialect)) |ct_info| {
                 // Detect circular custom type references (e.g., ~A B + ~B A).
-                // Max depth of 32 is generous — real schemas rarely exceed 3 levels.
-                if (depth >= 32) {
+                if (depth >= MAX_CUSTOM_TYPE_DEPTH) {
                     return error.CircularCustomType;
                 }
                 // Recursively resolve the custom type's base info

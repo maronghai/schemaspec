@@ -1,58 +1,16 @@
 const std = @import("std");
 const gen = @import("typeorm.zig");
 const typed_ast = @import("../types/typed_ast.zig");
-const dialect_enum = @import("../dialect/enum.zig");
 const ast_mod = @import("../types/ast.zig");
+const dialect_enum = @import("../dialect/enum.zig");
 
 const testing = std.testing;
-const test_helpers = @import("../semantic/test_helpers.zig");
-const makeTestColumn = test_helpers.makeTestColumn;
-
-fn makeTestTable(name: []const u8, columns: []const typed_ast.TypedColumn) typed_ast.TypedTable {
-    return .{
-        .name = name,
-        .comment = null,
-        .engine = null,
-        .columns = columns,
-        .fks = &.{},
-        .indexes = &.{},
-        .line_no = 1,
-    };
-}
-
-fn makeTestTableWithFks(name: []const u8, columns: []const typed_ast.TypedColumn, fks: []const ast_mod.FkDecl) typed_ast.TypedTable {
-    return .{
-        .name = name,
-        .comment = null,
-        .engine = null,
-        .columns = columns,
-        .fks = fks,
-        .indexes = &.{},
-        .line_no = 1,
-    };
-}
-
-fn makeTestTableWithIndexes(name: []const u8, columns: []const typed_ast.TypedColumn, indexes: []const ast_mod.IndexDecl) typed_ast.TypedTable {
-    return .{
-        .name = name,
-        .comment = null,
-        .engine = null,
-        .columns = columns,
-        .fks = &.{},
-        .indexes = indexes,
-        .line_no = 1,
-    };
-}
-
-fn makeTestAst(tables: []const typed_ast.TypedTable) typed_ast.TypedAst {
-    return .{
-        .schema_name = null,
-        .schema_charset = null,
-        .tables = tables,
-        .views = &.{},
-        .sql_comments = &.{},
-    };
-}
+const ct = @import("common_test.zig");
+const makeTestColumn = ct.makeTestColumn;
+const makeTestTable = ct.makeTestTable;
+const makeTestTableWithFks = ct.makeTestTableWithFks;
+const makeTestTableWithIndexes = ct.makeTestTableWithIndexes;
+const makeTestAst = ct.makeTestAst;
 
 test "typeorm: single table basic columns" {
     const alloc = testing.allocator;

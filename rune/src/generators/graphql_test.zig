@@ -2,55 +2,20 @@ const std = @import("std");
 const testing = std.testing;
 const graphql = @import("graphql.zig");
 const typed_ast = @import("../types/typed_ast.zig");
-const sql_type_mod = @import("../types/sql_type.zig");
 const ast_mod = @import("../types/ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 
 const Dialect = dialect_enum.Dialect;
-const SqlType = sql_type_mod.SqlType;
 const TypedAst = typed_ast.TypedAst;
 const TypedTable = typed_ast.TypedTable;
 const TypedColumn = typed_ast.TypedColumn;
 const TypedView = typed_ast.TypedView;
-const ColumnFlags = typed_ast.ColumnFlags;
 const FkDecl = ast_mod.FkDecl;
 
-// ─── Helpers ──────────────────────────────────────────────────
-
-fn makeTestColumn(name: []const u8, sql_type_val: SqlType, flags: ColumnFlags) TypedColumn {
-    return .{
-        .name = name,
-        .sql_type = sql_type_val,
-        .flags = flags,
-        .default = null,
-        .check = null,
-        .comment = null,
-        .enum_values = &.{},
-        .line_no = 1,
-    };
-}
-
-fn makeTestTable(name: []const u8, columns: []const TypedColumn) TypedTable {
-    return .{
-        .name = name,
-        .comment = null,
-        .engine = null,
-        .columns = columns,
-        .fks = &.{},
-        .indexes = &.{},
-        .line_no = 1,
-    };
-}
-
-fn makeTestAst(schema_name: ?[]const u8, tables: []const TypedTable) TypedAst {
-    return .{
-        .schema_name = schema_name,
-        .schema_charset = null,
-        .tables = tables,
-        .views = &.{},
-        .sql_comments = &.{},
-    };
-}
+const ct = @import("common_test.zig");
+const makeTestColumn = ct.makeTestColumnWithFlags;
+const makeTestTable = ct.makeTestTable;
+const makeTestAst = ct.makeTestAstWithName;
 
 // ─── Tests ────────────────────────────────────────────────────
 
