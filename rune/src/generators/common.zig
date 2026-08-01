@@ -60,17 +60,37 @@ fn formatStringSingleQuoted(w: *Writer, dflt: []const u8) !void {
 
 // ─── Per-ORM Callbacks ────────────────────────────────────────
 
-fn jsBoolTrue(w: *Writer) !void { try w.writeAll("true"); }
-fn jsBoolFalse(w: *Writer) !void { try w.writeAll("false"); }
-fn jsNull(w: *Writer) !void { try w.writeAll("null"); }
+fn jsBoolTrue(w: *Writer) !void {
+    try w.writeAll("true");
+}
+fn jsBoolFalse(w: *Writer) !void {
+    try w.writeAll("false");
+}
+fn jsNull(w: *Writer) !void {
+    try w.writeAll("null");
+}
 
-fn drizzleNow(w: *Writer) !void { try w.writeAll("new Date()"); }
-fn knexNow(w: *Writer) !void { try w.writeAll("knex.fn.now()"); }
-fn sqlalchemyBoolTrue(w: *Writer) !void { try w.writeAll("'true'"); }
-fn sqlalchemyBoolFalse(w: *Writer) !void { try w.writeAll("'false'"); }
-fn sqlalchemyNull(w: *Writer) !void { try w.writeAll("None"); }
-fn sqlalchemyNow(w: *Writer) !void { try w.writeAll("'now()'"); }
-fn typeormNow(w: *Writer) !void { try w.writeAll("() => new Date()"); }
+fn drizzleNow(w: *Writer) !void {
+    try w.writeAll("new Date()");
+}
+fn knexNow(w: *Writer) !void {
+    try w.writeAll("knex.fn.now()");
+}
+fn sqlalchemyBoolTrue(w: *Writer) !void {
+    try w.writeAll("'true'");
+}
+fn sqlalchemyBoolFalse(w: *Writer) !void {
+    try w.writeAll("'false'");
+}
+fn sqlalchemyNull(w: *Writer) !void {
+    try w.writeAll("None");
+}
+fn sqlalchemyNow(w: *Writer) !void {
+    try w.writeAll("'now()'");
+}
+fn typeormNow(w: *Writer) !void {
+    try w.writeAll("() => new Date()");
+}
 
 /// Get a pre-configured DefaultFormatter for the given ORM target.
 pub fn getOrmFormatter(target: OrmTarget) DefaultFormatter {
