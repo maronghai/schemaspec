@@ -167,7 +167,10 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
 
     // Regular column
     switch (col.sql_type) {
-        .varchar => |len| try w.print("    table.{s}('{s}', {d})", .{ knexType(col), col.name, len }),
+        .varchar => |len| if (len > 0)
+            try w.print("    table.{s}('{s}', {d})", .{ knexType(col), col.name, len })
+        else
+            try w.print("    table.{s}('{s}')", .{ knexType(col), col.name }),
         else => try w.print("    table.{s}('{s}')", .{ knexType(col), col.name }),
     }
 

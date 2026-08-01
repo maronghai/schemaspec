@@ -68,7 +68,7 @@ rune/src/
   bench.zig, ast_visitor.zig                                       # standalone modules
   generator.zig                                                   # generator registry (pluggable)
   generators/      common.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig  # generator implementations (10)
-  tests.zig                                                       # colocated test index (59 files)
+  tests.zig                                                       # colocated test index (60 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig,       # pipeline orchestration
                stats.zig
@@ -210,7 +210,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 59 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 60 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 16 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 87), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (21), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_openapi.sh` (3), `test_roundtrip.sh` (68), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

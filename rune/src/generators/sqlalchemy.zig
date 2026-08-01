@@ -145,27 +145,38 @@ fn writeModel(w: *Writer, table: typed_ast.TypedTable) !void {
         try writeColumn(w, col, table);
     }
 
-    // Composite indexes
+    // Collect all table-level constraints (composite indexes, unique constraints, single-column indexes)
+    // and emit them in a single __table_args__ assignment.
+    var has_table_args = false;
     for (table.indexes) |idx| {
         if (idx.kind == .primary_key) continue;
-        if (idx.fields.len > 1) {
-            try w.print("    __table_args__ = (", .{});
-            if (idx.kind == .unique) {
-                try w.writeAll("UniqueConstraint(");
+        if (idx.fields.len > 1 or idx.kind == .regular or idx.kind == .unique) {
+            if (!has_table_args) {
+                try w.writeAll("    __table_args__ = (\n");
+                has_table_args = true;
+            }
+            if (idx.kind == .unique and idx.fields.len > 1) {
+                try w.writeAll("        UniqueConstraint(");
                 for (idx.fields, 0..) |field, fi| {
                     if (fi > 0) try w.writeAll(", ");
                     try w.print("'{s}'", .{field});
                 }
-                try w.writeAll(")");
-            } else {
-                try w.print("Index('{s}'", .{idx.name});
+                try w.writeAll("),\n");
+            } else if (idx.fields.len > 1) {
+                try w.print("        Index('{s}'", .{idx.name});
                 for (idx.fields) |field| {
                     try w.print(", '{s}'", .{field});
                 }
-                try w.writeAll(")");
+                try w.writeAll("),\n");
+            } else if (idx.kind == .unique) {
+                try w.print("        UniqueConstraint('{s}'),\n", .{idx.fields[0]});
+            } else {
+                try w.print("        Index('{s}', '{s}'),\n", .{ idx.name, idx.fields[0] });
             }
-            try w.writeAll(",)\n");
         }
+    }
+    if (has_table_args) {
+        try w.writeAll("    )\n");
     }
 }
 

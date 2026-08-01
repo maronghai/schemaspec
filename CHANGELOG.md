@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.64.0] - 2026-08-01
+
+### Fixed
+- **TypeORM FK emission** — TypeORM generator now correctly emits `@ManyToOne` + `@JoinColumn` decorators for foreign key columns. Previously, FK columns were silently skipped with no relation output.
+- **Knex varchar(0)** — Knex generator now defaults to 255 when varchar length is 0, matching the behavior of all other generators (TypeORM, SQLAlchemy, Docs). Previously emitted `string('name', 0)` which is invalid in Knex.
+- **SQLAlchemy multi-index** — SQLAlchemy generator now emits a single `__table_args__` tuple containing all table-level constraints (composite indexes, unique constraints, single-column indexes). Previously emitted one `__table_args__` assignment per index, with only the last surviving.
+- **Partial compilation warning** — `rune compile` now emits a warning when the schema has parse errors but valid tables can still produce SQL output. Shows the count of skipped tables.
+
+### Added
+- **MSSQL unit tests** — Added `dialect/mssql_test.zig` with 9 tests covering type rendering (12 SQL types), quoteChar, quoteIdent, emitPrimaryKey, emitTimestampModifier, emitCreateView, emitEnumTypeCheck, capability flags, and generated columns. MSSQL now has test coverage matching MySQL/PG/SQLite.
+- **Partial compilation** — `PipelineResult` now includes `partial: bool` and `skipped_tables: u32` fields. The pipeline continues with semantic analysis and codegen when parse errors exist, producing SQL for valid tables only.
+
 ## [0.63.0] - 2026-08-01
 
 ### Added

@@ -175,10 +175,13 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
         }
     }
 
-    // Check if this column is an FK — if so, skip it (handled by @ManyToOne)
+    // Check if this column is an FK — emit @ManyToOne + @JoinColumn
     for (table.fks) |fk| {
         if (fk.fields.len == 1 and std.mem.eql(u8, fk.fields[0], col.name)) {
-            return; // FK column handled by relation decorator
+            try w.print("  @ManyToOne(() => {s})\n", .{fk.ref_table});
+            try w.print("  @JoinColumn({{ name: '{s}' }})\n", .{col.name});
+            try w.print("  {s}: {s};\n\n", .{ col.name, fk.ref_table });
+            return;
         }
     }
 

@@ -23,6 +23,10 @@ pub const PipelineResult = struct {
     resolved: resolved_ast.ResolvedAst,
     lines: []tokenizer.Line,
     tree: ast_mod.Ast,
+    /// True when some tables were skipped due to parse errors (partial compilation).
+    partial: bool = false,
+    /// Number of tables skipped during partial compilation.
+    skipped_tables: u32 = 0,
 };
 
 // ─── Re-export import types for callers ────────────────────────
@@ -79,7 +83,7 @@ fn compileInternal(
     file_data: []const u8,
     import_ctx: ?*ImportContext,
     flags: CompileFlags,
-) !struct { tree: ast_mod.Ast, lines: []tokenizer.Line, resolved: ?resolved_ast.ResolvedAst } {
+) !struct { tree: ast_mod.Ast, lines: []tokenizer.Line, resolved: ?resolved_ast.ResolvedAst, partial: bool } {
     const raw_lines = try import_res.splitLines(alloc, file_data);
 
     // Resolve @import directives only when enabled and io is available
@@ -117,25 +121,44 @@ fn compileInternal(
     }
 
     // Run semantic analysis if requested
+    // In partial mode (error_count > 0), still run semantic analysis on available tables.
+    // Successfully parsed tables are complete; errored tables are simply absent.
     const resolved = if (flags.run_semantic) blk: {
         var sa = if (flags.verbose_passes) semantic.SemanticAnalyzer.initVerbose(alloc) else semantic.SemanticAnalyzer.init(alloc);
         break :blk sa.analyze(tree) catch |err| return err;
     } else null;
 
-    return .{ .tree = tree, .lines = result.tokenized, .resolved = resolved };
+    return .{
+        .tree = tree,
+        .lines = result.tokenized,
+        .resolved = resolved,
+        .partial = tree.error_count > 0,
+    };
 }
 
 /// Shared tokenizer → parser → semantic pipeline.
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
 pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
     const result = try compileInternal(null, alloc, file_data, null, .{});
-    return .{ .resolved = result.resolved orelse return error.SemanticError, .lines = result.lines, .tree = result.tree };
+    return .{
+        .resolved = result.resolved orelse return error.SemanticError,
+        .lines = result.lines,
+        .tree = result.tree,
+        .partial = result.partial,
+        .skipped_tables = if (result.partial) @intCast(result.tree.error_count) else 0,
+    };
 }
 
 /// Shared tokenizer → parser → semantic pipeline with verbose pass tracking.
 pub fn compilePipelineVerbose(alloc: std.mem.Allocator, file_data: []const u8, verbose: bool, json_errors: bool) !PipelineResult {
     const result = try compileInternal(null, alloc, file_data, null, .{ .verbose_passes = verbose, .json_errors = json_errors });
-    return .{ .resolved = result.resolved orelse return error.SemanticError, .lines = result.lines, .tree = result.tree };
+    return .{
+        .resolved = result.resolved orelse return error.SemanticError,
+        .lines = result.lines,
+        .tree = result.tree,
+        .partial = result.partial,
+        .skipped_tables = if (result.partial) @intCast(result.tree.error_count) else 0,
+    };
 }
 
 /// Compile pipeline with import resolution. Handles @import directives by
@@ -146,7 +169,13 @@ fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: [
         .merge_imports = true,
         .json_errors = json_errors,
     });
-    return .{ .resolved = result.resolved orelse return error.SemanticError, .lines = result.lines, .tree = result.tree };
+    return .{
+        .resolved = result.resolved orelse return error.SemanticError,
+        .lines = result.lines,
+        .tree = result.tree,
+        .partial = result.partial,
+        .skipped_tables = if (result.partial) @intCast(result.tree.error_count) else 0,
+    };
 }
 
 /// Tokenize and parse a .ss file, resolving @import directives recursively.
@@ -259,7 +288,17 @@ pub fn handleCompileRequest(
         printStats(computeStats(pipeline.resolved));
     }
 
+    if (pipeline.partial and !cfg.quiet) {
+        std.debug.print("warning: schema has parse errors — {d} table(s) skipped, emitting SQL for valid tables only\n", .{pipeline.skipped_tables});
+    }
+
     if (cfg.check) {
+        if (pipeline.partial) {
+            if (!cfg.quiet) {
+                std.debug.print("schema has errors (partial output)\n", .{});
+            }
+            return error.DiagnosticsError;
+        }
         if (!cfg.quiet) {
             std.debug.print("schema is valid\n", .{});
         }
@@ -286,6 +325,11 @@ pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8
     if (stats) {
         printStats(computeStats(result.resolved));
     }
+    if (result.partial) {
+        std.debug.print("schema has errors (partial)\n", .{});
+        if (strict) return error.DiagnosticsError;
+        return;
+    }
     std.debug.print("schema is valid\n", .{});
 }
 
@@ -296,6 +340,9 @@ pub fn handleCheck(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, s
     const result = try compilePipelineVerbose(alloc, file_data, verbose_passes, json_errors);
     if (stats) {
         printStats(computeStats(result.resolved));
+    }
+    if (result.partial) {
+        return error.DiagnosticsError;
     }
     std.debug.print("schema is valid\n", .{});
 }

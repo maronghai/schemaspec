@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.63.0 (2026-08-01)
+**Current version**: 0.64.0 (2026-08-01)
 
 ---
 
@@ -22,7 +22,7 @@ Polish the existing foundation. Most items shipped in v0.38–v0.40.
 ### Parser & Error Recovery
 
 - [x] Synchronized multi-error recovery — report all syntax errors in one pass instead of fail-fast
-- [ ] Partial schema compilation — emit valid SQL for correct tables even when others have errors
+- [x] Partial schema compilation — emit valid SQL for correct tables even when others have errors
 
 ### Semantic Analysis (all done)
 
@@ -200,6 +200,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.64.0 (2026-08-01)
+
+- **TypeORM FK emission fix** — TypeORM generator now correctly emits `@ManyToOne` + `@JoinColumn` decorators for FK columns. Previously silently dropped all foreign key relations.
+- **Knex varchar(0) fix** — Knex generator defaults to 255 when varchar length is 0, matching other generators.
+- **SQLAlchemy multi-index fix** — Single `__table_args__` tuple for all table-level constraints instead of one per index.
+- **Partial schema compilation** — Pipeline continues with semantic analysis and codegen when parse errors exist, producing SQL for valid tables only. Warning shows count of skipped tables.
+- **MSSQL unit tests** — 9 new tests for `dialect/mssql.zig` covering type rendering, quoting, capabilities, and generated columns.
+- Version bumped to 0.64.0.
 
 ### v0.63.0 (2026-08-01)
 

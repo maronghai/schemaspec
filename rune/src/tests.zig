@@ -13,6 +13,7 @@ comptime {
     _ = @import("dialect/mysql_test.zig");
     _ = @import("dialect/pg_test.zig");
     _ = @import("dialect/sqlite_test.zig");
+    _ = @import("dialect/mssql_test.zig");
     _ = @import("dialect/sqlite_hints_test.zig");
     // diff
     _ = @import("diff/diff_test.zig");
