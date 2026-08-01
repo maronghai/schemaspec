@@ -43,26 +43,13 @@ fn pgEmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyer
         else => {
             // PG doesn't support adding regular indexes via ALTER TABLE.
             // Close the current ALTER TABLE and emit a standalone CREATE INDEX.
-            try w.writeAll(";\n\nCREATE INDEX ");
-            try common.quoteIdentDoubleQuote(w, idx.name);
-            try w.writeAll(" ON ");
-            try common.quoteIdentDoubleQuote(w, table_name);
-            try w.writeAll(" (");
-            try common.emitIndexFields(w, idx);
-            try w.writeAll(");\n\nALTER TABLE ");
-            try common.quoteIdentDoubleQuote(w, table_name);
-            try w.writeAll("\n");
+            try common.emitAlterAddIndexStandalone(w, table_name, idx, common.quoteIdentDoubleQuote);
         },
     }
 }
 
 fn pgEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
-    try w.writeAll("DROP CONSTRAINT \"fk_");
-    for (fk.fields, 0..) |f, i| {
-        if (i > 0) try w.writeAll("_");
-        try w.writeAll(f);
-    }
-    try w.writeAll("\"");
+    try common.emitAlterDropFkShared(w, fk, "fk_", "", "_");
 }
 
 fn pgEmitAlterTableComment(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {

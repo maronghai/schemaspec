@@ -161,20 +161,7 @@ fn db2EmitAlterRenameColumn(w: *Writer, old_name: []const u8, new_name: []const 
 
 fn db2EmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void {
     // Db2: CREATE INDEX is standalone, not part of ALTER TABLE
-    try w.writeAll(";\n\nCREATE ");
-    if (idx.kind == .unique) try w.writeAll("UNIQUE ");
-    try w.writeAll("INDEX ");
-    try db2QuoteIdent(w, idx.name);
-    try w.writeAll(" ON ");
-    try db2QuoteIdent(w, table_name);
-    try w.writeAll(" (");
-    for (idx.fields, 0..) |f, fi| {
-        if (fi > 0) try w.writeAll(", ");
-        try db2QuoteIdent(w, f);
-    }
-    try w.writeAll(");\n\nALTER TABLE ");
-    try db2QuoteIdent(w, table_name);
-    try w.writeAll("\n");
+    try common.emitAlterAddIndexStandalone(w, table_name, idx, db2QuoteIdent);
 }
 
 fn db2EmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
@@ -185,6 +172,7 @@ fn db2EmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
 }
 
 fn db2EmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
+    // Db2 uses DROP FOREIGN KEY (like MySQL), not DROP CONSTRAINT
     try w.writeAll("DROP FOREIGN KEY \"fk_");
     for (fk.fields, 0..) |f, i| {
         if (i > 0) try w.writeAll("_");

@@ -148,20 +148,7 @@ fn oracleEmitAlterRenameColumn(w: *Writer, old_name: []const u8, new_name: []con
 
 fn oracleEmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void {
     // Oracle: CREATE INDEX is standalone, not part of ALTER TABLE
-    try w.writeAll(";\n\nCREATE ");
-    if (idx.kind == .unique) try w.writeAll("UNIQUE ");
-    try w.writeAll("INDEX ");
-    try oracleQuoteIdent(w, idx.name);
-    try w.writeAll(" ON ");
-    try oracleQuoteIdent(w, table_name);
-    try w.writeAll(" (");
-    for (idx.fields, 0..) |f, fi| {
-        if (fi > 0) try w.writeAll(", ");
-        try oracleQuoteIdent(w, f);
-    }
-    try w.writeAll(");\n\nALTER TABLE ");
-    try oracleQuoteIdent(w, table_name);
-    try w.writeAll("\n");
+    try common.emitAlterAddIndexStandalone(w, table_name, idx, oracleQuoteIdent);
 }
 
 fn oracleEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
@@ -172,12 +159,7 @@ fn oracleEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
 }
 
 fn oracleEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
-    try w.writeAll("DROP CONSTRAINT \"fk_");
-    for (fk.fields, 0..) |f, i| {
-        if (i > 0) try w.writeAll("_");
-        try w.writeAll(f);
-    }
-    try w.writeAll("\"");
+    try common.emitAlterDropFkShared(w, fk, "fk_", "", "_");
 }
 
 fn oracleCommentResult() CommentResult {

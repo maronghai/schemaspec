@@ -177,6 +177,7 @@ fn mysqlEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
 }
 
 fn mysqlEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
+    // MySQL uses DROP FOREIGN KEY (not DROP CONSTRAINT), no identifier quoting
     try w.writeAll("DROP FOREIGN KEY fk_");
     for (fk.fields, 0..) |f, i| {
         if (i > 0) try w.writeAll("_");

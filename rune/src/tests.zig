@@ -14,6 +14,8 @@ comptime {
     _ = @import("dialect/pg_test.zig");
     _ = @import("dialect/sqlite_test.zig");
     _ = @import("dialect/mssql_test.zig");
+    _ = @import("dialect/oracle_test.zig");
+    _ = @import("dialect/db2_test.zig");
     _ = @import("dialect/sqlite_hints_test.zig");
     // diff
     _ = @import("diff/diff_test.zig");

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.71.0 (2026-08-02)
+**Current version**: 0.72.0 (2026-08-02)
 
 ---
 
@@ -200,6 +200,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.72.0 (2026-08-02)
+
+- **Consolidated `emitAlterDropFk`** — Extracted FK name-joining logic from PG, MSSQL, Oracle into shared `common.emitAlterDropFkShared` / `common.emitAlterDropFkMssql` helpers. Each dialect's `emitAlterDropFk` is now a one-line call. MySQL and Db2 kept separate (use `DROP FOREIGN KEY` syntax instead of `DROP CONSTRAINT`).
+- **Consolidated `emitAlterAddIndex`** — Extracted standalone CREATE INDEX logic from PG, Oracle, Db2, MSSQL into shared `common.emitAlterAddIndexStandalone` helper. Eliminates ~45 lines of duplicated index emission code across 4 dialects.
+- **Fixed `unreachable` in `parse_index.zig`** — Replaced unreachable panic at line 92 with `return error.UnexpectedPrimaryKey` for safety (matching the existing guard at line 52).
+- **Added Oracle dialect unit tests** (`dialect/oracle_test.zig`) — 10 tests covering type rendering (12 types), quoting, capabilities, PRIMARY KEY, timestamp modifier, CREATE VIEW, enum CHECK, and generated columns.
+- **Added Db2 dialect unit tests** (`dialect/db2_test.zig`) — 11 tests covering type rendering (12 types), quoting, capabilities, PRIMARY KEY with/without IDENTITY, timestamp modifier, CREATE VIEW, enum CHECK, and generated columns.
+- **Expanded pipeline tests** (`pipeline/forward_test.zig`) — 7 tests (up from 2) covering: simple schema, invalid input, FK columns, enum types, template inheritance, multiple tables, and default values.
 
 ### v0.71.0 (2026-08-02)
 

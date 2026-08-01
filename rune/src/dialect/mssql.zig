@@ -142,21 +142,7 @@ fn mssqlEmitAlterRenameColumn(w: *Writer, old_name: []const u8, new_name: []cons
 
 fn mssqlEmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void {
     // MSSQL: CREATE INDEX is standalone, not part of ALTER TABLE
-    // Close current ALTER TABLE and emit standalone CREATE INDEX
-    try w.writeAll(";\n\nCREATE ");
-    if (idx.kind == .unique) try w.writeAll("UNIQUE ");
-    try w.writeAll("INDEX ");
-    try mssqlQuoteIdent(w, idx.name);
-    try w.writeAll(" ON ");
-    try mssqlQuoteIdent(w, table_name);
-    try w.writeAll(" (");
-    for (idx.fields, 0..) |f, fi| {
-        if (fi > 0) try w.writeAll(", ");
-        try mssqlQuoteIdent(w, f);
-    }
-    try w.writeAll(");\n\nALTER TABLE ");
-    try mssqlQuoteIdent(w, table_name);
-    try w.writeAll("\n");
+    try common.emitAlterAddIndexStandalone(w, table_name, idx, mssqlQuoteIdent);
 }
 
 fn mssqlEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
@@ -167,12 +153,7 @@ fn mssqlEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
 }
 
 fn mssqlEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
-    try w.writeAll("DROP CONSTRAINT [fk_");
-    for (fk.fields, 0..) |f, i| {
-        if (i > 0) try w.writeAll("_");
-        try w.writeAll(f);
-    }
-    try w.writeAll("]");
+    try common.emitAlterDropFkMssql(w, fk, "fk_", "", "_");
 }
 
 fn mssqlCommentResult() CommentResult {

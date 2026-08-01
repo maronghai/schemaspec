@@ -198,6 +198,56 @@ pub fn emitAlterEngineWarning(w: *Writer, _: ?[]const u8) anyerror!void {
     try w.writeAll("-- NOTE: ENGINE change is MySQL-only, ignored for this dialect\n");
 }
 
+// ─── Shared ALTER TABLE Helpers ──────────────────────────────
+// Consolidated from per-dialect implementations to eliminate duplication.
+// Each dialect passes its own quote function and naming convention.
+
+/// Emit DROP CONSTRAINT with FK name derived from field names.
+/// Eliminates identical ~6-line implementations across PG, MSSQL, Oracle, Db2.
+/// Constructs: DROP CONSTRAINT "prefix_field1_field2_suffix" (double-quoted).
+/// For MSSQL (square brackets), dialects should call with their own quoting.
+pub fn emitAlterDropFkShared(w: *Writer, fk: ast_mod.FkDecl, prefix: []const u8, suffix: []const u8, sep: []const u8) anyerror!void {
+    try w.writeAll("DROP CONSTRAINT \"");
+    try w.writeAll(prefix);
+    for (fk.fields, 0..) |f, i| {
+        if (i > 0) try w.writeAll(sep);
+        try w.writeAll(f);
+    }
+    try w.writeAll(suffix);
+    try w.writeAll("\"");
+}
+
+/// Emit DROP CONSTRAINT with FK name using square bracket quoting (MSSQL).
+pub fn emitAlterDropFkMssql(w: *Writer, fk: ast_mod.FkDecl, prefix: []const u8, suffix: []const u8, sep: []const u8) anyerror!void {
+    try w.writeAll("DROP CONSTRAINT [");
+    try w.writeAll(prefix);
+    for (fk.fields, 0..) |f, i| {
+        if (i > 0) try w.writeAll(sep);
+        try w.writeAll(f);
+    }
+    try w.writeAll(suffix);
+    try w.writeAll("]");
+}
+
+/// Emit standalone CREATE INDEX then reopen ALTER TABLE for next operation.
+/// Used by PG, Oracle, Db2, MSSQL (MySQL handles indexes inline).
+pub fn emitAlterAddIndexStandalone(w: *Writer, table_name: []const u8, idx: IndexDecl, quoteIdent: QuoteIdentFn) anyerror!void {
+    try w.writeAll(";\n\nCREATE ");
+    if (idx.kind == .unique) try w.writeAll("UNIQUE ");
+    try w.writeAll("INDEX ");
+    try quoteIdent(w, idx.name);
+    try w.writeAll(" ON ");
+    try quoteIdent(w, table_name);
+    try w.writeAll(" (");
+    for (idx.fields, 0..) |f, fi| {
+        if (fi > 0) try w.writeAll(", ");
+        try quoteIdent(w, f);
+    }
+    try w.writeAll(");\n\nALTER TABLE ");
+    try quoteIdent(w, table_name);
+    try w.writeAll("\n");
+}
+
 // ─── Index Field Helper ──────────────────────────────────────
 
 pub fn emitIndexFields(w: *Writer, idx: IndexDecl) !void {
