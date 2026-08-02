@@ -71,6 +71,11 @@ pub const REGISTRY = [_]Generator{
         .description = "GraphQL type definitions from .ss schema",
         .generate = @import("generators/graphql.zig").generate,
     },
+    .{
+        .name = "symbol-index",
+        .description = "JSON symbol index for IDE integration",
+        .generate = @import("generators/symbol_index.zig").generate,
+    },
 };
 
 /// Look up a generator by name. Returns null if not found.

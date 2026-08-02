@@ -37,6 +37,7 @@ pub const MigrateConfig = struct {
     stats: bool = false,
     rollback: bool = false,
     dry_run: bool = false,
+    check: bool = false,
 };
 
 const DiffResult = struct {
@@ -96,6 +97,13 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
 pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !void {
     const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path, cfg.dialect);
     emitTraceAndStats(result, cfg.trace, cfg.stats);
+
+    if (cfg.check) {
+        if (result.schema_diff.hasChanges()) {
+            return error.CheckFailed;
+        }
+        return;
+    }
 
     switch (cfg.format) {
         .json => {

@@ -87,6 +87,7 @@ comptime {
     _ = @import("generators/knex_test.zig");
     _ = @import("generators/openapi_test.zig");
     _ = @import("generators/graphql_test.zig");
+    _ = @import("generators/symbol_index_test.zig");
     // utils
     _ = @import("utils/edit_distance_test.zig");
 }

@@ -87,6 +87,7 @@ Bridge the gap between database schema and application code. **Complete** — al
 - [x] `rune generate openapi schema.ss` — OpenAPI 3.1 spec with `$defs`/`$ref` (v0.60.0)
 - [x] `rune generate graphql schema.ss` — GraphQL SDL type definitions with Query/Mutation (v0.65.0)
 - [x] `rune generate json-schema schema.ss` — `$defs`, `$ref`, proper `required` arrays (v0.49.0)
+- [x] `rune generate symbol-index schema.ss` — JSON symbol index for IDE integration (v0.88.0)
 
 ### Generator Infrastructure
 

@@ -143,6 +143,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .stats = cmd.stats,
                 .rollback = cmd.rollback,
                 .dry_run = cmd.dry_run,
+                .check = cmd.check,
             });
         },
         .reverse => |cmd| {
