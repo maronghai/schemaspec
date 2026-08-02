@@ -103,14 +103,8 @@ fn oracleEmitInlineColumnComment(w: *Writer, comment: []const u8) anyerror!void 
     if (tr.len > 0) try w.print(" /* {s} */", .{tr});
 }
 
-fn oracleEmitInlineColumnStandaloneIndex(w: *Writer, table_name: []const u8, col_name: []const u8) anyerror!void {
-    try w.writeAll("CREATE INDEX ");
-    try w.print("\"idx_{s}_{s}\"", .{ table_name, col_name });
-    try w.writeAll(" ON ");
-    try oracleQuoteIdent(w, table_name);
-    try w.writeAll(" (");
-    try oracleQuoteIdent(w, col_name);
-    try w.writeAll(");\n");
+fn oracleEmitInlineColumnStandaloneIndex(_: *Writer, _: []const u8, _: []const u8) anyerror!void {
+    // Oracle handles inline indexes via emitInlineIndex — no standalone needed
 }
 
 // ─── ALTER TABLE Methods ─────────────────────────────────────
