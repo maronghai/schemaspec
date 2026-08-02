@@ -65,5 +65,5 @@ jobs:
       - name: Run benchmark
         run: cd rune && zig build bench
 
-      - name: Check for regressions (>20%)
+      - name: Check for regressions (>10%)
         run: cd rune && zig build bench -- --check

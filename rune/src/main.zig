@@ -35,7 +35,7 @@ pub fn main(init: std.process.Init) !void {
         if (err == error.OutOfMemory) {
             std.debug.print("error: out of memory\n", .{});
         } else if (err == error.UnknownFlag) {
-            if (cli.last_unknown_flag) |flag| {
+            if (cli.findUnknownFlag(arg_list)) |flag| {
                 std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
             } else {
                 std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});

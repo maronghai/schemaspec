@@ -83,7 +83,7 @@ pub fn main(init: std.process.Init) !void {
                 printRegressionDetails(avg, baseline);
                 std.process.exit(1);
             } else {
-                std.debug.print("Benchmark OK — no regressions (threshold: 20%)\n", .{});
+                std.debug.print("Benchmark OK — no regressions (threshold: 10%)\n", .{});
             }
         },
         .diff => {
@@ -144,7 +144,7 @@ fn parseBenchArgs(minimal_args: anytype) !BenchArgs {
 fn printUsage() void {
     std.debug.print("Usage: bench [--save|--check|--diff|--list] [--dialect <d>] [file] [iterations]\n", .{});
     std.debug.print("  --save      Save current run as baseline\n", .{});
-    std.debug.print("  --check     Check for regressions vs baseline (>20% = exit 1)\n", .{});
+    std.debug.print("  --check     Check for regressions vs baseline (>10% = exit 1)\n", .{});
     std.debug.print("  --diff      Show per-stage comparison with baseline\n", .{});
     std.debug.print("  --list      Show available benchmark stages\n", .{});
     std.debug.print("  --dialect   SQL dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
@@ -167,7 +167,7 @@ pub const StageTimes = struct {
     type_resolve: f64 = 0,
     codegen: f64 = 0,
 
-    fn add(self: *StageTimes, other: *const StageTimes) void {
+    pub fn add(self: *StageTimes, other: *const StageTimes) void {
         self.tokenize += other.tokenize;
         self.parse += other.parse;
         self.semantic += other.semantic;
@@ -175,7 +175,7 @@ pub const StageTimes = struct {
         self.codegen += other.codegen;
     }
 
-    fn avg(self: StageTimes, n: usize) StageTimes {
+    pub fn avg(self: StageTimes, n: usize) StageTimes {
         const f: f64 = @floatFromInt(n);
         return .{
             .tokenize = self.tokenize / f,
@@ -186,7 +186,7 @@ pub const StageTimes = struct {
         };
     }
 
-    fn total(self: StageTimes) f64 {
+    pub fn total(self: StageTimes) f64 {
         return self.tokenize + self.parse + self.semantic + self.type_resolve + self.codegen;
     }
 };
@@ -314,8 +314,8 @@ fn loadBaseline(io: std.Io, alloc: std.mem.Allocator, dialect: dialect_enum.Dial
     return baseline;
 }
 
-fn checkRegressions(current: StageTimes, baseline: Baseline) usize {
-    const threshold = 1.20; // 20% regression threshold
+pub fn checkRegressions(current: StageTimes, baseline: Baseline) usize {
+    const threshold = 1.10; // 10% regression threshold
     var count: usize = 0;
     const stages = stagePairs(current, baseline);
     for (stages) |s| {
@@ -325,13 +325,16 @@ fn checkRegressions(current: StageTimes, baseline: Baseline) usize {
 }
 
 fn printRegressionDetails(current: StageTimes, baseline: Baseline) void {
-    const threshold = 1.20;
+    const threshold = 1.10;
     const stages = stagePairs(current, baseline);
 
+    std.debug.print("\nStage Details (baseline → current, threshold: 10%):\n", .{});
     for (stages) |s| {
-        if (s.baseline > 0 and s.current / s.baseline > threshold) {
+        if (s.baseline > 0) {
             const change = ((s.current - s.baseline) / s.baseline) * 100.0;
-            std.debug.print("  {s}: {d:.2}ms → {d:.2}ms (+{d:.1}%)\n", .{ s.name, s.baseline, s.current, change });
+            const sign: []const u8 = if (change >= 0) "+" else "";
+            const marker: []const u8 = if (s.current / s.baseline > threshold) " REGRESSION" else "";
+            std.debug.print("  {s: <15} {d:.2}ms → {d:.2}ms ({s}{d:.1}%){s}\n", .{ s.name, s.baseline, s.current, sign, change, marker });
         }
     }
 
@@ -339,7 +342,8 @@ fn printRegressionDetails(current: StageTimes, baseline: Baseline) void {
     const bas_total = baseline.total();
     if (bas_total > 0) {
         const change = ((cur_total - bas_total) / bas_total) * 100.0;
-        std.debug.print("  total: {d:.2}ms → {d:.2}ms ({d:.1}% change)\n", .{ bas_total, cur_total, change });
+        const sign: []const u8 = if (change >= 0) "+" else "";
+        std.debug.print("  {s: <15} {d:.2}ms → {d:.2}ms ({s}{d:.1}%)\n", .{ "TOTAL", bas_total, cur_total, sign, change });
     }
 }
 

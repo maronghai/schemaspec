@@ -3,7 +3,7 @@
 # Tests: Compares current build performance against saved baseline.
 # Usage: ./test_bench.sh [--save] [--check] [--diff] [--fail-on-regression]
 #   --save              Save current performance as new baseline (with git metadata)
-#   --check             Check for regressions >20% (default)
+#   --check             Check for regressions >10% (default)
 #   --diff              Show detailed comparison with per-run breakdown
 #   --fail-on-regression Exit 1 on regression (same as --check, explicit)
 

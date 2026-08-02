@@ -46,8 +46,17 @@ pub const ArgError = error{
     MigrateMissingArgs,
 };
 
-/// Last unknown flag detected by parseArgs. Valid only when parseArgs returns error.UnknownFlag.
-pub var last_unknown_flag: ?[]const u8 = null;
+/// Find the first unrecognized long flag in raw args. Returns null if all flags are known.
+pub fn findUnknownFlag(raw_args: []const []const u8) ?[]const u8 {
+    var i: usize = 1;
+    while (i < raw_args.len) : (i += 1) {
+        const arg = raw_args[i];
+        if (arg.len > 2 and arg[0] == '-' and arg[1] == '-' and !isKnownLongFlag(arg)) {
+            return arg;
+        }
+    }
+    return null;
+}
 
 // ─── Shared Flag Parsers ───────────────────────────────────────
 
@@ -168,7 +177,6 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         } else {
             // Reject unrecognized long flags (--something)
             if (raw_args[i].len > 2 and raw_args[i][0] == '-' and raw_args[i][1] == '-' and !isKnownLongFlag(raw_args[i])) {
-                last_unknown_flag = raw_args[i];
                 return error.UnknownFlag;
             }
             try filtered.append(alloc, raw_args[i]);

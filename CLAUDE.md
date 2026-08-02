@@ -15,7 +15,7 @@ cd rune && zig build test                     # Unit tests (colocated Zig test f
 cd rune && zig fmt --check src/               # Formatting check
 cd rune && zig build bench                    # Benchmark (per-stage pipeline timing)
 cd rune && zig build bench -- --save           # Save current timing as baseline
-cd rune && zig build bench -- --check          # Check for regressions vs baseline (>20% = exit 1)
+cd rune && zig build bench -- --check          # Check for regressions vs baseline (>10% = exit 1)
 cd rune && zig build bench -- --dialect pg     # Benchmark PostgreSQL dialect
 ```
 
