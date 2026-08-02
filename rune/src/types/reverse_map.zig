@@ -1,5 +1,6 @@
 const sql_type_mod = @import("./sql_type.zig");
 const SqlType = sql_type_mod.SqlType;
+const dialect_enum = @import("../dialect/enum.zig");
 
 // ─── Reverse Mapping Data: SQL → SS ─────────────────────────
 //
@@ -15,9 +16,15 @@ const SqlType = sql_type_mod.SqlType;
 // to the SqlType union. The consistency test in type_map.zig verifies
 // that these match the forward mapping in sqlTypeName().
 //
-// Dialect type mapping uses DialectTypeMap — a struct with one field
-// per dialect. To add a new dialect, add a field here and in the
-// DialectTypeMap struct. Existing entries default to "" (no match).
+// To add a new dialect:
+//   1. Add entry to DIALECT_NAMES array below
+//   2. Add a field to DialectTypeMap struct
+//   3. Add case to getDialectType switch
+//   4. Add type strings to REVERSE_MAP entries
+
+/// Ordered list of supported dialects. Used by comptime iteration in
+/// reverse/map.zig and diff/semantic.zig for dialect-agnostic matching.
+pub const DIALECT_NAMES = [_]dialect_enum.Dialect{ .mysql, .pg, .sqlite, .mssql, .oracle, .db2 };
 
 pub const DialectTypeMap = struct {
     mysql: []const u8 = "",
@@ -27,6 +34,19 @@ pub const DialectTypeMap = struct {
     oracle: []const u8 = "",
     db2: []const u8 = "",
 };
+
+/// Get the SQL type string for a given dialect from a DialectTypeMap.
+/// To add a new dialect, add a case here matching the Dialect enum variant.
+pub fn getDialectType(map: DialectTypeMap, dialect: dialect_enum.Dialect) []const u8 {
+    return switch (dialect) {
+        .mysql => map.mysql,
+        .pg => map.pg,
+        .sqlite => map.sqlite,
+        .mssql => map.mssql,
+        .oracle => map.oracle,
+        .db2 => map.db2,
+    };
+}
 
 pub const ReverseMapping = struct {
     sym: []const u8,

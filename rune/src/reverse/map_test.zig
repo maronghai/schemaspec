@@ -521,9 +521,9 @@ test "reverse db2: BOOLEAN maps to b" {
     try testing.expectEqualStrings("b", r.sym);
 }
 
-test "reverse db2: REAL maps to r" {
+test "reverse db2: REAL maps to real (passthrough via sqlite match)" {
     const r = reverseLookup("REAL", "col", false, false, .db2);
-    try testing.expectEqualStrings("r", r.sym);
+    try testing.expectEqualStrings("real", r.sym);
 }
 
 test "reverse db2: DOUBLE PRECISION maps to r" {

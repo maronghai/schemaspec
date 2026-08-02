@@ -72,7 +72,7 @@ pub fn handleCompletions(io: std.Io, _: std.mem.Allocator, shell: []const u8) !v
     }
 }
 
-const COMPLETIONS_BASH =
+pub const COMPLETIONS_BASH =
     \\# Bash completions for rune
     \\# Source this file: source <(rune completions bash)
     \\
@@ -120,7 +120,7 @@ const COMPLETIONS_BASH =
     \\
 ;
 
-const COMPLETIONS_ZSH =
+pub const COMPLETIONS_ZSH =
     \\# Zsh completions for rune
     \\# Source this file: source <(rune completions zsh)
     \\# Or add to ~/.zshrc: eval "$(rune completions zsh)"
@@ -186,7 +186,7 @@ const COMPLETIONS_ZSH =
     \\
 ;
 
-const COMPLETIONS_FISH =
+pub const COMPLETIONS_FISH =
     \\# Fish completions for rune
     \\# Install: rune completions fish > ~/.config/fish/completions/rune.fish
     \\
@@ -233,7 +233,7 @@ const COMPLETIONS_FISH =
     \\
 ;
 
-const COMPLETIONS_POWERSHELL =
+pub const COMPLETIONS_POWERSHELL =
     \\# PowerShell completions for rune
     \\# Install: rune completions powershell > $(rune_root)/rune.psm1
     \\# Or: . $(rune completions powershell)

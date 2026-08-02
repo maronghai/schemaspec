@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.86.0] - 2026-08-02
+
+### Added
+- **Extensible DialectTypeMap** — `types/reverse_map.zig` now provides `DIALECT_NAMES` comptime array and `getDialectType()` accessor. Adding a new SQL dialect requires only 3 changes (enum variant, struct field, switch case) instead of modifying every REVERSE_MAP entry.
+- **Bench stage count comptime** — `bench.zig` now has a `STAGE_NAMES` comptime constant. Adding a new benchmark stage is a documented 4-step process.
+- **Completions unit tests** — New `completions_test.zig` with 16 tests covering bash, zsh, fish, and powershell completion scripts plus the starter schema template.
+
+### Fixed
+- **Bench baseline format mismatch** — `test_bench.sh` now auto-migrates legacy `baseline.json` to per-dialect format and detects the `bench.zig` binary for per-stage timing.
+- **Silent `std:` import fallback** — `import_resolver.zig` now emits a warning when an `std:` import path cannot be resolved in any search path, instead of silently falling back to the literal path.
+
+### Changed
+- **Comptime dialect iteration** — `reverse/map.zig` now uses `inline for` over `DIALECT_NAMES` instead of a hardcoded `or` chain for reverse lookup matching.
+- Made `COMPLETIONS_BASH`, `COMPLETIONS_ZSH`, `COMPLETIONS_FISH`, `COMPLETIONS_POWERSHELL` public in `completions.zig` for test access.
+
 ## [0.85.0] - 2026-08-02
 
 ### Added

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.85.0 (2026-08-02) — 20,000+ lines production Zig, 11,000+ lines tests, 500+ golden files, 21 test suites.
+**Current version**: 0.86.0 (2026-08-02) — 20,000+ lines production Zig, 11,000+ lines tests, 500+ golden files, 21 test suites.
 
 ---
 
@@ -215,6 +215,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.86.0 (2026-08-02)
+
+- **Extensible DialectTypeMap** — Refactored `types/reverse_map.zig` to use `DIALECT_NAMES` comptime array and `getDialectType()` accessor. Adding a new dialect now requires updating only 3 locations (enum, struct field, switch case) instead of modifying every REVERSE_MAP entry. `reverse/map.zig` now uses comptime iteration over all dialects instead of a hardcoded `or` chain.
+- **Bench stage count comptime** — Added `STAGE_NAMES` comptime constant to `bench.zig`. `stagePairs` now uses `STAGE_NAMES.len` instead of hardcoded `[5]`. Adding a new benchmark stage is documented as a 4-step process.
+- **Fixed bench baseline format mismatch** — `test_bench.sh` now auto-migrates legacy `baseline.json` to per-dialect format. Detects and uses `bench.zig` binary when available for per-stage timing.
+- **Improved `std:` import diagnostics** — `import_resolver.zig` now emits a warning when an `std:` import path cannot be resolved in any search path, instead of silently falling back to the literal path.
+- **Completions unit tests** — New `completions_test.zig` with 16 tests covering all 4 shell completion scripts (bash, zsh, fish, powershell) and the starter schema template.
 
 ### v0.85.0 (2026-08-02)
 

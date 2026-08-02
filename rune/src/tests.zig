@@ -6,6 +6,8 @@ comptime {
     _ = @import("bench_test.zig");
     // cli
     _ = @import("cli_test.zig");
+    // completions
+    _ = @import("completions_test.zig");
     // codegen
     _ = @import("codegen/codegen_test.zig");
     _ = @import("codegen/columns_test.zig");

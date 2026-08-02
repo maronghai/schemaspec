@@ -160,6 +160,12 @@ fn listStages() void {
     std.debug.print("\nModes: --save (save baseline), --check (regression gate), --diff (compare)\n", .{});
 }
 
+/// Available benchmark stages. To add a new stage:
+/// 1. Add a field to StageTimes and Baseline
+/// 2. Add an entry to STAGE_NAMES and stagePairs
+/// 3. Update printJson, loadBaseline, and saveBaseline to include the new field
+pub const STAGE_NAMES = [_][]const u8{ "tokenize", "parse", "semantic", "type_resolve", "codegen" };
+
 pub const StageTimes = struct {
     tokenize: f64 = 0,
     parse: f64 = 0,
@@ -375,7 +381,7 @@ fn printDiff(current: StageTimes, baseline: Baseline) void {
 
 pub const StagePair = struct { name: []const u8, current: f64, baseline: f64 };
 
-pub fn stagePairs(current: StageTimes, baseline: Baseline) [5]StagePair {
+pub fn stagePairs(current: StageTimes, baseline: Baseline) [STAGE_NAMES.len]StagePair {
     return .{
         .{ .name = "tokenize", .current = current.tokenize, .baseline = baseline.tokenize },
         .{ .name = "parse", .current = current.parse, .baseline = baseline.parse },

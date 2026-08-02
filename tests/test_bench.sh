@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # ── Rune Benchmark Regression Test ──
 # Tests: Compares current build performance against saved baseline.
+# Uses bench.zig for per-stage timing (the Zig benchmark runner).
+# Falls back to shell-based timing when bench binary is unavailable.
 # Usage: ./test_bench.sh [--save] [--check] [--diff] [--fail-on-regression]
-#   --save              Save current performance as new baseline (with git metadata)
+#   --save              Save current performance as new baseline
 #   --check             Check for regressions >10% (default)
-#   --diff              Show detailed comparison with per-run breakdown
+#   --diff              Show detailed comparison with per-stage breakdown
 #   --fail-on-regression Exit 1 on regression (same as --check, explicit)
 
 set -euo pipefail
@@ -13,7 +15,7 @@ source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 TEST_DIR="$SCRIPT_DIR"
 BENCH_DIR="$TEST_DIR/../bench"
-BASELINE_FILE="$BENCH_DIR/baseline.json"
+LEGACY_BASELINE="$BENCH_DIR/baseline.json"
 BENCH_FILE="$TEST_DIR/03-all-types.ss"
 ITERATIONS=3
 
@@ -41,14 +43,60 @@ if [ ! -d "$BENCH_DIR" ]; then
   mkdir -p "$BENCH_DIR"
 fi
 
+# Check if legacy baseline file exists and needs migration
+if [ -f "$LEGACY_BASELINE" ]; then
+  # Migrate legacy baseline.json → baseline-mysql.json (new per-dialect format)
+  if [ ! -f "$BENCH_DIR/baseline-mysql.json" ]; then
+    echo "Migrating legacy baseline.json → baseline-mysql.json..."
+    avg_us=$(grep -o '"avg_us": [0-9]*' "$LEGACY_BASELINE" | grep -o '[0-9]*' || echo "0")
+    avg_ms=$(awk "BEGIN {printf \"%.2f\", $avg_us / 1000}")
+    # Generate per-dialect baseline in bench.zig format (approximate stage split)
+    cat > "$BENCH_DIR/baseline-mysql.json" <<EOF
+{
+  "file": "03-all-types.ss",
+  "dialect": "mysql",
+  "stages": {
+    "tokenize": $(awk "BEGIN {printf \"%.2f\", $avg_ms * 0.15}"),
+    "parse": $(awk "BEGIN {printf \"%.2f\", $avg_ms * 0.25}"),
+    "semantic": $(awk "BEGIN {printf \"%.2f\", $avg_ms * 0.30}"),
+    "type_resolve": $(awk "BEGIN {printf \"%.2f\", $avg_ms * 0.15}"),
+    "codegen": $(awk "BEGIN {printf \"%.2f\", $avg_ms * 0.15}")
+  }
+}
+EOF
+    echo "  migrated avg_us=$avg_us → baseline-mysql.json"
+  fi
+fi
+
+# Use bench.zig binary if available (per-stage timing)
+BENCH_BIN="$SCRIPT_DIR/../rune/zig-out/bin/rune-bench"
+if [ -f "$BENCH_BIN" ]; then
+  echo "Using bench.zig for per-stage benchmark..."
+  case "$MODE" in
+    --save)
+      "$BENCH_BIN" "$BENCH_FILE" --save --dialect mysql
+      echo "Baseline saved to bench/baseline-mysql.json"
+      ;;
+    --check)
+      "$BENCH_BIN" "$BENCH_FILE" --check --dialect mysql
+      ;;
+    --diff)
+      "$BENCH_BIN" "$BENCH_FILE" --diff --dialect mysql
+      ;;
+  esac
+  exit 0
+fi
+
+# Fallback: shell-based end-to-end timing
+echo "Running shell benchmark ($ITERATIONS iterations)..."
+
+BASELINE_FILE="$LEGACY_BASELINE"
+
 # Check if baseline file exists
 if [ "$MODE" = "--check" ] && [ ! -f "$BASELINE_FILE" ]; then
   echo "No baseline found. Saving current run as baseline..."
   MODE="--save"
 fi
-
-# Run benchmark
-echo "Running benchmark ($ITERATIONS iterations)..."
 
 # Warmup
 for i in $(seq 1 3); do
@@ -85,12 +133,10 @@ if [ "$SHOW_DIFF" = true ] && [ "$MODE" != "--save" ]; then
 fi
 
 if [ "$MODE" = "--save" ]; then
-  # Get git metadata
   git_commit=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
   git_branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
   timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  # Save as baseline with metadata
   cat > "$BASELINE_FILE" <<EOF
 {
   "file": "03-all-types.ss",
@@ -117,7 +163,6 @@ if [ ! -f "$BASELINE_FILE" ]; then
   exit 1
 fi
 
-# Parse baseline avg_us
 baseline_avg_us=$(grep -o '"avg_us": [0-9]*' "$BASELINE_FILE" | grep -o '[0-9]*' || echo "0")
 
 if [ "$baseline_avg_us" = "0" ]; then
@@ -127,11 +172,9 @@ fi
 
 baseline_avg_ms=$(awk "BEGIN {printf \"%.2f\", $baseline_avg_us / 1000}")
 
-# Parse baseline metadata if available
 baseline_commit=$(grep -o '"git_commit": "[^"]*"' "$BASELINE_FILE" | sed 's/"git_commit": "//;s/"//' || echo "unknown")
 baseline_time=$(grep -o '"timestamp": "[^"]*"' "$BASELINE_FILE" | sed 's/"timestamp": "//;s/"//' || echo "unknown")
 
-# Calculate regression percentage
 REGRESSION=$(awk "BEGIN {printf \"%.1f\", (($avg_us - $baseline_avg_us) / $baseline_avg_us) * 100}")
 THRESHOLD=20
 
@@ -148,7 +191,6 @@ if [ "$SHOW_DIFF" = true ]; then
   echo "  Delta:        $(awk "BEGIN {printf \"%.2f\", ($avg_us - $baseline_avg_us) / 1000}")ms"
 fi
 
-# Check if regression exceeds threshold
 EXCEED=$(awk "BEGIN {print ($REGRESSION > $THRESHOLD) ? 1 : 0}")
 
 if [ "$EXCEED" = "1" ]; then

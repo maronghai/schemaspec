@@ -157,7 +157,7 @@ rune/src/
 
 - **Two-Pass FK Diffing** (`diff/fks.zig`): First pass matches identical FKs (structure + actions). Second pass matches structurally identical FKs with different actions → `modify`. Remaining unmatched FKs → `drop`/`add`.
 
-- **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null. The general path now matches all 6 dialects (MySQL, PG, MSSQL, Oracle, Db2, SQLite) via `REVERSE_MAP` data, with case-insensitive parameterized type matching for Oracle (`VARCHAR2(N)`, `NUMBER(P,S)`) and Db2 (`DECIMAL(P,S)`, `VARCHAR(N)`). Reverse mapping data lives in `types/reverse_map.zig` (canonical location), consumed by both `reverse/map.zig` and `diff/semantic.zig`.
+- **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null. The general path uses comptime iteration over `DIALECT_NAMES` to match all dialects via `REVERSE_MAP` data, with case-insensitive parameterized type matching for Oracle (`VARCHAR2(N)`, `NUMBER(P,S)`) and Db2 (`DECIMAL(P,S)`, `VARCHAR(N)`). Reverse mapping data lives in `types/reverse_map.zig` (canonical location), consumed by both `reverse/map.zig` and `diff/semantic.zig`. Adding a new dialect requires only 3 changes: add to `Dialect` enum, add struct field to `DialectTypeMap`, add case to `getDialectType()`.
 
 - **Unified ReverseResult** (`dialect/dialect.zig`): Single `ReverseResult` struct shared by dialect backends and `reverse/column.zig` — zero duplication across the reverse pipeline.
 
@@ -214,9 +214,9 @@ rune/src/
 | | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
 | | `type_resolver.zig` | TypeResolver namespace — ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
-| | `reverse_map.zig` | Shared REVERSE_MAP data (45 entries) + ReverseMapping struct with DialectTypeMap (canonical location) |
+| | `reverse_map.zig` | Shared REVERSE_MAP data (52+ entries) + ReverseMapping struct with extensible DialectTypeMap (`DIALECT_NAMES` comptime array + `getDialectType()` accessor) |
 | `semantic/` | `analyzer.zig` | SemanticAnalyzer + diagnosticTrace |
-| | `pass_manager.zig` | PassContext + SemanticPass + DEFAULT_PASSES + detectConflicts + getParallelGroups |
+| | `pass_manager.zig` | PassContext + SemanticPass + DEFAULT_PASSES + validateDependencyOrder |
 | | `trace.zig` | Shared AST trace formatting |
 | | `diagnostic.zig` | Multi-error diagnostic collector (printAll, formatJson, formatLsp, formatTerminal) |
 | | `template.zig` | Template inheritance resolution |

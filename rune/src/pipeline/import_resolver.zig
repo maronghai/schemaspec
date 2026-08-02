@@ -161,6 +161,14 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
                         break;
                     } else |_| {}
                 }
+                if (found == null and import_ctx.import_paths.len > 0) {
+                    diag.printDiagnostic(alloc, .{
+                        .severity = .warning,
+                        .line_no = 0,
+                        .message = "std: import path not found in any search path — falling back to literal path",
+                        .actual = import_path,
+                    });
+                }
                 break :blk found orelse import_path;
             } else if (import_ctx.base_dir.len > 0)
                 try std.fmt.allocPrint(alloc, "{s}/{s}", .{ import_ctx.base_dir, import_path })

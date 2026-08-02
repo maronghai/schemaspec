@@ -3,6 +3,7 @@ const data = @import("../reverse/map_data.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const sqlite_hints = @import("../dialect/sqlite_hints.zig");
+const reverse_map_mod = @import("../types/reverse_map.zig");
 
 pub const Dialect = dialect_enum.Dialect;
 pub const ReverseMapping = data.ReverseMapping;
@@ -38,12 +39,13 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
     var best_match: ?ReverseResult = null;
     var best_priority: u32 = std.math.maxInt(u32);
     for (REVERSE_MAP) |m| {
-        if (std.mem.eql(u8, t, m.types.mysql) or std.mem.eql(u8, t, m.types.pg) or
-            std.mem.eql(u8, t, m.types.mssql) or std.mem.eql(u8, t, m.types.oracle) or
-            std.mem.eql(u8, t, m.types.db2)) {
-            if (m.rev_priority < best_priority) {
-                best_priority = m.rev_priority;
-                best_match = .{ .sym = m.sym, .omit = canOmitType(col_name, m.sym, is_auto_inc, is_default_ts), .score = m.confidence_base };
+        // Comptime iteration over all dialects — no hardcoded `or` chain.
+        inline for (reverse_map_mod.DIALECT_NAMES) |d| {
+            if (std.mem.eql(u8, t, reverse_map_mod.getDialectType(m.types, d))) {
+                if (m.rev_priority < best_priority) {
+                    best_priority = m.rev_priority;
+                    best_match = .{ .sym = m.sym, .omit = canOmitType(col_name, m.sym, is_auto_inc, is_default_ts), .score = m.confidence_base };
+                }
             }
         }
     }
