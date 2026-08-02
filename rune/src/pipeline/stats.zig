@@ -83,3 +83,20 @@ pub fn printStats(stats: Stats) void {
     std.debug.print("  other:          {d}\n", .{stats.other_fields});
     std.debug.print("views:            {d}\n", .{stats.views});
 }
+
+/// Format stats as a JSON string.
+pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
+    return std.fmt.allocPrint(alloc,
+        \\{{"tables":{d},"fields":{d},"not_null":{d},"numeric":{d},"string":{d},"datetime":{d},"boolean":{d},"other":{d},"views":{d}}}
+    , .{
+        stats.tables,
+        stats.fields,
+        stats.not_null_fields,
+        stats.numeric_fields,
+        stats.string_fields,
+        stats.datetime_fields,
+        stats.boolean_fields,
+        stats.other_fields,
+        stats.views,
+    });
+}

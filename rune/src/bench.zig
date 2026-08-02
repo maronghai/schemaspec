@@ -27,6 +27,11 @@ pub fn main(init: std.process.Init) !void {
         return;
     }
 
+    if (args.mode == .list) {
+        listStages();
+        return;
+    }
+
     // Read file
     const file_data = try std.Io.Dir.cwd().readFileAlloc(init.io, args.file_path, alloc, .unlimited);
     defer alloc.free(file_data);
@@ -96,7 +101,7 @@ const BenchArgs = struct {
     file_path: []const u8 = "bench/small.ss",
     iterations: usize = 50,
     warmup: usize = 3,
-    mode: enum { run, save, check, diff } = .run,
+    mode: enum { run, save, check, diff, list } = .run,
     dialect: dialect_enum.Dialect = .mysql,
     help: bool = false,
 };
@@ -114,6 +119,8 @@ fn parseBenchArgs(minimal_args: anytype) !BenchArgs {
             args.mode = .check;
         } else if (std.mem.eql(u8, arg, "--diff")) {
             args.mode = .diff;
+        } else if (std.mem.eql(u8, arg, "--list")) {
+            args.mode = .list;
         } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
             args.help = true;
         } else if (std.mem.eql(u8, arg, "--dialect") or std.mem.eql(u8, arg, "-d")) {
@@ -135,11 +142,22 @@ fn parseBenchArgs(minimal_args: anytype) !BenchArgs {
 }
 
 fn printUsage() void {
-    std.debug.print("Usage: bench [--save|--check|--diff] [--dialect <d>] [file] [iterations]\n", .{});
+    std.debug.print("Usage: bench [--save|--check|--diff|--list] [--dialect <d>] [file] [iterations]\n", .{});
     std.debug.print("  --save      Save current run as baseline\n", .{});
     std.debug.print("  --check     Check for regressions vs baseline (>20% = exit 1)\n", .{});
     std.debug.print("  --diff      Show per-stage comparison with baseline\n", .{});
+    std.debug.print("  --list      Show available benchmark stages\n", .{});
     std.debug.print("  --dialect   SQL dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
+}
+
+fn listStages() void {
+    std.debug.print("Benchmark stages:\n", .{});
+    std.debug.print("  tokenize     Tokenize .ss source into lines\n", .{});
+    std.debug.print("  parse        Parse tokens into AST\n", .{});
+    std.debug.print("  semantic     Run semantic analysis passes\n", .{});
+    std.debug.print("  type_resolve Resolve SS types to SQL types\n", .{});
+    std.debug.print("  codegen      Generate SQL DDL from TypedAst\n", .{});
+    std.debug.print("\nModes: --save (save baseline), --check (regression gate), --diff (compare)\n", .{});
 }
 
 pub const StageTimes = struct {

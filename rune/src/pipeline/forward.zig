@@ -325,12 +325,17 @@ pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
 }
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.
-pub fn handleStats(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !void {
+pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, json_output: bool) !void {
     const result = try compilePipeline(alloc, file_data, .{});
     const s = computeStats(result.resolved);
-    std.debug.print("tables:  {d}\n", .{s.tables});
-    std.debug.print("fields:  {d}\n", .{s.fields});
-    std.debug.print("views:   {d}\n", .{s.views});
+    if (json_output) {
+        const json = try stats_mod.formatStatsJson(alloc, s);
+        try io_mod.writeOutput(io, json, null, false);
+    } else {
+        std.debug.print("tables:  {d}\n", .{s.tables});
+        std.debug.print("fields:  {d}\n", .{s.fields});
+        std.debug.print("views:   {d}\n", .{s.views});
+    }
 }
 
 /// Compile a schema and run a named generator on it. Handles the full pipeline:

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.80.0 (2026-08-02)
+**Current version**: 0.81.0 (2026-08-02)
 
 ---
 
@@ -201,6 +201,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.81.0 (2026-08-02)
+
+- **`rune stats --json-errors`** — Machine-readable JSON output for schema statistics. Outputs `{"tables":N,"fields":N,"not_null":N,"numeric":N,"string":N,"datetime":N,"boolean":N,"other":N,"views":N}`. Useful for CI/CD pipelines and tooling integration.
+- **`rune bench --list`** — Show available benchmark stages (tokenize, parse, semantic, type_resolve, codegen) and modes (save, check, diff). Improves benchmark discoverability.
+- **Simplified main.zig error dispatch** — Flattened nested `switch(err)` into a single-level switch with all error variants. Removes redundant inner switch block.
+- **New unit tests** — 2 tests for `formatStatsJson` (zero values, populated values) in `pipeline/stats_test.zig`.
 
 ### v0.80.0 (2026-08-02)
 

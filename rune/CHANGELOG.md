@@ -4,6 +4,17 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.81.0] - 2026-08-02
+
+### Added
+- **`rune stats --json-errors`** — Machine-readable JSON output for schema statistics. Useful for CI/CD pipelines and tooling integration. Outputs a single JSON object with tables, fields, not_null, numeric, string, datetime, boolean, other, and views counts.
+- **`rune bench --list`** — Show available benchmark stages (tokenize, parse, semantic, type_resolve, codegen) and modes (save, check, diff).
+- **`formatStatsJson` unit tests** — 2 new tests for JSON stats formatting (zero values, populated values).
+
+### Changed
+- **Simplified main.zig error dispatch** — Flattened nested `switch(err)` into a single-level switch with all error variants. Removes redundant inner switch block.
+- `handleStats` now accepts a `json_output: bool` parameter to control output format.
+
 ## [0.61.0] - 2026-08-01
 
 ### Added

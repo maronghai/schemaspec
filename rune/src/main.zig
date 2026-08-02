@@ -61,16 +61,12 @@ pub fn main(init: std.process.Init) !void {
                 std.debug.print("error: unknown generator. Run 'rune generate --list' for available generators.\n", .{});
                 std.process.exit(1);
             },
-            else => {
-                switch (err) {
-                    error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
-                    error.FileNotFound => std.debug.print("error: file not found\n", .{}),
-                    error.AccessDenied => std.debug.print("error: access denied\n", .{}),
-                    error.IsDir => std.debug.print("error: expected a file, got a directory\n", .{}),
-                    error.NotDir => std.debug.print("error: expected a directory, got a file\n", .{}),
-                    else => std.debug.print("error: {s}\n", .{@errorName(err)}),
-                }
-            },
+            error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
+            error.FileNotFound => std.debug.print("error: file not found\n", .{}),
+            error.AccessDenied => std.debug.print("error: access denied\n", .{}),
+            error.IsDir => std.debug.print("error: expected a file, got a directory\n", .{}),
+            error.NotDir => std.debug.print("error: expected a directory, got a file\n", .{}),
+            else => std.debug.print("error: {s}\n", .{@errorName(err)}),
         }
         std.process.exit(1);
     };
@@ -123,7 +119,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .stats => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return forward.handleStats(io, alloc, file_data);
+            return forward.handleStats(io, alloc, file_data, parsed.json_errors);
         },
         .diff => |cmd| {
             return diff_pipe.handleDiff(io, alloc, .{
