@@ -58,8 +58,8 @@ for test_name in "${ROUNDTRIP_TESTS[@]}"; do
       continue
     }
 
-    # Step 2: SQL → .ss (reverse)
-    reversed=$(echo "$sql1" | timeout 10 "$COMPILER" reverse - -d "$dialect" 2>/dev/null) || {
+    # Step 2: SQL → .ss (reverse via auto-detect from header tag)
+    reversed=$(echo "$sql1" | timeout 10 "$COMPILER" reverse - 2>/dev/null) || {
       skip "$test_name ($dialect)" "reverse failed"
       continue
     }
