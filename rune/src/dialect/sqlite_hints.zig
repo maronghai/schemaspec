@@ -1,7 +1,7 @@
 const std = @import("std");
 
 // ─── SQLite Column Name Heuristics ──────────────────────────────
-// Used by type_map.zig reverseLookupSqlite and reverse_codegen.zig
+// Used by dialect/sqlite.zig (sqliteReverseLookup) and reverse/codegen.zig
 // to disambiguate SQLite's lossy type affinity system.
 //
 // All rules are data-driven via COLUMN_RULES table.

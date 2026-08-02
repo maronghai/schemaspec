@@ -13,8 +13,7 @@ const Dialect = dialect_enum.Dialect;
 // or to non-SQL formats (JSON Schema, Prisma, etc.).
 //
 // toSql() is self-contained — no delegation to type_map.zig.
-// type_map.zig re-exports SqlType for backward compatibility and
-// provides helper functions (lookupCustomType, isNumericSymType, etc.).
+// type_map.zig provides helper functions (lookupCustomType, isNumericSymType, etc.).
 
 pub const SqlType = union(enum) {
     int,

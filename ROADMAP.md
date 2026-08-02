@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.78.0 (2026-08-02)
+**Current version**: 0.79.0 (2026-08-02)
 
 ---
 
@@ -201,6 +201,11 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.79.0 (2026-08-02)
+
+- **Consolidated remaining dialect duplication** — Extracted `common.emitAlterDropIndexNoQuote` for Oracle, MSSQL, and Db2 (3 identical implementations replaced with shared helper). Removed trivial pass-through `emitEnumTypeCheck` wrappers from Oracle and Db2 (vtable now points directly to `common.emitEnumTypeCheck`). Net reduction: ~15 lines of duplicated code.
+- **Documentation sync** — Fixed stale module path references in ARCHITECTURE.md (`dialect_common.zig` → `dialect/common.zig`, `reverse_codegen.zig` → `reverse/codegen.zig`). Corrected vtable description from "23 core + 6 optional" to "26 required + 7 optional = 33 total function pointers". Updated PG/SQLite shared method count from "4/5" to "7". Fixed stale `type_map.zig` re-export claim in `sql_type.zig` and ARCHITECTURE.md. Fixed `sqlite_hints.zig` comment referencing non-existent `reverseLookupSqlite`.
 
 ### v0.78.0 (2026-08-02)
 

@@ -42,7 +42,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 
 **Key modules**:
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
-- `type_map.zig`: Helper functions (`lookupCustomType`, `isNumericSymType`, etc.) + `SqlType` re-export
+- `type_map.zig`: Helper functions (`lookupCustomType`, `isNumericSymType`, `isDatetimeSymType`). No longer contains rendering logic.
 - `type_registry.zig`: SS symbol → `SqlType` direct mapping (`lookupSqlTypeDirect`) and reverse lookup. 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
 - `types/reverse_map.zig`: Shared `REVERSE_MAP` data (51 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
@@ -176,7 +176,7 @@ Input (SQL DDL text)
 
 ## DialectBackend Vtable
 
-23 core + 6 optional function pointers + 3 behavioral flags + 1 capability field for dialect-specific SQL generation (32+ dispatch points):
+26 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field for dialect-specific SQL generation (33+ dispatch points):
 
 ```zig
 DialectBackend = struct {
@@ -214,10 +214,15 @@ DialectBackend = struct {
     emitCreateView:         fn(w, name, query) -> !void,
     // Type rendering (single source of truth)
     renderType:             fn(w, sql_type) -> !void,
-    // FK rendering (shared via dialect_common.zig:emitForeignKeyShared)
+    // FK rendering (shared via dialect/common.zig:emitForeignKeyShared)
     emitForeignKey:         fn(w, fk) -> !void,
     // Reverse engineering (optional)
     reverseLookup:          fn(sql_type, col_name, is_auto_inc, is_default_ts) -> ?ReverseResult,
+    // Generated columns (optional)
+    emitGeneratedColumn:    fn(w, table_name, col_name, expr, always) -> !void,
+    // Type mapping
+    lookupSym:              fn(sym) -> ?SqlType,
+    quoteChar:              u8,
     // Behavioral flags (eliminate dialect checks in caller)
     rename_needs_column_def: bool,     // MySQL CHANGE COLUMN
     modify_needs_column_def: bool,     // MySQL/PG MODIFY COLUMN
@@ -245,7 +250,7 @@ DialectBackend = struct {
 | `renderType` | `int`, `bigint`, `smallint`, `decimal`, `varchar`, `text`, `blob`, `json`, `datetime`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `integer`, `bigint`, `smallint`, `numeric`, `varchar`, `text`, `bytea`, `json`, `timestamp`, `date`, `timestamptz`, `boolean`, `uuid`, `serial` | `INTEGER`, `NUMERIC`, `varchar`, `TEXT`, `BLOB`, `INTEGER` | `INT`, `BIGINT`, `SMALLINT`, `NUMERIC`, `NVARCHAR`, `NVARCHAR(MAX)`, `VARBINARY(MAX)`, `DATETIME2`, `BIT`, `UNIQUEIDENTIFIER` | `NUMBER(10)`, `NUMBER(19)`, `NUMBER(5)`, `NUMBER(p,s)`, `VARCHAR2`, `CLOB`, `BLOB`, `TIMESTAMP`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `NUMBER(1)`, `RAW(16)` | `INTEGER`, `BIGINT`, `SMALLINT`, `DECIMAL(p,s)`, `VARCHAR`, `CLOB`, `BLOB`, `TIMESTAMP`, `DATE`, `TIMESTAMP WITH TIME ZONE`, `BOOLEAN`, `CHAR(16) FOR BIT DATA` |
 | `emitForeignKey` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` | `FOREIGN KEY (...) REFERENCES ...` |
 
-PG and SQLite share 4/5 method implementations. `emitCheckExpr` is a shared standalone function (all dialects use identical CHECK syntax). `emitForeignKey` is shared via `dialect_common.zig:emitForeignKeyShared` (takes `quoteIdent` function pointer).
+PG and SQLite share 7 method implementations (via `common.zig`: `emitIndex`, `emitInlineIndex`, `emitStandaloneIndex`, `emitInlineColumnStandaloneIndex`, `emitAlterDropColumn`, `emitAlterDropIndex`, `emitAlterRenameColumn`). `emitCheckExpr` is a shared standalone function (all dialects use identical CHECK syntax). `emitForeignKey` is shared via `dialect/common.zig:emitForeignKeyShared` (takes `quoteIdent` function pointer).
 
 ## DialectCapability Flags
 
@@ -332,13 +337,13 @@ Rune uses a three-layer type mapping system:
 
 - **`reverse_map.zig` (REVERSE_MAP)**: ~59 entries covering all SQL type variants → SS symbols across 6 dialects (MySQL, PG, SQLite, MSSQL, Oracle, Db2). Used by `reverseLookup()` and `reverseLookupSqlite()`. Includes core entries (for SQLite lossy affinity) plus MySQL/PG variant types, Oracle-specific types (`VARCHAR2(N)`, `NUMBER(P,S)`), Db2-specific types (`DECIMAL(P,S)`), and PostgreSQL-specific passthrough types (xml, cidr, macaddr). Case-insensitive parameterized type matching via `matchPrefix` helper.
 
-- **`type_map.zig`**: Helper functions (`lookupCustomType`, `isNumericSymType`, `isDatetimeSymType`) + `SqlType` re-export for backward compatibility. No longer contains rendering logic.
+- **`type_map.zig`**: Helper functions (`lookupCustomType`, `isNumericSymType`, `isDatetimeSymType`). No longer contains rendering logic.
 
 ## Key Design Decisions
 
 1. **TypedAst IR layer**: Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 2. **TypeResolver namespace**: Stateless functions (`TypeResolver.resolve`, `TypeResolver.resolveColumn`) that take `Allocator` directly. No struct instantiation — eliminates `init` boilerplate and per-loop allocation overhead in migrate.zig.
-2. **DialectBackend vtable**: 23 core + 6 optional function pointers + 3 behavioral flags + 1 capability field cover all dialect differences. Adding a new dialect requires < 100 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect_common.zig:emitForeignKeyShared`.
+2. **DialectBackend vtable**: 26 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field cover all dialect differences. Adding a new dialect requires ~300 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect/common.zig:emitForeignKeyShared`.
 3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. MySQL/PostgreSQL/SQLite/MSSQL/Oracle/Db2 dialects done.
 4. **CompileConfig struct**: Replaces 13 positional parameters in `handleCompileRequest`. All fields have named defaults; callers specify only what they need. Improves readability and reduces parameter-ordering bugs.
 3. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).

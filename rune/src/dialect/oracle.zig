@@ -103,10 +103,6 @@ fn oracleEmitInlineColumnComment(w: *Writer, comment: []const u8) anyerror!void 
     if (tr.len > 0) try w.print(" /* {s} */", .{tr});
 }
 
-fn oracleEmitEnumTypeCheck(w: *Writer, col_name: []const u8, enum_values: []const []const u8) anyerror!void {
-    try common.emitEnumTypeCheck(w, col_name, enum_values);
-}
-
 fn oracleEmitInlineColumnStandaloneIndex(w: *Writer, table_name: []const u8, col_name: []const u8) anyerror!void {
     try w.writeAll("CREATE INDEX ");
     try w.print("\"idx_{s}_{s}\"", .{ table_name, col_name });
@@ -137,13 +133,6 @@ fn oracleEmitAlterRenameColumn(w: *Writer, old_name: []const u8, new_name: []con
 fn oracleEmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void {
     // Oracle: CREATE INDEX is standalone, not part of ALTER TABLE
     try common.emitAlterAddIndexStandalone(w, table_name, idx, oracleQuoteIdent);
-}
-
-fn oracleEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
-    switch (idx.kind) {
-        .primary_key => try w.writeAll("DROP PRIMARY KEY"),
-        else => try w.print("DROP INDEX {s}", .{idx.name}),
-    }
 }
 
 fn oracleEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
@@ -243,13 +232,13 @@ pub const oracle_backend = DialectBackend{
     .emitInlineIndex = oracleEmitInlineIndex,
     .emitStandaloneIndex = oracleEmitStandaloneIndex,
     .emitInlineColumnComment = oracleEmitInlineColumnComment,
-    .emitEnumTypeCheck = oracleEmitEnumTypeCheck,
+    .emitEnumTypeCheck = common.emitEnumTypeCheck,
     .emitInlineColumnStandaloneIndex = oracleEmitInlineColumnStandaloneIndex,
     .emitAlterDropColumn = oracleEmitAlterDropColumn,
     .emitAlterModifyColumn = oracleEmitAlterModifyColumn,
     .emitAlterRenameColumn = oracleEmitAlterRenameColumn,
     .emitAlterAddIndex = oracleEmitAlterAddIndex,
-    .emitAlterDropIndex = oracleEmitAlterDropIndex,
+    .emitAlterDropIndex = common.emitAlterDropIndexNoQuote,
     .emitAlterDropFk = oracleEmitAlterDropFk,
     .commentResult = oracleCommentResult,
     .emitAlterTableComment = oracleEmitAlterTableComment,

@@ -235,6 +235,14 @@ pub fn emitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
     }
 }
 
+/// Shared DROP INDEX without IF EXISTS or quoting (Oracle, MSSQL, Db2).
+pub fn emitAlterDropIndexNoQuote(w: *Writer, idx: IndexDecl) anyerror!void {
+    switch (idx.kind) {
+        .primary_key => try w.writeAll("DROP PRIMARY KEY"),
+        else => try w.print("DROP INDEX {s}", .{idx.name}),
+    }
+}
+
 pub fn emitAlterEngineWarning(w: *Writer, _: ?[]const u8) anyerror!void {
     try w.writeAll("-- NOTE: ENGINE change is MySQL-only, ignored for this dialect\n");
 }

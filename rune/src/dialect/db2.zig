@@ -112,10 +112,6 @@ fn db2EmitInlineColumnComment(w: *Writer, comment: []const u8) anyerror!void {
     if (tr.len > 0) try w.print(" /* {s} */", .{tr});
 }
 
-fn db2EmitEnumTypeCheck(w: *Writer, col_name: []const u8, enum_values: []const []const u8) anyerror!void {
-    try common.emitEnumTypeCheck(w, col_name, enum_values);
-}
-
 fn db2EmitInlineColumnStandaloneIndex(w: *Writer, table_name: []const u8, col_name: []const u8) anyerror!void {
     try w.writeAll("CREATE INDEX ");
     try w.print("\"idx_{s}_{s}\"", .{ table_name, col_name });
@@ -146,13 +142,6 @@ fn db2EmitAlterRenameColumn(w: *Writer, old_name: []const u8, new_name: []const 
 fn db2EmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void {
     // Db2: CREATE INDEX is standalone, not part of ALTER TABLE
     try common.emitAlterAddIndexStandalone(w, table_name, idx, db2QuoteIdent);
-}
-
-fn db2EmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
-    switch (idx.kind) {
-        .primary_key => try w.writeAll("DROP PRIMARY KEY"),
-        else => try w.print("DROP INDEX {s}", .{idx.name}),
-    }
 }
 
 fn db2EmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
@@ -256,13 +245,13 @@ pub const db2_backend = DialectBackend{
     .emitInlineIndex = db2EmitInlineIndex,
     .emitStandaloneIndex = db2EmitStandaloneIndex,
     .emitInlineColumnComment = db2EmitInlineColumnComment,
-    .emitEnumTypeCheck = db2EmitEnumTypeCheck,
+    .emitEnumTypeCheck = common.emitEnumTypeCheck,
     .emitInlineColumnStandaloneIndex = db2EmitInlineColumnStandaloneIndex,
     .emitAlterDropColumn = db2EmitAlterDropColumn,
     .emitAlterModifyColumn = db2EmitAlterModifyColumn,
     .emitAlterRenameColumn = db2EmitAlterRenameColumn,
     .emitAlterAddIndex = db2EmitAlterAddIndex,
-    .emitAlterDropIndex = db2EmitAlterDropIndex,
+    .emitAlterDropIndex = common.emitAlterDropIndexNoQuote,
     .emitAlterDropFk = db2EmitAlterDropFk,
     .commentResult = db2CommentResult,
     .emitAlterTableComment = db2EmitAlterTableComment,

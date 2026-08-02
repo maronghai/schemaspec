@@ -145,13 +145,6 @@ fn mssqlEmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) an
     try common.emitAlterAddIndexStandalone(w, table_name, idx, mssqlQuoteIdent);
 }
 
-fn mssqlEmitAlterDropIndex(w: *Writer, idx: IndexDecl) anyerror!void {
-    switch (idx.kind) {
-        .primary_key => try w.writeAll("DROP PRIMARY KEY"),
-        else => try w.print("DROP INDEX {s}", .{idx.name}),
-    }
-}
-
 fn mssqlEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
     try common.emitAlterDropFkMssql(w, fk, "fk_", "", "_");
 }
@@ -254,7 +247,7 @@ pub const mssql_backend = DialectBackend{
     .emitAlterModifyColumn = mssqlEmitAlterModifyColumn,
     .emitAlterRenameColumn = mssqlEmitAlterRenameColumn,
     .emitAlterAddIndex = mssqlEmitAlterAddIndex,
-    .emitAlterDropIndex = mssqlEmitAlterDropIndex,
+    .emitAlterDropIndex = common.emitAlterDropIndexNoQuote,
     .emitAlterDropFk = mssqlEmitAlterDropFk,
     .commentResult = mssqlCommentResult,
     .emitAlterTableComment = mssqlEmitAlterTableComment,
