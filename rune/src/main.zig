@@ -194,7 +194,7 @@ fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
         error.MissingDialectValue => "--dialect requires a value, expected one of: mysql, pg, postgres, sqlite, mssql, oracle, db2",
         error.UnknownTarget => "unknown target, expected one of: sql, json-schema",
         error.MissingTargetValue => "--target requires a value, expected one of: sql, json-schema",
-        error.UnknownFormat => "unknown format, expected one of: text, json, sarif",
+        error.UnknownFormat => "unknown format, expected one of: text, json, sarif, markdown",
         error.DiffMissingArgs => "diff requires two arguments: <old.ss> <new.ss>",
         error.MigrateMissingArgs => "migrate requires two arguments: <old.ss> <new.ss>",
         error.UnknownCommand => "unknown command. Run 'rune --help' for usage.",

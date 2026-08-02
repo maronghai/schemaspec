@@ -13,7 +13,7 @@
         "status": {"type":"string"},
           "enum": ["draft", "pending", "done"]
       },
-      "required": [],
+      "required": ["id", "user_id", "total", "status"],
       "additionalProperties": false
     },
     "user": {
@@ -23,7 +23,7 @@
         "id": {"type":"integer"},
         "name": {"type":"string"}
       },
-      "required": [],
+      "required": ["id", "name"],
       "additionalProperties": false
     }
   },

@@ -17,7 +17,7 @@
         "post_id": {"type":"integer"},
         "body": {"type":"string"}
       },
-      "required": [],
+      "required": ["post_id", "body"],
       "additionalProperties": false
     }
   },

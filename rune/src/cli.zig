@@ -5,7 +5,7 @@ const dialect_enum = @import("dialect/enum.zig");
 
 pub const Target = enum { sql, json_schema };
 
-pub const DiffFormat = enum { text, json, sarif };
+pub const DiffFormat = enum { text, json, sarif, markdown };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool },
@@ -156,6 +156,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                     diff_format = .json;
                 } else if (std.mem.eql(u8, raw_args[i + 1], "sarif")) {
                     diff_format = .sarif;
+                } else if (std.mem.eql(u8, raw_args[i + 1], "markdown")) {
+                    diff_format = .markdown;
                 } else if (!std.mem.eql(u8, raw_args[i + 1], "text")) {
                     return error.UnknownFormat;
                 }
@@ -516,7 +518,7 @@ pub fn printUsage() void {
     std.debug.print("\nOptions:\n", .{});
     std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql, oracle, db2\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
-    std.debug.print("  --format        Output format: text (default), json, sarif (for diff/migrate)\n", .{});
+    std.debug.print("  --format        Output format: text (default), json, sarif, markdown (for diff/migrate)\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
     std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
     std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});

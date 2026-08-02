@@ -21,6 +21,7 @@ const jsonEscapeString = utils.jsonEscapeString;
 const text_fmt = @import("format/text.zig");
 const json_fmt = @import("format/json.zig");
 const sarif_fmt = @import("format/sarif.zig");
+const markdown_fmt = @import("format/markdown.zig");
 
 // Re-export text format
 pub const writeDiffTo = text_fmt.writeDiffTo;
@@ -32,3 +33,6 @@ pub const formatDiffJson = json_fmt.formatDiffJson;
 
 // Re-export SARIF format
 pub const formatDiffSarif = sarif_fmt.formatDiffSarif;
+
+// Re-export Markdown format
+pub const formatDiffMarkdown = markdown_fmt.formatDiffMarkdown;

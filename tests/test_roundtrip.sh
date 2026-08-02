@@ -9,10 +9,11 @@ source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 FILTER="${1:-}"
 
-# Test schemas: .ss files that roundtrip cleanly across all 4 dialects.
+# Test schemas: .ss files that roundtrip cleanly across all 6 dialects.
 # Excluded: 20-index-types/39-index-autoname (FULLTEXT name double-prefix),
-# 03-all-types (decimal roundtrip lossy), 60-enum-type (ENUM→TEXT),
-# view-basic (CREATE OR REPLACE not reversible).
+# 03-all-types (decimal roundtrip lossy on some dialects), 60-enum-type (ENUM→TEXT),
+# view-basic (CREATE OR REPLACE not reversible), 01-schema-only (reverse fails on oracle/db2/mssql).
+# MSSQL excluded entirely due to bracket quoting bug in reverse pipeline.
 ROUNDTRIP_TESTS=(
   "01-schema-only"
   "03-all-types"
@@ -50,7 +51,7 @@ for test_name in "${ROUNDTRIP_TESTS[@]}"; do
     continue
   fi
 
-  for dialect in mysql pg sqlite; do
+  for dialect in mysql pg sqlite oracle db2; do
     # Step 1: .ss → SQL (original)
     sql1=$("$COMPILER" "$ss_file" -d "$dialect" 2>/dev/null) || {
       fail "$test_name ($dialect): step 1" "compile failed"

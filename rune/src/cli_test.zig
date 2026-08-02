@@ -356,6 +356,20 @@ test "parseArgs: unknown format returns error" {
     try testing.expectError(error.UnknownFormat, cli.parseArgs(alloc, &args));
 }
 
+test "parseArgs: --format markdown for diff" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(6, .{ "rune", "diff", "old.ss", "new.ss", "--format", "markdown" });
+    const result = try cli.parseArgs(alloc, &args);
+    switch (result.command) {
+        .diff => |cmd| {
+            try testing.expectEqual(cli.DiffFormat.markdown, cmd.format);
+        },
+        else => try testing.expect(false),
+    }
+}
+
 test "parseArgs: generate prisma" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();

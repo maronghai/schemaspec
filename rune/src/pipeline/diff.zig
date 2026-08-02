@@ -84,6 +84,10 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
             const sarif_text = try diff_format.formatDiffSarif(alloc, result.schema_diff, cfg.dialect);
             try io_mod.writeOutput(io, sarif_text, null, false);
         },
+        .markdown => {
+            const md_text = try diff_format.formatDiffMarkdown(alloc, result.schema_diff, cfg.dialect);
+            try io_mod.writeOutput(io, md_text, cfg.output_path, false);
+        },
     }
 }
 
@@ -98,7 +102,7 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
             const json_text = try migrate_json.generateMigrationJson(alloc, result.schema_diff, cfg.dialect);
             try io_mod.writeOutput(io, json_text, cfg.output_path, false);
         },
-        .text, .sarif => {
+        .text, .sarif, .markdown => {
             // Both text and SARIF produce the same migration SQL; SARIF is diff-only
             if (cfg.rollback) {
                 const old_typed = try TypeResolver.resolve(alloc, result.old_ast, cfg.dialect);

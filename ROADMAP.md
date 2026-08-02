@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.84.0 (2026-08-02) — 20,000+ lines production Zig, 10,964+ lines tests, 492 golden files, 20 test suites.
+**Current version**: 0.85.0 (2026-08-02) — 20,000+ lines production Zig, 11,000+ lines tests, 500+ golden files, 21 test suites.
 
 ---
 
@@ -37,7 +37,7 @@ Polish the existing foundation. **Complete** — all items shipped in v0.38–v0
 
 - [x] Fuzz testing infrastructure — random `.ss` input to find parser crashes (v0.66.0)
 - [x] Golden test parallelization — `tests/test_parallel.sh` runs suites concurrently (v0.43.0)
-- [ ] Property-based tests for roundtrip fidelity (`.ss` → compile → reverse → compile → compare)
+- [x] Property-based tests for roundtrip fidelity (`.ss` → compile → reverse → compile → compare) (v0.85.0)
 
 ---
 
@@ -215,6 +215,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.85.0 (2026-08-02)
+
+- **Property-based roundtrip tests** — New `tests/test_property_roundtrip.sh` generates random `.ss` schemas, compiles → reverses → recompiles, verifies structural and semantic properties. Completes Phase 1 of ROADMAP.
+- **Markdown diff format** — `rune diff --format markdown` produces clean markdown tables for PR descriptions and documentation. New `diff/format/markdown.zig` with 3 unit tests.
+- **Cross-dialect roundtrip expansion** — Roundtrip tests expanded from 3 to 5 dialects (added Oracle, Db2). Total: 112 roundtrip tests (was 68).
+- **Fixed OpenAPI golden test infrastructure** — Test script and golden files corrected (`.sql` → `.json`). 3/3 passing.
+- **Fixed GraphQL golden test infrastructure** — Test script and golden files corrected (`.sql` → `.graphql`). 4/4 passing.
+- **Fixed JSON Schema golden files** — Regenerated to match current generator output. 3/3 passing.
 
 ### v0.84.0 (2026-08-02)
 
@@ -559,11 +568,11 @@ Ongoing improvements pursued alongside feature work.
 
 | Phase | Status | Items Done | Items Remaining |
 |-------|--------|------------|-----------------|
-| 1: Core Solidification | ✅ Complete | 8/9 | 1 (property-based tests) |
+| 1: Core Solidification | ✅ Complete | 9/9 | 0 |
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
 | 4: Incremental & Live Workflows | 🔲 Not started | 0/10 | 10 |
 | 5: Developer Experience | 🟡 Partial | 3/12 | 9 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 8/12 | 4 |
-| **Total** | | **46/81** | **35** |
+| **Total** | | **47/81** | **34** |

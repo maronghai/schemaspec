@@ -217,7 +217,7 @@ const COMPLETIONS_FISH =
     \\complete -c rune -l verbose-passes -d 'Show semantic pass details'
     \\complete -c rune -l import-path -r -d 'Additional search path for @import'
     \\complete -c rune -l output -r -d 'Output file path'
-    \\complete -c rune -l format -r -d 'Output format' -xa 'text json sarif'
+    \\complete -c rune -l format -r -d 'Output format' -xa 'text json sarif markdown'
     \\
     \\# generate subcommand
     \\complete -c rune -n '__fish_seen_subcommand_from generate' -a 'json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql' -d 'Generator'

@@ -19,7 +19,7 @@ for ss_file in "$TEST_DIR"/openapi-*.ss; do
     continue
   fi
 
-  expected_file="$EXPECTED_DIR/${base}.sql"
+  expected_file="$EXPECTED_DIR/${base}.json"
   if [ ! -f "$expected_file" ]; then
     skip "$base" "no expected file"
     continue

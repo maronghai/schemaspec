@@ -33,6 +33,7 @@ comptime {
     _ = @import("diff/format/text_test.zig");
     _ = @import("diff/format/sarif_test.zig");
     _ = @import("diff/format/json_test.zig");
+    _ = @import("diff/format/markdown_test.zig");
     // formatter
     _ = @import("formatter_test.zig");
     // io

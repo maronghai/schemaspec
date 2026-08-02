@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.85.0] - 2026-08-02
+
+### Added
+- **Property-based roundtrip tests** — New `tests/test_property_roundtrip.sh` generates random `.ss` schemas, compiles → reverses → recompiles, and verifies structural and semantic properties. Tests 30+ iterations across 3 dialects (MySQL, PostgreSQL, SQLite) with seed-reproducible output. Completes Phase 1 of ROADMAP.
+- **Markdown diff format** — `rune diff --format markdown` produces clean markdown tables suitable for PR descriptions and documentation. Shows summary metrics, dropped tables, added tables with columns, and per-table modification details. New `diff/format/markdown.zig` with 3 unit tests.
+- **Cross-dialect roundtrip testing** — Expanded `tests/test_roundtrip.sh` from 3 dialects (MySQL, PostgreSQL, SQLite) to 5 dialects (+Oracle, +Db2). Total roundtrip tests: 112 (was 68). MSSQL excluded due to known bracket-quoting bug in reverse pipeline.
+
+### Fixed
+- **OpenAPI golden test infrastructure** — `tests/test_openapi.sh` now uses `.json` extension for golden files (was `.sql`). Regenerated 3 golden files with correct OpenAPI 3.1 JSON output. Tests: 3/3 passing.
+- **GraphQL golden test infrastructure** — `tests/test_graphql.sh` now uses `.graphql` extension for golden files (was `.sql`). Regenerated 4 golden files with correct GraphQL SDL output. Tests: 4/4 passing.
+- **JSON Schema golden files** — Regenerated 3 golden files to match current generator output (corrected `required` array to include all non-nullable columns). Tests: 3/3 passing.
+
+### Changed
+- Updated CLI help text and fish completions to include `markdown` in `--format` options.
+- Added `cli_test.zig` test for `--format markdown` parsing.
+
 ## [0.76.0] - 2026-08-02
 
 ### Added

@@ -12,7 +12,7 @@
         "email": {"type":"string"},
         "status": {"type":"boolean"}
       },
-      "required": ["name", "email"],
+      "required": ["id", "name", "email", "status"],
       "additionalProperties": false
     }
   },
