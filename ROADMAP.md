@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.79.0 (2026-08-02)
+**Current version**: 0.80.0 (2026-08-02)
 
 ---
 
@@ -201,6 +201,17 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.80.0 (2026-08-02)
+
+- **Unified pipeline entry points** — Replaced three nearly-identical functions (`compilePipeline`, `compilePipelineVerbose`, `compilePipelineWithImports`) with a single `compilePipeline(alloc, file_data, opts)` that accepts a `PipelineOptions` struct. Reduces code duplication and makes pipeline behavior explicit via named fields. Net reduction: ~30 lines of duplicated wrapper code.
+- **Fixed `std.process.exit` in library code** — `generateFromSchema` now returns `error.UnknownGenerator` instead of calling `std.process.exit(1)` directly. Error handling is now consistent — all errors propagate to `main.zig`'s error dispatch.
+- **Fixed unsafe `@intCast`** — `PipelineResult.skipped_tables` now uses `@min` to safely clamp `error_count` to `u32` range, preventing potential panics on 64-bit systems with extremely large error counts.
+- **Fixed formatter dead code** — Removed identical `if (in_block) / else` branches in `formatter.zig` that both appended `'\n'`.
+- **Documented reserved parameter** — Added doc comment to `canonicalSimple` explaining the `dialect` parameter is reserved for future dialect-specific canonicalization.
+- **Named constants for magic numbers** — Extracted `STDIN_BUFFER_SIZE`, `OUTPUT_BUFFER_SIZE`, `STDIN_PATH` in `io.zig`; `INITIAL_PADDING` in `formatter.zig`; `MAX_IMPORT_DEPTH` in `import_resolver.zig`. Error messages now reference constants instead of hardcoded values.
+- **New unit tests** — Added `dialect/dialect_test.zig` (18 tests: getBackend, canOmitType, DialectCapability, behavioral flags, lookupSym, renderType), `pipeline/stats_test.zig` (4 tests: empty schema, table/field counting, not_null, views), `pipeline/reverse_test.zig` (1 test: ReverseConfig defaults).
+- **`STDIN_PATH` constant** — Replaced 8 hardcoded `"-"` strings in `main.zig` with `io_mod.STDIN_PATH` for consistency.
 
 ### v0.79.0 (2026-08-02)
 

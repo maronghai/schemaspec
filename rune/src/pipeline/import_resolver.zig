@@ -8,6 +8,10 @@ const diag = @import("../semantic/diagnostic.zig");
 // Handles @import directives during .ss file compilation.
 // Extracted from forward.zig for single-responsibility.
 
+/// Maximum recursion depth for @import directives. Prevents infinite loops
+/// from circular imports. Must match the value in the error message below.
+pub const MAX_IMPORT_DEPTH = 8;
+
 /// Set of imported file paths for circular dependency detection.
 pub const ImportSet = std.StringHashMap(void);
 
@@ -28,7 +32,7 @@ pub const ImportContext = struct {
     imported: *ImportSet,
     cache: ?*ImportCache = null,
     depth: u8 = 0,
-    max_depth: u8 = 8,
+    max_depth: u8 = MAX_IMPORT_DEPTH,
     /// Additional search paths for imports (from --import-path flag).
     import_paths: []const []const u8 = &.{},
 };
@@ -121,7 +125,7 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
                 diag.printDiagnostic(alloc, .{
                     .severity = .@"error",
                     .line_no = 0,
-                    .message = "import depth limit exceeded (max 8)",
+                    .message = std.fmt.comptimePrint("import depth limit exceeded (max {d})", .{MAX_IMPORT_DEPTH}),
                     .actual = trimmed,
                 });
                 return error.ParseError;

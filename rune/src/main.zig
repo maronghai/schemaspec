@@ -57,6 +57,10 @@ pub fn main(init: std.process.Init) !void {
                 }
                 std.process.exit(1);
             },
+            error.UnknownGenerator => {
+                std.debug.print("error: unknown generator. Run 'rune generate --list' for available generators.\n", .{});
+                std.process.exit(1);
+            },
             else => {
                 switch (err) {
                     error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
@@ -86,7 +90,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .compile => |cmd| {
             const input_path = if (cmd.input) |path|
-                if (std.mem.eql(u8, path, "-")) null else path
+                if (std.mem.eql(u8, path, io_mod.STDIN_PATH)) null else path
             else
                 null;
 
@@ -110,15 +114,15 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             });
         },
         .validate => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             return forward.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors, parsed.strict);
         },
         .check => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             return forward.handleCheck(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
         },
         .stats => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             return forward.handleStats(io, alloc, file_data);
         },
         .diff => |cmd| {
@@ -146,7 +150,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             });
         },
         .reverse => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             return reverse_pipe.handleReverse(io, alloc, file_data, .{
                 .input_name = cmd.input orelse "<stdin>",
                 .output_path = cmd.output,
@@ -159,7 +163,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             });
         },
         .docs => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             return forward.generateFromSchema(io, alloc, file_data, "docs", parsed.dialect, cmd.output, parsed.quiet);
         },
         .generate => |cmd| {
@@ -167,14 +171,14 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 generator.listAll();
                 return;
             }
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             return forward.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
         },
         .init => |cmd| {
             return completions.handleInit(io, alloc, cmd.name, cmd.output);
         },
         .format_cmd => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse "-");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             const formatter = @import("formatter.zig");
             const formatted = try formatter.format(alloc, file_data);
             try io_mod.writeOutput(io, formatted, cmd.output, parsed.quiet);

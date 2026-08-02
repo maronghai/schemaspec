@@ -11,6 +11,7 @@ comptime {
     _ = @import("codegen/columns_test.zig");
     _ = @import("codegen/indexes_test.zig");
     // dialect
+    _ = @import("dialect/dialect_test.zig");
     _ = @import("dialect/common_test.zig");
     _ = @import("dialect/mysql_test.zig");
     _ = @import("dialect/pg_test.zig");
@@ -52,6 +53,8 @@ comptime {
     _ = @import("pipeline/diff_test.zig");
     _ = @import("pipeline/forward_test.zig");
     _ = @import("pipeline/import_resolver_test.zig");
+    _ = @import("pipeline/stats_test.zig");
+    _ = @import("pipeline/reverse_test.zig");
     // reverse
     _ = @import("reverse/map_test.zig");
     _ = @import("reverse/column_test.zig");

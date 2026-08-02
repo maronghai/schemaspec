@@ -16,7 +16,7 @@ test "compilePipeline: simple schema produces resolved tables" {
         \\id   n++
         \\name s
     ;
-    const result = try pf.compilePipeline(alloc, ss_input);
+    const result = try pf.compilePipeline(alloc, ss_input, .{});
     try testing.expect(result.resolved.tables.len > 0);
     try testing.expectEqualStrings("user", result.resolved.tables[0].name);
 }
@@ -27,7 +27,7 @@ test "compilePipeline: invalid input produces result (parser is lenient)" {
     const alloc = arena.allocator();
 
     const bad_input = "### invalid $$$";
-    const result = try pf.compilePipeline(alloc, bad_input);
+    const result = try pf.compilePipeline(alloc, bad_input, .{});
     // Parser is lenient — invalid SS still produces a result
     try testing.expect(result.resolved.tables.len >= 0);
 }
@@ -50,7 +50,7 @@ test "compilePipeline: FK columns produce foreign_keys on resolved table" {
         \\
         \\> user_id user.id
     ;
-    const result = try pf.compilePipeline(alloc, ss_input);
+    const result = try pf.compilePipeline(alloc, ss_input, .{});
     try testing.expectEqual(@as(usize, 2), result.resolved.tables.len);
     // post table should have a foreign key
     const post = result.resolved.tables[1];
@@ -71,7 +71,7 @@ test "compilePipeline: enum columns produce enum_values" {
         \\id      n++
         \\status  e(pending,shipped,delivered)
     ;
-    const result = try pf.compilePipeline(alloc, ss_input);
+    const result = try pf.compilePipeline(alloc, ss_input, .{});
     try testing.expectEqual(@as(usize, 1), result.resolved.tables.len);
     const table = result.resolved.tables[0];
     // status column should have enum_values
@@ -96,7 +96,7 @@ test "compilePipeline: template inheritance merges fields" {
         \\# base user
         \\email s
     ;
-    const result = try pf.compilePipeline(alloc, ss_input);
+    const result = try pf.compilePipeline(alloc, ss_input, .{});
     try testing.expectEqual(@as(usize, 1), result.resolved.tables.len);
     const user = result.resolved.tables[0];
     try testing.expectEqualStrings("user", user.name);
@@ -121,7 +121,7 @@ test "compilePipeline: multiple tables" {
         \\# comments
         \\id n++
     ;
-    const result = try pf.compilePipeline(alloc, ss_input);
+    const result = try pf.compilePipeline(alloc, ss_input, .{});
     try testing.expectEqual(@as(usize, 3), result.resolved.tables.len);
     try testing.expectEqualStrings("users", result.resolved.tables[0].name);
     try testing.expectEqualStrings("posts", result.resolved.tables[1].name);
@@ -141,7 +141,7 @@ test "compilePipeline: default values preserved" {
         \\name  s =hello
         \\count n =0
     ;
-    const result = try pf.compilePipeline(alloc, ss_input);
+    const result = try pf.compilePipeline(alloc, ss_input, .{});
     try testing.expectEqual(@as(usize, 1), result.resolved.tables.len);
     const table = result.resolved.tables[0];
     // name column should have default 'hello'

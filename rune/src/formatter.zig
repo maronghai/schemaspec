@@ -7,8 +7,11 @@ const std = @import("std");
 //   - Single blank line between blocks
 //   - No trailing blank lines
 
+/// Pre-allocation padding to avoid repeated reallocations for small inputs.
+const INITIAL_PADDING = 64;
+
 pub fn format(alloc: std.mem.Allocator, input: []const u8) ![]const u8 {
-    var result = try std.ArrayList(u8).initCapacity(alloc, input.len + 64);
+    var result = try std.ArrayList(u8).initCapacity(alloc, input.len + INITIAL_PADDING);
     var lines = std.mem.splitScalar(u8, input, '\n');
     var in_block = false; // inside a table or template
     var prev_blank = false;
@@ -32,11 +35,7 @@ pub fn format(alloc: std.mem.Allocator, input: []const u8) ![]const u8 {
 
         // Emit deferred blank line
         if (prev_blank) {
-            if (in_block) {
-                try result.append(alloc, '\n');
-            } else {
-                try result.append(alloc, '\n');
-            }
+            try result.append(alloc, '\n');
             prev_blank = false;
         }
 

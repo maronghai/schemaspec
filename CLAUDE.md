@@ -128,6 +128,8 @@ rune/src/
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)`.
 
+- **PipelineOptions** (`pipeline/forward.zig`): Configuration struct for the unified compilation pipeline. Replaces three separate functions (`compilePipeline`, `compilePipelineVerbose`, `compilePipelineWithImports`) with a single `compilePipeline(alloc, file_data, opts)`. Fields: `io`, `import_ctx`, `resolve_imports`, `merge_imports`, `run_semantic`, `verbose_passes`, `json_errors`.
+
 - **DiffConfig / MigrateConfig / ReverseConfig** (`pipeline/diff.zig`, `pipeline/reverse.zig`): Configuration structs for diff, migrate, and reverse handlers, replacing 8-11 positional parameters each. Follows the `CompileConfig` pattern. `handleDiff(io, alloc, DiffConfig)`, `handleMigrate(io, alloc, MigrateConfig)`, and `handleReverse(io, alloc, file_data, ReverseConfig)` are the unified entry points.
 
 - **`generateFromSchema`** (`pipeline/forward.zig`): Shared helper that handles the full compile→generate→write pipeline. Used by both `rune generate` and `rune docs` in `main.zig`, eliminating duplicate dispatch logic.
@@ -237,7 +239,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 66 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 68 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 20 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 87), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_oracle.sh` (Oracle, 103), `test_db2.sh` (Db2, 103), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (21), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_openapi.sh` (3), `test_graphql.sh` (4), `test_roundtrip.sh` (68), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_init.sh` (12), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

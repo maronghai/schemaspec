@@ -36,8 +36,10 @@ pub fn typeInfoEquiv(a: TypeInfo, b: TypeInfo, dialect: Dialect) bool {
 /// Canonical form of a SS type symbol within a dialect.
 /// Equivalent symbols map to the same canonical form.
 /// NOTE: n and N are NOT equivalent — they map to int vs bigint.
+/// The `dialect` parameter is reserved for future dialect-specific canonicalization
+/// (e.g. Oracle VARCHAR2 → VARCHAR equivalence). Currently unused.
 pub fn canonicalSimple(sym: []const u8, dialect: Dialect) ?[]const u8 {
-    _ = dialect;
+    _ = dialect; // Reserved for future dialect-specific rules
     if (sym.len == 0) return null;
     return switch (sym[0]) {
         'n', 'N' => if (sym.len == 1) sym else switch (sym[1]) {

@@ -36,12 +36,22 @@ pub const ImportCache = import_res.ImportCache;
 
 // ─── Unified Pipeline ──────────────────────────────────────────
 
-/// Flags controlling pipeline behavior.
-const CompileFlags = struct {
+/// Options controlling pipeline behavior. All fields have safe defaults
+/// so callers only need to specify what they change.
+pub const PipelineOptions = struct {
+    /// I/O handle for file reading (required for import resolution).
+    io: ?std.Io = null,
+    /// Import context for @import resolution. Requires io != null.
+    import_ctx: ?*ImportContext = null,
+    /// Resolve @import directives recursively.
     resolve_imports: bool = false,
-    run_semantic: bool = true,
+    /// Merge imported definitions into the main AST.
     merge_imports: bool = false,
+    /// Run semantic analysis. Set to false for parse-only mode.
+    run_semantic: bool = true,
+    /// Run semantic passes in verbose mode (print each pass name and timing).
     verbose_passes: bool = false,
+    /// Emit diagnostics in JSON format (for CI/CD integration).
     json_errors: bool = false,
 };
 
@@ -82,7 +92,7 @@ fn compileInternal(
     alloc: std.mem.Allocator,
     file_data: []const u8,
     import_ctx: ?*ImportContext,
-    flags: CompileFlags,
+    flags: PipelineOptions,
 ) !struct { tree: ast_mod.Ast, lines: []tokenizer.Line, resolved: ?resolved_ast.ResolvedAst, partial: bool } {
     const raw_lines = try import_res.splitLines(alloc, file_data);
 
@@ -137,44 +147,16 @@ fn compileInternal(
 }
 
 /// Shared tokenizer → parser → semantic pipeline.
+/// Unified entry point replacing compilePipeline/compilePipelineVerbose/compilePipelineWithImports.
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
-pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8) !PipelineResult {
-    const result = try compileInternal(null, alloc, file_data, null, .{});
+pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8, opts: PipelineOptions) !PipelineResult {
+    const result = try compileInternal(opts.io, alloc, file_data, opts.import_ctx, opts);
     return .{
         .resolved = result.resolved orelse return error.SemanticError,
         .lines = result.lines,
         .tree = result.tree,
         .partial = result.partial,
-        .skipped_tables = if (result.partial) @intCast(result.tree.error_count) else 0,
-    };
-}
-
-/// Shared tokenizer → parser → semantic pipeline with verbose pass tracking.
-pub fn compilePipelineVerbose(alloc: std.mem.Allocator, file_data: []const u8, verbose: bool, json_errors: bool) !PipelineResult {
-    const result = try compileInternal(null, alloc, file_data, null, .{ .verbose_passes = verbose, .json_errors = json_errors });
-    return .{
-        .resolved = result.resolved orelse return error.SemanticError,
-        .lines = result.lines,
-        .tree = result.tree,
-        .partial = result.partial,
-        .skipped_tables = if (result.partial) @intCast(result.tree.error_count) else 0,
-    };
-}
-
-/// Compile pipeline with import resolution. Handles @import directives by
-/// recursively compiling imported files and merging their templates/tables.
-fn compilePipelineWithImports(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext, json_errors: bool) !PipelineResult {
-    const result = try compileInternal(io, alloc, file_data, import_ctx, .{
-        .resolve_imports = true,
-        .merge_imports = true,
-        .json_errors = json_errors,
-    });
-    return .{
-        .resolved = result.resolved orelse return error.SemanticError,
-        .lines = result.lines,
-        .tree = result.tree,
-        .partial = result.partial,
-        .skipped_tables = if (result.partial) @intCast(result.tree.error_count) else 0,
+        .skipped_tables = if (result.partial) @min(result.tree.error_count, std.math.maxInt(u32)) else 0,
     };
 }
 
@@ -217,7 +199,13 @@ pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []c
         .import_paths = import_paths,
     };
 
-    return compilePipelineWithImports(io, alloc, file_data, &ctx, json_errors);
+    return compilePipeline(alloc, file_data, .{
+        .io = io,
+        .import_ctx = &ctx,
+        .resolve_imports = true,
+        .merge_imports = true,
+        .json_errors = json_errors,
+    });
 }
 
 /// Compile a .ss file path to ResolvedAst (used by diff/migrate pipelines).
@@ -266,7 +254,7 @@ pub fn handleCompileRequest(
     const pipeline = if (cfg.input) |path|
         try compileFileWithPaths(io, alloc, path, cfg.import_paths, cfg.json_errors)
     else
-        try compilePipelineVerbose(alloc, try io_mod.readStdin(io, alloc), cfg.verbose_passes, cfg.json_errors);
+        try compilePipeline(alloc, try io_mod.readStdin(io, alloc), .{ .verbose_passes = cfg.verbose_passes, .json_errors = cfg.json_errors });
 
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, cfg.dialect);
 
@@ -312,7 +300,7 @@ pub fn handleCompileRequest(
 /// With strict=false (default validate): always succeeds (exit 0), prints errors but doesn't fail.
 /// With strict=true (check mode): returns error.DiagnosticsError on errors (exit 1).
 pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool) !void {
-    const result = compilePipelineVerbose(alloc, file_data, verbose_passes, json_errors) catch |err| {
+    const result = compilePipeline(alloc, file_data, .{ .verbose_passes = verbose_passes, .json_errors = json_errors }) catch |err| {
         if (err == error.DiagnosticsError or err == error.SemanticError) {
             std.debug.print("schema has errors\n", .{});
             if (strict) return err;
@@ -338,7 +326,7 @@ pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.
 pub fn handleStats(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8) !void {
-    const result = try compilePipelineVerbose(alloc, file_data, false, false);
+    const result = try compilePipeline(alloc, file_data, .{});
     const s = computeStats(result.resolved);
     std.debug.print("tables:  {d}\n", .{s.tables});
     std.debug.print("fields:  {d}\n", .{s.fields});
@@ -357,7 +345,7 @@ pub fn generateFromSchema(
     output_path: ?[]const u8,
     quiet: bool,
 ) !void {
-    const pipeline = try compilePipeline(alloc, file_data);
+    const pipeline = try compilePipeline(alloc, file_data, .{});
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
 
     const generator = @import("../generator.zig");
@@ -365,7 +353,6 @@ pub fn generateFromSchema(
         const output_text = try gen.generate(alloc, typed, dialect);
         try io_mod.writeOutput(io, output_text, output_path, quiet);
     } else {
-        std.debug.print("error: unknown generator '{s}'. Run 'rune generate --list' for available generators.\n", .{generator_name});
-        std.process.exit(1);
+        return error.UnknownGenerator;
     }
 }
