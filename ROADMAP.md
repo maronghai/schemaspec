@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.86.0 (2026-08-02) — 20,000+ lines production Zig, 11,000+ lines tests, 500+ golden files, 21 test suites.
+**Current version**: 0.87.0 (2026-08-02) — 20,000+ lines production Zig, 11,000+ lines tests, 500+ golden files, 21 test suites.
 
 ---
 
@@ -215,6 +215,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.87.0 (2026-08-02)
+
+- **Shared dialect type rendering helpers** — Extracted `common.emitVarchar`, `common.emitDecimal`, `common.emitEnumValues`, `common.emitEnumFixedType` to replace 18+ per-dialect render functions. Each dialect now specifies only its type names in a switch statement, falling through to a comptime render table for simple types.
+- **Shared `emitAlterTableCommentShared`** — PG, Oracle, Db2 now use a single shared `COMMENT ON TABLE` implementation instead of 3 identical copies.
+- **Shared `emitIndexWithQuote`** — MSSQL, Oracle, Db2 now use a single shared index rendering function with configurable fulltext prefix (`"FULLTEXT "` for MSSQL, `""` for Oracle/Db2).
+- **Consolidated `emitAlterEngine`** — Oracle, MSSQL, Db2 now reference `common.emitAlterEngineWarning` directly instead of 3 identical local implementations.
+- **Removed dead `canonicalSimple` dialect parameter** — The unused `dialect` parameter in `diff/semantic.zig:canonicalSimple`, `simpleEquiv`, and `typeInfoEquiv` has been removed. All callers updated.
 
 ### v0.86.0 (2026-08-02)
 

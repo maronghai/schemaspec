@@ -97,24 +97,12 @@ fn sqliteEmitConfidenceComment(w: *Writer, confidence: []const u8) anyerror!void
 
 // ─── Type Rendering ────────────────────────────────────────
 
-fn sqliteRenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
-    try w.print("NUMERIC({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
-}
-
-fn sqliteRenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
-    if (sql_type.varchar > 0) {
-        try w.print("varchar({d})", .{sql_type.varchar});
-    } else {
-        try w.writeAll("TEXT");
-    }
-}
-
 const SQLITE_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "INTEGER" }, // int → INTEGER
     .{ .comptime_str = "INTEGER" }, // bigint → INTEGER
     .{ .comptime_str = "INTEGER" }, // smallint → INTEGER
-    .{ .render_fn = sqliteRenderDecimal }, // decimal → NUMERIC
-    .{ .render_fn = sqliteRenderVarchar }, // varchar
+    .{ .comptime_str = "" }, // decimal — handled by sqliteRenderType switch
+    .{ .comptime_str = "" }, // varchar — handled by sqliteRenderType switch
     .{ .comptime_str = "TEXT" }, // text
     .{ .comptime_str = "BLOB" }, // blob
     .{ .comptime_str = "TEXT" }, // json → TEXT
@@ -126,13 +114,18 @@ const SQLITE_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "TEXT" }, // uuid → TEXT
     .{ .comptime_str = "TEXT" }, // inet → TEXT
     .{ .comptime_str = "INTEGER" }, // serial → INTEGER
-    .{ .comptime_str = "TEXT" }, // enum_values → TEXT
+    .{ .comptime_str = "" }, // enum_values — handled by sqliteRenderType switch
     .{ .comptime_str = "" }, // raw_sql
     .{ .comptime_str = "" }, // passthrough
 };
 
 fn sqliteRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
-    try common.renderTypeFromTable(w, sql_type, &SQLITE_RENDER_TABLE);
+    switch (sql_type) {
+        .decimal => |d| try common.emitDecimal(w, "NUMERIC", d.precision, d.scale),
+        .varchar => |n| try common.emitVarcharDefault(w, "varchar", n, "TEXT"),
+        .enum_values => try common.emitEnumFixedType(w, "TEXT"),
+        else => try common.renderTypeFromTable(w, sql_type, &SQLITE_RENDER_TABLE),
+    }
 }
 
 // ─── View ──────────────────────────────────────────────────

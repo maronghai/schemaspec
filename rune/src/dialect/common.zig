@@ -68,6 +68,52 @@ pub fn renderTypeFromTable(w: *Writer, sql_type: SqlType, comptime table: []cons
     }
 }
 
+// ─── Shared Type Rendering Helpers ────────────────────────────
+
+/// Generic varchar rendering — shared by all 6 dialects.
+/// `type_name` is the dialect-specific name (e.g. "varchar", "NVARCHAR", "VARCHAR2").
+/// `n` is the varchar length; `default_size` is used when n == 0.
+pub fn emitVarchar(w: *Writer, type_name: []const u8, n: usize, default_size: usize) anyerror!void {
+    if (n > 0) {
+        try w.print("{s}({d})", .{ type_name, n });
+    } else {
+        try w.print("{s}({d})", .{ type_name, default_size });
+    }
+}
+
+/// Generic varchar rendering with a string default — used when the default is not a number.
+/// `default` is emitted when n == 0 (e.g. SQLite's "TEXT" for varchar).
+pub fn emitVarcharDefault(w: *Writer, type_name: []const u8, n: usize, default: []const u8) anyerror!void {
+    if (n > 0) {
+        try w.print("{s}({d})", .{ type_name, n });
+    } else {
+        try w.writeAll(default);
+    }
+}
+
+/// Generic decimal rendering — shared by all 6 dialects.
+/// `type_name` is the dialect-specific name (e.g. "decimal", "numeric", "NUMBER", "DECIMAL").
+pub fn emitDecimal(w: *Writer, type_name: []const u8, precision: usize, scale: usize) anyerror!void {
+    try w.print("{s}({d}, {d})", .{ type_name, precision, scale });
+}
+
+/// Generic enum values rendering for dialects without native ENUM.
+/// Emits a fixed-size type string. Used by PG (TEXT), SQLite (TEXT), MSSQL (NVARCHAR(255)),
+/// Oracle (VARCHAR2(255)), Db2 (VARCHAR(255)).
+pub fn emitEnumFixedType(w: *Writer, fixed_type: []const u8) anyerror!void {
+    try w.writeAll(fixed_type);
+}
+
+/// Shared ENUM values rendering for MySQL (native ENUM).
+pub fn emitEnumValues(w: *Writer, values: []const []const u8) anyerror!void {
+    try w.writeAll("ENUM(");
+    for (values, 0..) |v, vi| {
+        if (vi > 0) try w.writeAll(", ");
+        try w.print("'{s}'", .{v});
+    }
+    try w.writeAll(")");
+}
+
 // ─── Shared Comment Emission ────────────────────────────────
 
 /// Shared standalone COMMENT ON TABLE implementation (PG, Oracle, Db2, MSSQL).
@@ -245,6 +291,46 @@ pub fn emitAlterDropIndexNoQuote(w: *Writer, idx: IndexDecl) anyerror!void {
 
 pub fn emitAlterEngineWarning(w: *Writer, _: ?[]const u8) anyerror!void {
     try w.writeAll("-- NOTE: ENGINE change is MySQL-only, ignored for this dialect\n");
+}
+
+/// Shared emitAlterTableComment for dialects using COMMENT ON TABLE syntax (PG, Oracle, Db2).
+pub fn emitAlterTableCommentShared(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
+    try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n\n", .{ table_name, comment });
+}
+
+/// Shared emitIndex for non-MySQL dialects.
+/// `fulltext_prefix` is the keyword before "INDEX" for fulltext indexes.
+/// MSSQL passes "FULLTEXT ", Oracle/Db2 pass "" (no special fulltext syntax).
+pub fn emitIndexWithQuote(w: *Writer, idx: IndexDecl, quoteIdent: QuoteIdentFn, needs_comma: *bool, fulltext_prefix: []const u8) anyerror!void {
+    if (needs_comma.*) try w.writeAll(",\n");
+    needs_comma.* = true;
+    try w.writeAll("  ");
+    switch (idx.kind) {
+        .regular => {
+            try w.writeAll("INDEX ");
+            try quoteIdent(w, idx.name);
+            try w.writeAll(" (");
+        },
+        .unique => {
+            try w.writeAll("UNIQUE ");
+            try quoteIdent(w, idx.name);
+            try w.writeAll(" (");
+        },
+        .fulltext => {
+            try w.writeAll(fulltext_prefix);
+            try w.writeAll("INDEX ");
+            try quoteIdent(w, idx.name);
+            try w.writeAll(" (");
+        },
+        .primary_key => {
+            try w.writeAll("PRIMARY KEY (");
+        },
+    }
+    for (idx.fields, 0..) |f, fi| {
+        if (fi > 0) try w.writeAll(", ");
+        try quoteIdent(w, f);
+    }
+    try w.writeAll(")");
 }
 
 // ─── Shared ALTER TABLE Helpers ──────────────────────────────

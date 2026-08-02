@@ -35,35 +35,7 @@ fn db2EmitCreateView(w: *Writer, name: []const u8, query: []const u8) anyerror!v
 // ─── Forward Methods ─────────────────────────────────────────
 
 fn db2EmitIndex(w: *Writer, idx: IndexDecl, needs_comma: *bool) anyerror!void {
-    if (needs_comma.*) try w.writeAll(",\n");
-    needs_comma.* = true;
-    try w.writeAll("  ");
-    switch (idx.kind) {
-        .regular => {
-            try w.writeAll("INDEX ");
-            try db2QuoteIdent(w, idx.name);
-            try w.writeAll(" (");
-        },
-        .unique => {
-            try w.writeAll("UNIQUE ");
-            try db2QuoteIdent(w, idx.name);
-            try w.writeAll(" (");
-        },
-        .fulltext => {
-            // Db2: no native FULLTEXT INDEX, emit as regular INDEX
-            try w.writeAll("INDEX ");
-            try db2QuoteIdent(w, idx.name);
-            try w.writeAll(" (");
-        },
-        .primary_key => {
-            try w.writeAll("PRIMARY KEY (");
-        },
-    }
-    for (idx.fields, 0..) |f, fi| {
-        if (fi > 0) try w.writeAll(", ");
-        try db2QuoteIdent(w, f);
-    }
-    try w.writeAll(")");
+    try common.emitIndexWithQuote(w, idx, db2QuoteIdent, needs_comma, "");
 }
 
 fn db2EmitTimestampModifier(w: *Writer, _: bool) anyerror!void {
@@ -159,39 +131,17 @@ fn db2CommentResult() CommentResult {
 }
 
 fn db2EmitAlterTableComment(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
-    try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n\n", .{ table_name, comment });
-}
-
-fn db2EmitAlterEngine(w: *Writer, _: ?[]const u8) anyerror!void {
-    try w.writeAll("-- NOTE: ENGINE change is MySQL-only, ignored for this dialect\n");
+    try common.emitAlterTableCommentShared(w, table_name, comment);
 }
 
 // ─── Type Rendering ────────────────────────────────────────
-
-fn db2RenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
-    try w.print("DECIMAL({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
-}
-
-fn db2RenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
-    if (sql_type.varchar > 0) {
-        try w.print("VARCHAR({d})", .{sql_type.varchar});
-    } else {
-        try w.writeAll("VARCHAR(255)");
-    }
-}
-
-fn db2RenderEnumValues(w: *Writer, sql_type: SqlType) anyerror!void {
-    // Db2: no native ENUM, use VARCHAR with CHECK constraint
-    try w.writeAll("VARCHAR(255)");
-    _ = sql_type;
-}
 
 const DB2_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "INTEGER" }, // int → INTEGER
     .{ .comptime_str = "BIGINT" }, // bigint → BIGINT
     .{ .comptime_str = "SMALLINT" }, // smallint → SMALLINT
-    .{ .render_fn = db2RenderDecimal }, // decimal → DECIMAL(p, s)
-    .{ .render_fn = db2RenderVarchar }, // varchar → VARCHAR
+    .{ .comptime_str = "" }, // decimal — handled by db2RenderType switch
+    .{ .comptime_str = "" }, // varchar — handled by db2RenderType switch
     .{ .comptime_str = "CLOB" }, // text → CLOB
     .{ .comptime_str = "BLOB" }, // blob → BLOB
     .{ .comptime_str = "CLOB" }, // json → CLOB
@@ -203,13 +153,18 @@ const DB2_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "CHAR(16) FOR BIT DATA" }, // uuid → CHAR(16) FOR BIT DATA
     .{ .comptime_str = "VARCHAR(45)" }, // inet → VARCHAR(45)
     .{ .comptime_str = "INTEGER" }, // serial → INTEGER (identity handled by emitPrimaryKey)
-    .{ .render_fn = db2RenderEnumValues }, // enum_values → VARCHAR(255)
+    .{ .comptime_str = "" }, // enum_values — handled by db2RenderType switch
     .{ .comptime_str = "" }, // raw_sql — handled by passthrough fallback
     .{ .comptime_str = "" }, // passthrough — written from variant
 };
 
 fn db2RenderType(w: *Writer, sql_type: SqlType) anyerror!void {
-    try common.renderTypeFromTable(w, sql_type, &DB2_RENDER_TABLE);
+    switch (sql_type) {
+        .decimal => |d| try common.emitDecimal(w, "DECIMAL", d.precision, d.scale),
+        .varchar => |n| try common.emitVarchar(w, "VARCHAR", n, 255),
+        .enum_values => try common.emitEnumFixedType(w, "VARCHAR(255)"),
+        else => try common.renderTypeFromTable(w, sql_type, &DB2_RENDER_TABLE),
+    }
 }
 
 // ─── Forward Type Mapping (SS symbol → SqlType) ─────────────
@@ -255,7 +210,7 @@ pub const db2_backend = DialectBackend{
     .emitAlterDropFk = db2EmitAlterDropFk,
     .commentResult = db2CommentResult,
     .emitAlterTableComment = db2EmitAlterTableComment,
-    .emitAlterEngine = db2EmitAlterEngine,
+    .emitAlterEngine = common.emitAlterEngineWarning,
     .emitCreateView = db2EmitCreateView,
     .renderType = db2RenderType,
     .emitForeignKey = db2EmitForeignKey,

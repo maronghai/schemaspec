@@ -13,12 +13,12 @@ const Dialect = dialect_enum.Dialect;
 //
 // Example: MySQL "n" and "N" both resolve to int → equivalent.
 
-/// Check if two TypeInfo values are semantically equivalent in a dialect.
-pub fn typeInfoEquiv(a: TypeInfo, b: TypeInfo, dialect: Dialect) bool {
+/// Check if two TypeInfo values are semantically equivalent.
+pub fn typeInfoEquiv(a: TypeInfo, b: TypeInfo) bool {
     if (std.meta.activeTag(a) != std.meta.activeTag(b)) return false;
     return switch (a) {
         .none => true,
-        .simple => |s| simpleEquiv(s, b.simple, dialect),
+        .simple => |s| simpleEquiv(s, b.simple),
         .raw_sql => |s| std.mem.eql(u8, s, b.raw_sql),
         .int_explicit => |n| n == b.int_explicit,
         .decimal_explicit => |ds| ds.precision == b.decimal_explicit.precision and ds.scale == b.decimal_explicit.scale,
@@ -33,13 +33,10 @@ pub fn typeInfoEquiv(a: TypeInfo, b: TypeInfo, dialect: Dialect) bool {
     };
 }
 
-/// Canonical form of a SS type symbol within a dialect.
+/// Canonical form of a SS type symbol.
 /// Equivalent symbols map to the same canonical form.
 /// NOTE: n and N are NOT equivalent — they map to int vs bigint.
-/// The `dialect` parameter is reserved for future dialect-specific canonicalization
-/// (e.g. Oracle VARCHAR2 → VARCHAR equivalence). Currently unused.
-pub fn canonicalSimple(sym: []const u8, dialect: Dialect) ?[]const u8 {
-    _ = dialect; // Reserved for future dialect-specific rules
+pub fn canonicalSimple(sym: []const u8) ?[]const u8 {
     if (sym.len == 0) return null;
     return switch (sym[0]) {
         'n', 'N' => if (sym.len == 1) sym else switch (sym[1]) {
@@ -60,11 +57,11 @@ pub fn canonicalSimple(sym: []const u8, dialect: Dialect) ?[]const u8 {
     };
 }
 
-/// Check if two simple SS type symbols are equivalent in a dialect.
-pub fn simpleEquiv(a: []const u8, b: []const u8, dialect: Dialect) bool {
+/// Check if two simple SS type symbols are equivalent.
+pub fn simpleEquiv(a: []const u8, b: []const u8) bool {
     if (std.mem.eql(u8, a, b)) return true;
-    const ca = canonicalSimple(a, dialect) orelse return false;
-    const cb = canonicalSimple(b, dialect) orelse return false;
+    const ca = canonicalSimple(a) orelse return false;
+    const cb = canonicalSimple(b) orelse return false;
     return std.mem.eql(u8, ca, cb);
 }
 

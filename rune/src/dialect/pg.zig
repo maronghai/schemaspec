@@ -53,7 +53,7 @@ fn pgEmitAlterDropFk(w: *Writer, fk: ast_mod.FkDecl) anyerror!void {
 }
 
 fn pgEmitAlterTableComment(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
-    try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n\n", .{ table_name, comment });
+    try common.emitAlterTableCommentShared(w, table_name, comment);
 }
 
 fn pgCommentResult() CommentResult {
@@ -76,24 +76,12 @@ fn pgEmitAutoIncrement(w: *Writer) anyerror!void {
 
 // ─── Type Rendering ────────────────────────────────────────
 
-fn pgRenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
-    try w.print("numeric({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
-}
-
-fn pgRenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
-    if (sql_type.varchar > 0) {
-        try w.print("varchar({d})", .{sql_type.varchar});
-    } else {
-        try w.writeAll("varchar(255)");
-    }
-}
-
 const PG_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "integer" }, // int → integer
     .{ .comptime_str = "bigint" }, // bigint
     .{ .comptime_str = "smallint" }, // smallint
-    .{ .render_fn = pgRenderDecimal }, // decimal → numeric
-    .{ .render_fn = pgRenderVarchar }, // varchar
+    .{ .comptime_str = "" }, // decimal — handled by pgRenderType switch
+    .{ .comptime_str = "" }, // varchar — handled by pgRenderType switch
     .{ .comptime_str = "text" }, // text
     .{ .comptime_str = "bytea" }, // blob → bytea
     .{ .comptime_str = "json" }, // json
@@ -105,13 +93,18 @@ const PG_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "uuid" }, // uuid
     .{ .comptime_str = "inet" }, // inet
     .{ .comptime_str = "serial" }, // serial
-    .{ .comptime_str = "TEXT" }, // enum_values → TEXT
+    .{ .comptime_str = "" }, // enum_values — handled by pgRenderType switch
     .{ .comptime_str = "" }, // raw_sql
     .{ .comptime_str = "" }, // passthrough
 };
 
 fn pgRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
-    try common.renderTypeFromTable(w, sql_type, &PG_RENDER_TABLE);
+    switch (sql_type) {
+        .decimal => |d| try common.emitDecimal(w, "numeric", d.precision, d.scale),
+        .varchar => |n| try common.emitVarchar(w, "varchar", n, 255),
+        .enum_values => try common.emitEnumFixedType(w, "TEXT"),
+        else => try common.renderTypeFromTable(w, sql_type, &PG_RENDER_TABLE),
+    }
 }
 
 // ─── View ──────────────────────────────────────────────────

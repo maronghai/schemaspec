@@ -8,51 +8,43 @@ const Dialect = dialect_enum.Dialect;
 const testing = std.testing;
 
 test "typeInfoEquiv: identical types" {
-    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "n" }, .mysql));
-    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "s" }, .{ .simple = "s" }, .mysql));
-    try testing.expect(semantic.typeInfoEquiv(.none, .none, .mysql));
+    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "n" }));
+    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "s" }, .{ .simple = "s" }));
+    try testing.expect(semantic.typeInfoEquiv(.none, .none));
 }
 
-test "typeInfoEquiv: MySQL n/N NOT equivalent (int vs bigint)" {
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "N" }, .mysql));
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "N" }, .{ .simple = "n" }, .mysql));
+test "typeInfoEquiv: n/N NOT equivalent (int vs bigint)" {
+    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "N" }));
+    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "N" }, .{ .simple = "n" }));
 }
 
-test "typeInfoEquiv: MySQL 4/N4 equivalent" {
-    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "4" }, .{ .simple = "N4" }, .mysql));
+test "typeInfoEquiv: 4/N4 equivalent" {
+    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "4" }, .{ .simple = "N4" }));
 }
 
-test "typeInfoEquiv: MySQL 8/N8 equivalent" {
-    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "8" }, .{ .simple = "N8" }, .mysql));
+test "typeInfoEquiv: 8/N8 equivalent" {
+    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "8" }, .{ .simple = "N8" }));
 }
 
-test "typeInfoEquiv: MySQL b/B NOT equivalent (boolean vs blob)" {
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "b" }, .{ .simple = "B" }, .mysql));
+test "typeInfoEquiv: b/B NOT equivalent (boolean vs blob)" {
+    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "b" }, .{ .simple = "B" }));
 }
 
-test "typeInfoEquiv: MySQL different types not equivalent" {
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "s" }, .mysql));
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "4" }, .mysql));
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "s" }, .{ .simple = "t" }, .mysql));
-}
-
-test "typeInfoEquiv: PG n/N NOT equivalent (int vs bigint)" {
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "N" }, .pg));
-}
-
-test "typeInfoEquiv: PG 4/N4 equivalent" {
-    try testing.expect(semantic.typeInfoEquiv(.{ .simple = "4" }, .{ .simple = "N4" }, .pg));
+test "typeInfoEquiv: different types not equivalent" {
+    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "s" }));
+    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .simple = "4" }));
+    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "s" }, .{ .simple = "t" }));
 }
 
 test "typeInfoEquiv: explicit types" {
-    try testing.expect(semantic.typeInfoEquiv(.{ .varchar_explicit = 255 }, .{ .varchar_explicit = 255 }, .mysql));
-    try testing.expect(!semantic.typeInfoEquiv(.{ .varchar_explicit = 255 }, .{ .varchar_explicit = 128 }, .mysql));
-    try testing.expect(semantic.typeInfoEquiv(.{ .int_explicit = 11 }, .{ .int_explicit = 11 }, .pg));
+    try testing.expect(semantic.typeInfoEquiv(.{ .varchar_explicit = 255 }, .{ .varchar_explicit = 255 }));
+    try testing.expect(!semantic.typeInfoEquiv(.{ .varchar_explicit = 255 }, .{ .varchar_explicit = 128 }));
+    try testing.expect(semantic.typeInfoEquiv(.{ .int_explicit = 11 }, .{ .int_explicit = 11 }));
 }
 
 test "typeInfoEquiv: cross-tag not equivalent" {
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .none, .mysql));
-    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .varchar_explicit = 255 }, .mysql));
+    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .none));
+    try testing.expect(!semantic.typeInfoEquiv(.{ .simple = "n" }, .{ .varchar_explicit = 255 }));
 }
 
 // ─── semanticEquiv tests ─────────────────────────────────────

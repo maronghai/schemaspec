@@ -30,34 +30,7 @@ fn mssqlEmitCreateView(w: *Writer, name: []const u8, query: []const u8) anyerror
 // ─── Forward Methods ─────────────────────────────────────────
 
 fn mssqlEmitIndex(w: *Writer, idx: IndexDecl, needs_comma: *bool) anyerror!void {
-    if (needs_comma.*) try w.writeAll(",\n");
-    needs_comma.* = true;
-    try w.writeAll("  ");
-    switch (idx.kind) {
-        .regular => {
-            try w.writeAll("INDEX ");
-            try mssqlQuoteIdent(w, idx.name);
-            try w.writeAll(" (");
-        },
-        .unique => {
-            try w.writeAll("UNIQUE ");
-            try mssqlQuoteIdent(w, idx.name);
-            try w.writeAll(" (");
-        },
-        .fulltext => {
-            try w.writeAll("FULLTEXT INDEX ");
-            try mssqlQuoteIdent(w, idx.name);
-            try w.writeAll(" (");
-        },
-        .primary_key => {
-            try w.writeAll("PRIMARY KEY (");
-        },
-    }
-    for (idx.fields, 0..) |f, fi| {
-        if (fi > 0) try w.writeAll(", ");
-        try mssqlQuoteIdent(w, f);
-    }
-    try w.writeAll(")");
+    try common.emitIndexWithQuote(w, idx, mssqlQuoteIdent, needs_comma, "FULLTEXT ");
 }
 
 fn mssqlEmitTimestampModifier(w: *Writer, _: bool) anyerror!void {
@@ -158,36 +131,14 @@ fn mssqlEmitAlterTableComment(w: *Writer, _: []const u8, _: []const u8) anyerror
     try w.writeAll("-- NOTE: Table comments require sp_addextendedproperty in MSSQL\n");
 }
 
-fn mssqlEmitAlterEngine(w: *Writer, _: ?[]const u8) anyerror!void {
-    try w.writeAll("-- NOTE: ENGINE change is MySQL-only, ignored for this dialect\n");
-}
-
 // ─── Type Rendering ────────────────────────────────────────
-
-fn mssqlRenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
-    try w.print("NUMERIC({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
-}
-
-fn mssqlRenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
-    if (sql_type.varchar > 0) {
-        try w.print("NVARCHAR({d})", .{sql_type.varchar});
-    } else {
-        try w.writeAll("NVARCHAR(255)");
-    }
-}
-
-fn mssqlRenderEnumValues(w: *Writer, sql_type: SqlType) anyerror!void {
-    // MSSQL: no native ENUM, use NVARCHAR with CHECK constraint
-    try w.writeAll("NVARCHAR(255)");
-    _ = sql_type;
-}
 
 const MSSQL_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "INT" }, // int
     .{ .comptime_str = "BIGINT" }, // bigint
     .{ .comptime_str = "SMALLINT" }, // smallint
-    .{ .render_fn = mssqlRenderDecimal }, // decimal → NUMERIC
-    .{ .render_fn = mssqlRenderVarchar }, // varchar → NVARCHAR
+    .{ .comptime_str = "" }, // decimal — handled by mssqlRenderType switch
+    .{ .comptime_str = "" }, // varchar — handled by mssqlRenderType switch
     .{ .comptime_str = "NVARCHAR(MAX)" }, // text → NVARCHAR(MAX)
     .{ .comptime_str = "VARBINARY(MAX)" }, // blob → VARBINARY(MAX)
     .{ .comptime_str = "NVARCHAR(MAX)" }, // json → NVARCHAR(MAX)
@@ -199,13 +150,18 @@ const MSSQL_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "UNIQUEIDENTIFIER" }, // uuid → UNIQUEIDENTIFIER
     .{ .comptime_str = "NVARCHAR(45)" }, // inet → NVARCHAR(45)
     .{ .comptime_str = "INT" }, // serial → INT (IDENTITY handled separately)
-    .{ .render_fn = mssqlRenderEnumValues }, // enum_values → NVARCHAR(255)
+    .{ .comptime_str = "" }, // enum_values — handled by mssqlRenderType switch
     .{ .comptime_str = "" }, // raw_sql — handled by passthrough fallback
     .{ .comptime_str = "" }, // passthrough — written from variant
 };
 
 fn mssqlRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
-    try common.renderTypeFromTable(w, sql_type, &MSSQL_RENDER_TABLE);
+    switch (sql_type) {
+        .decimal => |d| try common.emitDecimal(w, "NUMERIC", d.precision, d.scale),
+        .varchar => |n| try common.emitVarchar(w, "NVARCHAR", n, 255),
+        .enum_values => try common.emitEnumFixedType(w, "NVARCHAR(255)"),
+        else => try common.renderTypeFromTable(w, sql_type, &MSSQL_RENDER_TABLE),
+    }
 }
 
 // ─── View ──────────────────────────────────────────────────
@@ -251,7 +207,7 @@ pub const mssql_backend = DialectBackend{
     .emitAlterDropFk = mssqlEmitAlterDropFk,
     .commentResult = mssqlCommentResult,
     .emitAlterTableComment = mssqlEmitAlterTableComment,
-    .emitAlterEngine = mssqlEmitAlterEngine,
+    .emitAlterEngine = common.emitAlterEngineWarning,
     .emitCreateView = mssqlEmitCreateView,
     .renderType = mssqlRenderType,
     .emitForeignKey = mssqlEmitForeignKey,

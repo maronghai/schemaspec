@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.87.0] - 2026-08-02
+
+### Changed
+- **Shared dialect type rendering helpers** — `common.emitVarchar`, `common.emitDecimal`, `common.emitEnumValues`, `common.emitEnumFixedType` replace 18+ per-dialect render functions across 6 backends.
+- **Shared `emitAlterTableCommentShared`** — PG, Oracle, Db2 use a single `COMMENT ON TABLE` implementation.
+- **Shared `emitIndexWithQuote`** — MSSQL, Oracle, Db2 share index rendering with configurable fulltext prefix.
+- **Consolidated `emitAlterEngine`** — Oracle, MSSQL, Db2 reference `common.emitAlterEngineWarning` directly.
+
+### Removed
+- **Dead `canonicalSimple` dialect parameter** — Removed unused `dialect` parameter from `canonicalSimple`, `simpleEquiv`, and `typeInfoEquiv` in `diff/semantic.zig`. Updated all callers and tests.
+
 ## [0.86.0] - 2026-08-02
 
 ### Added

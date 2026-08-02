@@ -199,33 +199,21 @@ fn mysqlEmitAlterEngine(w: *Writer, engine: ?[]const u8) anyerror!void {
 
 // ─── Type Rendering ────────────────────────────────────────
 
-fn mysqlRenderDecimal(w: *Writer, sql_type: SqlType) anyerror!void {
-    try w.print("decimal({d}, {d})", .{ sql_type.decimal.precision, sql_type.decimal.scale });
-}
-
-fn mysqlRenderVarchar(w: *Writer, sql_type: SqlType) anyerror!void {
-    if (sql_type.varchar > 0) {
-        try w.print("varchar({d})", .{sql_type.varchar});
-    } else {
-        try w.writeAll("varchar(255)");
+fn mysqlRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
+    switch (sql_type) {
+        .decimal => |d| try common.emitDecimal(w, "decimal", d.precision, d.scale),
+        .varchar => |n| try common.emitVarchar(w, "varchar", n, 255),
+        .enum_values => |vals| try common.emitEnumValues(w, vals),
+        else => try common.renderTypeFromTable(w, sql_type, &MYSQL_RENDER_TABLE),
     }
-}
-
-fn mysqlRenderEnumValues(w: *Writer, sql_type: SqlType) anyerror!void {
-    try w.writeAll("ENUM(");
-    for (sql_type.enum_values, 0..) |v, vi| {
-        if (vi > 0) try w.writeAll(", ");
-        try w.print("'{s}'", .{v});
-    }
-    try w.writeAll(")");
 }
 
 const MYSQL_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "int" }, // int
     .{ .comptime_str = "bigint" }, // bigint
     .{ .comptime_str = "smallint" }, // smallint
-    .{ .render_fn = mysqlRenderDecimal }, // decimal
-    .{ .render_fn = mysqlRenderVarchar }, // varchar
+    .{ .comptime_str = "" }, // decimal — handled by mysqlRenderType switch
+    .{ .comptime_str = "" }, // varchar — handled by mysqlRenderType switch
     .{ .comptime_str = "text" }, // text
     .{ .comptime_str = "blob" }, // blob
     .{ .comptime_str = "json" }, // json
@@ -237,14 +225,10 @@ const MYSQL_RENDER_TABLE = [_]dialect.RenderEntry{
     .{ .comptime_str = "char(36)" }, // uuid
     .{ .comptime_str = "varchar(45)" }, // inet
     .{ .comptime_str = "int" }, // serial → int
-    .{ .render_fn = mysqlRenderEnumValues }, // enum_values
+    .{ .comptime_str = "" }, // enum_values — handled by mysqlRenderType switch
     .{ .comptime_str = "" }, // raw_sql — handled by passthrough fallback
     .{ .comptime_str = "" }, // passthrough — written from variant
 };
-
-fn mysqlRenderType(w: *Writer, sql_type: SqlType) anyerror!void {
-    try common.renderTypeFromTable(w, sql_type, &MYSQL_RENDER_TABLE);
-}
 
 // ─── View ──────────────────────────────────────────────────
 

@@ -225,10 +225,12 @@ pub fn typeInfoEqual(a: TypeInfo, b: TypeInfo) bool {
     return a.eql(b);
 }
 
-/// Dialect-aware type info equality: uses semantic equivalence when dialect is provided.
+/// Dialect-aware type info equality: uses semantic equivalence.
+/// The `dialect` parameter is retained for API compatibility but is no longer used
+/// by the underlying `typeInfoEquiv` which is now dialect-agnostic.
 pub fn typeInfoEqualDialect(a: TypeInfo, b: TypeInfo, dialect: ?Dialect) bool {
-    if (dialect) |d| return diff_semantic.typeInfoEquiv(a, b, d);
-    return typeInfoEqual(a, b);
+    _ = dialect;
+    return diff_semantic.typeInfoEquiv(a, b);
 }
 
 pub fn defaultValEqual(a: ?DefaultVal, b: ?DefaultVal) bool {
