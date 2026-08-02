@@ -40,7 +40,7 @@ pub fn fmtModifiers(mods: []const Modifier) void {
             .auto_inc_pk => std.debug.print(" ++", .{}),
             .auto_inc => std.debug.print(" +", .{}),
             .primary_key => std.debug.print(" !", .{}),
-            .not_null => std.debug.print(" *", .{}),
+            .nullable => std.debug.print(" ?", .{}),
             .unsigned => std.debug.print(" +unsigned", .{}),
             .inline_unique => std.debug.print(" @u", .{}),
             .inline_index => std.debug.print(" @", .{}),

@@ -3,5 +3,5 @@ $ demo
 
 # users : User account table
 id    n++
-name  s32 *
-email s128 *
+name  s32
+email s128

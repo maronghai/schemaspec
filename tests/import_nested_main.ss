@@ -5,4 +5,4 @@ $ nested_import_test
 # timestamps users
 
 id    n++
-name  s *
+name  s

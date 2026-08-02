@@ -41,14 +41,14 @@ pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
     for (resolved.tables) |table| {
         for (table.fields) |field| {
             field_count += 1;
-            var has_not_null = false;
+            var has_nullable = false;
             for (field.modifiers) |mod| {
-                if (mod.kind == .not_null) {
-                    has_not_null = true;
+                if (mod.kind == .nullable) {
+                    has_nullable = true;
                     break;
                 }
             }
-            if (has_not_null) not_null += 1;
+            if (!has_nullable) not_null += 1;
             switch (classifyFieldType(field.type_info)) {
                 .numeric => numeric += 1,
                 .string => string += 1,

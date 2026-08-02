@@ -7,7 +7,7 @@ name s32
 
 # order
 id        n++
-order_no  s64 *
-user_id   n *
+order_no  s64
+user_id   n
 > order_no order.
-amount    m *
+amount    m

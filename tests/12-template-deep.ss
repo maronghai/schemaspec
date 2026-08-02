@@ -18,5 +18,5 @@ deleted_at t
 deleted_by n
 
 # soft_delete user
-name s32 *
-email s128 *
+name s32
+email s128

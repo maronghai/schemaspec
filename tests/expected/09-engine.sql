@@ -2,6 +2,6 @@
 CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `log` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `message` text
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `message` text NOT NULL
 ) ENGINE=MyISAM DEFAULT CHARSET=utf8mb4;

@@ -1,6 +1,6 @@
 
 CREATE TABLE [user] (
-  [id] INT PRIMARY KEY,
+  [id] INT NOT NULL PRIMARY KEY,
   [name] NVARCHAR(32) NOT NULL
 );
 

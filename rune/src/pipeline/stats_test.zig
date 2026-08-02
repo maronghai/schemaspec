@@ -56,7 +56,7 @@ test "computeStats: counts not_null fields" {
         \\
         \\# users
         \\id   n++
-        \\name s*
+        \\name s?
     ;
     const result = try pf.compilePipeline(alloc, ss, .{});
     const s = stats_mod.computeStats(result.resolved);

@@ -7,5 +7,5 @@ ALTER TABLE "t"
 ,
 -- WARNING: MODIFY COLUMN not supported in SQLite; requires table recreation
 ,
-ADD COLUMN "email" varchar(128);
+ADD COLUMN "email" varchar(128) NOT NULL;
 COMMIT;

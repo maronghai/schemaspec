@@ -4,9 +4,9 @@ CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 CREATE TABLE `user` (
   `name` varchar(32) NOT NULL,
   `email` varchar(128) NOT NULL,
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `create_at` datetime DEFAULT CURRENT_TIMESTAMP,
-  `update_at` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  `version` bigint,
-  `status` int DEFAULT 0
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `version` bigint NOT NULL,
+  `status` int NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -1,4 +1,4 @@
 # user
-id n ++ *
-name s128 *
-email
+id n ++
+name s128
+email ?

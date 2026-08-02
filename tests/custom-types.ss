@@ -6,7 +6,7 @@ $ test_custom_types
 
 # user
 id n++
-uuid uuid *
-email email *
-name s64 *
+uuid uuid
+email email
+name s64
 ip ip_addr

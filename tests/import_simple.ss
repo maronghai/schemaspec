@@ -3,4 +3,4 @@ $ import_simple
 # items
 
 id   n++
-name s *
+name s

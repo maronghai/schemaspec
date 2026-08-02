@@ -59,11 +59,11 @@ test "parseFusedTypeModifier: auto-inc pk (n++)" {
     try testing.expectEqual(@as(?ast_mod.ModifierType, .auto_inc_pk), result.modifier.?.kind);
 }
 
-test "parseFusedTypeModifier: not-null (s*)" {
-    const result = parse_field.parseFusedTypeModifier("s*", 1) orelse return error.UnexpectedNull;
+test "parseFusedTypeModifier: nullable (s?)" {
+    const result = parse_field.parseFusedTypeModifier("s?", 1) orelse return error.UnexpectedNull;
     try testing.expect(result.type_info != null);
     try testing.expect(result.modifier != null);
-    try testing.expectEqual(@as(?ast_mod.ModifierType, .not_null), result.modifier.?.kind);
+    try testing.expectEqual(@as(?ast_mod.ModifierType, .nullable), result.modifier.?.kind);
 }
 
 test "parseFusedTypeModifier: primary key (n!)" {
@@ -73,11 +73,11 @@ test "parseFusedTypeModifier: primary key (n!)" {
     try testing.expectEqual(@as(?ast_mod.ModifierType, .primary_key), result.modifier.?.kind);
 }
 
-test "parseFusedTypeModifier: not-null + default (*=0)" {
-    const result = parse_field.parseFusedTypeModifier("*=0", 1) orelse return error.UnexpectedNull;
+test "parseFusedTypeModifier: nullable + default (?=0)" {
+    const result = parse_field.parseFusedTypeModifier("?=0", 1) orelse return error.UnexpectedNull;
     try testing.expectEqual(@as(?ast_mod.TypeInfo, null), result.type_info);
     try testing.expect(result.modifier != null);
-    try testing.expectEqual(@as(?ast_mod.ModifierType, .not_null), result.modifier.?.kind);
+    try testing.expectEqual(@as(?ast_mod.ModifierType, .nullable), result.modifier.?.kind);
     try testing.expect(result.default_val != null);
 }
 
@@ -101,10 +101,10 @@ test "parseStandaloneModifier: auto_inc (+)" {
     try testing.expectEqual(@as(ast_mod.ModifierType, .auto_inc), result.modifier.kind);
 }
 
-test "parseStandaloneModifier: not_null (*)" {
-    const tokens = [_][]const u8{"*"};
-    const result = parse_field.parseStandaloneModifier(testing.allocator, &tokens, 0, "*", 1) orelse return error.UnexpectedNull;
-    try testing.expectEqual(@as(ast_mod.ModifierType, .not_null), result.modifier.kind);
+test "parseStandaloneModifier: nullable (?)" {
+    const tokens = [_][]const u8{"?"};
+    const result = parse_field.parseStandaloneModifier(testing.allocator, &tokens, 0, "?", 1) orelse return error.UnexpectedNull;
+    try testing.expectEqual(@as(ast_mod.ModifierType, .nullable), result.modifier.kind);
 }
 
 test "parseStandaloneModifier: primary_key (!)" {

@@ -6,7 +6,7 @@ CREATE TABLE "auth" (
 );
 
 CREATE TABLE "user" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   "email" varchar(128) NOT NULL,
   "name" varchar(32) NOT NULL,
   UNIQUE ("email"),

@@ -1,6 +1,6 @@
 
 CREATE TABLE "accounts" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "balance" NUMERIC(16, 2) NOT NULL,
   "contact" varchar(128) NOT NULL,
   "name" varchar(32) NOT NULL

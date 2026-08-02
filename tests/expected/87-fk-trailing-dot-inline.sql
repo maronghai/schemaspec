@@ -2,13 +2,13 @@
 CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `user` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `name` varchar(32)
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` varchar(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `order` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `order_no` varchar(64),
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `order_no` varchar(64) NOT NULL,
   `amount` decimal(16, 2) NOT NULL,
   FOREIGN KEY (`order_no`) REFERENCES `order`(`order_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

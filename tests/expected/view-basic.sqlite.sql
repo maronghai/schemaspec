@@ -1,6 +1,6 @@
 
 CREATE TABLE "user" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "name" varchar(32) NOT NULL
 );
 -- @sym id n

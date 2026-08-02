@@ -6,15 +6,15 @@ id n++
 ...
 
 # base user
-name    s32 *
-status  e(active,inactive) *
+name    s32
+status  e(active,inactive)
 
 # base order
-order_no  s64 *
+order_no  s64
 user_id   n
 amount    m
 
 # user_role
-user_id n ! *
-role_id n ! *
+user_id n !
+role_id n !
 assigned t

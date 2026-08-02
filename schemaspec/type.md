@@ -115,9 +115,9 @@ When a field has no type symbol, it defaults to `s` (varchar). This makes the sy
 Enum values are comma-separated words (or quoted strings) inside parentheses. They can be combined with modifiers:
 
 ```asm
-gender   e(M,F,X) *                ; ENUM('M','F','X') NOT NULL
+gender   e(M,F,X) ?                ; ENUM('M','F','X') NULL
 status   e(pending,active,closed) =pending   ; ENUM(...) DEFAULT 'pending'
-role     e(admin,user,guest)       ; ENUM('admin','user','guest')
+role     e(admin,user,guest)       ; ENUM('admin','user','guest') NOT NULL
 
 ; Quoted values for strings with special characters
 name     e('admin user','guest')   ; ENUM('admin user','guest')
@@ -125,9 +125,9 @@ code     e('A-B','C-D')            ; ENUM('A-B','C-D')
 ```
 
 ```sql
-`gender` ENUM('M', 'F', 'X') NOT NULL,
+`gender` ENUM('M', 'F', 'X'),
 `status` ENUM('pending', 'active', 'closed') DEFAULT 'pending',
-`role`   ENUM('admin', 'user', 'guest'),
+`role`   ENUM('admin', 'user', 'guest') NOT NULL,
 `name`   ENUM('admin user', 'guest'),
 `code`   ENUM('A-B', 'C-D')
 ```
@@ -163,16 +163,18 @@ Type symbols can be fused with certain modifiers to save 1 keystroke:
 | Fused | Equivalent | Meaning |
 |-------|-----------|---------|
 | `n!` | `n !` | int PRIMARY KEY |
-| `n*` | `n *` | int NOT NULL |
+| `n?` | `n ?` | int NULL |
 | `s32!` | `s32 !` | varchar(32) PRIMARY KEY |
-| `s128*` | `s128 *` | varchar(128) NOT NULL |
+| `s128?` | `s128 ?` | varchar(128) NULL |
 | `n++` | `n ++` | int AUTO_INCREMENT PRIMARY KEY (existing) |
 | `n+` | `n +` | int AUTO_INCREMENT (existing) |
 | `+n` | `n u` | int UNSIGNED |
 | `+N` | `N u` | bigint UNSIGNED |
 | `+i` | `i u` | smallint UNSIGNED |
 
-The parser recognizes `!`, `*`, and `+` prefix on type tokens for unsigned, in addition to the existing `+` and `++` suffix handling.
+The parser recognizes `!`, `?`, and `+` prefix on type tokens for unsigned, in addition to the existing `+` and `++` suffix handling.
+
+> **Note**: Fields are NOT NULL by default. Use `?` to mark a field as nullable.
 
 ---
 

@@ -3,7 +3,7 @@ $ demo
 
 # documents
 id       n++
-title    s *
+title    s
 body     S
 bio      S
 short    s64

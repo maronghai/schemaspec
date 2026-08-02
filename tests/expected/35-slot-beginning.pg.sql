@@ -3,7 +3,7 @@ CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "user" (
   "email" varchar(128) NOT NULL,
-  "phone" varchar(16),
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  "name" varchar(32)
+  "phone" varchar(16) NOT NULL,
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "name" varchar(32) NOT NULL
 );

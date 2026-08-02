@@ -5,5 +5,5 @@ $ import_tmpl_test
 # base_entity users
 
 id    n++
-name  s *
-email s255 *
+name  s
+email s255

@@ -3,7 +3,7 @@ $ demo
 
 # events
 id         n++
-title      s *
+title      s
 created_at t
 updated_at t
 payload    j

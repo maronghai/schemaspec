@@ -2,11 +2,11 @@
 CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "user" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   "name" varchar(32) NOT NULL DEFAULT 0,
-  "email" varchar(128),
+  "email" varchar(128) NOT NULL,
   "is_active" boolean NOT NULL DEFAULT 1,
   "status" integer NOT NULL DEFAULT 0 CHECK (status IN (0, 1, 2)),
   "balance" numeric(16, 2) NOT NULL DEFAULT 0.00,
-  "role" varchar(32) DEFAULT 'admin'
+  "role" varchar(32) NOT NULL DEFAULT 'admin'
 );

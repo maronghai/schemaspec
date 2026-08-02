@@ -1,11 +1,11 @@
 
 CREATE TABLE "products" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
-  "name" TEXT,
-  "price" INTEGER,
-  "qty" INTEGER,
-  "total" INTEGER GENERATED ALWAYS AS (price * qty) VIRTUAL,
-  "tax" INTEGER GENERATED ALWAYS AS (price * 0.1) STORED
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  "name" TEXT NOT NULL,
+  "price" INTEGER NOT NULL,
+  "qty" INTEGER NOT NULL,
+  "total" INTEGER NOT NULL GENERATED ALWAYS AS (price qty) VIRTUAL,
+  "tax" INTEGER NOT NULL GENERATED ALWAYS AS (price 0.1) STORED
 );
 -- @sym id n
 -- @sym price n

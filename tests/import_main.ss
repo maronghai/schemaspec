@@ -5,5 +5,5 @@ $ import_test
 # users base_entity
 
 id    n++
-name  s *
-email s255 *
+name  s
+email s255

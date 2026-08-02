@@ -3,6 +3,6 @@ $ demo
 
 # user
 id     n++
-email  s128 * @u
+email  s128 @u
 name   s32
 code   s16 @u

@@ -6,6 +6,6 @@ $ demo
 
 # accounts
 id       n++
-balance  money *
-contact  email *
-name     s32 *
+balance  money
+contact  email
+name     s32

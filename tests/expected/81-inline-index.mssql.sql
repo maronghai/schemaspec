@@ -1,9 +1,9 @@
 
 CREATE TABLE [user] (
-  [id] INT PRIMARY KEY,
-  [name] NVARCHAR(32),
+  [id] INT NOT NULL PRIMARY KEY,
+  [name] NVARCHAR(32) NOT NULL,
   [email] NVARCHAR(128) NOT NULL,
-  [phone] NVARCHAR(16),
+  [phone] NVARCHAR(16) NOT NULL,
   INDEX [idx_name] ([name]),
   UNIQUE INDEX [uk_email] ([email])
 );

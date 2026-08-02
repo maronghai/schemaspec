@@ -7,5 +7,5 @@ id n++
 version N
 
 # base user
-name s32 *
-email s128 *
+name s32
+email s128

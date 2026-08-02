@@ -1,17 +1,17 @@
 
 CREATE TABLE [all_types] (
-  [id] INT PRIMARY KEY,
-  [name] NVARCHAR(255),
-  [full] NVARCHAR(MAX),
-  [price] NUMERIC(16, 2),
-  [big_p] NUMERIC(20, 6),
-  [flag] BIT,
-  [data] VARBINARY(MAX),
-  [meta] NVARCHAR(MAX),
-  [created] DATETIME2,
-  [born] DATE,
-  [code] NVARCHAR(64),
-  [ver] BIGINT,
-  [amt] NUMERIC(10, 2),
-  [cnt] INT
+  [id] INT NOT NULL PRIMARY KEY,
+  [name] NVARCHAR(255) NOT NULL,
+  [full] NVARCHAR(MAX) NOT NULL,
+  [price] NUMERIC(16, 2) NOT NULL,
+  [big_p] NUMERIC(20, 6) NOT NULL,
+  [flag] BIT NOT NULL,
+  [data] VARBINARY(MAX) NOT NULL,
+  [meta] NVARCHAR(MAX) NOT NULL,
+  [created] DATETIME2 NOT NULL,
+  [born] DATE NOT NULL,
+  [code] NVARCHAR(64) NOT NULL,
+  [ver] BIGINT NOT NULL,
+  [amt] NUMERIC(10, 2) NOT NULL,
+  [cnt] INT NOT NULL
 );

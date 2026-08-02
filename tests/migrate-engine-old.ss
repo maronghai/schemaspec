@@ -1,4 +1,4 @@
 # ^InnoDB users
 
 id   n++
-name s32 *
+name s32

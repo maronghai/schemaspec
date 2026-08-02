@@ -115,7 +115,7 @@ pub const TypeResolver = struct {
             .sql_type = sql_type,
             .ss_symbol = ss_symbol,
             .flags = .{
-                .nullable = !flags.nn,
+                .nullable = flags.nullable_mod,
                 .primary_key = flags.pk,
                 .auto_increment = flags.ai,
                 .unsigned = flags.unsigned,
@@ -143,7 +143,7 @@ pub const TypeResolver = struct {
 const ModifierFlags = struct {
     pk: bool = false,
     ai: bool = false,
-    nn: bool = false,
+    nullable_mod: bool = false,
     unsigned: bool = false,
     inline_unique: bool = false,
     inline_index: bool = false,
@@ -175,7 +175,7 @@ pub fn classifyModifiers(field: Field) ModifierFlags {
                 }
             },
             .primary_key => flags.pk = true,
-            .not_null => flags.nn = true,
+            .nullable => flags.nullable_mod = true,
             .unsigned => flags.unsigned = true,
             .inline_unique => flags.inline_unique = true,
             .inline_index => flags.inline_index = true,

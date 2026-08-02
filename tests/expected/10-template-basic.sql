@@ -2,9 +2,9 @@
 CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `user` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `name` varchar(32) NOT NULL,
   `email` varchar(128) NOT NULL,
-  `version` bigint,
-  `create_at` datetime DEFAULT CURRENT_TIMESTAMP
+  `version` bigint NOT NULL,
+  `create_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

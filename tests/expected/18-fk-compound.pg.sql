@@ -2,11 +2,11 @@
 CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "parent" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY
 );
 
 CREATE TABLE "child" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  "parent_id" integer,
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "parent_id" integer NOT NULL,
   FOREIGN KEY ("parent_id") REFERENCES "parent"("id")
 );

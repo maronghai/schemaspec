@@ -8,5 +8,5 @@ version N
 create_at t+
 
 # base user
-name s32 *
-email s128 *
+name s32
+email s128

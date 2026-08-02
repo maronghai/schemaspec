@@ -3,8 +3,8 @@ $ demo
 
 # logs
 id       n++
-level    s *
-message  s *
+level    s
+message  s
 ts       t
 
 @ level

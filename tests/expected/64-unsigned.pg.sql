@@ -2,8 +2,8 @@
 CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "counters" (
-  "small_num" integer,
-  "big_num" bigint,
-  "plain_int" integer,
-  "small_uns" smallint
+  "small_num" integer NOT NULL,
+  "big_num" bigint NOT NULL,
+  "plain_int" integer NOT NULL,
+  "small_uns" smallint NOT NULL
 );

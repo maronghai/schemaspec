@@ -2,42 +2,42 @@
 CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `user` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `name` varchar(32)
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` varchar(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `t1` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `user_id` int,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` int NOT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `t2` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `user_id` int,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` int NOT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `t3` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `user_id` int,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` int NOT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `t4` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `user_id` int,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` int NOT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `t5` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `user_id` int,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` int NOT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `t6` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `user_id` int,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` int NOT NULL,
   FOREIGN KEY (`user_id`) REFERENCES `user`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -2,7 +2,7 @@
 CREATE TABLE "user_role" (
   "user_id" INTEGER NOT NULL PRIMARY KEY,
   "role_id" INTEGER NOT NULL PRIMARY KEY,
-  "granted" TEXT
+  "granted" TEXT NOT NULL
 );
 -- @sym user_id n
 -- @sym role_id n

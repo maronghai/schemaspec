@@ -2,11 +2,11 @@
 CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `parent` (
-  `id` int AUTO_INCREMENT PRIMARY KEY
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE `child` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `parent_id` int,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `parent_id` int NOT NULL,
   FOREIGN KEY (`parent_id`) REFERENCES `parent`(`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

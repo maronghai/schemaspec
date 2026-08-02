@@ -11,18 +11,18 @@ test "classifyModifiers: empty modifiers — all false" {
     const flags = type_resolver.classifyModifiers(field);
     try testing.expect(!flags.pk);
     try testing.expect(!flags.ai);
-    try testing.expect(!flags.nn);
+    try testing.expect(!flags.nullable_mod);
     try testing.expect(!flags.unsigned);
     try testing.expect(!flags.inline_unique);
     try testing.expect(!flags.inline_index);
 }
 
-test "classifyModifiers: primary_key + not_null" {
+test "classifyModifiers: primary_key + nullable" {
     var field = test_helpers.makeTestField("id", .{ .simple = "n" });
-    field.modifiers = &.{ .{ .kind = .primary_key, .line_no = 1 }, .{ .kind = .not_null, .line_no = 1 } };
+    field.modifiers = &.{ .{ .kind = .primary_key, .line_no = 1 }, .{ .kind = .nullable, .line_no = 1 } };
     const flags = type_resolver.classifyModifiers(field);
     try testing.expect(flags.pk);
-    try testing.expect(flags.nn);
+    try testing.expect(flags.nullable_mod);
     try testing.expect(!flags.ai);
     try testing.expect(!flags.unsigned);
 }

@@ -3,4 +3,4 @@ $ demo
 
 # simple
 id   n++
-name s64 *
+name s64

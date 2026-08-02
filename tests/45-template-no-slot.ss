@@ -7,5 +7,5 @@ version N
 status 1 =0
 
 # no_slot user
-name s32 *
-email s128 *
+name s32
+email s128

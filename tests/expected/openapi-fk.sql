@@ -1,33 +1,14 @@
-{
-  "openapi": "3.1.0",
-  "info": {
-    "title": "shop",
-    "version": "0.68.0"
-  },
-  "paths": {},
-  "components": {
-    "schemas": {
-      "users": {
-        "type": "object",
-        "properties": {
-          "id": {"type":"integer"},
-          "name": {"type":"string","maxLength":32}
-        },
-        "required": ["name"],
-        "additionalProperties": false
-      },
-      "orders": {
-        "type": "object",
-        "properties": {
-          "id": {"type":"integer"},
-          "user_id": {
-            "$ref": "#/components/schemas/users",
-            "description": "Foreign key to users"
-          },
-          "amount": {"type":"number","multipleOf":0.01}
-        },
-        "required": ["amount"],
-        "additionalProperties": false
-      }    }
-  }
-}
+
+CREATE DATABASE `shop` CHARACTER SET utf8mb4;
+
+CREATE TABLE `users` (
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` varchar(32) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE `orders` (
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `user_id` int NOT NULL,
+  `amount` decimal(16, 2) NOT NULL,
+  FOREIGN KEY (`user_id`) REFERENCES `users`(`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

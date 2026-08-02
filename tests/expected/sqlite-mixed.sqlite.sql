@@ -1,6 +1,6 @@
 
 CREATE TABLE "user" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "name" varchar(32) NOT NULL,
   "status" TEXT NOT NULL CHECK ("status" IN ('active', 'inactive'))
 );
@@ -8,10 +8,10 @@ CREATE TABLE "user" (
 -- @sym name s32
 
 CREATE TABLE "order" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "order_no" varchar(64) NOT NULL,
-  "user_id" INTEGER,
-  "amount" NUMERIC(16, 2),
+  "user_id" INTEGER NOT NULL,
+  "amount" NUMERIC(16, 2) NOT NULL,
   FOREIGN KEY ("user_id") REFERENCES "user"("id")
 );
 -- @sym id n
@@ -23,7 +23,7 @@ CREATE INDEX "idx_user_id" ON "order" ("user_id");
 CREATE TABLE "user_role" (
   "user_id" INTEGER NOT NULL PRIMARY KEY,
   "role_id" INTEGER NOT NULL PRIMARY KEY,
-  "assigned" TEXT,
+  "assigned" TEXT NOT NULL,
   FOREIGN KEY ("user_id") REFERENCES "user"("id")
 );
 -- @sym user_id n

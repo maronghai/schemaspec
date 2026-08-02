@@ -1,11 +1,11 @@
 
 CREATE TABLE "user" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "name" varchar(32) NOT NULL,
   "email" varchar(128) NOT NULL,
-  "balance" NUMERIC(16, 2) DEFAULT 0,
-  "status" INTEGER DEFAULT 0,
-  "create_at" TEXT DEFAULT CURRENT_TIMESTAMP,
+  "balance" NUMERIC(16, 2) NOT NULL DEFAULT 0,
+  "status" INTEGER NOT NULL DEFAULT 0,
+  "create_at" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE ("email")
 );
 -- 用户表
@@ -16,12 +16,12 @@ CREATE TABLE "user" (
 -- @sym create_at t
 
 CREATE TABLE "order" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "order_no" varchar(64) NOT NULL,
-  "user_id" INTEGER,
+  "user_id" INTEGER NOT NULL,
   "amount" NUMERIC(16, 2) NOT NULL,
-  "status" INTEGER DEFAULT 0,
-  "create_at" TEXT DEFAULT CURRENT_TIMESTAMP,
+  "status" INTEGER NOT NULL DEFAULT 0,
+  "create_at" TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY ("user_id") REFERENCES "user"("id")
 );
 -- 订单表

@@ -1,9 +1,9 @@
 
 CREATE TABLE "settings" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
-  "enabled" INTEGER,
-  "config" TEXT,
-  "metadata" TEXT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+  "enabled" INTEGER NOT NULL,
+  "config" TEXT NOT NULL,
+  "metadata" TEXT NOT NULL,
   "name" varchar(32) NOT NULL
 );
 -- @sym id n

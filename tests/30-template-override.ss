@@ -3,10 +3,10 @@ $ demo
 
 % base
 id n++
-name s32 *
-email s128 *
+name s32
+email s128
 ...
 
 # base user
-email s256 *
+email s256
 phone s16

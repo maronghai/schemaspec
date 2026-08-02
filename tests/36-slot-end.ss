@@ -7,5 +7,5 @@ name s32
 ...
 
 # last_slot user
-email s128 *
+email s128
 phone s16

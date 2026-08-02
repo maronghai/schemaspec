@@ -2,6 +2,6 @@
 $ demo
 
 # user_role
-user_id n ! *
-role_id n ! *
+user_id n !
+role_id n !
 granted t

@@ -43,9 +43,9 @@ Custom types can be used as field types:
 
 ```asm
 # user
-uuid uuid *                          ; resolves to varchar(36)
-email email *                        ; resolves to varchar(128)
-ip ip_addr                           ; MySQL: varchar(45), PG: inet
+uuid uuid                          ; resolves to varchar(36)
+email email                        ; resolves to varchar(128)
+ip ip_addr                         ; MySQL: varchar(45), PG: inet
 ```
 
 `autofk` auto-generates FK + INDEX for `_id` suffix fields if the referenced table exists.
@@ -112,14 +112,15 @@ field_name  [type_symbol]  [modifier...]  [check]  [: | -- | ; comment]
 | `++` | + PRIMARY KEY / ON UPDATE | numeric / datetime | `id n++` / `ts ++` |
 | `!` | PRIMARY KEY | any | `id n!` |
 | `=` | DEFAULT value | any | `status 1 =0` |
-| `*` | NOT NULL | any | `name s32 *` |
-| `*=` | NOT NULL + DEFAULT | any | `status 1 *=0` |
+| `?` | Nullable (opt-in) | any | `name s32 ?` |
+| `?=` | Nullable + DEFAULT | any | `status 1 ?=0` |
 | `+n`/`+N`/`+i` | UNSIGNED | numeric | `count +n` |
 | `@` / `@u` | INDEX / UNIQUE INDEX | any | `name s32 @` |
 | `[...]` | CHECK constraint | any | `age n [0,150]` |
 | `:` | COMMENT clause | — | `name : 用户名` |
 
 **Notes:**
+- Fields are NOT NULL by default. Use `?` to mark a field as nullable.
 - `=` must be directly attached to value (`=0`, not `= 0`). SQL keywords emitted bare; others auto-quoted.
 - `+`/`++` on numeric types → AUTO_INCREMENT; on datetime types → timestamp defaults.
 - Inline FULLTEXT (`@f`) not supported — use standalone `@f field_name`.

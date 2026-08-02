@@ -1,5 +1,5 @@
 
 CREATE TABLE [my_table] (
-  [id] INT PRIMARY KEY,
-  [name] NVARCHAR(255)
+  [id] INT NOT NULL PRIMARY KEY,
+  [name] NVARCHAR(255) NOT NULL
 );

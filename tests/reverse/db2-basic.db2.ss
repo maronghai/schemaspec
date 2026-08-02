@@ -1,5 +1,5 @@
 # users
-id n ++ *
-name s100 *
-email
-bio S
+id n ++
+name s100
+email ?
+bio S ?

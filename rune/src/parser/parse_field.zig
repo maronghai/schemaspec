@@ -46,10 +46,10 @@ pub const EnumTypeResult = struct {
 pub fn parseFusedTypeModifier(tok: []const u8, line_no: usize) ?FusedTypeResult {
     if (tok.len < 2) return null;
 
-    // *=value (NOT NULL + DEFAULT)
-    if (tok[0] == '*' and tok[1] == '=') {
+    // ?=value (nullable + DEFAULT)
+    if (tok[0] == '?' and tok[1] == '=') {
         return .{
-            .modifier = .{ .kind = .not_null, .line_no = line_no },
+            .modifier = .{ .kind = .nullable, .line_no = line_no },
             .default_val = .{ .value = tok[2..], .line_no = line_no },
         };
     }
@@ -61,7 +61,7 @@ pub fn parseFusedTypeModifier(tok: []const u8, line_no: usize) ?FusedTypeResult 
         if (rest[0] != '+' and rest[0] != '!') {
             // Strip trailing modifier chars to get the base type
             var end = rest.len;
-            while (end > 1 and (rest[end - 1] == '+' or rest[end - 1] == '*' or rest[end - 1] == '!')) {
+            while (end > 1 and (rest[end - 1] == '+' or rest[end - 1] == '?' or rest[end - 1] == '!')) {
                 end -= 1;
             }
             if (tryParseType(rest[0..end])) |ti| {
@@ -78,8 +78,8 @@ pub fn parseFusedTypeModifier(tok: []const u8, line_no: usize) ?FusedTypeResult 
                             modifier = .{ .kind = .auto_inc_pk, .line_no = line_no };
                         } else if (std.mem.eql(u8, suffix, "+")) {
                             modifier = .{ .kind = .auto_inc, .line_no = line_no };
-                        } else if (std.mem.eql(u8, suffix, "*")) {
-                            modifier = .{ .kind = .not_null, .line_no = line_no };
+                        } else if (std.mem.eql(u8, suffix, "?")) {
+                            modifier = .{ .kind = .nullable, .line_no = line_no };
                         } else if (std.mem.eql(u8, suffix, "!")) {
                             modifier = .{ .kind = .primary_key, .line_no = line_no };
                         }
@@ -110,10 +110,10 @@ pub fn parseFusedTypeModifier(tok: []const u8, line_no: usize) ?FusedTypeResult 
             return .{ .type_info = ti, .modifier = .{ .kind = .primary_key, .line_no = line_no } };
         }
     }
-    if (last == '*' and tok.len >= 2) {
+    if (last == '?' and tok.len >= 2) {
         const prefix = tok[0 .. tok.len - 1];
         if (tryParseType(prefix)) |ti| {
-            return .{ .type_info = ti, .modifier = .{ .kind = .not_null, .line_no = line_no } };
+            return .{ .type_info = ti, .modifier = .{ .kind = .nullable, .line_no = line_no } };
         }
     }
     return null;
@@ -159,8 +159,8 @@ pub fn parseStandaloneModifier(alloc: std.mem.Allocator, tokens: []const []const
     if (std.mem.eql(u8, tok, "+")) {
         return .{ .modifier = .{ .kind = .auto_inc, .line_no = line_no }, .end_idx = idx + 1 };
     }
-    if (std.mem.eql(u8, tok, "*")) {
-        return .{ .modifier = .{ .kind = .not_null, .line_no = line_no }, .end_idx = idx + 1 };
+    if (std.mem.eql(u8, tok, "?")) {
+        return .{ .modifier = .{ .kind = .nullable, .line_no = line_no }, .end_idx = idx + 1 };
     }
     if (std.mem.eql(u8, tok, "!")) {
         return .{ .modifier = .{ .kind = .primary_key, .line_no = line_no }, .end_idx = idx + 1 };
@@ -280,7 +280,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
                         if (after_plus[0] != '+' and after_plus[0] != '!') {
                             // Strip trailing modifier chars to get the base type
                             var p_end = after_plus.len;
-                            while (p_end > 1 and (after_plus[p_end - 1] == '+' or after_plus[p_end - 1] == '*' or after_plus[p_end - 1] == '!')) {
+                            while (p_end > 1 and (after_plus[p_end - 1] == '+' or after_plus[p_end - 1] == '?' or after_plus[p_end - 1] == '!')) {
                                 p_end -= 1;
                             }
                             if (tryParseType(after_plus[0..p_end])) |pti| {
@@ -426,7 +426,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
             .line_no = line.line_no,
             .col = diag.tokenColumn(tok, line.raw),
             .message = "unrecognized token in field",
-            .expected = "type symbol (n, N, s, S, m, M, b, B, j, d, t, int, decimal, e(...)) or modifier (+, ++, *, !, u, @, @u, =, [], {}, ())",
+            .expected = "type symbol (n, N, s, S, m, M, b, B, j, d, t, int, decimal, e(...)) or modifier (+, ++, ?, !, u, @, @u, =, [], {}, ())",
             .actual = tok,
             .source_line = line.raw,
         });

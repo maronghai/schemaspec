@@ -3,7 +3,7 @@
 BEGIN;
 
 CREATE TABLE "post" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "title" varchar(128) NOT NULL
 );
 -- @sym id n

@@ -100,9 +100,9 @@ fn writeColumnModifiers(w: anytype, col: sp.SqlColumn, indexes: []const sp.SqlIn
         try w.writeAll(" !");
     }
 
-    // NOT NULL
-    if (!col.nullable) {
-        try w.writeAll(" *");
+    // Nullable modifier
+    if (col.nullable) {
+        try w.writeAll(" ?");
     }
 
     // INLINE UNIQUE / INDEX from standalone indexes

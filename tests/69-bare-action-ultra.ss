@@ -6,8 +6,8 @@ id    n++
 
 # order
 id        n++
-order_no  s64 *
+order_no  s64
 user_id   n
-amount    m *
+amount    m
 
 > user.id

@@ -3,4 +3,4 @@ $ demo
 
 # users : User account table
 id    n++
-name  s *
+name  s

@@ -5,4 +5,4 @@ $ tmpl_test
 # users timestamps
 
 id    n++
-name  s *
+name  s

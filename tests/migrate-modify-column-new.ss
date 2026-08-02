@@ -2,4 +2,4 @@ $ mydb
 
 # user
 id n++
-name s64 *
+name s64

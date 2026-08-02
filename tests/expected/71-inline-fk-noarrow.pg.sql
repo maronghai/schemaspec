@@ -2,13 +2,13 @@
 CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "user" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY
 );
 
 CREATE TABLE "order" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   "order_no" varchar(64) NOT NULL,
-  "user_id" integer,
+  "user_id" integer NOT NULL,
   "amount" numeric(16, 2) NOT NULL,
   FOREIGN KEY ("user_id") REFERENCES "user"("id")
 );

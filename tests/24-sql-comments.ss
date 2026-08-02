@@ -4,7 +4,7 @@ $ demo
 -- Users table
 # user
 id   n++
-name s32 *
+name s32
 
 -- Orders table
 # order

@@ -3,7 +3,7 @@ CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `user` (
   `email` varchar(128) NOT NULL,
-  `phone` varchar(16),
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `name` varchar(32)
+  `phone` varchar(16) NOT NULL,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` varchar(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

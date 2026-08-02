@@ -7,8 +7,8 @@ updated_at t
 ...
 
 #base users
-name s32 *
-email s128 *
+name s32
+email s128
 
 #base orders
-amount m *
+amount m

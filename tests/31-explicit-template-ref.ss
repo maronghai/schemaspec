@@ -7,9 +7,9 @@ version N
 ...
 
 # base user
-name s32 *
-email s128 *
+name s32
+email s128
 
 # base product
-name s128 *
+name s128
 price m

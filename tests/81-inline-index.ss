@@ -4,5 +4,5 @@ $ demo
 # user
 id    n++
 name  s32 @
-email s128 * @u
+email s128 @u
 phone s16

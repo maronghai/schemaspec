@@ -2,10 +2,10 @@
 CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "user" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  "name" varchar(32),
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "name" varchar(32) NOT NULL,
   "email" varchar(128) NOT NULL,
-  "phone" varchar(16),
+  "phone" varchar(16) NOT NULL,
   UNIQUE ("email")
 );
 CREATE INDEX "idx_user_name" ON "user" ("name");

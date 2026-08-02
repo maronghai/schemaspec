@@ -1,8 +1,8 @@
-$ base = id n ++ / name s * / created_at t
+$ base = id n ++ / name s / created_at t
 
 # post
 ... base
-title s *
+title s
 
 # comment
 ... base

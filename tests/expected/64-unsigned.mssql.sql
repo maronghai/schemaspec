@@ -1,7 +1,7 @@
 
 CREATE TABLE [counters] (
-  [small_num] INT,
-  [big_num] BIGINT,
-  [plain_int] INT,
-  [small_uns] SMALLINT
+  [small_num] INT NOT NULL,
+  [big_num] BIGINT NOT NULL,
+  [plain_int] INT NOT NULL,
+  [small_uns] SMALLINT NOT NULL
 );

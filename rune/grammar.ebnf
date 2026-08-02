@@ -90,7 +90,7 @@ modifiers        = { modifier } ;
 modifier         = "++"                (* auto-increment primary key *)
                  | "+"                 (* auto-increment *)
                  | "!"                 (* primary key *)
-                 | "*"                 (* not null *)
+                 | "?"                 (* nullable (opt-in) *)
                  | "@u"               (* inline unique index *)
                  | "@" ;              (* inline index *)
 
@@ -160,6 +160,6 @@ whitespace       = " " | "\t" ;
 
 - Lines are classified by their first non-whitespace character (`$`, `~`, `%`, `#`, `&`, `>`, `@`, `!`, `^`, `--`, `;`)
 - The `...` slot marker in templates controls where child fields are inserted
-- Modifiers can be fused with type symbols: `n++` = `n` + `++`, `s128*` = `s128` + `*`
+- Modifiers can be fused with type symbols: `n++` = `n` + `++`, `s128?` = `s128` + `?`
 - `--` and `;` terminate tokenization of the rest of the line
 - `:` starts a comment that continues to end of line

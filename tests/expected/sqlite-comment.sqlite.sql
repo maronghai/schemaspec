@@ -1,6 +1,6 @@
 
 CREATE TABLE "users" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "name" TEXT NOT NULL
 );
 -- User account table

@@ -11,4 +11,4 @@ version N
 status 1 =0
 
 # child item
-name s64 *
+name s64

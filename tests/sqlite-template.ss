@@ -6,9 +6,9 @@ id   n++
 ts   t
 
 #base post
-title   s *
+title   s
 content S
 
 #base comment
-text S *
-post_id n *
+text S
+post_id n

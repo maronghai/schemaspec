@@ -94,7 +94,7 @@ pub const ModifierType = enum {
     auto_inc_pk,
     auto_inc,
     primary_key,
-    not_null,
+    nullable,
     unsigned,
     inline_unique,
     inline_index,

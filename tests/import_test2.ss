@@ -5,4 +5,4 @@ $ import_test2
 # users
 
 id    n++
-name  s *
+name  s

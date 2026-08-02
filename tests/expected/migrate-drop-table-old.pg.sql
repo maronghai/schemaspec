@@ -2,16 +2,16 @@
 CREATE DATABASE "mydb" ENCODING 'UTF8';
 
 CREATE TABLE "user" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   "name" varchar(32) NOT NULL,
   "email" varchar(64) NOT NULL,
   UNIQUE ("email")
 );
 
 CREATE TABLE "post" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   "title" varchar(128) NOT NULL,
-  "user_id" integer,
+  "user_id" integer NOT NULL,
   FOREIGN KEY ("user_id") REFERENCES "user"("id")
 );
 CREATE INDEX "idx_post_user_id" ON "post" ("user_id");

@@ -2,8 +2,8 @@ $ mydb
 
 # user
 id n++
-name s64 *
+name s64
 
 # post
 id n++
-title s128 *
+title s128

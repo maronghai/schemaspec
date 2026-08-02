@@ -1,9 +1,9 @@
 
 CREATE TABLE "attachments" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "name" TEXT NOT NULL,
-  "content" BLOB,
-  "avatar" BLOB
+  "content" BLOB NOT NULL,
+  "avatar" BLOB NOT NULL
 );
 -- @sym id n
 -- @sym content B

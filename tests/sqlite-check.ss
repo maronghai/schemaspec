@@ -3,6 +3,6 @@ $ demo
 
 # scores
 id     n++
-value  n * [0,100]
-grade  s * {A,B,C,D,F}
-ratio  m * {>0}
+value  n [0,100]
+grade  s {A,B,C,D,F}
+ratio  m {>0}

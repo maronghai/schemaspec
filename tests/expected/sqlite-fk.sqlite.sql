@@ -1,14 +1,14 @@
 
 CREATE TABLE "user" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT
 );
 -- @sym id n
 
 CREATE TABLE "order" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "user_id" INTEGER NOT NULL,
   "amount" NUMERIC(16, 2) NOT NULL,
-  "created" TEXT,
+  "created" TEXT NOT NULL,
   FOREIGN KEY ("user_id") REFERENCES "user"("id")
 );
 -- @sym id n

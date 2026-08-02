@@ -1,10 +1,10 @@
 
 CREATE TABLE "documents" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "title" TEXT NOT NULL,
-  "body" TEXT,
-  "bio" TEXT,
-  "short" varchar(64)
+  "body" TEXT NOT NULL,
+  "bio" TEXT NOT NULL,
+  "short" varchar(64) NOT NULL
 );
 -- @sym id n
 -- @sym body S

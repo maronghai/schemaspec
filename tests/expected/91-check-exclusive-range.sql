@@ -2,8 +2,8 @@
 CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `user` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `age_upper` int DEFAULT 0 CHECK (age_upper >= 0 AND age_upper < 150),
-  `age_lower` int DEFAULT 0 CHECK (age_lower > 0 AND age_lower <= 150),
-  `age_both` int DEFAULT 0 CHECK (age_both > 0 AND age_both < 150)
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `age_upper` int NOT NULL DEFAULT 0 CHECK (age_upper >= 0 AND age_upper < 150),
+  `age_lower` int NOT NULL DEFAULT 0 CHECK (age_lower > 0 AND age_lower <= 150),
+  `age_both` int NOT NULL DEFAULT 0 CHECK (age_both > 0 AND age_both < 150)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

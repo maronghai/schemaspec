@@ -2,8 +2,8 @@
 CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `unicode_test` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
   `name` varchar(32) NOT NULL COMMENT '用户登录名',
   `email` varchar(128) NOT NULL COMMENT '电子邮箱地址',
-  `addr` text COMMENT '收货地址（省/市/区）'
+  `addr` text NOT NULL COMMENT '收货地址（省/市/区）'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

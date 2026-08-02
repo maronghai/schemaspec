@@ -2,8 +2,8 @@
 CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "user" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  "age_upper" integer DEFAULT 0 CHECK (age_upper >= 0 AND age_upper < 150),
-  "age_lower" integer DEFAULT 0 CHECK (age_lower > 0 AND age_lower <= 150),
-  "age_both" integer DEFAULT 0 CHECK (age_both > 0 AND age_both < 150)
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "age_upper" integer NOT NULL DEFAULT 0 CHECK (age_upper >= 0 AND age_upper < 150),
+  "age_lower" integer NOT NULL DEFAULT 0 CHECK (age_lower > 0 AND age_lower <= 150),
+  "age_both" integer NOT NULL DEFAULT 0 CHECK (age_both > 0 AND age_both < 150)
 );

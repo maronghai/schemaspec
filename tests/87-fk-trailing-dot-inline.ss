@@ -8,4 +8,4 @@ name s32
 # order
 id       n++
 order_no s64 > order.
-amount   m *
+amount   m

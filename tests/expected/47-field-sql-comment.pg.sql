@@ -2,7 +2,7 @@
 CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "sql_comment_field" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  "name" varchar(32),
-  "email" varchar(128)
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "name" varchar(32) NOT NULL,
+  "email" varchar(128) NOT NULL
 );

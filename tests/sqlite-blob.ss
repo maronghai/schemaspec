@@ -3,6 +3,6 @@ $ demo
 
 # attachments
 id       n++
-name     s *
+name     s
 content  B
 avatar   B

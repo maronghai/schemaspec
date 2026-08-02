@@ -3,14 +3,14 @@ $ demo
 
 % base
 id n++
-name s32 *
+name s32
 ...
 version N
 
 % child > base
 ...
-email s128 *
-name s64 *
+email s128
+name s64
 
 # child user
 phone s16

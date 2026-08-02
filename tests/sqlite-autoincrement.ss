@@ -3,5 +3,5 @@ $ demo
 
 # todo
 id    n++
-title s *
+title s
 done  b

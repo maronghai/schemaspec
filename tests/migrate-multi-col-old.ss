@@ -3,5 +3,5 @@ $ demo
 
 # t
 id   n++
-name s *
+name s
 cnt  n

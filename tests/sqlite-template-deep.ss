@@ -10,7 +10,7 @@ created t
 ...
 
 # mid user
-name s32 *
+name s32
 
 # mid order
 amount m

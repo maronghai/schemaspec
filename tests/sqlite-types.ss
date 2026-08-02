@@ -6,4 +6,4 @@ id n++
 enabled b
 config j
 metadata J
-name s32 *
+name s32

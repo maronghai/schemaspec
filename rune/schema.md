@@ -14,7 +14,7 @@ $ myapp utf8mb4 autofk
 
 # users
   id n++
-  name s*
+  name s32
   email s@u
   status e('active','inactive') = 'active'
   org_id > orgs. -C
@@ -26,12 +26,12 @@ Compiles to MySQL:
 ```sql
 CREATE TABLE users (
   id int NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  name varchar(255) NOT NULL,
-  email varchar(255),
-  status ENUM('active','inactive') DEFAULT 'active',
-  org_id int,
-  age int CHECK (age BETWEEN 0 AND 150),
-  created_at datetime,
+  name varchar(32) NOT NULL,
+  email varchar(255) NOT NULL,
+  status ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  org_id int NOT NULL,
+  age int NOT NULL CHECK (age BETWEEN 0 AND 150),
+  created_at datetime NOT NULL,
   UNIQUE INDEX idx_email (email),
   FOREIGN KEY (org_id) REFERENCES orgs(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -161,12 +161,14 @@ Multi-char types: `s128` = varchar(128), `16,2` = decimal(16,2), `e('a','b')` = 
 | `++` | Auto-increment primary key | `id n++` |
 | `+` | Auto-increment | `seq n+` |
 | `!` | Primary key | `id n!` |
-| `*` | NOT NULL | `name s*` |
+| `?` | Nullable (opt-in) | `name s?` |
 | `@u` | Inline unique index | `email s@u` |
 | `@` | Inline index | `name s@` |
 | `+n`, `+N`, `+i` | Unsigned (MySQL only) | `flags +n` |
 
-Modifiers can fuse with types: `n++`, `s128*`, `n!`
+Modifiers can fuse with types: `n++`, `s128?`, `n!`
+
+> **Note**: Fields are NOT NULL by default. Use `?` to mark a field as nullable.
 
 ### Default Values
 

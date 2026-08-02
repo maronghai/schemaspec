@@ -2,6 +2,6 @@
 CREATE DATABASE `demo` CHARACTER SET utf8mb4;
 
 CREATE TABLE `mytable` (
-  `id` int AUTO_INCREMENT PRIMARY KEY,
-  `name` varchar(32)
+  `id` int NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  `name` varchar(32) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

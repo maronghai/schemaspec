@@ -1,11 +1,11 @@
 
 CREATE TABLE [suffixes] (
-  [user_id] INT,
-  [order_id] INT,
-  [created_at] DATETIME2,
-  [updated_at] DATETIME2,
-  [paid_on] DATE,
-  [deleted_on] DATE,
-  [name] NVARCHAR(255),
-  [content] NVARCHAR(255)
+  [user_id] INT NOT NULL,
+  [order_id] INT NOT NULL,
+  [created_at] DATETIME2 NOT NULL,
+  [updated_at] DATETIME2 NOT NULL,
+  [paid_on] DATE NOT NULL,
+  [deleted_on] DATE NOT NULL,
+  [name] NVARCHAR(255) NOT NULL,
+  [content] NVARCHAR(255) NOT NULL
 );

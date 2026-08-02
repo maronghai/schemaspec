@@ -1,6 +1,6 @@
 
 CREATE TABLE "users" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "name" varchar(32) NOT NULL,
   "email" varchar(128) NOT NULL
 );

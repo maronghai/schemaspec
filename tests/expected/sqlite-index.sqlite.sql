@@ -1,9 +1,9 @@
 
 CREATE TABLE "logs" (
-  "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+  "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
   "level" TEXT NOT NULL,
   "message" TEXT NOT NULL,
-  "ts" TEXT,
+  "ts" TEXT NOT NULL,
   UNIQUE ("ts")
 );
 -- @sym id n

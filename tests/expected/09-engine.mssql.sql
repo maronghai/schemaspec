@@ -1,5 +1,5 @@
 
 CREATE TABLE [log] (
-  [id] INT PRIMARY KEY,
-  [message] NVARCHAR(MAX)
+  [id] INT NOT NULL PRIMARY KEY,
+  [message] NVARCHAR(MAX) NOT NULL
 );

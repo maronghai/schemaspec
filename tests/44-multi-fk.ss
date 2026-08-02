@@ -3,11 +3,11 @@ $ demo
 
 # category
 id   n++
-name s64 *
+name s64
 
 # user
 id   n++
-name s32 *
+name s32
 
 # order
 id         n++

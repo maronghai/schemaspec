@@ -26,7 +26,7 @@ fn visitFieldCheckModifiers(ctx: *ModifierValidationCtx, field: *const Field, _:
                 }
             },
             .primary_key => {},
-            .not_null => {},
+            .nullable => {},
             .unsigned => {
                 if (!type_map.isNumericSymType(field.type_info)) {
                     ctx.diagnostics.push(.{

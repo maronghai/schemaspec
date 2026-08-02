@@ -6,5 +6,5 @@ id    n++
 
 # order
 id        n++ > user.id
-order_no  s64 *
-amount    m *
+order_no  s64
+amount    m

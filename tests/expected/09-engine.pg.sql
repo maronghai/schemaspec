@@ -2,6 +2,6 @@
 CREATE DATABASE "demo" ENCODING 'UTF8';
 
 CREATE TABLE "log" (
-  "id" integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  "message" text
+  "id" integer NOT NULL GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  "message" text NOT NULL
 );
