@@ -3,6 +3,7 @@ const typed_ast = @import("../types/typed_ast.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
 const utils = @import("../utils.zig");
 const version = @import("../version.zig");
+const common = @import("common.zig");
 const Writer = std.Io.Writer;
 
 // ─── GraphQL Generator ─────────────────────────────────────────
@@ -65,7 +66,7 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import(
     // ── Object types (tables) ──
     for (typed.tables, 0..) |table, ti| {
         if (ti > 0) try w.writeAll("\n");
-        try writeObjectType(w, table);
+        try writeObjectType(w, table, alloc);
     }
 
     // ── Read-only types (views) ──
@@ -79,7 +80,7 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import(
         try w.writeAll("\n");
         for (typed.tables, 0..) |table, ti| {
             if (ti > 0) try w.writeAll("\n");
-            try writeInputType(w, table);
+            try writeInputType(w, table, alloc);
         }
     }
 
@@ -88,7 +89,7 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import(
         try w.writeAll("\ntype Query {\n");
         for (typed.tables) |table| {
             try w.print("  \"\"\"Fetch a {s} by ID.\"\"\"\n", .{table.name});
-            try w.print("  {s}(id: ID!): {s}\n", .{ toCamelSingular(table.name), table.name });
+            try w.print("  {s}(id: ID!): {s}\n", .{ common.toCamelSingular(table.name), table.name });
             try w.print("  \"\"\"List all {s} records.\"\"\"\n", .{table.name});
             try w.print("  {s}List(limit: Int, offset: Int): [{s}!]!\n", .{ table.name, table.name });
         }
@@ -141,7 +142,7 @@ fn writeEnumType(w: *Writer, col: typed_ast.TypedColumn) !void {
 
 // ─── Object Type (table) ──────────────────────────────────────
 
-fn writeObjectType(w: *Writer, table: typed_ast.TypedTable) !void {
+fn writeObjectType(w: *Writer, table: typed_ast.TypedTable, alloc: std.mem.Allocator) !void {
     // Description from comment
     if (table.comment) |c| {
         if (c.len > 0) {
@@ -153,14 +154,14 @@ fn writeObjectType(w: *Writer, table: typed_ast.TypedTable) !void {
     try w.print("type {s} {{\n", .{table.name});
 
     for (table.columns) |col| {
-        try writeField(w, col, table);
+        try writeField(w, col, table, alloc);
     }
 
     // FK relation fields (object reference, not scalar)
     for (table.fks) |fk| {
         if (fk.fields.len == 1) {
             try w.print("  \"\"\"Reference to {s}\"\"\"\n", .{fk.ref_table});
-            try w.print("  {s}: {s}\n", .{ toCamelSingular(fk.ref_table), fk.ref_table });
+            try w.print("  {s}: {s}\n", .{ common.toCamelSingular(fk.ref_table), fk.ref_table });
         }
     }
 
@@ -184,7 +185,7 @@ fn writeViewType(w: *Writer, view: typed_ast.TypedView) !void {
 
 // ─── Input Type (table) ───────────────────────────────────────
 
-fn writeInputType(w: *Writer, table: typed_ast.TypedTable) !void {
+fn writeInputType(w: *Writer, table: typed_ast.TypedTable, alloc: std.mem.Allocator) !void {
     try w.print("input {s}Input {{\n", .{table.name});
 
     for (table.columns) |col| {
@@ -192,7 +193,7 @@ fn writeInputType(w: *Writer, table: typed_ast.TypedTable) !void {
         if (col.flags.primary_key and col.flags.auto_increment) continue;
         if (col.flags.has_timestamp_default) continue;
         if (col.flags.is_virtual) continue;
-        try writeInputField(w, col);
+        try writeInputField(w, col, alloc);
     }
 
     try w.writeAll("}\n");
@@ -200,7 +201,7 @@ fn writeInputType(w: *Writer, table: typed_ast.TypedTable) !void {
 
 // ─── Field Writer (object type) ───────────────────────────────
 
-fn writeField(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable) !void {
+fn writeField(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable, alloc: std.mem.Allocator) !void {
     // Description from comment
     if (col.comment) |c| {
         if (c.len > 0) {
@@ -209,27 +210,27 @@ fn writeField(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTabl
     }
 
     const nullable_suffix = if (col.flags.nullable or col.flags.primary_key) "" else "!";
-    const base_type = mapType(col, table);
+    const base_type = try mapType(col, table, alloc);
 
     try w.print("  {s}: {s}{s}\n", .{ col.name, base_type, nullable_suffix });
 }
 
 // ─── Input Field Writer ───────────────────────────────────────
 
-fn writeInputField(w: *Writer, col: typed_ast.TypedColumn) !void {
+fn writeInputField(w: *Writer, col: typed_ast.TypedColumn, alloc: std.mem.Allocator) !void {
     if (col.comment) |c| {
         if (c.len > 0) {
             try w.print("  \"\"\"{s}\"\"\"\n", .{c});
         }
     }
     const nullable_suffix = if (col.flags.nullable) "" else "!";
-    const base_type = mapType(col, null);
+    const base_type = try mapType(col, null, alloc);
     try w.print("  {s}: {s}{s}\n", .{ col.name, base_type, nullable_suffix });
 }
 
 // ─── Type Mapping ──────────────────────────────────────────────
 
-fn mapType(col: typed_ast.TypedColumn, table: ?typed_ast.TypedTable) []const u8 {
+fn mapType(col: typed_ast.TypedColumn, table: ?typed_ast.TypedTable, alloc: std.mem.Allocator) ![]const u8 {
     // Primary key named "id" → ID scalar
     if (col.flags.primary_key) {
         if (std.mem.eql(u8, col.name, "id")) return "ID";
@@ -243,15 +244,12 @@ fn mapType(col: typed_ast.TypedColumn, table: ?typed_ast.TypedTable) []const u8 
         }
     }
     if (col.flags.is_enum) {
-        // Return the name that writeEnumType will produce: "{col_name}Type"
-        // We need to write it to a static buffer — use a thread-local.
-        // But that's complex. Instead, just return a computed name.
-        // Since we can't allocate, we use a fixed-size buffer approach.
-        // For simplicity, return col_name ++ "Type" via a comptime approach.
-        // Actually, since col.name is a runtime slice, we can't do ++.
-        // Solution: write directly in the caller. For mapType, return the
-        // enum name via a helper that writes to a static buffer.
-        return enumTypeName(col.name);
+        // Return "{col_name}Type" — allocated so callers don't need static buffers.
+        const suffix = "Type";
+        const buf = try alloc.alloc(u8, col.name.len + suffix.len);
+        @memcpy(buf[0..col.name.len], col.name);
+        @memcpy(buf[col.name.len..], suffix);
+        return buf;
     }
     return switch (col.sql_type) {
         .int, .smallint => "Int",
@@ -265,31 +263,11 @@ fn mapType(col: typed_ast.TypedColumn, table: ?typed_ast.TypedTable) []const u8 
     };
 }
 
-/// Return "{name}Type" using a static buffer. Safe because the result is consumed
-/// immediately by w.print before the next call.
-var _enum_buf: [128]u8 = undefined;
-fn enumTypeName(name: []const u8) []const u8 {
-    const suffix = "Type";
-    const total = name.len + suffix.len;
-    if (total > _enum_buf.len) return name; // fallback
-    @memcpy(_enum_buf[0..name.len], name);
-    @memcpy(_enum_buf[name.len..total], suffix);
-    return _enum_buf[0..total];
-}
-
 // ─── Name Helpers ──────────────────────────────────────────────
-
-fn toCamelSingular(name: []const u8) []const u8 {
-    if (name.len == 0) return name;
-    if (name[name.len - 1] == 's' and name.len > 1) {
-        return name[0 .. name.len - 1];
-    }
-    return name;
-}
 
 /// Write PascalCase singular form directly to writer. Avoids allocation.
 fn writePascalSingular(w: *Writer, name: []const u8) !void {
-    const singular = toCamelSingular(name);
+    const singular = common.toCamelSingular(name);
     if (singular.len == 0) return;
     try w.writeByte(std.ascii.toUpper(singular[0]));
     if (singular.len > 1) {

@@ -113,6 +113,7 @@ pub const DiagnosticCollector = struct {
     alloc: std.mem.Allocator,
     max_errors: usize = 100,
     overflow: bool = false,
+    oom: bool = false,
     json_errors: bool = false,
     cached_error_count: usize = 0,
 
@@ -125,7 +126,7 @@ pub const DiagnosticCollector = struct {
 
     /// Record a diagnostic (warning, error, or note).
     /// Stops recording when max_errors is exceeded.
-    /// Note: allocation failures are logged but not propagated to keep the API simple.
+    /// Sets `oom` flag if allocation fails — callers can check `hadOom()`.
     pub fn push(self: *DiagnosticCollector, d: Diagnostic) void {
         if (self.overflow) return;
         if (d.severity == .@"error" and self.cached_error_count >= self.max_errors) {
@@ -134,7 +135,7 @@ pub const DiagnosticCollector = struct {
         }
         if (d.severity == .@"error") self.cached_error_count += 1;
         self.diagnostics.append(self.alloc, d) catch {
-            std.debug.print("warning: failed to record diagnostic (out of memory)\n", .{});
+            self.oom = true;
         };
     }
 
@@ -151,6 +152,11 @@ pub const DiagnosticCollector = struct {
     /// Returns the count of error-severity diagnostics.
     pub fn errorCount(self: *const DiagnosticCollector) usize {
         return self.cached_error_count;
+    }
+
+    /// Returns true if any diagnostics were dropped due to allocation failure.
+    pub fn hadOom(self: *const DiagnosticCollector) bool {
+        return self.oom;
     }
 
     /// Print all collected diagnostics.

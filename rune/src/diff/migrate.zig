@@ -16,11 +16,6 @@ const TypeInfo = ast_mod.TypeInfo;
 
 const Dialect = dialect_enum.Dialect;
 
-// ─── Direction ────────────────────────────────────────────────
-
-/// Controls whether emission targets forward migration or rollback.
-const Direction = enum { forward, rollback };
-
 // ─── Helpers ───────────────────────────────────────────────
 
 const optionalStrEq = utils.optionalStrEq;
@@ -46,10 +41,11 @@ pub fn generateFromDiff(
 
     var has_operations = false;
 
-    try emitDroppedTables(w, dialect_mod.getBackend(dialect), d.dropped_tables);
+    const backend = dialect_mod.getBackend(dialect);
+    try emitDroppedTables(w, backend, d.dropped_tables);
     if (d.dropped_tables.len > 0) has_operations = true;
 
-    try emitViewDiffs(w, dialect_mod.getBackend(dialect), d.view_diffs, new_typed);
+    try emitViewDiffs(w, backend, d.view_diffs, new_typed);
     if (d.view_diffs.len > 0) has_operations = true;
 
     var cg = codegen.Codegen.init(alloc, dialect);
@@ -87,7 +83,8 @@ pub fn generateRollback(
     try emitTableDiffs(alloc, w, d.table_diffs, old_resolved, dialect, &cg, &has_operations);
 
     // 2. Reverse view diffs
-    try emitViewDiffs(w, dialect_mod.getBackend(dialect), d.view_diffs, old_typed);
+    const backend = dialect_mod.getBackend(dialect);
+    try emitViewDiffs(w, backend, d.view_diffs, old_typed);
 
     // 3. Reverse dropped tables (they become CREATE in rollback)
     try emitRollbackDroppedTables(alloc, w, d.dropped_tables, old_resolved, dialect, &has_operations);

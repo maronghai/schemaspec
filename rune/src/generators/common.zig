@@ -335,3 +335,14 @@ pub fn findFkRefTable(col_name: []const u8, fks: []const FkDecl) ?[]const u8 {
     }
     return null;
 }
+
+// ─── Name Helpers ─────────────────────────────────────────────
+
+/// Strip trailing 's' for a simple singular form. Used by GraphQL and Prisma generators.
+pub fn toCamelSingular(name: []const u8) []const u8 {
+    if (name.len == 0) return name;
+    if (name[name.len - 1] == 's' and name.len > 1) {
+        return name[0 .. name.len - 1];
+    }
+    return name;
+}

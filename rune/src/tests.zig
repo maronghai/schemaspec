@@ -69,6 +69,7 @@ comptime {
     _ = @import("semantic/pass_manager_test.zig");
     _ = @import("semantic/template_test.zig");
     // types
+    _ = @import("types/ast_test.zig");
     _ = @import("types/type_map_test.zig");
     _ = @import("types/type_resolver_test.zig");
     _ = @import("types/type_registry_test.zig");

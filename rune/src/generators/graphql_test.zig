@@ -20,7 +20,9 @@ const makeTestAst = ct.makeTestAstWithName;
 // ─── Tests ────────────────────────────────────────────────────
 
 test "basic type mapping: int, string, boolean" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const cols = [_]TypedColumn{
         makeTestColumn("count", .int, .{}),
         makeTestColumn("name", .{ .varchar = 255 }, .{}),
@@ -30,7 +32,6 @@ test "basic type mapping: int, string, boolean" {
     const ast = makeTestAst(null, &tables);
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "count: Int!") != null);
     try testing.expect(std.mem.indexOf(u8, result, "name: String!") != null);
@@ -38,7 +39,9 @@ test "basic type mapping: int, string, boolean" {
 }
 
 test "nullable fields: no exclamation mark" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const cols = [_]TypedColumn{
         makeTestColumn("id", .int, .{ .nullable = false, .primary_key = true }),
         makeTestColumn("bio", .text, .{ .nullable = true }),
@@ -47,7 +50,6 @@ test "nullable fields: no exclamation mark" {
     const ast = makeTestAst(null, &tables);
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     // Primary key named "id" → ID type, nullable (no !)
     try testing.expect(std.mem.indexOf(u8, result, "id: ID") != null);
@@ -56,7 +58,9 @@ test "nullable fields: no exclamation mark" {
 }
 
 test "enum column: generates enum type" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const enum_vals = [_][]const u8{ "active", "inactive", "suspended" };
     var col = makeTestColumn("status", .{ .enum_values = &enum_vals }, .{});
     col.flags.is_enum = true;
@@ -67,7 +71,6 @@ test "enum column: generates enum type" {
     const ast = makeTestAst(null, &tables);
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     // Should have enum type definition
     try testing.expect(std.mem.indexOf(u8, result, "enum statusType {") != null);
@@ -79,7 +82,9 @@ test "enum column: generates enum type" {
 }
 
 test "FK column: Int type with relation field" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const fks = [_]FkDecl{.{
         .fields = &.{"user_id"},
         .ref_table = "users",
@@ -96,7 +101,6 @@ test "FK column: Int type with relation field" {
     const ast = makeTestAst(null, &tables);
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     // FK column → Int type
     try testing.expect(std.mem.indexOf(u8, result, "user_id: Int!") != null);
@@ -105,7 +109,9 @@ test "FK column: Int type with relation field" {
 }
 
 test "query and mutation types generated" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const cols = [_]TypedColumn{
         makeTestColumn("id", .int, .{ .primary_key = true }),
         makeTestColumn("name", .{ .varchar = 255 }, .{}),
@@ -114,7 +120,6 @@ test "query and mutation types generated" {
     const ast = makeTestAst(null, &tables);
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     // Query type
     try testing.expect(std.mem.indexOf(u8, result, "type Query {") != null);
@@ -129,7 +134,9 @@ test "query and mutation types generated" {
 }
 
 test "input type: skips auto-generated fields" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const cols = [_]TypedColumn{
         makeTestColumn("id", .int, .{ .primary_key = true, .auto_increment = true }),
         makeTestColumn("name", .{ .varchar = 255 }, .{}),
@@ -139,7 +146,6 @@ test "input type: skips auto-generated fields" {
     const ast = makeTestAst(null, &tables);
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     // Input type should exist
     try testing.expect(std.mem.indexOf(u8, result, "input usersInput {") != null);
@@ -150,11 +156,12 @@ test "input type: skips auto-generated fields" {
 }
 
 test "empty schema: no query or mutation" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const ast = makeTestAst(null, &.{});
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     // Should have no Query or Mutation
     try testing.expect(std.mem.indexOf(u8, result, "type Query") == null);
@@ -162,7 +169,9 @@ test "empty schema: no query or mutation" {
 }
 
 test "view: read-only type" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const views = [_]TypedView{.{
         .name = "user_summary",
         .query = "SELECT id, name FROM users",
@@ -173,7 +182,6 @@ test "view: read-only type" {
     ast.views = &views;
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     // View type
     try testing.expect(std.mem.indexOf(u8, result, "type user_summary {") != null);
@@ -184,7 +192,9 @@ test "view: read-only type" {
 }
 
 test "datetime: custom scalar" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const cols = [_]TypedColumn{
         makeTestColumn("created_at", .datetime, .{ .is_datetime = true }),
     };
@@ -192,7 +202,6 @@ test "datetime: custom scalar" {
     const ast = makeTestAst(null, &tables);
 
     const result = try graphql.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "scalar DateTime") != null);
     try testing.expect(std.mem.indexOf(u8, result, "created_at: DateTime!") != null);

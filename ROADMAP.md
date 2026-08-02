@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.82.0 (2026-08-02) — 19,886+ lines production Zig, 10,964+ lines tests, 492 golden files, 20 test suites.
+**Current version**: 0.84.0 (2026-08-02) — 20,000+ lines production Zig, 10,964+ lines tests, 492 golden files, 20 test suites.
 
 ---
 
@@ -215,6 +215,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.84.0 (2026-08-02)
+
+- **Fixed thread-safety in GraphQL generator** — Replaced static `_enum_buf` buffer in `generators/graphql.zig` with allocator-allocated string. Eliminates potential race condition. Tests updated to use arena allocators (matching real CLI behavior).
+- **Removed dead `Direction` enum** — Removed unused `Direction` enum from `diff/migrate.zig`.
+- **Extracted shared `toCamelSingular`** — Moved `toCamelSingular` from `generators/prisma.zig` and `generators/graphql.zig` into `generators/common.zig`. Eliminates duplicated code.
+- **Added `TypeInfo` unit tests** — New `types/ast_test.zig` with 22 tests covering `TypeInfo.eql`, `isNumeric`, `isString`, `isDatetime`, `isBoolean` methods.
+- **Improved OOM error handling in `DiagnosticCollector`** — Added `oom` flag and `hadOom()` accessor. Replaces silent `std.debug.print` with trackable error state.
+- **Cached `getBackend` in migration pipeline** — `diff/migrate.zig` now caches `getBackend(dialect)` in `generateFromDiff` and `generateRollback` to avoid redundant vtable lookups.
 
 ### v0.82.0 (2026-08-02)
 

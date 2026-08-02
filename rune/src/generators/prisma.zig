@@ -4,6 +4,7 @@ const sql_type_mod = @import("../types/sql_type.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const Dialect = dialect_enum.Dialect;
 const Writer = std.Io.Writer;
+const common = @import("common.zig");
 
 // ─── Prisma Schema Generator ─────────────────────────────────
 // Maps Rune .ss schema to Prisma schema language.
@@ -63,7 +64,7 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
         // Inline relations from FK targets (owned side)
         for (table.fks) |fk| {
             try w.print("  {s} {s}? @relation(\"{s}_{s}\", fields: [{s}], references: [{s}])\n", .{
-                toCamelSingular(fk.ref_table),
+                common.toCamelSingular(fk.ref_table),
                 fk.ref_table,
                 table.name,
                 fk.ref_table,
@@ -134,15 +135,4 @@ fn mapType(col: typed_ast.TypedColumn) []const u8 {
         .enum_values => "String",
         .raw_sql, .passthrough => "String",
     };
-}
-
-fn toCamelSingular(name: []const u8) []const u8 {
-    // Simple heuristic: lowercase first char, strip trailing 's'
-    if (name.len == 0) return name;
-    var result = name;
-    // Strip trailing 's' for singular form
-    if (result[result.len - 1] == 's' and result.len > 1) {
-        result = result[0 .. result.len - 1];
-    }
-    return result;
 }
