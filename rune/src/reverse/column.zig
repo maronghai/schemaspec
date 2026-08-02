@@ -108,6 +108,7 @@ fn writeColumnModifiers(w: anytype, col: sp.SqlColumn, indexes: []const sp.SqlIn
     // INLINE UNIQUE / INDEX from standalone indexes
     var has_inline_index = false;
     for (indexes) |idx| {
+        if (has_inline_index) break;
         if (idx.fields.len == 1 and std.mem.eql(u8, idx.fields[0], col.name)) {
             if (idx.kind == .unique and isInlineIndex(idx)) {
                 try w.writeAll(" @u");
