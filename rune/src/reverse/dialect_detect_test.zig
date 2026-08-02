@@ -138,3 +138,23 @@ test "detectSqlDialect: Db2 generated columns" {
     ;
     try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
 }
+
+test "detectSqlDialect: Db2 FOR BIT DATA" {
+    const sql =
+        \\CREATE TABLE "users" (
+        \\  "id" INTEGER NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+        \\  "uuid_col" CHAR(16) FOR BIT DATA NOT NULL
+        \\);
+    ;
+    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
+}
+
+test "detectSqlDialect: Db2 NOT NULL WITH DEFAULT" {
+    const sql =
+        \\CREATE TABLE "config" (
+        \\  "id" INTEGER NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+        \\  "setting" VARCHAR(100) NOT NULL WITH DEFAULT 'foo'
+        \\);
+    ;
+    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
+}
