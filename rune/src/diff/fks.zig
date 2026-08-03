@@ -1,6 +1,7 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const diff_types = @import("../diff/types.zig");
+const rename = @import("../diff/rename.zig");
 const FkDecl = ast_mod.FkDecl;
 pub const FkDiff = diff_types.FkDiff;
 pub const FkAction = diff_types.FkAction;
@@ -108,53 +109,8 @@ pub const AdjustedFk = struct {
 /// Create a copy of an FK with fields adjusted according to field renames.
 /// Returns the adjusted FK and allocated buffers that the caller must free.
 fn adjustFkForRenames(fk: FkDecl, field_diffs: []const FieldDiff, alloc: std.mem.Allocator) !AdjustedFk {
-    var modified = false;
-
-    for (field_diffs) |fd| {
-        if (fd.action != .rename) continue;
-        const old_name = fd.rename_from orelse continue;
-
-        for (fk.fields) |f| {
-            if (std.mem.eql(u8, f, old_name)) modified = true;
-        }
-        for (fk.ref_fields) |f| {
-            if (std.mem.eql(u8, f, old_name)) modified = true;
-        }
-    }
-
-    if (!modified) return .{
-        .fk = fk,
-        .fields_buf = &.{},
-        .ref_fields_buf = &.{},
-    };
-
-    // Allocate buffers for renamed fields
-    var fields_buf = try alloc.alloc([]const u8, fk.fields.len);
-    errdefer alloc.free(fields_buf);
-    var ref_fields_buf = try alloc.alloc([]const u8, fk.ref_fields.len);
-    errdefer alloc.free(ref_fields_buf);
-
-    for (fk.fields, 0..) |f, i| {
-        var replaced = f;
-        for (field_diffs) |fd| {
-            if (fd.action == .rename and fd.rename_from != null and std.mem.eql(u8, f, fd.rename_from.?)) {
-                replaced = fd.name;
-                break;
-            }
-        }
-        fields_buf[i] = replaced;
-    }
-    for (fk.ref_fields, 0..) |f, i| {
-        var replaced = f;
-        for (field_diffs) |fd| {
-            if (fd.action == .rename and fd.rename_from != null and std.mem.eql(u8, f, fd.rename_from.?)) {
-                replaced = fd.name;
-                break;
-            }
-        }
-        ref_fields_buf[i] = replaced;
-    }
-
+    const fields_buf = try rename.applyRenames(alloc, fk.fields, field_diffs);
+    const ref_fields_buf = try rename.applyRenames(alloc, fk.ref_fields, field_diffs);
     return .{
         .fk = .{
             .fields = fields_buf,

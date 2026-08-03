@@ -1,6 +1,7 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const diff_types = @import("../diff/types.zig");
+const rename = @import("../diff/rename.zig");
 const IndexDecl = ast_mod.IndexDecl;
 const IndexType = ast_mod.IndexType;
 pub const IndexDiff = diff_types.IndexDiff;
@@ -137,35 +138,7 @@ const AdjustedIndex = struct {
 
 /// Create a copy of an IndexDecl with fields adjusted according to field renames.
 fn adjustIndexForRenames(idx: IndexDecl, field_diffs: []const FieldDiff, alloc: std.mem.Allocator) AdjustedIndex {
-    var modified = false;
-
-    for (field_diffs) |fd| {
-        if (fd.action != .rename) continue;
-        const old_name = fd.rename_from orelse continue;
-
-        for (idx.fields) |f| {
-            if (std.mem.eql(u8, f, old_name)) modified = true;
-        }
-    }
-
-    if (!modified) return .{
-        .idx = idx,
-        .fields_buf = &.{},
-    };
-
-    var fields_buf = alloc.alloc([]const u8, idx.fields.len) catch return .{ .idx = idx, .fields_buf = &.{} };
-
-    for (idx.fields, 0..) |f, i| {
-        var replaced = f;
-        for (field_diffs) |fd| {
-            if (fd.action == .rename and fd.rename_from != null and std.mem.eql(u8, f, fd.rename_from.?)) {
-                replaced = fd.name;
-                break;
-            }
-        }
-        fields_buf[i] = replaced;
-    }
-
+    const fields_buf = rename.applyRenames(alloc, idx.fields, field_diffs) catch return .{ .idx = idx, .fields_buf = &.{} };
     return .{
         .idx = .{
             .kind = idx.kind,

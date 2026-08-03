@@ -18,6 +18,11 @@ pub const Stats = struct {
     datetime_fields: usize,
     boolean_fields: usize,
     other_fields: usize,
+    foreign_keys: usize,
+    indexes: usize,
+    check_constraints: usize,
+    templates: usize,
+    custom_types: usize,
 };
 
 /// Classify a field's type_info into a stat category.
@@ -38,6 +43,9 @@ pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
     var datetime: usize = 0;
     var boolean: usize = 0;
     var other: usize = 0;
+    var fk_count: usize = 0;
+    var idx_count: usize = 0;
+    var check_count: usize = 0;
     for (resolved.tables) |table| {
         for (table.fields) |field| {
             field_count += 1;
@@ -56,7 +64,10 @@ pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
                 .boolean => boolean += 1,
                 .other => other += 1,
             }
+            if (field.check != null) check_count += 1;
         }
+        fk_count += table.fks.len;
+        idx_count += table.indexes.len;
     }
     return .{
         .tables = resolved.tables.len,
@@ -68,6 +79,11 @@ pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
         .datetime_fields = datetime,
         .boolean_fields = boolean,
         .other_fields = other,
+        .foreign_keys = fk_count,
+        .indexes = idx_count,
+        .check_constraints = check_count,
+        .templates = resolved.custom_types.len,
+        .custom_types = 0,
     };
 }
 
@@ -82,12 +98,16 @@ pub fn printStats(stats: Stats) void {
     std.debug.print("  boolean:        {d}\n", .{stats.boolean_fields});
     std.debug.print("  other:          {d}\n", .{stats.other_fields});
     std.debug.print("views:            {d}\n", .{stats.views});
+    std.debug.print("foreign_keys:     {d}\n", .{stats.foreign_keys});
+    std.debug.print("indexes:          {d}\n", .{stats.indexes});
+    std.debug.print("check_constraints:{d}\n", .{stats.check_constraints});
+    std.debug.print("templates:        {d}\n", .{stats.templates});
 }
 
 /// Format stats as a JSON string.
 pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
     return std.fmt.allocPrint(alloc,
-        \\{{"tables":{d},"fields":{d},"not_null":{d},"numeric":{d},"string":{d},"datetime":{d},"boolean":{d},"other":{d},"views":{d}}}
+        \\{{"tables":{d},"fields":{d},"not_null":{d},"numeric":{d},"string":{d},"datetime":{d},"boolean":{d},"other":{d},"views":{d},"foreign_keys":{d},"indexes":{d},"check_constraints":{d},"templates":{d}}}
     , .{
         stats.tables,
         stats.fields,
@@ -98,5 +118,9 @@ pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
         stats.boolean_fields,
         stats.other_fields,
         stats.views,
+        stats.foreign_keys,
+        stats.indexes,
+        stats.check_constraints,
+        stats.templates,
     });
 }

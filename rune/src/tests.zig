@@ -32,6 +32,7 @@ comptime {
     _ = @import("diff/migrate_test.zig");
     _ = @import("diff/migrate_json_test.zig");
     _ = @import("diff/types_test.zig");
+    _ = @import("diff/rename_test.zig");
     _ = @import("diff/format/text_test.zig");
     _ = @import("diff/format/sarif_test.zig");
     _ = @import("diff/format/json_test.zig");

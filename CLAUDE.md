@@ -96,8 +96,8 @@ rune/src/
                common.zig, sqlite_hints.zig
   reverse/     codegen.zig, column.zig, map.zig,          # reverse engineering (7 files)
                map_data.zig, fk.zig, check.zig, template_extraction.zig
-  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (13 files)
-               fks.zig, indexes.zig, semantic.zig, migrate.zig
+  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (14 files)
+               fks.zig, indexes.zig, semantic.zig, migrate.zig, rename.zig
                format.zig, format/text.zig,              # format re-export + sub-modules
                format/json.zig, format/sarif.zig
   types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (9 files)
@@ -172,7 +172,7 @@ rune/src/
 | `pipeline/` | `forward.zig` | `.ss` → SQL orchestration (tokenizer → parser → semantic → type resolver → codegen) |
 | | `reverse.zig` | SQL → `.ss` orchestration + dialect auto-detection |
 | | `diff.zig` | Diff/migrate pipeline orchestration |
-| | `stats.zig` | Schema statistics (field type classification, table/field/view counts) |
+| | `stats.zig` | Schema statistics (field type classification, table/field/view/constraint counts) |
 | `parser/` | `parser.zig` | Token-level `.ss` parser → AST, dispatches to parse_* modules |
 | | `parse_field.zig` | Field declaration parsing (type, modifiers, default, inline FK) |
 | | `parse_fk.zig`, `parse_check.zig`, `parse_index.zig` | FK/Check/Index parsing |
@@ -200,6 +200,7 @@ rune/src/
 | | `fields.zig` | Field-level diffing + rename detection |
 | | `fks.zig` | FK diffing — two-pass matching |
 | | `indexes.zig` | Index diffing |
+| | `rename.zig` | Shared rename-adjustment logic for index/FK field name substitution |
 | | `format.zig` | Diff output formatting — re-exports from sub-modules |
 | | `format/text.zig` | Text diff output (human-readable `-- ALTER TABLE` format) |
 | | `format/json.zig` | JSON diff output (structured, machine-readable) |

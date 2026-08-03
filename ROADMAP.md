@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.94.0 (2026-08-03) — 32,500+ lines production Zig, 910+ tests, 23 test suites.
+**Current version**: 0.95.0 (2026-08-03) — 32,500+ lines production Zig, 910+ tests, 23 test suites.
 
 ---
 
@@ -216,6 +216,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.95.0 (2026-08-03)
+
+- **Shared `applyRenames` helper** — Extracted duplicated rename-adjustment logic from `diff/indexes.zig` and `diff/fks.zig` into `diff/rename.zig`. Both modules now delegate to the shared function, eliminating ~40 lines of duplicated field-substitution code.
+- **Expanded schema statistics** — `rune stats` now reports foreign key, index, check constraint, and template counts in addition to the existing table/field/view breakdown. JSON output includes the new fields.
+- **Migration sequence overflow fix** — Migration file naming changed from 3-digit (`001_name.sql`) to 4-digit (`0001_name.sql`) zero-padding. `findNextSequenceNumber` now handles variable-length prefixes for backward compatibility with existing migration directories.
 
 ### v0.94.0 (2026-08-03)
 

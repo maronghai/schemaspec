@@ -209,7 +209,7 @@ pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]co
 }
 
 /// Find the next sequence number for migration files in a directory.
-/// Scans for NNN_*.sql files and returns max(NNN) + 1, or 1 if none found.
+/// Scans for NNNN_*.sql files and returns max(NNNN) + 1, or 1 if none found.
 fn findNextSequenceNumber(io: std.Io, alloc: std.mem.Allocator, dir_path: []const u8) !u32 {
     var max_num: u32 = 0;
     var dir = std.Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true }) catch return 1;
@@ -221,8 +221,9 @@ fn findNextSequenceNumber(io: std.Io, alloc: std.mem.Allocator, dir_path: []cons
         const name = entry.name;
         if (name.len > 4 and std.mem.eql(u8, name[name.len - 4 ..], ".sql")) {
             const base = name[0 .. name.len - 4];
-            if (base.len >= 4 and base[3] == '_') {
-                const digits = base[0..3];
+            // Find the underscore separator — supports both 3-digit (legacy) and 4-digit sequences
+            if (std.mem.lastIndexOfScalar(u8, base, '_')) |underscore_pos| {
+                const digits = base[0..underscore_pos];
                 if (std.fmt.parseInt(u32, digits, 10)) |num| {
                     if (num > max_num) max_num = num;
                 } else |_| {}
@@ -233,9 +234,9 @@ fn findNextSequenceNumber(io: std.Io, alloc: std.mem.Allocator, dir_path: []cons
     return max_num + 1;
 }
 
-/// Format a migration file name: "001_name.sql"
+/// Format a migration file name: "0001_name.sql"
 fn formatMigrationFileName(alloc: std.mem.Allocator, seq: u32, name: []const u8) ![]const u8 {
-    return try std.fmt.allocPrint(alloc, "{d:0>3}_{s}.sql", .{ seq, name });
+    return try std.fmt.allocPrint(alloc, "{d:0>4}_{s}.sql", .{ seq, name });
 }
 
 /// Filter incremental changes: remove pure comment/metadata diffs.
