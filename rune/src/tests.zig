@@ -79,6 +79,7 @@ comptime {
     _ = @import("types/sql_type_test.zig");
     // generators
     _ = @import("generator_test.zig");
+    _ = @import("generators/common_test.zig");
     _ = @import("generators/sql_ddl_test.zig");
     _ = @import("generators/prisma_test.zig");
     _ = @import("generators/docs_test.zig");

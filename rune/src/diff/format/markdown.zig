@@ -2,9 +2,9 @@ const std = @import("std");
 const diff_types = @import("../../diff/types.zig");
 const dialect_mod = @import("../../dialect/dialect.zig");
 const utils = @import("../../utils.zig");
+const format_common = @import("../../diff/format_common.zig");
 const SchemaDiff = diff_types.SchemaDiff;
 const Dialect = @import("../../dialect/enum.zig").Dialect;
-const ast_mod = @import("../../types/ast.zig");
 
 const optionalStrEq = utils.optionalStrEq;
 
@@ -12,26 +12,7 @@ fn quoteChar(dialect: Dialect) u8 {
     return dialect_mod.getBackend(dialect).quoteChar;
 }
 
-fn formatTypeInfo(info: ast_mod.TypeInfo, buf: []u8) []const u8 {
-    return switch (info) {
-        .none => "any",
-        .simple => |s| s,
-        .int_explicit => |n| {
-            const len = std.fmt.bufPrint(buf, "int({d})", .{n}) catch return "int";
-            return len;
-        },
-        .decimal_explicit => |ds| {
-            const len = std.fmt.bufPrint(buf, "decimal({d},{d})", .{ ds.precision, ds.scale }) catch return "decimal";
-            return len;
-        },
-        .varchar_explicit => |n| {
-            const len = std.fmt.bufPrint(buf, "varchar({d})", .{n}) catch return "varchar";
-            return len;
-        },
-        .enum_type => "enum",
-        .raw_sql => |s| s,
-    };
-}
+const formatTypeInfo = format_common.formatTypeInfo;
 
 /// Format SchemaDiff as a Markdown table for documentation and PR descriptions.
 pub fn formatDiffMarkdown(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect) ![]const u8 {

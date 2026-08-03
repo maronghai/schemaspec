@@ -4,6 +4,7 @@ const ast_mod = @import("../types/ast.zig");
 const IndexDecl = ast_mod.IndexDecl;
 const IndexType = ast_mod.IndexType;
 const IndexAction = idx.IndexAction;
+const FieldDiff = idx.FieldDiff;
 
 // ─── Test Helpers ───────────────────────────────────────────
 
@@ -23,7 +24,7 @@ test "diffIndexes identical — no diffs" {
     const alloc = std.testing.allocator;
     const old = [_]IndexDecl{makeIdx(.regular, "idx_a", &.{ "a", "b" })};
     const new_ = [_]IndexDecl{makeIdx(.regular, "idx_a", &.{ "a", "b" })};
-    const diffs = try idx.diffIndexes(alloc, &old, &new_);
+    const diffs = try idx.diffIndexes(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 0), diffs.len);
 }
@@ -32,7 +33,7 @@ test "diffIndexes added index" {
     const alloc = std.testing.allocator;
     const old = [_]IndexDecl{};
     const new_ = [_]IndexDecl{makeIdx(.unique, "uk_email", &.{"email"})};
-    const diffs = try idx.diffIndexes(alloc, &old, &new_);
+    const diffs = try idx.diffIndexes(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(IndexAction.add, diffs[0].action);
@@ -43,7 +44,7 @@ test "diffIndexes dropped index" {
     const alloc = std.testing.allocator;
     const old = [_]IndexDecl{makeIdx(.regular, "idx_a", &.{"a"})};
     const new_ = [_]IndexDecl{};
-    const diffs = try idx.diffIndexes(alloc, &old, &new_);
+    const diffs = try idx.diffIndexes(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(IndexAction.drop, diffs[0].action);
@@ -53,7 +54,7 @@ test "diffIndexes modified index (kind change)" {
     const alloc = std.testing.allocator;
     const old = [_]IndexDecl{makeIdx(.regular, "idx_a", &.{"a"})};
     const new_ = [_]IndexDecl{makeIdx(.unique, "idx_a", &.{"a"})};
-    const diffs = try idx.diffIndexes(alloc, &old, &new_);
+    const diffs = try idx.diffIndexes(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(IndexAction.modify, diffs[0].action);
@@ -63,7 +64,7 @@ test "diffIndexes modified index (field change)" {
     const alloc = std.testing.allocator;
     const old = [_]IndexDecl{makeIdx(.regular, "idx_ab", &.{ "a", "b" })};
     const new_ = [_]IndexDecl{makeIdx(.regular, "idx_ab", &.{ "a", "c" })};
-    const diffs = try idx.diffIndexes(alloc, &old, &new_);
+    const diffs = try idx.diffIndexes(alloc, &old, &new_, &.{});
     defer alloc.free(diffs);
     try std.testing.expectEqual(@as(usize, 1), diffs.len);
     try std.testing.expectEqual(IndexAction.modify, diffs[0].action);

@@ -36,3 +36,7 @@ pub const formatDiffSarif = sarif_fmt.formatDiffSarif;
 
 // Re-export Markdown format
 pub const formatDiffMarkdown = markdown_fmt.formatDiffMarkdown;
+
+// Re-export shared format helpers
+pub const format_common = @import("format_common.zig");
+pub const formatTypeInfo = format_common.formatTypeInfo;

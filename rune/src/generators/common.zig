@@ -1,6 +1,7 @@
 const std = @import("std");
 const typed_ast = @import("../types/typed_ast.zig");
 const ast_mod = @import("../types/ast.zig");
+const utils = @import("../utils.zig");
 const FkDecl = ast_mod.FkDecl;
 
 // Re-export sub-modules for backward compatibility.
@@ -60,7 +61,6 @@ pub fn writeJsonValue(w: *std.Io.Writer, val: []const u8) !void {
             try w.print("{d}", .{num});
         } else |_| {
             try w.writeAll("\"");
-            const utils = @import("../utils.zig");
             try utils.jsonEscapeString(w, val);
             try w.writeAll("\"");
         }
@@ -87,4 +87,91 @@ pub fn toCamelSingular(name: []const u8) []const u8 {
         return name[0 .. name.len - 1];
     }
     return name;
+}
+
+// ─── Shared JSON Column Property Writer ────────────────────────
+
+/// Write a JSON Schema / OpenAPI property for a column.
+/// Shared by `json_schema.zig` and `openapi.zig` to eliminate duplication.
+/// - `indent`: outer indentation (e.g. "        " for json_schema, "          " for openapi)
+/// - `ref_prefix`: FK $ref path prefix (e.g. "#/$defs/" or "#/components/schemas/")
+pub fn writeColumnPropJson(
+    alloc: std.mem.Allocator,
+    w: *std.Io.Writer,
+    col: typed_ast.TypedColumn,
+    table: typed_ast.TypedTable,
+    indent: []const u8,
+    ref_prefix: []const u8,
+) !void {
+    try w.print("{s}\"{s}\": ", .{ indent, col.name });
+
+    const fk_ref_table = findFkRefTable(col.name, table.fks);
+
+    if (fk_ref_table) |ref_table| {
+        try w.writeAll("{\n");
+        try w.print("{s}  \"$ref\": \"{s}{s}\",\n", .{ indent, ref_prefix, ref_table });
+        try w.print("{s}  \"description\": \"Foreign key to ", .{indent});
+        try w.writeAll(ref_table);
+        try w.writeAll("\"\n");
+        try w.print("{s}}}", .{indent});
+    } else {
+        try col.sql_type.toJsonSchema(w);
+
+        if (col.check) |check| {
+            switch (check.kind) {
+                .range, .range_upper_exclusive, .range_lower_exclusive, .range_both_exclusive => {
+                    if (parseRange(check.expr)) |range| {
+                        try w.writeAll(",\n");
+                        if (range.min) |min| {
+                            try w.print("{s}  \"minimum\": {d}", .{ indent, min });
+                            if (range.max) |max| {
+                                try w.writeAll(",\n");
+                                try w.print("{s}  \"maximum\": {d}", .{ indent, max });
+                            }
+                        } else if (range.max) |max| {
+                            try w.print("{s}  \"maximum\": {d}", .{ indent, max });
+                        }
+                    }
+                },
+                .comparison => {
+                    if (parseComparison(check.expr)) |cmp| {
+                        try w.writeAll(",\n");
+                        if (cmp.op[0] == '>') {
+                            try w.print("{s}  \"exclusiveMinimum\": {d}", .{ indent, cmp.value });
+                        } else if (cmp.op[0] == '<') {
+                            try w.print("{s}  \"exclusiveMaximum\": {d}", .{ indent, cmp.value });
+                        }
+                    }
+                },
+                .in_list => {
+                    if (parseInList(alloc, check.expr)) |items| {
+                        try w.writeAll(",\n");
+                        try w.print("{s}  \"enum\": [", .{indent});
+                        for (items, 0..) |item, ii| {
+                            if (ii > 0) try w.writeAll(", ");
+                            try w.print("\"{s}\"", .{item});
+                        }
+                        try w.writeAll("]");
+                    }
+                },
+            }
+        }
+
+        if (col.default) |def| {
+            if (def.len > 0) {
+                try w.writeAll(",\n");
+                try w.print("{s}  \"default\": ", .{indent});
+                try writeJsonValue(w, def);
+            }
+        }
+
+        if (col.comment) |c| {
+            if (c.len > 0) {
+                try w.writeAll(",\n");
+                try w.print("{s}  \"description\": \"", .{indent});
+                try utils.jsonEscapeString(w, c);
+                try w.writeAll("\"");
+            }
+        }
+    }
 }

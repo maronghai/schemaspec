@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.93.0 (2026-08-03) — 32,400+ lines production Zig, 880+ tests, 23 test suites.
+**Current version**: 0.94.0 (2026-08-03) — 32,500+ lines production Zig, 910+ tests, 23 test suites.
 
 ---
 
@@ -216,6 +216,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.94.0 (2026-08-03)
+
+- **Shared `writeColumnProp`** — Extracted ~75 lines of duplicated JSON Schema/OpenAPI column property writing into `generators/common.writeColumnPropJson`. Both `json_schema.zig` and `openapi.zig` now delegate to the shared function.
+- **Shared `formatTypeInfo`** — Extracted duplicated `formatTypeInfo` into `diff/format_common.zig`. Both `text.zig` and `markdown.zig` diff formatters now use the shared helper.
+- **Index rename propagation** — `diffIndexes` now accepts `field_diffs` and adjusts index field names for renames before matching, preventing stale migration SQL when columns are renamed.
+- **New `common_test.zig` tests** — Added 17 unit tests for shared generator helpers (`findFkRefTable`, `writeJsonValue`, `toCamelSingular`, `tableHasNonPkIndexes`, `tableHasCompositeFks`).
+- **Expanded dialect tests** — Added 8 unit tests each for MySQL, PostgreSQL, and SQLite dialects covering `lookupSym`, `canOmitType`, `emitAlterDropColumn`, and `emitAlterRenameColumn`.
+- **Shared `makePassCtx`** — Added `semantic/test_helpers.makePassCtx` for semantic pass test standardization.
 
 ### v0.93.0 (2026-08-03)
 
