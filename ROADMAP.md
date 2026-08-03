@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.87.0 (2026-08-02) — 20,000+ lines production Zig, 11,000+ lines tests, 500+ golden files, 21 test suites.
+**Current version**: 0.89.0 (2026-08-03) — 29,500+ lines production Zig, 870+ tests, 21 test suites.
 
 ---
 
@@ -216,6 +216,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.89.0 (2026-08-03)
+
+- **Replaced io_test.zig tautological tests** — Removed 5 meaningless tests that verified `std.mem.eql(u8, "-", "-")` and `null == null`. Replaced with 17 meaningful tests covering `optionalStrEq` and `jsonEscapeString` from `utils.zig`.
+- **Expanded SqlType test coverage** — `types/sql_type_test.zig` expanded from 1 to 22 tests. Covers `toSql()` for MySQL/PG/SQLite across int, bigint, text, varchar, boolean, datetime, json, uuid types. Covers `toJsonSchema()` for integer, string, boolean, object, date-time, uuid, decimal, blob types.
+- **Expanded ReverseConfig test coverage** — `pipeline/reverse_test.zig` expanded from 1 to 3 tests. Covers default values, custom values, and partial override scenarios.
 
 ### v0.87.0 (2026-08-02)
 

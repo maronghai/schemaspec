@@ -1,40 +1,123 @@
 const std = @import("std");
 const testing = std.testing;
 
-// ─── io.zig Unit Tests ───────────────────────────────────────
-//
-// Note: io.zig functions all require std.Io (platform I/O abstraction).
-// std.Io is only available from std.process.Init (production entry point)
-// and cannot be trivially constructed in test context.
-//
-// These tests verify the helper logic and data flow that don't require std.Io.
-// Integration testing of I/O functions is covered by golden test scripts
-// (tests/test.sh, tests/test_stdin.sh, etc.) which run the compiled binary.
+// ─── utils.zig Unit Tests ─────────────────────────────────────
 
-test "readFileOrStdin: '-' path routes to stdin" {
-    // Verify the string comparison logic used for stdin detection
-    const path = "-";
-    try testing.expect(std.mem.eql(u8, path, "-"));
+const utils = @import("utils.zig");
+
+// ─── optionalStrEq ────────────────────────────────────────────
+
+test "optionalStrEq: both null" {
+    try testing.expect(utils.optionalStrEq(null, null));
 }
 
-test "readFileOrStdin: non-'-' path does not match stdin" {
-    const path = "schema.ss";
-    try testing.expect(!std.mem.eql(u8, path, "-"));
+test "optionalStrEq: first null" {
+    try testing.expect(!utils.optionalStrEq(null, "abc"));
 }
 
-test "readFileOrStdin: empty path does not match stdin" {
-    const path = "";
-    try testing.expect(!std.mem.eql(u8, path, "-"));
+test "optionalStrEq: second null" {
+    try testing.expect(!utils.optionalStrEq("abc", null));
 }
 
-test "writeOutput: null output_path means stdout" {
-    // Verify the null-check logic
-    const output_path: ?[]const u8 = null;
-    try testing.expect(output_path == null);
+test "optionalStrEq: both equal" {
+    try testing.expect(utils.optionalStrEq("hello", "hello"));
 }
 
-test "writeOutput: non-null output_path means file" {
-    const output_path: ?[]const u8 = "out.sql";
-    try testing.expect(output_path != null);
-    try testing.expectEqualStrings("out.sql", output_path.?);
+test "optionalStrEq: both different" {
+    try testing.expect(!utils.optionalStrEq("abc", "xyz"));
+}
+
+test "optionalStrEq: empty strings" {
+    try testing.expect(utils.optionalStrEq("", ""));
+}
+
+test "optionalStrEq: empty vs non-empty" {
+    try testing.expect(!utils.optionalStrEq("", "abc"));
+}
+
+test "optionalStrEq: case sensitive" {
+    try testing.expect(!utils.optionalStrEq("abc", "ABC"));
+}
+
+// ─── jsonEscapeString ─────────────────────────────────────────
+
+test "jsonEscapeString: plain text" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "hello world");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("hello world", result);
+}
+
+test "jsonEscapeString: empty string" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("", result);
+}
+
+test "jsonEscapeString: double quote" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "say \"hi\"");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("say \\\"hi\\\"", result);
+}
+
+test "jsonEscapeString: backslash" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "path\\to\\file");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("path\\\\to\\\\file", result);
+}
+
+test "jsonEscapeString: newline" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "line1\nline2");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("line1\\nline2", result);
+}
+
+test "jsonEscapeString: carriage return" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "a\rb");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("a\\rb", result);
+}
+
+test "jsonEscapeString: tab" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "col\tval");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("col\\tval", result);
+}
+
+test "jsonEscapeString: control character < 0x20" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "\x01");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("\\u0001", result);
+}
+
+test "jsonEscapeString: mixed escapes" {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try utils.jsonEscapeString(&aw.writer, "a\"b\\c\nd");
+    const result = try aw.toOwnedSlice();
+    defer testing.allocator.free(result);
+    try testing.expectEqualStrings("a\\\"b\\\\c\\nd", result);
 }
