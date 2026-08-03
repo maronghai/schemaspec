@@ -347,6 +347,7 @@ rune generate --list                  # → list available generators
 rune init                    # Create schema.ss with starter content
 rune init myapp              # Create myapp.ss
 rune init -o custom.ss       # Create custom.ss
+rune --init                  # Create schema.ss (flag equivalent)
 ```
 
 Scaffolds a new project with a starter `.ss` file containing users, posts, and comments tables with FK references, indexes, and enum types.

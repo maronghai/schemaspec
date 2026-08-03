@@ -59,6 +59,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune schema.ss -d db2                 # Db2 output
 ./rune/zig-out/bin/rune init                             # Create starter schema
 ./rune/zig-out/bin/rune init myapp                       # Create starter schema with name
+./rune/zig-out/bin/rune --init                           # Create starter schema (flag equivalent)
 ./rune/zig-out/bin/rune completions bash                 # Generate bash completions
 ./rune/zig-out/bin/rune completions zsh                  # Generate zsh completions
 ./rune/zig-out/bin/rune migrate old.ss new.ss           # Migration SQL

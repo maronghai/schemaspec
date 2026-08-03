@@ -75,6 +75,11 @@ pub fn main(init: std.process.Init) !void {
 // ─── Command Dispatch ──────────────────────────────────────────
 
 fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void {
+    // Handle --init flag (invokes init without explicit subcommand)
+    if (parsed.init_flag) {
+        return completions.handleInit(io, alloc, null, null);
+    }
+
     switch (parsed.command) {
         .version => {
             version.printVersion();

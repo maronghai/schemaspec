@@ -34,6 +34,7 @@ pub const ParsedArgs = struct {
     json_errors: bool = false,
     import_paths: []const []const u8 = &.{},
     color: ColorMode = .auto,
+    init_flag: bool = false,
 };
 
 pub const ColorMode = enum {
@@ -140,6 +141,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_verbose_passes = false;
     var want_json_errors = false;
     var want_color: ColorMode = .auto;
+    var want_init = false;
     var diff_format: DiffFormat = .text;
     var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var want_validate_only = false;
@@ -189,6 +191,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             }
         } else if (std.mem.eql(u8, raw_args[i], "--validate-only")) {
             want_validate_only = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--init")) {
+            want_init = true;
         } else if (std.mem.eql(u8, raw_args[i], "--strict")) {
             want_strict = true;
         } else if (std.mem.eql(u8, raw_args[i], "--json-errors")) {
@@ -233,7 +237,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     const import_path_list = try import_paths.toOwnedSlice(alloc);
 
     if (want_version) {
-        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color };
+        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init };
     }
 
     const flags = GlobalFlags{
@@ -254,7 +258,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
         // Check for --help before treating as stdin compile
         if (hasHelpFlag(fargs)) {
-            return .{ .dialect = dialect, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color };
+            return .{ .dialect = dialect, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init };
         }
         return .{
             .dialect = dialect,
@@ -272,6 +276,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             .json_errors = want_json_errors,
             .import_paths = import_path_list,
             .color = want_color,
+            .init_flag = want_init,
         };
     }
 
@@ -279,7 +284,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     // Check for subcommand help: `rune <cmd> --help` or `rune <cmd> -h`
     if (hasHelpFlag(fargs)) {
-        return .{ .dialect = dialect, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color };
+        return .{ .dialect = dialect, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init };
     }
 
     // Table-driven subcommand dispatch.
@@ -328,6 +333,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .json_errors = want_json_errors,
         .import_paths = import_path_list,
         .color = want_color,
+        .init_flag = want_init,
     };
 }
 
@@ -377,7 +383,7 @@ fn isKnownLongFlag(flag: []const u8) bool {
         "--version",        "--help",        "--stats",  "--quiet",         "--check",  "--dry-run",
         "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
         "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
-        "--name",           "--dir",         "--incremental",               "--color",
+        "--name",           "--dir",         "--incremental",               "--color",  "--init",
     };
     inline for (known) |k| {
         if (std.mem.eql(u8, flag, k)) return true;
@@ -652,6 +658,7 @@ pub fn printUsage() void {
     std.debug.print("  --import-path   Additional search path for @import directives\n", .{});
     std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
     std.debug.print("  --color         Color output: auto (default), always, never\n", .{});
+    std.debug.print("  --init          Create a starter schema file (equivalent to 'rune init')\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("  -h, --help      Show this help message and exit\n", .{});
     std.debug.print("\nExamples:\n", .{});

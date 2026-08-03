@@ -217,6 +217,13 @@ Ongoing improvements pursued alongside feature work.
 
 ## Release History
 
+### v0.98.0 (2026-08-03)
+
+- **`--init` flag** — Create starter schema with `rune --init` (equivalent to `rune init`). Works as a global flag alongside other options.
+- **CLI integration** — `--init` added to `GLOBAL_FLAGS`, `ParsedArgs`, and `isKnownFlag` list.
+- **Shell completions updated** — Bash, Fish, PowerShell include `--init` flag.
+- **Help text updated** — `rune --help` shows `--init` option.
+
 ### v0.97.0 (2026-08-03)
 
 - **Colored diff output** — `rune diff` supports ANSI color output with `--color auto|always|never` flag. Green for added, red for dropped, yellow for modified, blue+bold for table headers.
