@@ -200,6 +200,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .incremental = cmd.incremental,
                 .summary = cmd.summary,
                 .color = parsed.color,
+                .graph = cmd.graph,
             });
         },
         .migrate_status => |cmd| {

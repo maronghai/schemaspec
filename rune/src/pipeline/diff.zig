@@ -5,6 +5,7 @@ const diff_types = @import("../diff/types.zig");
 const diff_format = @import("../diff/format.zig");
 const migrate = @import("../diff/migrate.zig");
 const migrate_json = @import("../diff/migrate_json.zig");
+const migrate_graph = @import("../diff/migrate_graph.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
@@ -45,6 +46,7 @@ pub const MigrateConfig = struct {
     incremental: bool = false,
     summary: bool = false,
     color: cli.ColorMode = .auto,
+    graph: bool = false,
 };
 
 const DiffResult = struct {
@@ -109,6 +111,32 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
 /// Handle `rune migrate`: generate ALTER TABLE migration SQL (or rollback SQL with --rollback).
 /// Supports text and JSON output formats via MigrateConfig.format.
 pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !void {
+    // Handle --graph flag: show migration dependency graph
+    if (cfg.graph) {
+        const dir_path = cfg.dir orelse ".";
+        var graph = try migrate_graph.buildGraph(io, alloc, dir_path);
+        defer graph.deinit();
+
+        var cycles = try migrate_graph.detectCycles(&graph);
+        defer {
+            for (cycles.items) |cycle| alloc.free(cycle);
+            cycles.deinit(alloc);
+        }
+
+        if (cycles.items.len > 0) {
+            try io_mod.writeOutput(io, "error: circular dependencies detected:\n", null, false);
+            for (cycles.items) |cycle| {
+                try io_mod.writeOutput(io, cycle, null, false);
+                try io_mod.writeOutput(io, "\n", null, false);
+            }
+            return error.CircularDependency;
+        }
+
+        const output = try migrate_graph.formatGraph(alloc, &graph);
+        try io_mod.writeOutput(io, output, null, false);
+        return;
+    }
+
     const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path, cfg.dialect);
     emitTraceAndStats(result, cfg.trace, cfg.stats);
 

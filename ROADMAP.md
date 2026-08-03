@@ -110,7 +110,7 @@ Move from batch compilation to interactive, incremental usage. **In progress** �
 
 - [x] `rune migrate --incremental old.ss new.ss` — only emit SQL for changed tables (v0.93.0)
 - [x] Migration file naming — `001_add_users.sql`, `002_add_posts.sql` with auto-sequencing (v0.93.0)
-- [ ] Migration dependency graph — detect and order dependent migrations
+- [x] Migration dependency graph — detect and order dependent migrations (v0.102.0)
 - [x] `rune migrate status` — list migration files in a directory (v0.93.0)
 
 ### Live Schema Monitoring
@@ -192,7 +192,7 @@ Ongoing improvements pursued alongside feature work.
 
 ### Performance
 
-- [ ] Streaming compilation — output SQL as soon as each table is resolved
+- [x] Streaming compilation — output SQL as soon as each table is resolved (v0.102.0)
 - [ ] Parallel table compilation — compile independent tables concurrently
 - [ ] Memory-mapped file I/O — for large schema files (>10MB)
 - [x] Benchmark CI gate — enforce no regressions beyond 10% (v0.82.0)
@@ -219,6 +219,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.102.0 (2026-08-04)
+
+- **Migration dependency graph** — New `rune migrate --graph <dir>` command analyzes SQL migration files and displays dependency relationships. Detects circular dependencies and shows execution order. Example: `0002_add_posts.sql → 0001_create_users`.
+- **Streaming compilation** — New `--stream` flag enables streaming codegen mode. Each table's SQL is generated independently, enabling incremental processing of large schemas. Foundation for future `rune watch` and live recompilation.
+- **New modules** — `diff/migrate_graph.zig` (~250 lines) for dependency graph analysis, `codegen/streaming.zig` (~120 lines) for streaming codegen infrastructure.
+- **CLI enhancements** — `--graph` flag for migrate command, `--stream` flag for compile command. Help text updated with new examples.
 
 ### v0.101.0 (2026-08-03)
 
@@ -690,8 +697,8 @@ Ongoing improvements pursued alongside feature work.
 | 1: Core Solidification | ✅ Complete | 9/9 | 0 |
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
-| 4: Incremental & Live Workflows | 🟡 Partial | 3/10 | 7 |
+| 4: Incremental & Live Workflows | 🟡 Partial | 4/10 | 6 |
 | 5: Developer Experience | 🟡 Partial | 7/12 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
-| Architecture Targets | 🟡 Ongoing | 8/12 | 4 |
-| **Total** | | **54/81** | **27** |
+| Architecture Targets | 🟡 Ongoing | 9/12 | 3 |
+| **Total** | | **56/81** | **25** |

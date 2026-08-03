@@ -10,12 +10,12 @@ pub const DiffFormat = enum { text, json, sarif, markdown };
 pub const StatsFormat = enum { text, json };
 
 pub const Command = union(enum) {
-    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool },
+    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false },
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     stats: struct { input: ?[]const u8, format: StatsFormat = .text },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false, graph: bool = false },
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
@@ -384,7 +384,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "check", .args = "[input.ss]", .description = "Check schema validity (exit 1 on error)" },
     .{ .name = "stats", .args = "[input.ss]", .description = "Print schema statistics (table/field/view counts)" },
     .{ .name = "diff", .args = "<old.ss> <new.ss>", .description = "Show schema differences" },
-    .{ .name = "migrate", .args = "<old.ss> <new.ss> [--name <label>] [--dir <path>] [--incremental]", .description = "Generate ALTER TABLE migration SQL" },
+    .{ .name = "migrate", .args = "<old.ss> <new.ss> [--name <label>] [--dir <path>] [--incremental] [--graph]", .description = "Generate ALTER TABLE migration SQL" },
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
     .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
     .{ .name = "format", .args = "[input.ss]", .description = "Auto-format .ss schema file" },
@@ -399,7 +399,7 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
     "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
     "--name",           "--dir",         "--incremental",               "--color",  "--init",
-    "--summary",        "--config",      "--template",
+    "--summary",        "--config",      "--template",                  "--graph",  "--stream",
 };
 
 /// Find the most similar known flag using edit distance. Returns null if best match > 3.
@@ -494,6 +494,7 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
     var name: ?[]const u8 = null;
     var dir: ?[]const u8 = null;
     var incremental = false;
+    var graph = false;
     var j: usize = 3;
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--name") and j + 1 < fargs.len) {
@@ -504,6 +505,8 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
             j += 1;
         } else if (std.mem.eql(u8, fargs[j], "--incremental")) {
             incremental = true;
+        } else if (std.mem.eql(u8, fargs[j], "--graph")) {
+            graph = true;
         }
     }
     return .{
@@ -523,6 +526,7 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
             .dir = dir,
             .incremental = incremental,
             .summary = opts.summary,
+            .graph = graph,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,
@@ -712,6 +716,7 @@ pub fn printUsage() void {
     std.debug.print("  rune schema.ss                       # Compile to MySQL DDL\n", .{});
     std.debug.print("  rune schema.ss -d pg                 # Compile to PostgreSQL\n", .{});
     std.debug.print("  rune schema.ss -d oracle             # Compile to Oracle\n", .{});
+    std.debug.print("  rune schema.ss --stream              # Streaming compilation\n", .{});
     std.debug.print("  rune validate schema.ss              # Validate schema (no output)\n", .{});
     std.debug.print("  rune validate schema.ss -s           # Validate with stats\n", .{});
     std.debug.print("  rune --stats schema.ss               # Show compilation stats\n", .{});
@@ -721,6 +726,7 @@ pub fn printUsage() void {
     std.debug.print("  rune diff old.ss new.ss --format json # Diff as JSON\n", .{});
     std.debug.print("  rune migrate old.ss new.ss -o m.sql  # Generate migration SQL\n", .{});
     std.debug.print("  rune migrate old.ss new.ss --rollback # Generate rollback SQL\n", .{});
+    std.debug.print("  rune migrate old.ss new.ss --graph    # Show migration dependency graph\n", .{});
     std.debug.print("  rune reverse schema.sql -T           # Reverse-engineer with templates\n", .{});
     std.debug.print("  rune generate json-schema schema.ss  # Generate JSON Schema from .ss\n", .{});
     std.debug.print("  rune generate --list                 # Show available generators\n", .{});
@@ -750,6 +756,7 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                     std.debug.print("  --rollback      Generate rollback SQL instead\n", .{});
                     std.debug.print("  --dry-run       Show SQL without writing to file\n", .{});
                     std.debug.print("  --summary       Show summary only (no full SQL)\n", .{});
+                    std.debug.print("  --graph         Show migration dependency graph\n", .{});
                     std.debug.print("  -o, --output    Output file path\n", .{});
                 }
             } else if (std.mem.eql(u8, subcommand, "reverse")) {

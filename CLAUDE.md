@@ -72,6 +72,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune completions zsh                  # Generate zsh completions
 ./rune/zig-out/bin/rune migrate old.ss new.ss           # Migration SQL
 ./rune/zig-out/bin/rune migrate old.ss new.ss --rollback # Rollback SQL
+./rune/zig-out/bin/rune migrate --graph migrations/      # Migration dependency graph
 ./rune/zig-out/bin/rune reverse schema.sql -t             # Reverse-engineer with template extraction
 ./rune/zig-out/bin/rune reverse schema.sql --format json  # Reverse-engineer to JSON
 ./rune/zig-out/bin/rune docs schema.ss                   # Generate Markdown documentation
@@ -99,19 +100,21 @@ rune/src/
                stats.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig
-  codegen/     codegen.zig, columns.zig, indexes.zig     # SQL code generation
+  codegen/     codegen.zig, columns.zig, indexes.zig,    # SQL code generation
+               streaming.zig                             # streaming compilation
   dialect/     dialect.zig, enum.zig, mysql.zig,          # dialect backends (8 files)
                pg.zig, sqlite.zig, mssql.zig, oracle.zig,
                common.zig, sqlite_hints.zig
   reverse/     codegen.zig, column.zig, map.zig,          # reverse engineering (9 files)
                map_data.zig, fk.zig, check.zig,
                dialect_detect.zig, template_extraction.zig
-  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (22 files)
+  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (23 files)
                fks.zig, indexes.zig, semantic.zig, migrate.zig, rename.zig
                format.zig, format_common.zig,            # format re-export + shared helpers
                format/text.zig, format/json.zig,         # format sub-modules
                format/sarif.zig, format/markdown.zig
-               emit.zig, migrate_helpers.zig, migrate_json.zig
+               emit.zig, migrate_helpers.zig, migrate_json.zig,
+               migrate_graph.zig                         # migration dependency graph
   types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (9 files)
                sql_type.zig, type_map.zig, type_registry.zig,
                type_resolver.zig, symbol_table.zig,
