@@ -71,6 +71,46 @@ pub fn validateDependencyOrder(alloc: std.mem.Allocator) void {
     }
 }
 
+/// Validate that sequential passes don't have conflicting access patterns.
+/// Two passes conflict if:
+/// - Both write to tables (write-write conflict)
+/// - One writes tables and the other reads but doesn't depend on the writer
+pub fn validatePassAccess(alloc: std.mem.Allocator) void {
+    if (comptime std.debug.runtime_safety) {
+        var arena = std.heap.ArenaAllocator.init(alloc);
+        defer arena.deinit();
+        var seen_writers = std.StringHashMap(PassAccess).init(arena.allocator());
+        for (DEFAULT_PASSES) |pass| {
+            // Check for write-write conflicts with earlier passes
+            if (pass.access.writes_tables or pass.access.modifies_table_list or pass.access.writes_types) {
+                var it = seen_writers.iterator();
+                while (it.next()) |entry| {
+                    const prev_name = entry.key_ptr.*;
+                    const prev_access = entry.value_ptr.*;
+                    // Check if current pass depends on the previous writer
+                    var depends = false;
+                    for (pass.depends_on) |dep| {
+                        if (std.mem.eql(u8, dep, prev_name)) {
+                            depends = true;
+                            break;
+                        }
+                    }
+                    if (!depends and (prev_access.writes_tables and pass.access.writes_tables)) {
+                        std.debug.panic(
+                            "SemanticPass '{s}' writes tables but does not depend on '{s}' which also writes tables",
+                            .{ pass.name, prev_name },
+                        );
+                    }
+                }
+            }
+            // Track writers
+            if (pass.access.writes_tables or pass.access.modifies_table_list or pass.access.writes_types) {
+                seen_writers.put(pass.name, pass.access) catch {};
+            }
+        }
+    }
+}
+
 // ─── Comptime Dependency Validation ──────────────────────────
 // Validates at compile time that all dependency names in DEFAULT_PASSES
 // actually exist as pass names. Catches typos and missing passes at compile time.

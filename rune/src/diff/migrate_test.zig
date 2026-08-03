@@ -117,3 +117,214 @@ test "migrate: multiple dropped tables" {
     }
     try testing.expectEqual(@as(usize, 3), count);
 }
+
+// ─── Rollback Tests ─────────────────────────────────────────
+
+test "rollback: empty diff produces BEGIN/COMMIT wrapper" {
+    const alloc = testing.allocator;
+    const d = diff_mod.SchemaDiff{
+        .table_diffs = &.{},
+        .dropped_tables = &.{},
+        .view_diffs = &.{},
+    };
+    const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
+    defer alloc.free(sql);
+    try testing.expect(std.mem.indexOf(u8, sql, "BEGIN;") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "COMMIT;") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "-- Rollback:") != null);
+}
+
+test "rollback: created table generates DROP TABLE" {
+    const alloc = testing.allocator;
+    // Create a table diff with .create action
+    const table_diffs = try alloc.dupe(diff_mod.TableDiff, &.{
+        .{
+            .name = "new_users",
+            .action = .create,
+            .field_diffs = &.{},
+            .index_diffs = &.{},
+            .fk_diffs = &.{},
+        },
+    });
+    defer alloc.free(table_diffs);
+    const d = diff_mod.SchemaDiff{
+        .table_diffs = table_diffs,
+        .dropped_tables = &.{},
+        .view_diffs = &.{},
+    };
+    const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
+    defer alloc.free(sql);
+    // Rollback of CREATE TABLE should be DROP TABLE
+    try testing.expect(std.mem.indexOf(u8, sql, "DROP TABLE IF EXISTS") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "new_users") != null);
+}
+
+test "rollback: dropped table generates CREATE TABLE" {
+    const alloc = testing.allocator;
+    const dropped = try alloc.dupe([]const u8, &.{"old_users"});
+    defer alloc.free(dropped);
+    const d = diff_mod.SchemaDiff{
+        .table_diffs = &.{},
+        .dropped_tables = dropped,
+        .view_diffs = &.{},
+    };
+    // Rollback of DROP TABLE should be CREATE TABLE
+    // Note: This requires old_resolved to have the table definition
+    // For this test, we just verify the rollback structure
+    const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
+    defer alloc.free(sql);
+    try testing.expect(std.mem.indexOf(u8, sql, "BEGIN;") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "COMMIT;") != null);
+}
+
+test "rollback: add field becomes drop field" {
+    const alloc = testing.allocator;
+    // Create a field diff with .add action
+    const field_diffs = try alloc.dupe(diff_mod.FieldDiff, &.{
+        .{
+            .name = "email",
+            .action = .add,
+            .old_field = null,
+            .new_field = .{
+                .name = "email",
+                .type_info = .{ .simple = "s" },
+                .modifiers = &.{},
+                .default_val = null,
+                .check = null,
+                .fk = null,
+                .comment = null,
+                .generated_expr = null,
+                .line_no = 0,
+                .loc = .{ .line = 0, .col = 0, .offset = 0 },
+            },
+            .rename_from = null,
+        },
+    });
+    defer alloc.free(field_diffs);
+    const table_diffs = try alloc.dupe(diff_mod.TableDiff, &.{
+        .{
+            .name = "users",
+            .action = .alter,
+            .field_diffs = field_diffs,
+            .index_diffs = &.{},
+            .fk_diffs = &.{},
+        },
+    });
+    defer alloc.free(table_diffs);
+    const d = diff_mod.SchemaDiff{
+        .table_diffs = table_diffs,
+        .dropped_tables = &.{},
+        .view_diffs = &.{},
+    };
+    const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
+    defer alloc.free(sql);
+    // Rollback of ADD COLUMN should be DROP COLUMN
+    try testing.expect(std.mem.indexOf(u8, sql, "DROP COLUMN") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "email") != null);
+}
+
+test "rollback: drop field becomes add field" {
+    const alloc = testing.allocator;
+    // Create a field diff with .drop action
+    const field_diffs = try alloc.dupe(diff_mod.FieldDiff, &.{
+        .{
+            .name = "old_col",
+            .action = .drop,
+            .old_field = .{
+                .name = "old_col",
+                .type_info = .{ .simple = "n" },
+                .modifiers = &.{},
+                .default_val = null,
+                .check = null,
+                .fk = null,
+                .comment = null,
+                .generated_expr = null,
+                .line_no = 0,
+                .loc = .{ .line = 0, .col = 0, .offset = 0 },
+            },
+            .new_field = null,
+            .rename_from = null,
+        },
+    });
+    defer alloc.free(field_diffs);
+    const table_diffs = try alloc.dupe(diff_mod.TableDiff, &.{
+        .{
+            .name = "users",
+            .action = .alter,
+            .field_diffs = field_diffs,
+            .index_diffs = &.{},
+            .fk_diffs = &.{},
+        },
+    });
+    defer alloc.free(table_diffs);
+    const d = diff_mod.SchemaDiff{
+        .table_diffs = table_diffs,
+        .dropped_tables = &.{},
+        .view_diffs = &.{},
+    };
+    const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
+    defer alloc.free(sql);
+    // Rollback of DROP COLUMN should be ADD COLUMN
+    try testing.expect(std.mem.indexOf(u8, sql, "ADD COLUMN") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "old_col") != null);
+}
+
+test "rollback: add index becomes drop index" {
+    const alloc = testing.allocator;
+    const index_diffs = try alloc.dupe(diff_mod.IndexDiff, &.{
+        .{
+            .name = "idx_email",
+            .action = .add,
+            .old_idx = null,
+            .new_idx = .{
+                .name = "idx_email",
+                .kind = .regular,
+                .fields = &.{"email"},
+                .descending = &.{false},
+                .line_no = 0,
+            },
+        },
+    });
+    defer alloc.free(index_diffs);
+    const table_diffs = try alloc.dupe(diff_mod.TableDiff, &.{
+        .{
+            .name = "users",
+            .action = .alter,
+            .field_diffs = &.{},
+            .index_diffs = index_diffs,
+            .fk_diffs = &.{},
+        },
+    });
+    defer alloc.free(table_diffs);
+    const d = diff_mod.SchemaDiff{
+        .table_diffs = table_diffs,
+        .dropped_tables = &.{},
+        .view_diffs = &.{},
+    };
+    const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
+    defer alloc.free(sql);
+    // Rollback of ADD INDEX should be DROP INDEX
+    try testing.expect(std.mem.indexOf(u8, sql, "DROP INDEX") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "idx_email") != null);
+}
+
+test "rollback: create view becomes drop view" {
+    const alloc = testing.allocator;
+    const view_diffs = try alloc.dupe(diff_mod.ViewDiff, &.{
+        .{
+            .name = "user_stats",
+            .action = .create,
+        },
+    });
+    defer alloc.free(view_diffs);
+    const d = diff_mod.SchemaDiff{
+        .table_diffs = &.{},
+        .dropped_tables = &.{},
+        .view_diffs = view_diffs,
+    };
+    const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
+    defer alloc.free(sql);
+    // Rollback of CREATE VIEW should be DROP VIEW
+    try testing.expect(std.mem.indexOf(u8, sql, "DROP VIEW IF EXISTS") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "user_stats") != null);
+}

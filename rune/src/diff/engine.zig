@@ -14,6 +14,9 @@ const Dialect = dialect_enum.Dialect;
 
 pub const FieldAction = diff_types.FieldAction;
 pub const IndexAction = diff_types.IndexAction;
+pub const IndexDiff = diff_types.IndexDiff;
+pub const FkAction = diff_types.FkAction;
+pub const FkDiff = diff_types.FkDiff;
 
 // ─── Re-export diff data structures ───────────────────────
 

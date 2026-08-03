@@ -132,6 +132,15 @@ fn emitTemplates(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_l
 }
 
 fn emitTables(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_list: []template_ext.TemplateCandidate) !void {
+    // Pre-build table_index → template_index lookup map for O(1) template resolution
+    var table_to_template = std.AutoHashMap(usize, usize).init(self.alloc);
+    defer table_to_template.deinit();
+    for (tmpl_list, 0..) |t, ti| {
+        for (t.table_indices) |table_idx| {
+            try table_to_template.put(table_idx, ti);
+        }
+    }
+
     for (schema.tables, 0..) |table, ti| {
         // CHECK map
         var check_map = std.StringHashMap([]const u8).init(self.alloc);
@@ -147,15 +156,9 @@ fn emitTables(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_list
         // Find which template this table belongs to (if any)
         var table_template: ?[]const u8 = null;
         var table_template_fields: []const sp.SqlColumn = &.{};
-        for (tmpl_list) |t| {
-            for (t.table_indices) |ti2| {
-                if (ti2 == ti) {
-                    table_template = t.name;
-                    table_template_fields = t.fields;
-                    break;
-                }
-            }
-            if (table_template != null) break;
+        if (table_to_template.get(ti)) |tmpl_idx| {
+            table_template = tmpl_list[tmpl_idx].name;
+            table_template_fields = tmpl_list[tmpl_idx].fields;
         }
 
         // # [template_ref] table_name : comment
@@ -246,6 +249,7 @@ fn emitStandaloneIndexes(self: *ReverseCodegen, w: anytype, table: sp.SqlTable) 
 fn emitForeignKeys(self: *ReverseCodegen, w: anytype, table: sp.SqlTable) !void {
     for (table.foreign_keys) |fk| {
         const cls = rf.classifyFk(self.alloc, fk);
+        defer if (cls.text) |txt| self.alloc.free(txt);
         try w.writeAll("\n");
         if (cls.text) |txt| try w.writeAll(txt);
     }

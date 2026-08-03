@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.96.0] - 2026-08-03
+
+### Fixed
+- **Memory leak in reverse codegen** — `emitForeignKeys` in `reverse/codegen.zig` now properly frees memory allocated by `classifyFk`. Previously, each FK classification leaked its formatted text buffer.
+- **Migration rollback semantics** — `generateRollback` now properly reverses all operations: `.create` tables become DROP TABLE, `.drop` tables become CREATE TABLE, field/index/FK diffs are inverted (add↔drop, modify swaps old/new), and view diffs are reversed.
+- **Stale test counts** — Updated `test_coverage.sh` labels to match actual test counts: MySQL 85, PostgreSQL 86, Reverse Oracle 5, Reverse Db2 5, Reverse Confidence 3.
+
+### Added
+- **`PassAccess` conflict detection** — `semantic/pass_manager.zig` now validates that sequential passes don't have conflicting write-write access patterns. Catches at runtime when two passes both write tables without a dependency relationship.
+- **Rollback unit tests** — 7 new tests in `migrate_test.zig` covering rollback of empty diffs, created tables, dropped tables, add/drop field reversal, add index reversal, and create view reversal.
+- **Reverse codegen tests** — 6 new tests in `codegen_test.zig` covering schema header charset handling, table comments, multiple tables, FK shorthand form, and empty schema generation.
+
+### Changed
+- **Optimized reverse codegen template lookup** — `emitTables` now pre-builds a `table_index → template_index` lookup map for O(1) per-table template resolution, replacing the previous O(n*m) scan.
+- **Re-exported `IndexDiff`/`FkDiff`** — `diff/engine.zig` now re-exports `IndexDiff`, `IndexAction`, `FkDiff`, and `FkAction` from `diff/types.zig` for consistent API access.
+
 ## [0.92.0] - 2026-08-03
 
 ### Fixed

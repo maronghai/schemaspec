@@ -76,23 +76,122 @@ pub fn generateRollback(
     try w.writeAll("BEGIN;\n\n");
 
     var has_operations = false;
-
-    // Rollback: reverse the order of operations
-    // 1. Reverse table diffs (create→drop, drop→create, alter→reverse alter)
-    var cg = codegen.Codegen.init(alloc, dialect);
-    try emitTableDiffs(alloc, w, d.table_diffs, old_resolved, dialect, &cg, &has_operations);
-
-    // 2. Reverse view diffs
     const backend = dialect_mod.getBackend(dialect);
-    try emitViewDiffs(w, backend, d.view_diffs, old_typed);
 
-    // 3. Reverse dropped tables (they become CREATE in rollback)
+    // 1. Drop tables that were CREATED in forward migration
+    var created_tables = std.ArrayList([]const u8).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
+    defer created_tables.deinit(alloc);
+    for (d.table_diffs) |td| {
+        if (td.action == .create) {
+            created_tables.appendAssumeCapacity(td.name);
+        }
+    }
+    if (created_tables.items.len > 0) {
+        try emitDroppedTables(w, backend, created_tables.items);
+        has_operations = true;
+    }
+
+    // 2. Re-CREATE tables that were DROPPED in forward migration
     try emitRollbackDroppedTables(alloc, w, d.dropped_tables, old_resolved, dialect, &has_operations);
+
+    // 3. Reverse view diffs (create→drop, drop→create, modify stays)
+    for (d.view_diffs) |vd| {
+        switch (vd.action) {
+            .create => {
+                try w.writeAll("DROP VIEW IF EXISTS ");
+                try backend.quoteIdent(w, vd.name);
+                try w.writeAll(";\n\n");
+                has_operations = true;
+            },
+            .drop => {
+                if (emit.findTypedView(old_typed, vd.name)) |view| {
+                    try backend.emitCreateView(w, view.name, view.query);
+                    try w.writeAll("\n");
+                    has_operations = true;
+                }
+            },
+            .modify => {
+                // Modify view: drop old, create new from old schema
+                try w.writeAll("DROP VIEW IF EXISTS ");
+                try backend.quoteIdent(w, vd.name);
+                try w.writeAll(";\n\n");
+                if (emit.findTypedView(old_typed, vd.name)) |view| {
+                    try backend.emitCreateView(w, view.name, view.query);
+                    try w.writeAll("\n");
+                }
+                has_operations = true;
+            },
+        }
+    }
+
+    // 4. Reverse table ALTER diffs (add↔drop, modify swaps old/new)
+    var reversed_alter_diffs = std.ArrayList(diff_mod.TableDiff).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
+    defer reversed_alter_diffs.deinit(alloc);
+    for (d.table_diffs) |td| {
+        if (td.action == .alter) {
+            reversed_alter_diffs.appendAssumeCapacity(reverseTableDiff(alloc, td));
+        }
+    }
+    if (reversed_alter_diffs.items.len > 0) {
+        var cg = codegen.Codegen.init(alloc, dialect);
+        try emitTableDiffs(alloc, w, reversed_alter_diffs.items, old_resolved, dialect, &cg, &has_operations);
+    }
 
     try w.writeAll("COMMIT;\n");
 
     try w.flush();
     return try aw.toOwnedSlice();
+}
+
+// ─── Schema Diff Reversal ─────────────────────────────────────
+
+/// Reverse a single table diff for rollback.
+fn reverseTableDiff(alloc: std.mem.Allocator, td: diff_mod.TableDiff) diff_mod.TableDiff {
+    // Reverse field diffs
+    var reversed_fields = std.ArrayList(diff_mod.FieldDiff).initCapacity(alloc, td.field_diffs.len) catch return td;
+    for (td.field_diffs) |fd| {
+        reversed_fields.appendAssumeCapacity(switch (fd.action) {
+            .add => .{ .name = fd.name, .action = .drop, .old_field = fd.new_field, .new_field = null, .rename_from = null },
+            .drop => .{ .name = fd.name, .action = .add, .old_field = null, .new_field = fd.old_field, .rename_from = null },
+            .modify => .{ .name = fd.name, .action = .modify, .old_field = fd.new_field, .new_field = fd.old_field, .rename_from = null },
+            .rename => .{
+                .name = fd.rename_from orelse fd.name,
+                .action = .rename,
+                .old_field = fd.new_field,
+                .new_field = fd.old_field,
+                .rename_from = fd.name,
+            },
+        });
+    }
+
+    // Reverse index diffs
+    var reversed_indexes = std.ArrayList(diff_mod.IndexDiff).initCapacity(alloc, td.index_diffs.len) catch return td;
+    for (td.index_diffs) |idx_diff| {
+        reversed_indexes.appendAssumeCapacity(switch (idx_diff.action) {
+            .add => .{ .name = idx_diff.name, .action = .drop, .old_idx = idx_diff.new_idx, .new_idx = null },
+            .drop => .{ .name = idx_diff.name, .action = .add, .old_idx = null, .new_idx = idx_diff.old_idx },
+            .modify => .{ .name = idx_diff.name, .action = .modify, .old_idx = idx_diff.new_idx, .new_idx = idx_diff.old_idx },
+        });
+    }
+
+    // Reverse FK diffs
+    var reversed_fks = std.ArrayList(diff_mod.FkDiff).initCapacity(alloc, td.fk_diffs.len) catch return td;
+    for (td.fk_diffs) |fk_diff| {
+        reversed_fks.appendAssumeCapacity(switch (fk_diff.action) {
+            .add => .{ .action = .drop, .old_fk = fk_diff.new_fk, .new_fk = null },
+            .drop => .{ .action = .add, .old_fk = null, .new_fk = fk_diff.old_fk },
+            .modify => .{ .action = .modify, .old_fk = fk_diff.new_fk, .new_fk = fk_diff.old_fk },
+        });
+    }
+
+    return .{
+        .name = td.name,
+        .action = .alter,
+        .field_diffs = reversed_fields.items,
+        .index_diffs = reversed_indexes.items,
+        .fk_diffs = reversed_fks.items,
+        .metadata_diff = null,
+    };
 }
 
 // ─── Shared Emission Functions ──────────────────────────────────

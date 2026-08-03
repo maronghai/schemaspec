@@ -49,6 +49,7 @@ pub const SemanticAnalyzer = struct {
         }
 
         pm.validateDependencyOrder(self.alloc);
+        pm.validatePassAccess(self.alloc);
         var diagnostics = try diag.DiagnosticCollector.init(self.alloc);
         var ctx = PassContext{
             .alloc = self.alloc,

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.95.0 (2026-08-03) — 32,500+ lines production Zig, 910+ tests, 23 test suites.
+**Current version**: 0.96.0 (2026-08-03) — 32,600+ lines production Zig, 929+ tests, 23 test suites.
 
 ---
 
@@ -216,6 +216,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.96.0 (2026-08-03)
+
+- **Fixed migration rollback semantics** — `generateRollback` now properly reverses all operations: `.create` tables become DROP TABLE, `.drop` tables become CREATE TABLE, field/index/FK diffs are inverted (add↔drop, modify swaps old/new), and view diffs are reversed. Previously, rollback emitted the same SQL as forward migration.
+- **Fixed memory leak in reverse codegen** — `emitForeignKeys` now properly frees memory allocated by `classifyFk`. Previously, each FK classification leaked its formatted text buffer.
+- **`PassAccess` conflict detection** — `semantic/pass_manager.zig` now validates that sequential passes don't have conflicting write-write access patterns at runtime.
+- **Optimized reverse codegen template lookup** — Pre-built `table_index → template_index` lookup map for O(1) per-table template resolution, replacing O(n*m) scan.
+- **13 new unit tests** — 7 rollback tests in `migrate_test.zig`, 6 reverse codegen tests in `codegen_test.zig`.
 
 ### v0.95.0 (2026-08-03)
 
