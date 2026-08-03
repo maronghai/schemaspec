@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.101.0 (2026-08-03) — 33,100+ lines production Zig, 953+ tests, 26 test suites.
+**Current version**: 0.103.0 (2026-08-04) — 35,000+ lines production Zig, 960+ tests, 26 test suites.
 
 ---
 
@@ -201,10 +201,10 @@ Ongoing improvements pursued alongside feature work.
 
 ### Code Quality
 
-- [x] Remove all `catch unreachable` in production code (v0.39.0)
+- [x] Remove all `catch unreachable` in production code (v0.39.0, v0.103.0)
 - [x] Remove all unsafe `@intCast`/`@enumFromInt` in production code (v0.80.0)
 - [x] Named constants for magic numbers — `STDIN_BUFFER_SIZE`, `OUTPUT_BUFFER_SIZE`, etc. (v0.80.0)
-- [x] Eliminate `std.process.exit` in library code — all errors propagate to main.zig (v0.80.0)
+- [x] Eliminate `std.process.exit` in library code — all errors propagate to main.zig (v0.80.0, v0.103.0)
 - [ ] Zero-allocation codegen path — reuse buffers across compilations
 - [ ] Formalize IR versioning — schema for forward/backward compatibility
 - [ ] Memory leak audit — reduce remaining leaks toward zero
@@ -219,6 +219,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.103.0 (2026-08-04)
+
+- **Streaming compilation integration** — The `--stream` flag (declared in v0.102.0) is now fully wired into the CLI parser and forward pipeline. `rune schema.ss --stream` uses `StreamingCodegen` to emit each table's SQL independently. Streaming only applies to SQL format (not json-schema).
+- **Bug fixes** — Fixed `completions.zig` using `std.process.exit(1)` in library code (now returns `error.UnknownShell`). Fixed `diff/migrate_graph.zig` using `catch unreachable` (now uses `try` with proper error propagation). Fixed `cliArgErrorMessage` to handle `UnknownShell`.
+- **New unit tests** — `codegen/streaming_test.zig` (4 tests: single table, multi-table order, format with header, empty schema). `diff/migrate_graph_test.zig` (6 tests: extractTables CREATE/ALTER/multiple/comments, MigrationGraph init, formatGraph empty).
+- **Made `extractTables` public** in `diff/migrate_graph.zig` for direct testing.
+- **Documentation** — Updated VERSION, version.zig, ROADMAP.md.
 
 ### v0.102.0 (2026-08-04)
 

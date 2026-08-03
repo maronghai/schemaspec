@@ -79,6 +79,8 @@ pub const CompileConfig = struct {
     json_errors: bool = false,
     /// Additional search paths for @import resolution.
     import_paths: []const []const u8 = &.{},
+    /// Use streaming compilation mode (emit each table's SQL independently).
+    stream: bool = false,
 };
 
 /// Unified internal compilation pipeline.
@@ -258,7 +260,12 @@ pub fn handleCompileRequest(
 
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, cfg.dialect);
 
-    const output = switch (cfg.format) {
+    const output = if (cfg.stream and cfg.format == .sql) blk: {
+        const streaming = @import("../codegen/streaming.zig");
+        var sc = streaming.StreamingCodegen.init(alloc, cfg.dialect);
+        const result = try sc.generateStreaming(typed);
+        break :blk try streaming.formatStreamingResult(alloc, &result, cfg.dialect);
+    } else switch (cfg.format) {
         .sql => blk: {
             var cg = codegen.Codegen.init(alloc, cfg.dialect);
             break :blk try cg.generateFromTypedAst(typed);

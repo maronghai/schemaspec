@@ -16,6 +16,7 @@ comptime {
     _ = @import("codegen/codegen_test.zig");
     _ = @import("codegen/columns_test.zig");
     _ = @import("codegen/indexes_test.zig");
+    _ = @import("codegen/streaming_test.zig");
     // dialect
     _ = @import("dialect/dialect_test.zig");
     _ = @import("dialect/common_test.zig");
@@ -35,6 +36,7 @@ comptime {
     _ = @import("diff/semantic_test.zig");
     _ = @import("diff/migrate_test.zig");
     _ = @import("diff/migrate_json_test.zig");
+    _ = @import("diff/migrate_graph_test.zig");
     _ = @import("diff/types_test.zig");
     _ = @import("diff/rename_test.zig");
     _ = @import("diff/format/text_test.zig");

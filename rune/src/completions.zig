@@ -67,8 +67,7 @@ pub fn handleCompletions(io: std.Io, _: std.mem.Allocator, shell: []const u8) !v
     } else if (std.mem.eql(u8, shell, "powershell")) {
         try io_mod.writeOutput(io, COMPLETIONS_POWERSHELL, null, false);
     } else {
-        std.debug.print("error: unknown shell '{s}', expected: bash, zsh, fish, powershell\n", .{shell});
-        std.process.exit(1);
+        return error.UnknownShell;
     }
 }
 

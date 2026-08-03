@@ -106,6 +106,7 @@ pub fn main(init: std.process.Init) !void {
             error.AccessDenied => std.debug.print("error: access denied\n", .{}),
             error.IsDir => std.debug.print("error: expected a file, got a directory\n", .{}),
             error.NotDir => std.debug.print("error: expected a directory, got a file\n", .{}),
+            error.UnknownShell => std.debug.print("error: unknown shell. Expected: bash, zsh, fish, powershell\n", .{}),
             else => std.debug.print("error: {s}\n", .{@errorName(err)}),
         }
         std.process.exit(1);
@@ -156,6 +157,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .verbose_passes = cmd.verbose_passes,
                 .json_errors = parsed.json_errors,
                 .import_paths = parsed.import_paths,
+                .stream = cmd.stream,
             });
         },
         .validate => |cmd| {
@@ -262,5 +264,6 @@ fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
         error.UnknownCommand => "unknown command. Run 'rune --help' for usage.",
         error.UnknownFlag => "unknown flag. Run 'rune --help' for usage.",
         error.UnknownGenerator => "unknown generator. Run 'rune generate --list' for available generators.",
+        error.UnknownShell => "unknown shell. Expected: bash, zsh, fish, powershell.",
     };
 }

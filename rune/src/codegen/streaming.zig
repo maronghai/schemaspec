@@ -87,7 +87,7 @@ pub const StreamingCodegen = struct {
         }
 
         return .{
-            .tables = try tables.toOwnedSlice(),
+            .tables = try tables.toOwnedSlice(self.alloc),
             .total_size = total_size + header.len,
             .table_count = typed.tables.len,
         };

@@ -16,11 +16,11 @@ pub const MigrationGraph = struct {
     migrations: std.StringHashMap(MigrationInfo),
     order: std.ArrayList([]const u8),
 
-    pub fn init(alloc: std.mem.Allocator) MigrationGraph {
+    pub fn init(alloc: std.mem.Allocator) !MigrationGraph {
         return .{
             .alloc = alloc,
             .migrations = std.StringHashMap(MigrationInfo).init(alloc),
-            .order = std.ArrayList([]const u8).initCapacity(alloc, 16) catch unreachable,
+            .order = try std.ArrayList([]const u8).initCapacity(alloc, 4),
         };
     }
 
@@ -36,7 +36,7 @@ pub const MigrationGraph = struct {
 };
 
 /// Extract table names from SQL content (CREATE TABLE, ALTER TABLE)
-fn extractTables(alloc: std.mem.Allocator, content: []const u8) !std.StringHashMap(void) {
+pub fn extractTables(alloc: std.mem.Allocator, content: []const u8) !std.StringHashMap(void) {
     var tables = std.StringHashMap(void).init(alloc);
     var lines = std.mem.splitScalar(u8, content, '\n');
 
@@ -74,7 +74,7 @@ fn extractTables(alloc: std.mem.Allocator, content: []const u8) !std.StringHashM
 
 /// Build dependency graph from migration files in a directory
 pub fn buildGraph(io: std.Io, alloc: std.mem.Allocator, dir_path: []const u8) !MigrationGraph {
-    var graph = MigrationGraph.init(alloc);
+    var graph = try MigrationGraph.init(alloc);
 
     var dir = std.Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true }) catch |err| {
         const msg = try std.fmt.allocPrint(alloc, "error: cannot open directory '{s}': {}\n", .{ dir_path, err });
