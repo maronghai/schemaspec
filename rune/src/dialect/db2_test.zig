@@ -208,18 +208,6 @@ test "db2: emitEnumTypeCheck format" {
     try testing.expectEqualStrings(" CHECK (\"status\" IN ('active', 'inactive', 'pending'))", result);
 }
 
-test "db2: capability flags" {
-    const cap = dialect.getBackend(.db2).capability;
-    try testing.expect(cap.standalone_comments);
-    try testing.expect(cap.schemas);
-    try testing.expect(cap.generated_columns);
-    try testing.expect(cap.alter_drop_column);
-    try testing.expect(!cap.auto_increment);
-    try testing.expect(!cap.unsigned);
-    try testing.expect(!cap.enum_type);
-    try testing.expect(!cap.sequences);
-}
-
 test "db2: generated column format" {
     const alloc = testing.allocator;
     const backend = dialect.getBackend(.db2);

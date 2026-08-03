@@ -1,0 +1,11 @@
+{
+  "file": "03-all-types.ss",
+  "dialect": "mysql",
+  "stages": {
+    "tokenize": 15.38,
+    "parse": 25.63,
+    "semantic": 30.76,
+    "type_resolve": 15.38,
+    "codegen": 15.38
+  }
+}

@@ -22,6 +22,125 @@ fn matchPrefix(s: []const u8, prefix: []const u8) ?[]const u8 {
     return s[prefix.len..];
 }
 
+// ─── Table-Driven Parameterized Type Patterns ──────────────
+// Each entry maps a SQL type prefix to an SS symbol prefix.
+// Matched types return `sym_prefix ++ inner` where inner has spaces stripped.
+// Example: "varchar(" → "s" means "varchar(255)" → "s255".
+// The "s" prefix case is handled separately since varchar(255) → "s" (no length suffix).
+
+const ParamPattern = struct {
+    prefix: []const u8,
+    sym_prefix: []const u8,
+};
+
+/// Types that map to `sym_prefix ++ inner` for single-param, or `inner` (stripped) for multi-param.
+const PARAM_PATTERNS = [_]ParamPattern{
+    .{ .prefix = "varchar(", .sym_prefix = "s" },
+    .{ .prefix = "character varying(", .sym_prefix = "s" },
+    .{ .prefix = "varchar2(", .sym_prefix = "s" },
+    .{ .prefix = "nvarchar2(", .sym_prefix = "s" },
+    .{ .prefix = "decimal(", .sym_prefix = "" },
+    .{ .prefix = "numeric(", .sym_prefix = "" },
+    .{ .prefix = "int(", .sym_prefix = "" },
+};
+
+/// Match a parameterized type pattern. Returns sym_prefix ++ inner (single-param) or stripped inner (multi-param).
+fn matchParam(t: []const u8, prefix: []const u8, sym_prefix: []const u8) ?ReverseResult {
+    const rest = matchPrefix(t, prefix) orelse return null;
+    if (!std.mem.endsWith(u8, rest, ")")) return null;
+
+    const inner = std.mem.trim(u8, rest[0 .. rest.len - 1], " ");
+
+    // varchar(255) → "s" (no length suffix)
+    if (std.mem.eql(u8, sym_prefix, "s") and std.mem.eql(u8, inner, "255"))
+        return .{ .sym = "s", .omit = true };
+
+    // Multi-param: strip spaces entirely
+    const buf = struct {
+        var b: [32]u8 = undefined;
+    };
+    var j: usize = 0;
+    for (inner) |ch| {
+        if (ch != ' ') {
+            if (j >= 32) return .{ .sym = t, .omit = false };
+            buf.b[j] = ch;
+            j += 1;
+        }
+    }
+
+    // If result has a comma (decimal/number with P,S), return stripped inner directly
+    var has_comma = false;
+    for (buf.b[0..j]) |ch| {
+        if (ch == ',') {
+            has_comma = true;
+            break;
+        }
+    }
+    if (has_comma) return .{ .sym = buf.b[0..j], .omit = false };
+
+    // Single param: prepend sym_prefix
+    const total_len = sym_prefix.len + j;
+    if (total_len > 15) return .{ .sym = t, .omit = false };
+
+    const result = struct {
+        var b: [16]u8 = undefined;
+    };
+    var k: usize = 0;
+    for (sym_prefix) |ch| {
+        result.b[k] = ch;
+        k += 1;
+    }
+    for (buf.b[0..j]) |ch| {
+        result.b[k] = ch;
+        k += 1;
+    }
+    return .{ .sym = result.b[0..k], .omit = false };
+}
+
+/// Match NUMBER(P) or NUMBER(P,S). NUMBER(P) → "N" ++ P, NUMBER(P,S) → "P,S" stripped.
+fn matchNumber(t: []const u8) ?ReverseResult {
+    const rest = matchPrefix(t, "number(") orelse return null;
+    if (!std.mem.endsWith(u8, rest, ")")) return null;
+
+    const inner = std.mem.trim(u8, rest[0 .. rest.len - 1], " ");
+
+    // Multi-param: strip spaces
+    const buf = struct {
+        var b: [32]u8 = undefined;
+    };
+    var j: usize = 0;
+    for (inner) |ch| {
+        if (ch != ' ') {
+            if (j >= 32) return .{ .sym = t, .omit = false };
+            buf.b[j] = ch;
+            j += 1;
+        }
+    }
+
+    // If result has a comma (P,S), return stripped inner directly
+    var has_comma = false;
+    for (buf.b[0..j]) |ch| {
+        if (ch == ',') {
+            has_comma = true;
+            break;
+        }
+    }
+    if (has_comma) return .{ .sym = buf.b[0..j], .omit = false };
+
+    // Single param: "N" ++ P
+    const total_len = 1 + j;
+    if (total_len > 15) return .{ .sym = t, .omit = false };
+
+    const result = struct {
+        var b: [16]u8 = undefined;
+    };
+    result.b[0] = 'N';
+    for (buf.b[0..j], 0..) |ch, i| {
+        result.b[i + 1] = ch;
+    }
+    return .{ .sym = result.b[0..total_len], .omit = false };
+}
+
 /// Reverse-lookup a SQL type string to its SS symbol.
 /// Handles exact match from REVERSE_MAP + parameterized types (int(N), decimal(P,S), varchar(N)).
 /// For dialects with a vtable reverseLookup (e.g. SQLite), delegates to the backend.
@@ -51,156 +170,13 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
     }
     if (best_match) |bm| return bm;
 
-    // ─── Parameterized type patterns (case-insensitive for Oracle/Db2 uppercase) ───
-
-    // int(N) → N
-    if (matchPrefix(t, "int(")) |rest| {
-        if (std.mem.endsWith(u8, rest, ")"))
-            return .{ .sym = rest[0 .. rest.len - 1], .omit = false };
+    // ─── Table-driven parameterized type matching ───
+    inline for (PARAM_PATTERNS) |p| {
+        if (matchParam(t, p.prefix, p.sym_prefix)) |result| return result;
     }
 
-    // decimal(P,S) or decimal(P, S) → P,S
-    if (matchPrefix(t, "decimal(")) |rest| {
-        if (std.mem.endsWith(u8, rest, ")")) {
-            const inner = rest[0 .. rest.len - 1];
-            const sbuf = struct {
-                var buf: [16]u8 = undefined;
-            };
-            var j: usize = 0;
-            for (inner) |ch| {
-                if (ch != ' ') {
-                    if (j >= 16) return .{ .sym = t, .omit = false };
-                    sbuf.buf[j] = ch;
-                    j += 1;
-                }
-            }
-            return .{ .sym = sbuf.buf[0..j], .omit = false };
-        }
-    }
-
-    // numeric(P,S) → P,S
-    if (matchPrefix(t, "numeric(")) |rest| {
-        if (std.mem.endsWith(u8, rest, ")")) {
-            const inner = rest[0 .. rest.len - 1];
-            const sbuf = struct {
-                var buf: [16]u8 = undefined;
-            };
-            var j: usize = 0;
-            for (inner) |ch| {
-                if (ch != ' ') {
-                    if (j >= 16) return .{ .sym = t, .omit = false };
-                    sbuf.buf[j] = ch;
-                    j += 1;
-                }
-            }
-            return .{ .sym = sbuf.buf[0..j], .omit = false };
-        }
-    }
-
-    // varchar(255) → s (with omit check)
-    if (std.mem.eql(u8, t, "varchar(255)") or std.mem.eql(u8, t, "VARCHAR(255)"))
-        return .{ .sym = "s", .omit = canOmitType(col_name, "s", is_auto_inc, is_default_ts) };
-
-    // character varying(N) → sN (guard: inner must fit in 16-byte buffer)
-    if (matchPrefix(t, "character varying(")) |rest| {
-        if (std.mem.endsWith(u8, rest, ")")) {
-            const inner = std.mem.trim(u8, rest[0 .. rest.len - 1], " ");
-            if (std.mem.eql(u8, inner, "255"))
-                return .{ .sym = "s", .omit = canOmitType(col_name, "s", is_auto_inc, is_default_ts) };
-            if (inner.len > 15) return .{ .sym = t, .omit = false };
-            const sbuf = struct {
-                var buf: [16]u8 = undefined;
-            };
-            sbuf.buf[0] = 's';
-            for (inner, 0..) |ch, i| sbuf.buf[i + 1] = ch;
-            return .{ .sym = sbuf.buf[0 .. 1 + inner.len], .omit = false };
-        }
-    }
-
-    // varchar(N) → sN (guard: inner must fit in 16-byte buffer)
-    if (matchPrefix(t, "varchar(")) |rest| {
-        if (std.mem.endsWith(u8, rest, ")")) {
-            const inner = std.mem.trim(u8, rest[0 .. rest.len - 1], " ");
-            if (inner.len > 15) return .{ .sym = t, .omit = false };
-            const sbuf = struct {
-                var buf: [16]u8 = undefined;
-            };
-            sbuf.buf[0] = 's';
-            for (inner, 0..) |ch, i| sbuf.buf[i + 1] = ch;
-            return .{ .sym = sbuf.buf[0 .. 1 + inner.len], .omit = false };
-        }
-    }
-
-    // VARCHAR2(N) → sN (Oracle, guard: inner must fit in 16-byte buffer)
-    if (matchPrefix(t, "varchar2(")) |rest| {
-        if (std.mem.endsWith(u8, rest, ")")) {
-            const inner = std.mem.trim(u8, rest[0 .. rest.len - 1], " ");
-            if (inner.len > 15) return .{ .sym = t, .omit = false };
-            const sbuf = struct {
-                var buf: [16]u8 = undefined;
-            };
-            sbuf.buf[0] = 's';
-            for (inner, 0..) |ch, i| sbuf.buf[i + 1] = ch;
-            return .{ .sym = sbuf.buf[0 .. 1 + inner.len], .omit = false };
-        }
-    }
-
-    // NVARCHAR2(N) → sN (Oracle, guard: inner must fit in 16-byte buffer)
-    if (matchPrefix(t, "nvarchar2(")) |rest| {
-        if (std.mem.endsWith(u8, rest, ")")) {
-            const inner = std.mem.trim(u8, rest[0 .. rest.len - 1], " ");
-            if (inner.len > 15) return .{ .sym = t, .omit = false };
-            const sbuf = struct {
-                var buf: [16]u8 = undefined;
-            };
-            sbuf.buf[0] = 's';
-            for (inner, 0..) |ch, i| sbuf.buf[i + 1] = ch;
-            return .{ .sym = sbuf.buf[0 .. 1 + inner.len], .omit = false };
-        }
-    }
-
-    // NUMBER(P,S) → P,S or NUMBER(P) → N (Oracle, guard: inner must fit in 32-byte buffer)
-    if (matchPrefix(t, "number(")) |rest| {
-        if (std.mem.endsWith(u8, rest, ")")) {
-            const inner = std.mem.trim(u8, rest[0 .. rest.len - 1], " ");
-            // If there's a comma, it's NUMBER(P,S) → P,S
-            if (std.mem.indexOf(u8, inner, ",")) |comma_pos| {
-                const p = std.mem.trim(u8, inner[0..comma_pos], " ");
-                const s = std.mem.trim(u8, inner[comma_pos + 1 ..], " ");
-                const sbuf = struct {
-                    var buf: [32]u8 = undefined;
-                };
-                var j: usize = 0;
-                for (p) |ch| {
-                    if (ch != ' ') {
-                        if (j >= 32) return .{ .sym = t, .omit = false };
-                        sbuf.buf[j] = ch;
-                        j += 1;
-                    }
-                }
-                if (j < 32) {
-                    sbuf.buf[j] = ',';
-                    j += 1;
-                }
-                for (s) |ch| {
-                    if (ch != ' ') {
-                        if (j >= 32) return .{ .sym = t, .omit = false };
-                        sbuf.buf[j] = ch;
-                        j += 1;
-                    }
-                }
-                return .{ .sym = sbuf.buf[0..j], .omit = false };
-            }
-            // No comma — single number means integer → N
-            if (inner.len > 15) return .{ .sym = t, .omit = false };
-            const sbuf = struct {
-                var buf: [16]u8 = undefined;
-            };
-            sbuf.buf[0] = 'N';
-            for (inner, 0..) |ch, i| sbuf.buf[i + 1] = ch;
-            return .{ .sym = sbuf.buf[0 .. 1 + inner.len], .omit = false };
-        }
-    }
+    // NUMBER(P) → "N" ++ P, NUMBER(P,S) → "P,S" (special handling: "N" prefix)
+    if (matchNumber(t)) |result| return result;
 
     // ENUM(...) → pass through
     if (std.mem.startsWith(u8, t, "ENUM(") or std.mem.startsWith(u8, t, "enum("))

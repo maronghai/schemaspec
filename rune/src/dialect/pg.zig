@@ -167,12 +167,4 @@ pub const pg_backend = DialectBackend{
     .rename_needs_column_def = false,
     .modify_needs_column_def = true,
     .modify_column_def_skips_name = true,
-    .capability = .{
-        .create_database = true,
-        .standalone_comments = true,
-        .schemas = true,
-        .sequences = true,
-        .generated_columns = true,
-        .alter_drop_column = true,
-    },
 };

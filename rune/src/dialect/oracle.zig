@@ -190,12 +190,4 @@ pub const oracle_backend = DialectBackend{
     .rename_needs_column_def = false,
     .modify_needs_column_def = true,
     .modify_column_def_skips_name = true,
-    .capability = .{
-        .auto_increment = true,
-        .standalone_comments = true,
-        .schemas = true,
-        .sequences = true,
-        .generated_columns = true,
-        .alter_drop_column = true,
-    },
 };

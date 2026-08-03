@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.90.0 (2026-08-03) — 32,400+ lines production Zig, 880+ tests, 21 test suites.
+**Current version**: 0.91.0 (2026-08-03) — 32,400+ lines production Zig, 880+ tests, 21 test suites.
 
 ---
 
@@ -216,6 +216,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.91.0 (2026-08-03)
+
+- **Removed dead `DialectCapability` code** — Removed unused `DialectCapability` struct (12 boolean feature flags) from `dialect.zig` and the `capability` field from `DialectBackend`. All 6 backends had these flags populated but no production code ever read them. Eliminates ~100 lines of dead infrastructure.
+- **Split `generators/common.zig`** — Extracted `DefaultFormatter` + ORM callbacks into `common_defaults.zig` (drizzle/knex/sqlalchemy/typeorm) and CHECK constraint parsers into `common_check.zig` (json_schema/openapi). Backward-compatible re-exports in `common.zig`.
+- **Table-driven parameterized type matching** — Replaced 8 repetitive pattern-matching blocks in `reverse/map.zig` with a `PARAM_PATTERNS` table and shared `matchParam` function. Net reduction: ~50 lines.
+- **Comptime pass dependency validation** — `semantic/pass_manager.zig` now validates all dependency names at compile time instead of runtime only.
 
 ### v0.90.0 (2026-08-03)
 

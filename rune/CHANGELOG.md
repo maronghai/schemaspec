@@ -4,6 +4,19 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.91.0] - 2026-08-03
+
+### Removed
+- **Dead `DialectCapability` code** — Removed the `DialectCapability` struct (12 boolean feature flags) from `dialect.zig` and the `capability` field from `DialectBackend`. The flags were populated by all 6 backends but never read in production code. Eliminates ~100 lines of dead infrastructure.
+
+### Refactored
+- **Split `generators/common.zig`** — Extracted `DefaultFormatter` + `writeFormattedDefault` + ORM callbacks into `generators/common_defaults.zig` (used by drizzle/knex/sqlalchemy/typeorm). Extracted CHECK constraint parsers (`parseRange`, `parseComparison`, `parseInList`) into `generators/common_check.zig` (used by json_schema/openapi). `common.zig` re-exports all symbols for backward compatibility. Net reduction: clearer module boundaries with zero import changes for downstream generators.
+- **Table-driven parameterized type matching** — Replaced 8 repetitive pattern-matching blocks in `reverse/map.zig` (int, decimal, numeric, varchar, character varying, varchar2, nvarchar2) with a table-driven `PARAM_PATTERNS` array and shared `matchParam` function. `NUMBER(P,S)` gets special handling for the "N" prefix. Net reduction: ~50 lines of duplicated pattern-matching code.
+- **Comptime pass dependency validation** — Added comptime validation in `semantic/pass_manager.zig` that checks all dependency names in `DEFAULT_PASSES` exist as pass names. Catches typos and missing passes at compile time instead of runtime.
+
+### Changed
+- **`docs` command comment** — Added clarifying comment that `.docs` is a shortcut for `rune generate docs`, both routing through the generator registry.
+
 ## [0.90.0] - 2026-08-03
 
 ### Fixed

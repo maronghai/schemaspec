@@ -70,3 +70,27 @@ pub fn validateDependencyOrder(alloc: std.mem.Allocator) void {
         }
     }
 }
+
+// ─── Comptime Dependency Validation ──────────────────────────
+// Validates at compile time that all dependency names in DEFAULT_PASSES
+// actually exist as pass names. Catches typos and missing passes at compile time.
+
+comptime {
+    for (DEFAULT_PASSES) |pass| {
+        for (pass.depends_on) |dep| {
+            var found = false;
+            for (DEFAULT_PASSES) |other| {
+                if (std.mem.eql(u8, dep, other.name)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                @compileError(std.fmt.comptimePrint(
+                    "SemanticPass '{s}' depends on '{s}' which does not exist in DEFAULT_PASSES",
+                    .{ pass.name, dep },
+                ));
+            }
+        }
+    }
+}

@@ -196,18 +196,6 @@ test "mssql: emitEnumTypeCheck format" {
     try testing.expectEqualStrings(" CHECK ([status] IN ('active', 'inactive', 'pending'))", result);
 }
 
-test "mssql: capability flags" {
-    const cap = dialect.getBackend(.mssql).capability;
-    try testing.expect(cap.schemas);
-    try testing.expect(cap.sequences);
-    try testing.expect(cap.batch_separators);
-    try testing.expect(cap.generated_columns);
-    try testing.expect(cap.alter_drop_column);
-    try testing.expect(!cap.auto_increment);
-    try testing.expect(!cap.unsigned);
-    try testing.expect(!cap.enum_type);
-}
-
 test "mssql: generated column format" {
     const alloc = testing.allocator;
     const backend = dialect.getBackend(.mssql);

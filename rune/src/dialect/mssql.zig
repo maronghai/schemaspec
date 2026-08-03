@@ -217,11 +217,4 @@ pub const mssql_backend = DialectBackend{
     .rename_needs_column_def = true,
     .modify_needs_column_def = true,
     .modify_column_def_skips_name = false,
-    .capability = .{
-        .schemas = true,
-        .sequences = true,
-        .batch_separators = true,
-        .generated_columns = true,
-        .alter_drop_column = true,
-    },
 };

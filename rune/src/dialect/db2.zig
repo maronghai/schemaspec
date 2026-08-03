@@ -220,10 +220,4 @@ pub const db2_backend = DialectBackend{
     .rename_needs_column_def = false,
     .modify_needs_column_def = true,
     .modify_column_def_skips_name = false,
-    .capability = .{
-        .standalone_comments = true,
-        .schemas = true,
-        .generated_columns = true,
-        .alter_drop_column = true,
-    },
 };

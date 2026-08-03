@@ -65,52 +65,6 @@ test "canOmitType: returns false for non-varchar types on non-suffix columns" {
     try testing.expect(!dialect.canOmitType("title", "n", false, false));
 }
 
-// ─── DialectCapability Tests ──────────────────────────────────
-
-test "DialectCapability: MySQL has auto_increment and unsigned" {
-    const cap = dialect.getBackend(.mysql).capability;
-    try testing.expect(cap.auto_increment);
-    try testing.expect(cap.unsigned);
-    try testing.expect(cap.enum_type);
-    try testing.expect(cap.inline_comments);
-    try testing.expect(cap.create_database);
-}
-
-test "DialectCapability: PG has standalone_comments and schemas" {
-    const cap = dialect.getBackend(.pg).capability;
-    try testing.expect(cap.standalone_comments);
-    try testing.expect(cap.schemas);
-    try testing.expect(cap.sequences);
-    try testing.expect(cap.generated_columns);
-}
-
-test "DialectCapability: SQLite has no auto_increment keyword" {
-    const cap = dialect.getBackend(.sqlite).capability;
-    try testing.expect(!cap.auto_increment);
-    try testing.expect(!cap.unsigned);
-    try testing.expect(!cap.enum_type);
-}
-
-test "DialectCapability: MSSQL has batch_separators and schemas" {
-    const cap = dialect.getBackend(.mssql).capability;
-    try testing.expect(cap.batch_separators);
-    try testing.expect(cap.schemas);
-    try testing.expect(cap.sequences);
-}
-
-test "DialectCapability: Oracle has sequences and standalone_comments" {
-    const cap = dialect.getBackend(.oracle).capability;
-    try testing.expect(cap.sequences);
-    try testing.expect(cap.standalone_comments);
-    try testing.expect(cap.generated_columns);
-}
-
-test "DialectCapability: Db2 has standalone_comments" {
-    const cap = dialect.getBackend(.db2).capability;
-    try testing.expect(cap.standalone_comments);
-    try testing.expect(cap.generated_columns);
-}
-
 // ─── Behavioral Flags Tests ───────────────────────────────────
 
 test "behavioral flags: MySQL rename_needs_column_def is true" {

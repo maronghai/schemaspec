@@ -1,9 +1,11 @@
 const std = @import("std");
 const typed_ast = @import("../types/typed_ast.zig");
 const ast_mod = @import("../types/ast.zig");
-const utils = @import("../utils.zig");
-const Writer = std.Io.Writer;
 const FkDecl = ast_mod.FkDecl;
+
+// Re-export sub-modules for backward compatibility.
+pub const common_defaults = @import("common_defaults.zig");
+pub const common_check = @import("common_check.zig");
 
 // ─── Shared Generator Helpers ────────────────────────────────
 // Common utilities used by multiple generators. Eliminates
@@ -25,287 +27,26 @@ pub fn tableHasCompositeFks(table: typed_ast.TypedTable) bool {
     return false;
 }
 
-// ─── Default Value Formatting ────────────────────────────────
-// Shared by ORM generators (drizzle, knex, typeorm, sqlalchemy).
-// Each generator provides language-specific formatting callbacks
-// via a DefaultFormatter config struct.
+// ─── Re-exported Defaults API ─────────────────────────────────
+// ORM generators import these via `common.writeFormattedDefault`.
 
-/// Language-specific formatting callbacks for default values.
-pub const DefaultFormatter = struct {
-    /// Output for SQL `true` / `TRUE` (e.g. "true", "'true'")
-    boolTrue: *const fn (w: *Writer) anyerror!void,
-    /// Output for SQL `false` / `FALSE` (e.g. "false", "'false'")
-    boolFalse: *const fn (w: *Writer) anyerror!void,
-    /// Output for SQL `null` / `NULL` (e.g. "null", "None")
-    nullValue: *const fn (w: *Writer) anyerror!void,
-    /// Output for `NOW()` / `now()` / `CURRENT_TIMESTAMP`
-    now: *const fn (w: *Writer) anyerror!void,
-    /// Format a string default (e.g. "'foo'", `"foo"`)
-    formatString: *const fn (w: *Writer, dflt: []const u8) anyerror!void,
-};
+pub const DefaultFormatter = common_defaults.DefaultFormatter;
+pub const OrmTarget = common_defaults.OrmTarget;
+pub const getOrmFormatter = common_defaults.getOrmFormatter;
+pub const writeFormattedDefault = common_defaults.writeFormattedDefault;
 
-/// Pre-defined ORM target languages for DefaultFormatter.
-pub const OrmTarget = enum {
-    drizzle,
-    knex,
-    sqlalchemy,
-    typeorm,
-};
+// ─── Re-exported CHECK Constraint Parsers ─────────────────────
+// API generators (json_schema, openapi) import these via `common.parseRange`.
 
-/// Shared callback: format string as single-quoted (used by all ORMs).
-fn formatStringSingleQuoted(w: *Writer, dflt: []const u8) !void {
-    const trimmed = std.mem.trim(u8, dflt, "'");
-    try w.print("'{s}'", .{trimmed});
-}
-
-// ─── Per-ORM Callbacks ────────────────────────────────────────
-
-fn jsBoolTrue(w: *Writer) !void {
-    try w.writeAll("true");
-}
-fn jsBoolFalse(w: *Writer) !void {
-    try w.writeAll("false");
-}
-fn jsNull(w: *Writer) !void {
-    try w.writeAll("null");
-}
-
-fn drizzleNow(w: *Writer) !void {
-    try w.writeAll("new Date()");
-}
-fn knexNow(w: *Writer) !void {
-    try w.writeAll("knex.fn.now()");
-}
-fn sqlalchemyBoolTrue(w: *Writer) !void {
-    try w.writeAll("'true'");
-}
-fn sqlalchemyBoolFalse(w: *Writer) !void {
-    try w.writeAll("'false'");
-}
-fn sqlalchemyNull(w: *Writer) !void {
-    try w.writeAll("None");
-}
-fn sqlalchemyNow(w: *Writer) !void {
-    try w.writeAll("'now()'");
-}
-fn typeormNow(w: *Writer) !void {
-    try w.writeAll("() => new Date()");
-}
-
-/// Get a pre-configured DefaultFormatter for the given ORM target.
-pub fn getOrmFormatter(target: OrmTarget) DefaultFormatter {
-    return switch (target) {
-        .drizzle => .{
-            .boolTrue = jsBoolTrue,
-            .boolFalse = jsBoolFalse,
-            .nullValue = jsNull,
-            .now = drizzleNow,
-            .formatString = formatStringSingleQuoted,
-        },
-        .knex => .{
-            .boolTrue = jsBoolTrue,
-            .boolFalse = jsBoolFalse,
-            .nullValue = jsNull,
-            .now = knexNow,
-            .formatString = formatStringSingleQuoted,
-        },
-        .sqlalchemy => .{
-            .boolTrue = sqlalchemyBoolTrue,
-            .boolFalse = sqlalchemyBoolFalse,
-            .nullValue = sqlalchemyNull,
-            .now = sqlalchemyNow,
-            .formatString = formatStringSingleQuoted,
-        },
-        .typeorm => .{
-            .boolTrue = jsBoolTrue,
-            .boolFalse = jsBoolFalse,
-            .nullValue = jsNull,
-            .now = typeormNow,
-            .formatString = formatStringSingleQuoted,
-        },
-    };
-}
-
-/// Shared default value writer. Parses the raw SQL default value and
-/// delegates formatting to language-specific callbacks.
-pub fn writeFormattedDefault(w: *Writer, dflt: []const u8, fmt: DefaultFormatter) !void {
-    if (std.mem.eql(u8, dflt, "true") or std.mem.eql(u8, dflt, "TRUE")) {
-        try fmt.boolTrue(w);
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "false") or std.mem.eql(u8, dflt, "FALSE")) {
-        try fmt.boolFalse(w);
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "null") or std.mem.eql(u8, dflt, "NULL")) {
-        try fmt.nullValue(w);
-        return;
-    }
-    if (std.mem.eql(u8, dflt, "NOW()") or std.mem.eql(u8, dflt, "now()") or
-        std.mem.eql(u8, dflt, "CURRENT_TIMESTAMP"))
-    {
-        try fmt.now(w);
-        return;
-    }
-    if (std.fmt.parseInt(i64, dflt, 10)) |num| {
-        try w.print("{d}", .{num});
-        return;
-    } else |_| {}
-    if (std.fmt.parseFloat(f64, dflt)) |num| {
-        try w.print("{d}", .{num});
-        return;
-    } else |_| {}
-    try fmt.formatString(w, dflt);
-}
-
-// ─── CHECK Constraint Parsers ──────────────────────────────────
-// Shared by json_schema and openapi generators. Parses SS CHECK
-// constraint expressions into structured ranges, comparisons, and lists.
-
-pub const Range = struct {
-    min: ?i64,
-    max: ?i64,
-};
-
-pub fn parseRange(expr: []const u8) ?Range {
-    var min_val: ?i64 = null;
-    var max_val: ?i64 = null;
-
-    var i: usize = 0;
-    while (i < expr.len) {
-        if (i + 1 < expr.len and expr[i] == '>' and expr[i + 1] == '=') {
-            const num_start = i + 2;
-            var num_end = num_start;
-            if (num_end < expr.len and expr[num_end] == '-') num_end += 1;
-            while (num_end < expr.len and (expr[num_end] >= '0' and expr[num_end] <= '9')) {
-                num_end += 1;
-            }
-            if (num_end > num_start) {
-                if (std.fmt.parseInt(i64, expr[num_start..num_end], 10)) |num| {
-                    min_val = num;
-                } else |_| {}
-            }
-            i = num_end;
-        } else if (i + 1 < expr.len and expr[i] == '<' and expr[i + 1] == '=') {
-            const num_start = i + 2;
-            var num_end = num_start;
-            if (num_end < expr.len and expr[num_end] == '-') num_end += 1;
-            while (num_end < expr.len and (expr[num_end] >= '0' and expr[num_end] <= '9')) {
-                num_end += 1;
-            }
-            if (num_end > num_start) {
-                if (std.fmt.parseInt(i64, expr[num_start..num_end], 10)) |num| {
-                    max_val = num;
-                } else |_| {}
-            }
-            i = num_end;
-        } else {
-            i += 1;
-        }
-    }
-
-    if (min_val != null or max_val != null) {
-        return .{ .min = min_val, .max = max_val };
-    }
-    return null;
-}
-
-pub const Comparison = struct {
-    op: []const u8,
-    value: i64,
-};
-
-pub fn parseComparison(expr: []const u8) ?Comparison {
-    var i: usize = 0;
-    while (i < expr.len and expr[i] == ' ') : (i += 1) {}
-
-    if (i < expr.len and (expr[i] == '>' or expr[i] == '<' or expr[i] == '=')) {
-        const op_start = i;
-        i += 1;
-        if (i < expr.len and expr[i] == '=') i += 1;
-        const op = expr[op_start..i];
-
-        while (i < expr.len and expr[i] == ' ') : (i += 1) {}
-
-        const num_start = i;
-        if (i < expr.len and expr[i] == '-') i += 1;
-        while (i < expr.len and ((expr[i] >= '0' and expr[i] <= '9') or expr[i] == '.')) {
-            i += 1;
-        }
-        if (i > num_start) {
-            if (std.fmt.parseInt(i64, expr[num_start..i], 10)) |num| {
-                return .{ .op = op, .value = num };
-            } else |_| {}
-        }
-    }
-    return null;
-}
-
-pub fn parseInList(alloc: std.mem.Allocator, expr: []const u8) ?[]const []const u8 {
-    const trimmed = std.mem.trim(u8, expr, " ");
-    if (trimmed.len < 2) return null;
-
-    const inner = if (trimmed[0] == '(' and trimmed[trimmed.len - 1] == ')')
-        trimmed[1 .. trimmed.len - 1]
-    else
-        trimmed;
-
-    var items = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return null;
-    var start: usize = 0;
-    var in_quote = false;
-    var i: usize = 0;
-
-    while (i < inner.len) {
-        if (inner[i] == '\'') {
-            if (in_quote) {
-                const item = std.mem.trim(u8, inner[start..i], " '");
-                items.append(alloc, item) catch {
-                    items.deinit(alloc);
-                    return null;
-                };
-                in_quote = false;
-                start = i + 1;
-            } else {
-                in_quote = true;
-                start = i + 1;
-            }
-        } else if (inner[i] == ',' and !in_quote) {
-            const item = std.mem.trim(u8, inner[start..i], " ");
-            if (item.len > 0) {
-                items.append(alloc, item) catch {
-                    items.deinit(alloc);
-                    return null;
-                };
-            }
-            start = i + 1;
-        }
-        i += 1;
-    }
-
-    if (start < inner.len) {
-        const item = std.mem.trim(u8, inner[start..], " '");
-        if (item.len > 0) {
-            items.append(alloc, item) catch {
-                items.deinit(alloc);
-                return null;
-            };
-        }
-    }
-
-    if (items.items.len == 0) {
-        items.deinit(alloc);
-        return null;
-    }
-
-    return items.toOwnedSlice(alloc) catch {
-        items.deinit(alloc);
-        return null;
-    };
-}
+pub const Range = common_check.Range;
+pub const Comparison = common_check.Comparison;
+pub const parseRange = common_check.parseRange;
+pub const parseComparison = common_check.parseComparison;
+pub const parseInList = common_check.parseInList;
 
 // ─── JSON Value Writer ────────────────────────────────────────
 
-pub fn writeJsonValue(w: *Writer, val: []const u8) !void {
+pub fn writeJsonValue(w: *std.Io.Writer, val: []const u8) !void {
     if (std.mem.eql(u8, val, "NULL") or std.mem.eql(u8, val, "null")) {
         try w.writeAll("null");
     } else if (std.mem.eql(u8, val, "true") or std.mem.eql(u8, val, "TRUE")) {
@@ -319,6 +60,7 @@ pub fn writeJsonValue(w: *Writer, val: []const u8) !void {
             try w.print("{d}", .{num});
         } else |_| {
             try w.writeAll("\"");
+            const utils = @import("../utils.zig");
             try utils.jsonEscapeString(w, val);
             try w.writeAll("\"");
         }

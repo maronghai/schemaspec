@@ -293,13 +293,4 @@ pub const mysql_backend = DialectBackend{
     .rename_needs_column_def = true,
     .modify_needs_column_def = true,
     .modify_column_def_skips_name = false,
-    .capability = .{
-        .auto_increment = true,
-        .unsigned = true,
-        .create_database = true,
-        .enum_type = true,
-        .inline_comments = true,
-        .tablespace = true,
-        .alter_drop_column = true,
-    },
 };
