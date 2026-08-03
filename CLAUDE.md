@@ -44,7 +44,9 @@ bash tests/test_bench.sh            # Benchmark regression (--save/--check/--dif
 bash tests/test_reverse_confidence.sh  # Reverse confidence (3 tests)
 bash tests/test_init.sh             # Init & completions (12 tests)
 bash tests/test_color.sh            # Color output (5 tests)
-bash tests/test_coverage.sh         # Full test suite runner (all 23 suites)
+bash tests/test_validate.sh         # Validate command (4 tests)
+bash tests/test_stats_json.sh       # Stats JSON output (3 tests)
+bash tests/test_coverage.sh         # Full test suite runner (all 25 suites)
 ```
 
 Run a single golden test by filter: `bash tests/test.sh 01` (matches test name substring).
@@ -59,6 +61,10 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune schema.ss -d mssql               # MSSQL output
 ./rune/zig-out/bin/rune schema.ss -d oracle              # Oracle output
 ./rune/zig-out/bin/rune schema.ss -d db2                 # Db2 output
+./rune/zig-out/bin/rune validate schema.ss               # Validate schema (no output)
+./rune/zig-out/bin/rune validate schema.ss -s            # Validate with stats
+./rune/zig-out/bin/rune stats schema.ss                  # Print schema statistics
+./rune/zig-out/bin/rune stats schema.ss --format json    # Stats as JSON
 ./rune/zig-out/bin/rune init                             # Create starter schema
 ./rune/zig-out/bin/rune init myapp                       # Create starter schema with name
 ./rune/zig-out/bin/rune --init                           # Create starter schema (flag equivalent)
@@ -68,7 +74,6 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune migrate old.ss new.ss --rollback # Rollback SQL
 ./rune/zig-out/bin/rune reverse schema.sql -t             # Reverse-engineer with template extraction
 ./rune/zig-out/bin/rune reverse schema.sql --format json  # Reverse-engineer to JSON
-./rune/zig-out/bin/rune stats schema.ss                   # Print schema statistics
 ./rune/zig-out/bin/rune docs schema.ss                   # Generate Markdown documentation
 ./rune/zig-out/bin/rune fmt schema.ss                     # Auto-format .ss file
 ./rune/zig-out/bin/rune diff old.ss new.ss --format sarif # SARIF diff output

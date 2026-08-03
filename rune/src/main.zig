@@ -37,7 +37,11 @@ pub fn main(init: std.process.Init) !void {
             std.debug.print("error: out of memory\n", .{});
         } else if (err == error.UnknownFlag) {
             if (cli.findUnknownFlag(arg_list)) |flag| {
-                std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
+                if (cli.suggestSimilarFlag(flag)) |suggestion| {
+                    std.debug.print("error: unknown flag '{s}'. Did you mean '{s}'?\n", .{ flag, suggestion });
+                } else {
+                    std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
+                }
             } else {
                 std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});
             }
@@ -164,7 +168,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .stats => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return forward.handleStats(io, alloc, file_data, parsed.json_errors);
+            return forward.handleStats(io, alloc, file_data, cmd.format == .json);
         },
         .diff => |cmd| {
             return diff_pipe.handleDiff(io, alloc, .{

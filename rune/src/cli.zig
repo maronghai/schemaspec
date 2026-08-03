@@ -7,11 +7,13 @@ pub const Target = enum { sql, json_schema };
 
 pub const DiffFormat = enum { text, json, sarif, markdown };
 
+pub const StatsFormat = enum { text, json };
+
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool },
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
-    stats: struct { input: ?[]const u8 },
+    stats: struct { input: ?[]const u8, format: StatsFormat = .text },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false },
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
@@ -391,16 +393,33 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
 };
 
+/// Known long flags for edit-distance suggestions.
+pub const KNOWN_FLAGS = [_][]const u8{
+    "--version",        "--help",        "--stats",  "--quiet",         "--check",  "--dry-run",
+    "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
+    "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
+    "--name",           "--dir",         "--incremental",               "--color",  "--init",
+    "--summary",        "--config",      "--template",
+};
+
+/// Find the most similar known flag using edit distance. Returns null if best match > 3.
+pub fn suggestSimilarFlag(unknown: []const u8) ?[]const u8 {
+    const edit = @import("utils/edit_distance.zig");
+    var best_name: ?[]const u8 = null;
+    var best_dist: usize = 4; // threshold: ≤3 edits
+    inline for (KNOWN_FLAGS) |known| {
+        const d = edit.runtimeEditDistance(unknown, known);
+        if (d < best_dist) {
+            best_dist = d;
+            best_name = known;
+        }
+    }
+    return best_name;
+}
+
 /// Check if a long flag (--flag) is recognized by the parser.
 fn isKnownLongFlag(flag: []const u8) bool {
-    const known = [_][]const u8{
-        "--version",        "--help",        "--stats",  "--quiet",         "--check",  "--dry-run",
-        "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
-        "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
-        "--name",           "--dir",         "--incremental",               "--color",  "--init",
-        "--summary",        "--config",
-    };
-    inline for (known) |k| {
+    inline for (KNOWN_FLAGS) |k| {
         if (std.mem.eql(u8, flag, k)) return true;
     }
     return false;
@@ -621,7 +640,7 @@ fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
     const final_cmd: Command = switch (cmd) {
         .validate => |c| .{ .validate = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes } },
         .check => |c| .{ .check = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes } },
-        .stats => |c| .{ .stats = .{ .input = input orelse c.input } },
+        .stats => |c| .{ .stats = .{ .input = input orelse c.input, .format = c.format } },
         else => cmd,
     };
     return parseSimpleSubcommand(dialect, target, final_cmd, opts);
@@ -636,7 +655,9 @@ fn parseCheckArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
 }
 
 fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .stats = .{ .input = null } });
+    const input = if (fargs.len > 1) fargs[1] else null;
+    const stats_format: StatsFormat = if (opts.format == .json) .json else .text;
+    return parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format } }, opts);
 }
 
 fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
@@ -672,7 +693,7 @@ pub fn printUsage() void {
     std.debug.print("\nOptions:\n", .{});
     std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql, oracle, db2\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
-    std.debug.print("  --format        Output format: text (default), json, sarif, markdown (for diff/migrate)\n", .{});
+    std.debug.print("  --format        Output format: text (default), json, sarif, markdown (for diff/migrate/stats)\n", .{});
     std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
     std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
     std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});
@@ -691,13 +712,20 @@ pub fn printUsage() void {
     std.debug.print("  rune schema.ss                       # Compile to MySQL DDL\n", .{});
     std.debug.print("  rune schema.ss -d pg                 # Compile to PostgreSQL\n", .{});
     std.debug.print("  rune schema.ss -d oracle             # Compile to Oracle\n", .{});
+    std.debug.print("  rune validate schema.ss              # Validate schema (no output)\n", .{});
+    std.debug.print("  rune validate schema.ss -s           # Validate with stats\n", .{});
     std.debug.print("  rune --stats schema.ss               # Show compilation stats\n", .{});
+    std.debug.print("  rune stats schema.ss --format json   # Stats as JSON\n", .{});
     std.debug.print("  rune --check schema.ss               # Validate without output\n", .{});
     std.debug.print("  rune diff old.ss new.ss              # Show schema differences\n", .{});
+    std.debug.print("  rune diff old.ss new.ss --format json # Diff as JSON\n", .{});
     std.debug.print("  rune migrate old.ss new.ss -o m.sql  # Generate migration SQL\n", .{});
+    std.debug.print("  rune migrate old.ss new.ss --rollback # Generate rollback SQL\n", .{});
     std.debug.print("  rune reverse schema.sql -T           # Reverse-engineer with templates\n", .{});
     std.debug.print("  rune generate json-schema schema.ss  # Generate JSON Schema from .ss\n", .{});
     std.debug.print("  rune generate --list                 # Show available generators\n", .{});
+    std.debug.print("  rune init myapp                      # Create starter schema\n", .{});
+    std.debug.print("  rune fmt schema.ss                   # Auto-format schema\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});

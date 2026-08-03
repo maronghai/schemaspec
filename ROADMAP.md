@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.100.0 (2026-08-03) — 32,900+ lines production Zig, 946+ tests, 24 test suites.
+**Current version**: 0.101.0 (2026-08-03) — 33,100+ lines production Zig, 953+ tests, 26 test suites.
 
 ---
 
@@ -154,6 +154,9 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 - [x] `rune fmt` — auto-format `.ss` files (v0.68.0)
 - [ ] `rune playground` — web-based `.ss` editor with live compilation (WASM)
 - [x] Colored output — syntax-highlighted SQL and diff output (v0.97.0)
+- [x] `rune validate` as first-class CLI command — exposed in help text with examples (v0.101.0)
+- [x] Unknown flag suggestions — edit-distance-based "Did you mean?" for mistyped flags (v0.101.0)
+- [x] `rune stats --format json` — JSON output for schema statistics (v0.101.0)
 
 ---
 
@@ -216,6 +219,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.101.0 (2026-08-03)
+
+- **Unknown flag suggestions** — Mistyped `--flags` now show "Did you mean?" with edit-distance-based suggestions (threshold ≤3 edits). Uses new `runtimeEditDistance` in `utils/edit_distance.zig`. Example: `rune --verison` → `error: unknown flag '--verison'. Did you mean '--version'?`
+- **`rune validate` in CLI help** — The `validate` command (previously implemented but hidden) is now listed in `--help` output with examples. Two new examples added: `rune validate schema.ss` and `rune validate schema.ss -s`.
+- **`rune stats --format json`** — Schema statistics can now output JSON directly via `--format json`. Replaces the previous `--json-errors` flag for stats. JSON includes: tables, fields, not_null, numeric, string, datetime, boolean, other, views, foreign_keys, indexes, check_constraints, templates.
+- **Improved help text** — Added 6 new examples to `rune --help`: validate, stats JSON, diff JSON, migrate rollback, init, and fmt. Updated `--format` description to include stats.
+- **New golden test suites** — `tests/test_validate.sh` (4 tests) and `tests/test_stats_json.sh` (3 tests) covering the new CLI features.
 
 ### v0.100.0 (2026-08-03)
 
@@ -680,7 +691,7 @@ Ongoing improvements pursued alongside feature work.
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
 | 4: Incremental & Live Workflows | 🟡 Partial | 3/10 | 7 |
-| 5: Developer Experience | 🟡 Partial | 4/12 | 8 |
+| 5: Developer Experience | 🟡 Partial | 7/12 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 8/12 | 4 |
-| **Total** | | **51/81** | **30** |
+| **Total** | | **54/81** | **27** |

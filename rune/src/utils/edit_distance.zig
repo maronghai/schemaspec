@@ -62,3 +62,50 @@ pub fn suggestClosest(target: []const u8, candidates: []const []const u8, max_di
     }
     return null;
 }
+
+/// Runtime Levenshtein edit distance for arbitrary byte slices.
+pub fn runtimeEditDistance(a: []const u8, b: []const u8) usize {
+    const m = a.len;
+    const n = b.len;
+    if (m == 0) return n;
+    if (n == 0) return m;
+    // Use arena for temp allocation (callers are command-lifetime)
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    var prev = alloc.alloc(usize, n + 1) catch return m + n;
+    var curr = alloc.alloc(usize, n + 1) catch return m + n;
+    var i: usize = 0;
+    while (i <= n) : (i += 1) {
+        prev[i] = i;
+    }
+    i = 1;
+    while (i <= m) : (i += 1) {
+        curr[0] = i;
+        var j: usize = 1;
+        while (j <= n) : (j += 1) {
+            const cost: usize = if (a[i - 1] == b[j - 1]) 0 else 1;
+            const del = prev[j] + 1;
+            const ins = curr[j - 1] + 1;
+            const sub = prev[j - 1] + cost;
+            curr[j] = @min(@min(del, ins), sub);
+        }
+        const tmp = prev.ptr;
+        prev.ptr = curr.ptr;
+        curr.ptr = tmp;
+    }
+    return prev[n];
+}
+
+test "runtimeEditDistance: identical" {
+    try std.testing.expectEqual(@as(usize, 0), runtimeEditDistance("hello", "hello"));
+}
+
+test "runtimeEditDistance: empty" {
+    try std.testing.expectEqual(@as(usize, 5), runtimeEditDistance("hello", ""));
+    try std.testing.expectEqual(@as(usize, 5), runtimeEditDistance("", "hello"));
+}
+
+test "runtimeEditDistance: single char" {
+    try std.testing.expectEqual(@as(usize, 1), runtimeEditDistance("hello", "hallo"));
+}
