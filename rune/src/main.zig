@@ -7,6 +7,7 @@ const io_mod = @import("io.zig");
 const version = @import("version.zig");
 const generator = @import("generator.zig");
 const completions = @import("completions.zig");
+const config_mod = @import("config.zig");
 
 // ─── Entry Point ───────────────────────────────────────────────
 
@@ -40,13 +41,45 @@ pub fn main(init: std.process.Init) !void {
             } else {
                 std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});
             }
+        } else if (err == error.UnknownCommand) {
+            std.debug.print("error: unknown command '{s}'. Available commands:\n", .{arg_list[1]});
+            inline for (cli.COMMAND_REGISTRY) |cmd| {
+                std.debug.print("  {s}\n", .{cmd.name});
+            }
+        } else if (err == error.UnknownGenerator) {
+            std.debug.print("error: unknown generator. Available generators:\n", .{});
+            for (generator.REGISTRY) |gen| {
+                std.debug.print("  {s}\n", .{gen.name});
+            }
         } else {
             const cli_err: cli.ArgError = @errorCast(err);
             std.debug.print("error: {s}\n", .{cliArgErrorMessage(cli_err)});
         }
         std.process.exit(1);
     };
-    return dispatch(init.io, alloc, parsed) catch |err| {
+
+    // Load project config (rune.toml) and apply defaults
+    var final_parsed = parsed;
+    const config_path = parsed.config_path orelse "rune.toml";
+    const cfg = config_mod.loadConfig(init.io, alloc, config_path) catch blk: {
+        break :blk config_mod.Config{};
+    };
+    // Apply config defaults (CLI flags take precedence)
+    if (parsed.dialect == .mysql and cfg.dialect != null) {
+        final_parsed.dialect = cli.parseDialect(cfg.dialect.?) catch parsed.dialect;
+    }
+    if (cfg.quiet != null and !parsed.quiet) final_parsed.quiet = cfg.quiet.?;
+    if (cfg.json_errors != null and !parsed.json_errors) final_parsed.json_errors = cfg.json_errors.?;
+    if (cfg.color != null) {
+        final_parsed.color = if (std.mem.eql(u8, cfg.color.?, "always"))
+            .always
+        else if (std.mem.eql(u8, cfg.color.?, "never"))
+            .never
+        else
+            parsed.color;
+    }
+
+    return dispatch(init.io, alloc, final_parsed) catch |err| {
         switch (err) {
             error.DiagnosticsError, error.SemanticError, error.SqlParseError, error.ReverseDiagnosticsError => {
                 // Error already printed by the compiler module
@@ -58,7 +91,10 @@ pub fn main(init: std.process.Init) !void {
                 std.process.exit(1);
             },
             error.UnknownGenerator => {
-                std.debug.print("error: unknown generator. Run 'rune generate --list' for available generators.\n", .{});
+                std.debug.print("error: unknown generator. Available generators:\n", .{});
+                for (generator.REGISTRY) |gen| {
+                    std.debug.print("  {s}\n", .{gen.name});
+                }
                 std.process.exit(1);
             },
             error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
@@ -158,6 +194,8 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .name = cmd.name,
                 .dir = cmd.dir,
                 .incremental = cmd.incremental,
+                .summary = cmd.summary,
+                .color = parsed.color,
             });
         },
         .migrate_status => |cmd| {

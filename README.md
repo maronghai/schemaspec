@@ -211,6 +211,24 @@ $ mydb
   ~ ip_addr mysql=s45 pg=inet   ; dialect-specific
 ```
 
+## Configuration
+
+Create a `rune.toml` in your project root to set defaults:
+
+```toml
+[project]
+name = "myapp"
+
+[dialect]
+default = "pg"
+
+[output]
+color = "auto"
+quiet = false
+```
+
+CLI flags always override config values. Use `--config <path>` to specify a custom config file.
+
 ## Architecture
 
 ### Compiler Pipeline

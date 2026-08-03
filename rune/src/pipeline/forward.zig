@@ -299,24 +299,37 @@ pub fn handleCompileRequest(
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
 /// With strict=false (default validate): always succeeds (exit 0), prints errors but doesn't fail.
 /// With strict=true (check mode): returns error.DiagnosticsError on errors (exit 1).
-pub fn handleValidate(_: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool) !void {
+/// With json_errors=true: outputs JSON result instead of text.
+pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool) !void {
     const result = compilePipeline(alloc, file_data, .{ .verbose_passes = verbose_passes, .json_errors = json_errors }) catch |err| {
         if (err == error.DiagnosticsError or err == error.SemanticError) {
-            std.debug.print("schema has errors\n", .{});
+            if (json_errors) {
+                const s = Stats{ .tables = 0, .fields = 0, .views = 0, .not_null_fields = 0, .numeric_fields = 0, .string_fields = 0, .datetime_fields = 0, .boolean_fields = 0, .other_fields = 0, .foreign_keys = 0, .indexes = 0, .check_constraints = 0, .templates = 0, .custom_types = 0 };
+                const json = try formatValidateResult(alloc, false, s, 1);
+                try io_mod.writeOutput(io, json, null, false);
+            } else {
+                std.debug.print("schema has errors\n", .{});
+            }
             if (strict) return err;
             return;
         }
         return err;
     };
-    if (stats) {
-        printStats(computeStats(result.resolved));
+    const s = computeStats(result.resolved);
+    if (json_errors) {
+        const json = try formatValidateResult(alloc, !result.partial, s, if (result.partial) @min(result.tree.error_count, std.math.maxInt(u32)) else 0);
+        try io_mod.writeOutput(io, json, null, false);
+    } else {
+        if (stats) {
+            printStats(s);
+        }
+        if (result.partial) {
+            std.debug.print("schema has errors (partial)\n", .{});
+            if (strict) return error.DiagnosticsError;
+            return;
+        }
+        std.debug.print("schema is valid\n", .{});
     }
-    if (result.partial) {
-        std.debug.print("schema has errors (partial)\n", .{});
-        if (strict) return error.DiagnosticsError;
-        return;
-    }
-    std.debug.print("schema is valid\n", .{});
 }
 
 /// Check a .ss file — CI gate mode. Fails on any schema error.
@@ -336,6 +349,19 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
         std.debug.print("fields:  {d}\n", .{s.fields});
         std.debug.print("views:   {d}\n", .{s.views});
     }
+}
+
+/// Format validate/check result as JSON.
+fn formatValidateResult(alloc: std.mem.Allocator, valid: bool, s: Stats, error_count: u32) ![]const u8 {
+    return std.fmt.allocPrint(alloc,
+        \\{{"valid":{},"errors":{d},"tables":{d},"fields":{d},"views":{d}}}
+    , .{
+        valid,
+        error_count,
+        s.tables,
+        s.fields,
+        s.views,
+    });
 }
 
 /// Compile a schema and run a named generator on it. Handles the full pipeline:

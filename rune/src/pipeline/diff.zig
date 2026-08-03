@@ -43,6 +43,8 @@ pub const MigrateConfig = struct {
     name: ?[]const u8 = null,
     dir: ?[]const u8 = null,
     incremental: bool = false,
+    summary: bool = false,
+    color: cli.ColorMode = .auto,
 };
 
 const DiffResult = struct {
@@ -114,6 +116,12 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
         if (result.schema_diff.hasChanges()) {
             return error.CheckFailed;
         }
+        return;
+    }
+
+    if (cfg.summary) {
+        const summary_text = try diff_format.formatDiffSummary(alloc, result.schema_diff, cfg.color, io);
+        try io_mod.writeOutput(io, summary_text, null, false);
         return;
     }
 

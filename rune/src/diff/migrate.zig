@@ -125,73 +125,74 @@ pub fn generateRollback(
     }
 
     // 4. Reverse table ALTER diffs (add↔drop, modify swaps old/new)
-    var reversed_alter_diffs = std.ArrayList(diff_mod.TableDiff).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
-    defer reversed_alter_diffs.deinit(alloc);
+    // Track ArrayLists to free their backing memory after use
+    var reversed_tables = std.ArrayList(diff_mod.TableDiff).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
+    defer reversed_tables.deinit(alloc);
+    var reversed_fields_list = std.ArrayList(std.ArrayList(diff_mod.FieldDiff)).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
+    defer {
+        for (reversed_fields_list.items) |*list| list.deinit(alloc);
+        reversed_fields_list.deinit(alloc);
+    }
+    var reversed_indexes_list = std.ArrayList(std.ArrayList(diff_mod.IndexDiff)).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
+    defer {
+        for (reversed_indexes_list.items) |*list| list.deinit(alloc);
+        reversed_indexes_list.deinit(alloc);
+    }
+    var reversed_fks_list = std.ArrayList(std.ArrayList(diff_mod.FkDiff)).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
+    defer {
+        for (reversed_fks_list.items) |*list| list.deinit(alloc);
+        reversed_fks_list.deinit(alloc);
+    }
+
     for (d.table_diffs) |td| {
         if (td.action == .alter) {
-            reversed_alter_diffs.appendAssumeCapacity(reverseTableDiff(alloc, td));
+            var r_fields = std.ArrayList(diff_mod.FieldDiff).initCapacity(alloc, td.field_diffs.len) catch continue;
+            for (td.field_diffs) |fd| {
+                r_fields.appendAssumeCapacity(switch (fd.action) {
+                    .add => .{ .name = fd.name, .action = .drop, .old_field = fd.new_field, .new_field = null, .rename_from = null },
+                    .drop => .{ .name = fd.name, .action = .add, .old_field = null, .new_field = fd.old_field, .rename_from = null },
+                    .modify => .{ .name = fd.name, .action = .modify, .old_field = fd.new_field, .new_field = fd.old_field, .rename_from = null },
+                    .rename => .{ .name = fd.rename_from orelse fd.name, .action = .rename, .old_field = fd.new_field, .new_field = fd.old_field, .rename_from = fd.name },
+                });
+            }
+            var r_indexes = std.ArrayList(diff_mod.IndexDiff).initCapacity(alloc, td.index_diffs.len) catch continue;
+            for (td.index_diffs) |idx_diff| {
+                r_indexes.appendAssumeCapacity(switch (idx_diff.action) {
+                    .add => .{ .name = idx_diff.name, .action = .drop, .old_idx = idx_diff.new_idx, .new_idx = null },
+                    .drop => .{ .name = idx_diff.name, .action = .add, .old_idx = null, .new_idx = idx_diff.old_idx },
+                    .modify => .{ .name = idx_diff.name, .action = .modify, .old_idx = idx_diff.new_idx, .new_idx = idx_diff.old_idx },
+                });
+            }
+            var r_fks = std.ArrayList(diff_mod.FkDiff).initCapacity(alloc, td.fk_diffs.len) catch continue;
+            for (td.fk_diffs) |fk_diff| {
+                r_fks.appendAssumeCapacity(switch (fk_diff.action) {
+                    .add => .{ .action = .drop, .old_fk = fk_diff.new_fk, .new_fk = null },
+                    .drop => .{ .action = .add, .old_fk = null, .new_fk = fk_diff.old_fk },
+                    .modify => .{ .action = .modify, .old_fk = fk_diff.new_fk, .new_fk = fk_diff.old_fk },
+                });
+            }
+            reversed_fields_list.appendAssumeCapacity(r_fields);
+            reversed_indexes_list.appendAssumeCapacity(r_indexes);
+            reversed_fks_list.appendAssumeCapacity(r_fks);
+            reversed_tables.appendAssumeCapacity(.{
+                .name = td.name,
+                .action = .alter,
+                .field_diffs = reversed_fields_list.items[reversed_fields_list.items.len - 1].items,
+                .index_diffs = reversed_indexes_list.items[reversed_indexes_list.items.len - 1].items,
+                .fk_diffs = reversed_fks_list.items[reversed_fks_list.items.len - 1].items,
+                .metadata_diff = null,
+            });
         }
     }
-    if (reversed_alter_diffs.items.len > 0) {
+    if (reversed_tables.items.len > 0) {
         var cg = codegen.Codegen.init(alloc, dialect);
-        try emitTableDiffs(alloc, w, reversed_alter_diffs.items, old_resolved, dialect, &cg, &has_operations);
+        try emitTableDiffs(alloc, w, reversed_tables.items, old_resolved, dialect, &cg, &has_operations);
     }
 
     try w.writeAll("COMMIT;\n");
 
     try w.flush();
     return try aw.toOwnedSlice();
-}
-
-// ─── Schema Diff Reversal ─────────────────────────────────────
-
-/// Reverse a single table diff for rollback.
-fn reverseTableDiff(alloc: std.mem.Allocator, td: diff_mod.TableDiff) diff_mod.TableDiff {
-    // Reverse field diffs
-    var reversed_fields = std.ArrayList(diff_mod.FieldDiff).initCapacity(alloc, td.field_diffs.len) catch return td;
-    for (td.field_diffs) |fd| {
-        reversed_fields.appendAssumeCapacity(switch (fd.action) {
-            .add => .{ .name = fd.name, .action = .drop, .old_field = fd.new_field, .new_field = null, .rename_from = null },
-            .drop => .{ .name = fd.name, .action = .add, .old_field = null, .new_field = fd.old_field, .rename_from = null },
-            .modify => .{ .name = fd.name, .action = .modify, .old_field = fd.new_field, .new_field = fd.old_field, .rename_from = null },
-            .rename => .{
-                .name = fd.rename_from orelse fd.name,
-                .action = .rename,
-                .old_field = fd.new_field,
-                .new_field = fd.old_field,
-                .rename_from = fd.name,
-            },
-        });
-    }
-
-    // Reverse index diffs
-    var reversed_indexes = std.ArrayList(diff_mod.IndexDiff).initCapacity(alloc, td.index_diffs.len) catch return td;
-    for (td.index_diffs) |idx_diff| {
-        reversed_indexes.appendAssumeCapacity(switch (idx_diff.action) {
-            .add => .{ .name = idx_diff.name, .action = .drop, .old_idx = idx_diff.new_idx, .new_idx = null },
-            .drop => .{ .name = idx_diff.name, .action = .add, .old_idx = null, .new_idx = idx_diff.old_idx },
-            .modify => .{ .name = idx_diff.name, .action = .modify, .old_idx = idx_diff.new_idx, .new_idx = idx_diff.old_idx },
-        });
-    }
-
-    // Reverse FK diffs
-    var reversed_fks = std.ArrayList(diff_mod.FkDiff).initCapacity(alloc, td.fk_diffs.len) catch return td;
-    for (td.fk_diffs) |fk_diff| {
-        reversed_fks.appendAssumeCapacity(switch (fk_diff.action) {
-            .add => .{ .action = .drop, .old_fk = fk_diff.new_fk, .new_fk = null },
-            .drop => .{ .action = .add, .old_fk = null, .new_fk = fk_diff.old_fk },
-            .modify => .{ .action = .modify, .old_fk = fk_diff.new_fk, .new_fk = fk_diff.old_fk },
-        });
-    }
-
-    return .{
-        .name = td.name,
-        .action = .alter,
-        .field_diffs = reversed_fields.items,
-        .index_diffs = reversed_indexes.items,
-        .fk_diffs = reversed_fks.items,
-        .metadata_diff = null,
-    };
 }
 
 // ─── Shared Emission Functions ──────────────────────────────────

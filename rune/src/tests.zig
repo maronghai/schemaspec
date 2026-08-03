@@ -10,6 +10,8 @@ comptime {
     _ = @import("color_test.zig");
     // completions
     _ = @import("completions_test.zig");
+    // config
+    _ = @import("config.zig");
     // codegen
     _ = @import("codegen/codegen_test.zig");
     _ = @import("codegen/columns_test.zig");

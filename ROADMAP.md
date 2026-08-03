@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.99.0 (2026-08-03) — 32,700+ lines production Zig, 936+ tests, 24 test suites.
+**Current version**: 0.100.0 (2026-08-03) — 32,900+ lines production Zig, 946+ tests, 24 test suites.
 
 ---
 
@@ -216,6 +216,16 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.100.0 (2026-08-03)
+
+- **Project configuration (`rune.toml`)** — New `config.zig` module with minimal TOML parser. Supports `[project]`, `[dialect]`, and `[output]` sections. CLI flags override config values. `--config <path>` flag to specify custom config path.
+- **`validate --json-errors`** — Machine-readable JSON output for schema validation. Outputs `{"valid":bool,"errors":N,"tables":N,"fields":N,"views":N}`.
+- **`check --json-errors`** — Same JSON output format for CI gate mode.
+- **`migrate --summary`** — Output only the summary line without full migration SQL. Parity with `diff --summary`.
+- **Improved error messages** — Unknown commands now list all available commands. Unknown generators list all available generator names.
+- **Fixed 3 memory leaks in rollback tests** — `generateRollback` properly frees ArrayList backing memory for reversed table diffs. All 946 tests now pass with exit code 0.
+- **Config infrastructure** — `ParsedArgs` now includes `config_path` field. `COMMAND_REGISTRY` and `CommandInfo` made public for error message generation.
 
 ### v0.99.0 (2026-08-03)
 

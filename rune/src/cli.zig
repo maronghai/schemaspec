@@ -13,7 +13,7 @@ pub const Command = union(enum) {
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     stats: struct { input: ?[]const u8 },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false },
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
@@ -35,6 +35,7 @@ pub const ParsedArgs = struct {
     import_paths: []const []const u8 = &.{},
     color: ColorMode = .auto,
     init_flag: bool = false,
+    config_path: ?[]const u8 = null,
 };
 
 pub const ColorMode = enum {
@@ -143,6 +144,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_color: ColorMode = .auto;
     var want_init = false;
     var want_summary = false;
+    var config_path: ?[]const u8 = null;
     var diff_format: DiffFormat = .text;
     var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var want_validate_only = false;
@@ -202,6 +204,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             want_verbose_passes = true;
         } else if (std.mem.eql(u8, raw_args[i], "--summary")) {
             want_summary = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--config")) {
+            if (i + 1 < raw_args.len) {
+                config_path = raw_args[i + 1];
+                i += 1;
+            }
         } else if (std.mem.eql(u8, raw_args[i], "--color")) {
             if (i + 1 < raw_args.len) {
                 const val = raw_args[i + 1];
@@ -240,7 +247,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     const import_path_list = try import_paths.toOwnedSlice(alloc);
 
     if (want_version) {
-        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init };
+        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
     }
 
     const flags = GlobalFlags{
@@ -256,13 +263,14 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .quiet = want_quiet,
         .import_paths = import_path_list,
         .summary = want_summary,
+        .config_path = config_path,
     };
 
     // No positional args, or first arg is a flag → default compile from stdin
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
         // Check for --help before treating as stdin compile
         if (hasHelpFlag(fargs)) {
-            return .{ .dialect = dialect, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init };
+            return .{ .dialect = dialect, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
         }
         return .{
             .dialect = dialect,
@@ -281,6 +289,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             .import_paths = import_path_list,
             .color = want_color,
             .init_flag = want_init,
+            .config_path = config_path,
         };
     }
 
@@ -288,7 +297,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     // Check for subcommand help: `rune <cmd> --help` or `rune <cmd> -h`
     if (hasHelpFlag(fargs)) {
-        return .{ .dialect = dialect, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init };
+        return .{ .dialect = dialect, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
     }
 
     // Table-driven subcommand dispatch.
@@ -338,10 +347,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .import_paths = import_path_list,
         .color = want_color,
         .init_flag = want_init,
+        .config_path = config_path,
     };
 }
 
-fn parseDialect(s: []const u8) !dialect_enum.Dialect {
+pub fn parseDialect(s: []const u8) !dialect_enum.Dialect {
     if (std.mem.eql(u8, s, "mysql")) return .mysql;
     if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
     if (std.mem.eql(u8, s, "sqlite") or std.mem.eql(u8, s, "sq")) return .sqlite;
@@ -361,13 +371,13 @@ fn parseTarget(s: []const u8) !Target {
 // Table-driven command definitions for auto-generated help and unknown command detection.
 // To add a new command: add an entry here + a branch in the routing below.
 
-const CommandInfo = struct {
+pub const CommandInfo = struct {
     name: []const u8,
     args: []const u8, // argument syntax (e.g. "<old.ss> <new.ss>")
     description: []const u8,
 };
 
-const COMMAND_REGISTRY = [_]CommandInfo{
+pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "validate", .args = "[input.ss]", .description = "Validate .ss schema (no output)" },
     .{ .name = "check", .args = "[input.ss]", .description = "Check schema validity (exit 1 on error)" },
     .{ .name = "stats", .args = "[input.ss]", .description = "Print schema statistics (table/field/view counts)" },
@@ -388,7 +398,7 @@ fn isKnownLongFlag(flag: []const u8) bool {
         "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
         "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
         "--name",           "--dir",         "--incremental",               "--color",  "--init",
-        "--summary",
+        "--summary",        "--config",
     };
     inline for (known) |k| {
         if (std.mem.eql(u8, flag, k)) return true;
@@ -434,6 +444,7 @@ fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targe
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
         .color = opts.color,
+        .config_path = opts.config_path,
     };
 }
 
@@ -457,6 +468,7 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
             .json_errors = opts.json_errors,
             .import_paths = opts.import_paths,
             .color = opts.color,
+            .config_path = opts.config_path,
         };
     }
     if (fargs.len < 3) return error.MigrateMissingArgs;
@@ -491,12 +503,14 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
             .name = name,
             .dir = dir,
             .incremental = incremental,
+            .summary = opts.summary,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
         .color = opts.color,
+        .config_path = opts.config_path,
     };
 }
 
@@ -528,6 +542,7 @@ fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
         .color = opts.color,
+        .config_path = opts.config_path,
     };
 }
 
@@ -565,6 +580,7 @@ fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
         .color = opts.color,
+        .config_path = opts.config_path,
     };
 }
 
@@ -582,6 +598,7 @@ const GlobalFlags = struct {
     quiet: bool,
     import_paths: []const []const u8,
     summary: bool = false,
+    config_path: ?[]const u8 = null,
 };
 
 fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
@@ -594,6 +611,7 @@ fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Com
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
         .color = opts.color,
+        .config_path = opts.config_path,
     };
 }
 
@@ -666,6 +684,7 @@ pub fn printUsage() void {
     std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
     std.debug.print("  --color         Color output: auto (default), always, never\n", .{});
     std.debug.print("  --init          Create a starter schema file (equivalent to 'rune init')\n", .{});
+    std.debug.print("  --config        Path to project config file (default: ./rune.toml)\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("  -h, --help      Show this help message and exit\n", .{});
     std.debug.print("\nExamples:\n", .{});
@@ -702,6 +721,7 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 if (std.mem.eql(u8, subcommand, "migrate")) {
                     std.debug.print("  --rollback      Generate rollback SQL instead\n", .{});
                     std.debug.print("  --dry-run       Show SQL without writing to file\n", .{});
+                    std.debug.print("  --summary       Show summary only (no full SQL)\n", .{});
                     std.debug.print("  -o, --output    Output file path\n", .{});
                 }
             } else if (std.mem.eql(u8, subcommand, "reverse")) {
