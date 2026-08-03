@@ -22,8 +22,8 @@ cd rune && zig build bench -- --dialect pg     # Benchmark PostgreSQL dialect
 ### Golden File Tests (shell-based, compare compiler output against .sql golden files)
 
 ```bash
-bash tests/test.sh                  # MySQL (86 tests)
-bash tests/test_postgres.sh         # PostgreSQL (87 tests)
+bash tests/test.sh                  # MySQL (85 tests)
+bash tests/test_postgres.sh         # PostgreSQL (86 tests)
 bash tests/test_sqlite.sh           # SQLite (26 tests)
 bash tests/test_mssql.sh            # MSSQL (26 tests)
 bash tests/test_oracle.sh           # Oracle (103 tests)
@@ -41,9 +41,10 @@ bash tests/test_property_roundtrip.sh  # Property-based roundtrip (30+ iteration
 bash tests/test_imports.sh          # Import system (6 tests)
 bash tests/test_stdin.sh            # Stdin pipeline (4 tests)
 bash tests/test_bench.sh            # Benchmark regression (--save/--check/--diff)
-bash tests/test_reverse_confidence.sh  # Reverse confidence (4 tests)
+bash tests/test_reverse_confidence.sh  # Reverse confidence (3 tests)
 bash tests/test_init.sh             # Init & completions (12 tests)
-bash tests/test_coverage.sh         # Full test suite runner (all 20 suites)
+bash tests/test_color.sh            # Color output (5 tests)
+bash tests/test_coverage.sh         # Full test suite runner (all 23 suites)
 ```
 
 Run a single golden test by filter: `bash tests/test.sh 01` (matches test name substring).
@@ -72,6 +73,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune fmt schema.ss                     # Auto-format .ss file
 ./rune/zig-out/bin/rune diff old.ss new.ss --format sarif # SARIF diff output
 ./rune/zig-out/bin/rune diff old.ss new.ss --check       # CI gate (exit 1 if differences)
+./rune/zig-out/bin/rune diff old.ss new.ss --summary     # Summary only (N changed, X added, Y dropped, Z modified)
 ./rune/zig-out/bin/rune generate json-schema schema.ss   # Generate JSON Schema
 ./rune/zig-out/bin/rune generate --list                  # List available generators
 ```
@@ -82,11 +84,11 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 
 ```
 rune/src/
-  main.zig, cli.zig, io.zig, utils.zig, completions.zig             # CLI + glue
-  bench.zig, ast_visitor.zig, formatter.zig                       # standalone modules
+  main.zig, cli.zig, io.zig, utils.zig, completions.zig, color.zig  # CLI + glue
+  bench.zig, ast_visitor.zig, formatter.zig, version.zig          # standalone modules
   generator.zig                                                   # generator registry (pluggable)
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
-  tests.zig                                                       # colocated test index (66 files)
+  tests.zig                                                       # colocated test index (77 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig,       # pipeline orchestration
                stats.zig
@@ -96,12 +98,15 @@ rune/src/
   dialect/     dialect.zig, enum.zig, mysql.zig,          # dialect backends (8 files)
                pg.zig, sqlite.zig, mssql.zig, oracle.zig,
                common.zig, sqlite_hints.zig
-  reverse/     codegen.zig, column.zig, map.zig,          # reverse engineering (7 files)
-               map_data.zig, fk.zig, check.zig, template_extraction.zig
-  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (14 files)
+  reverse/     codegen.zig, column.zig, map.zig,          # reverse engineering (9 files)
+               map_data.zig, fk.zig, check.zig,
+               dialect_detect.zig, template_extraction.zig
+  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (22 files)
                fks.zig, indexes.zig, semantic.zig, migrate.zig, rename.zig
-               format.zig, format/text.zig,              # format re-export + sub-modules
-               format/json.zig, format/sarif.zig
+               format.zig, format_common.zig,            # format re-export + shared helpers
+               format/text.zig, format/json.zig,         # format sub-modules
+               format/sarif.zig, format/markdown.zig
+               emit.zig, migrate_helpers.zig, migrate_json.zig
   types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (9 files)
                sql_type.zig, type_map.zig, type_registry.zig,
                type_resolver.zig, symbol_table.zig,
@@ -204,9 +209,11 @@ rune/src/
 | | `indexes.zig` | Index diffing |
 | | `rename.zig` | Shared rename-adjustment logic for index/FK field name substitution |
 | | `format.zig` | Diff output formatting — re-exports from sub-modules |
+| | `format_common.zig` | Shared diff format helpers (formatTypeInfo) |
 | | `format/text.zig` | Text diff output (human-readable `-- ALTER TABLE` format) |
 | | `format/json.zig` | JSON diff output (structured, machine-readable) |
 | | `format/sarif.zig` | SARIF diff output (CI/CD integration, versioned from `version.zig`) |
+| | `format/markdown.zig` | Markdown diff output (PR descriptions, documentation) |
 | | `semantic.zig` | Dialect-aware type equivalence (`typeInfoEquiv` + `semanticEquiv`) |
 | | `migrate.zig` | Migration SQL generation |
 | `types/` | `ast.zig` | AST type definitions (Schema, Table, Field, Template, etc.) |
@@ -228,6 +235,8 @@ rune/src/
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing |
 | | `bench.zig` | Benchmark entry point |
+| | `color.zig` | ANSI color output (ColorMode, writeColorized) |
+| | `version.zig` | Centralized version constant |
 | generators | `generators/json_schema.zig` | JSON Schema generator (draft-07) |
 | | `generators/sql_ddl.zig` | SQL DDL generator (wraps codegen) |
 | | `generators/common.zig` | Shared generator helpers + ORM default formatter factory |
@@ -243,8 +252,8 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 68 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
-- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 20 scripts: `test.sh` (MySQL, 86), `test_postgres.sh` (PG, 87), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_oracle.sh` (Oracle, 103), `test_db2.sh` (Db2, 103), `test_migrate.sh` (34), `test_diff.sh` (12), `test_reverse.sh` (21), `test_error_recovery.sh` (12), `test_json_schema.sh` (3), `test_openapi.sh` (3), `test_graphql.sh` (4), `test_roundtrip.sh` (68), `test_imports.sh` (6), `test_stdin.sh` (4), `test_bench.sh` (benchmark regression), `test_reverse_confidence.sh` (4), `test_init.sh` (12), `test_coverage.sh` (full suite runner). Run a single test by filter: `bash tests/test.sh 01`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 77 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 23 scripts: `test.sh` (MySQL, 85), `test_postgres.sh` (PG, 86), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_oracle.sh` (Oracle, 103), `test_db2.sh` (Db2, 103), `test_migrate.sh` (Migration, 34), `test_migrate_status.sh` (Migrate Status, 7), `test_diff.sh` (Diff, 12), `test_reverse.sh` (Reverse, 21), `test_error_recovery.sh` (Error Recovery, 12), `test_json_schema.sh` (JSON Schema, 3), `test_openapi.sh` (OpenAPI, 3), `test_graphql.sh` (GraphQL, 4), `test_roundtrip.sh` (Round-trip, 112, 5 dialects), `test_property_roundtrip.sh` (Property-based roundtrip, 30+ iterations), `test_imports.sh` (Imports, 6), `test_stdin.sh` (Stdin, 4), `test_bench.sh` (Benchmark regression), `test_reverse_confidence.sh` (Reverse Confidence, 3), `test_init.sh` (Init & Completions, 12), `test_color.sh` (Color output), `test_coverage.sh` (Full suite runner). Run a single test by filter: `bash tests/test.sh 01`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
 ## Conventions
