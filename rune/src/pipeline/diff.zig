@@ -24,6 +24,7 @@ pub const DiffConfig = struct {
     trace: bool = false,
     stats: bool = false,
     check: bool = false,
+    color: cli.ColorMode = .auto,
 };
 
 /// Configuration for `rune migrate` — replaces 10 positional parameters.
@@ -67,7 +68,7 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
         if (result.schema_diff.hasChanges()) {
             // Text format writes the diff before failing (useful for CI output)
             if (cfg.format == .text) {
-                const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, cfg.dialect);
+                const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, cfg.dialect, cfg.color, io);
                 try io_mod.writeOutput(io, diff_text, null, false);
             }
             return error.CheckFailed;
@@ -77,7 +78,7 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
 
     switch (cfg.format) {
         .text => {
-            const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, cfg.dialect);
+            const diff_text = try diff_format.formatDiff(alloc, result.schema_diff, cfg.dialect, cfg.color, io);
             try io_mod.writeOutput(io, diff_text, null, false);
         },
         .json => {

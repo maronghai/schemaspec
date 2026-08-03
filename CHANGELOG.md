@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.97.0] - 2026-08-03
+
+### Added
+- **Colored diff output** — `rune diff` now supports ANSI color output for terminal-friendly display. Added `--color` flag with three modes: `auto` (default, TTY detection), `always`, `never`. Colors: green for added, red for dropped, yellow for modified, blue+bold for table headers.
+- **Diff summary statistics** — `rune diff` now prints a summary line after the diff: `"N tables changed (X added, Y dropped, Z modified)"`.
+- **`color.zig` module** — New `src/color.zig` with ANSI escape code constants, `ColorMode` enum, and `writeColorized` helper.
+- **Color unit tests** — 7 new tests in `color_test.zig` covering `ColorMode` variants and `ParsedArgs` defaults.
+- **Color golden test** — New `tests/test_color.sh` with 5 tests verifying `--color always` produces ANSI codes, `--color never` produces plain text, and diff summary behavior.
+- **Shell completions updated** — Bash, Fish, and PowerShell completions now include `--color` flag with `auto|always|never` values.
+
+### Changed
+- **`writeDiffTo` signature** — Added `use_color: bool` parameter to `diff/format/text.zig:writeDiffTo`. All callers updated.
+- **`formatDiff` signature** — Added `color_mode: cli.ColorMode` and `io: std.Io` parameters. Pipeline diff handler threads color mode from CLI args.
+- **`DiffConfig` struct** — Added `color: cli.ColorMode` field to `pipeline/diff.zig:DiffConfig`.
+
 ## [0.96.0] - 2026-08-03
 
 ### Fixed

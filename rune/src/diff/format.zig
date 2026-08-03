@@ -2,6 +2,7 @@ const std = @import("std");
 const diff_types = @import("../diff/types.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const utils = @import("../utils.zig");
+const cli = @import("../cli.zig");
 const SchemaDiff = diff_types.SchemaDiff;
 const TableDiff = diff_types.TableDiff;
 const Dialect = @import("../dialect/enum.zig").Dialect;

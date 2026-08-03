@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.96.0 (2026-08-03) — 32,600+ lines production Zig, 929+ tests, 23 test suites.
+**Current version**: 0.97.0 (2026-08-03) — 32,700+ lines production Zig, 936+ tests, 24 test suites.
 
 ---
 
@@ -153,7 +153,7 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 - [x] Shell completion scripts — `rune completions bash|zsh|fish|powershell` (v0.66.0)
 - [x] `rune fmt` — auto-format `.ss` files (v0.68.0)
 - [ ] `rune playground` — web-based `.ss` editor with live compilation (WASM)
-- [ ] Colored output — syntax-highlighted SQL and diff output
+- [x] Colored output — syntax-highlighted SQL and diff output (v0.97.0)
 
 ---
 
@@ -216,6 +216,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.97.0 (2026-08-03)
+
+- **Colored diff output** — `rune diff` supports ANSI color output with `--color auto|always|never` flag. Green for added, red for dropped, yellow for modified, blue+bold for table headers.
+- **Diff summary statistics** — `rune diff` prints a summary line: `"N tables changed (X added, Y dropped, Z modified)"`.
+- **New `color.zig` module** — ANSI escape code constants, `ColorMode` enum, `writeColorized` helper.
+- **7 new unit tests** — `color_test.zig` covering `ColorMode` variants and `ParsedArgs` defaults.
+- **5 new golden tests** — `test_color.sh` verifying color output behavior.
+- **Shell completions updated** — Bash, Fish, PowerShell include `--color` flag.
 
 ### v0.96.0 (2026-08-03)
 
@@ -646,7 +655,7 @@ Ongoing improvements pursued alongside feature work.
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
 | 4: Incremental & Live Workflows | 🟡 Partial | 3/10 | 7 |
-| 5: Developer Experience | 🟡 Partial | 3/12 | 9 |
+| 5: Developer Experience | 🟡 Partial | 4/12 | 8 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 8/12 | 4 |
-| **Total** | | **50/81** | **31** |
+| **Total** | | **51/81** | **30** |

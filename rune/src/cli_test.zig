@@ -576,3 +576,50 @@ test "findUnknownFlag: returns null for no flags" {
     const flag = cli.findUnknownFlag(&[_][]const u8{ "rune", "schema.ss" });
     try testing.expect(flag == null);
 }
+
+// ─── New tests for v0.97.0 ────────────────────────────────────
+
+test "parseArgs: --color always" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "--color", "always" });
+    const result = try cli.parseArgs(alloc, &args);
+    try testing.expectEqual(cli.ColorMode.always, result.color);
+}
+
+test "parseArgs: --color never" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "--color", "never" });
+    const result = try cli.parseArgs(alloc, &args);
+    try testing.expectEqual(cli.ColorMode.never, result.color);
+}
+
+test "parseArgs: --color auto (default)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "--color", "auto" });
+    const result = try cli.parseArgs(alloc, &args);
+    try testing.expectEqual(cli.ColorMode.auto, result.color);
+}
+
+test "parseArgs: --color without value defaults to always" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(2, .{ "rune", "--color" });
+    const result = try cli.parseArgs(alloc, &args);
+    try testing.expectEqual(cli.ColorMode.always, result.color);
+}
+
+test "parseArgs: diff --color always" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(6, .{ "rune", "diff", "old.ss", "new.ss", "--color", "always" });
+    const result = try cli.parseArgs(alloc, &args);
+    try testing.expectEqual(cli.ColorMode.always, result.color);
+}

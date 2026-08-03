@@ -134,6 +134,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .trace = cmd.trace,
                 .stats = cmd.stats,
                 .check = cmd.check,
+                .color = parsed.color,
             });
         },
         .migrate => |cmd| {

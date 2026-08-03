@@ -15,7 +15,7 @@ test "writeDiffTo: empty schema produces no output" {
     };
     var aw = std.Io.Writer.Allocating.init(testing.allocator);
     defer aw.deinit();
-    try text.writeDiffTo(&aw.writer, d, '`');
+    try text.writeDiffTo(&aw.writer, d, '`', false);
     try aw.writer.flush();
     const result = try aw.toOwnedSlice();
     defer testing.allocator.free(result);
@@ -33,7 +33,7 @@ test "writeDiffTo: dropped table renders DROP TABLE" {
     };
     var aw = std.Io.Writer.Allocating.init(alloc);
     defer aw.deinit();
-    try text.writeDiffTo(&aw.writer, d, '`');
+    try text.writeDiffTo(&aw.writer, d, '`', false);
     try aw.writer.flush();
     const result = try aw.toOwnedSlice();
     defer alloc.free(result);

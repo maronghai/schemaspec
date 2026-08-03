@@ -84,7 +84,7 @@ pub const COMPLETIONS_BASH =
     \\    commands="init validate check stats diff migrate reverse docs format generate completions"
     \\
     \\    if [[ ${cur} == -* ]]; then
-    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template" -- ${cur}) )
+    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color" -- ${cur}) )
     \\        return 0
     \\    fi
     \\
@@ -218,6 +218,7 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -l import-path -r -d 'Additional search path for @import'
     \\complete -c rune -l output -r -d 'Output file path'
     \\complete -c rune -l format -r -d 'Output format' -xa 'text json sarif markdown'
+    \\complete -c rune -l color -r -d 'Color output' -xa 'auto always never'
     \\
     \\# generate subcommand
     \\complete -c rune -n '__fish_seen_subcommand_from generate' -a 'json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql' -d 'Generator'
@@ -275,7 +276,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('powershell', 'powershell', 'ParameterValue', 'PowerShell')
     \\    )
     \\
-    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '-h', '-v', '-d', '-t', '-s', '-q')
+    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '-h', '-v', '-d', '-t', '-s', '-q')
     \\
     \\    $cursorToken = $commandAst.CommandElements[-1].Value
     \\    $tokens = $commandAst.CommandElements | ForEach-Object { $_.Value }

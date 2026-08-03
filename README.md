@@ -298,9 +298,11 @@ Type differences: `b` → `NUMBER(1)`, `t` → `TIMESTAMP`, `B` → `BLOB`, `s` 
 rune migrate old.ss new.ss                          # → ALTER TABLE SQL
 rune migrate old.ss new.ss -d pg -o migration.sql   # to file
 rune migrate old.ss new.ss --target json-schema     # → structured JSON
+rune diff old.ss new.ss                             # → show schema differences
+rune diff old.ss new.ss --color always              # → colored diff output
 ```
 
-Detects: new/dropped tables, added/dropped/modified/renamed columns, index changes, FK changes. All wrapped in transaction. JSON output produces an `operations` array with typed entries (`drop_table`, `create_table`, `add_column`, etc.) and dialect metadata.
+Detects: new/dropped tables, added/dropped/modified/renamed columns, index changes, FK changes. All wrapped in transaction. JSON output produces an `operations` array with typed entries (`drop_table`, `create_table`, `add_column`, etc.) and dialect metadata. Diff output supports colored terminal display with `--color auto|always|never`.
 
 ### Validate
 

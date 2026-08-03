@@ -55,6 +55,7 @@ cd rune && zig build                              # Build
 | `--strict` | | Treat warnings as errors (for CI/CD) |
 | `--verbose-passes` | | Print semantic pass execution details |
 | `--import-path` | | Additional search path for `@import` directives |
+| `--color` | | Color output: `auto` (default), `always`, `never` |
 | `-q`, `--quiet` | | Suppress non-essential output |
 
 **Note**: Unrecognized `--` flags produce an error with the flag name, instead of being silently treated as file paths.
@@ -78,7 +79,7 @@ cd rune && zig build                              # Build
 ## Testing
 
 ```bash
-# Run all unit tests (60 colocated test files, 567+ tests)
+# Run all unit tests (63 colocated test files, 630+ tests)
 zig build test
 
 # Build only

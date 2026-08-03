@@ -38,7 +38,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
                              └──────────┘
 ```
 
-**Leaf modules** (zero internal dependencies): `ast.zig`, `dialect_enum.zig`, `diagnostic.zig`
+**Leaf modules** (zero internal dependencies): `ast.zig`, `dialect_enum.zig`, `diagnostic.zig`, `color.zig`
 
 **Key modules**:
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
@@ -442,7 +442,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 62 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~620+ | Core logic + pipeline + colocated |
+| Unit tests | 63 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~630+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 87 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |

@@ -33,6 +33,22 @@ pub const ParsedArgs = struct {
     strict: bool,
     json_errors: bool = false,
     import_paths: []const []const u8 = &.{},
+    color: ColorMode = .auto,
+};
+
+pub const ColorMode = enum {
+    auto,
+    always,
+    never,
+
+    /// Determine if color should be used. For `auto`, checks if stdout is a TTY.
+    pub fn shouldUseColor(self: ColorMode, io: std.Io) bool {
+        return switch (self) {
+            .always => true,
+            .never => false,
+            .auto => std.Io.File.stdout().isTty(io) catch false,
+        };
+    }
 };
 
 pub const ArgError = error{
@@ -123,6 +139,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_strict = false;
     var want_verbose_passes = false;
     var want_json_errors = false;
+    var want_color: ColorMode = .auto;
     var diff_format: DiffFormat = .text;
     var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var want_validate_only = false;
@@ -178,6 +195,20 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             want_json_errors = true;
         } else if (std.mem.eql(u8, raw_args[i], "--verbose-passes")) {
             want_verbose_passes = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--color")) {
+            if (i + 1 < raw_args.len) {
+                const val = raw_args[i + 1];
+                if (std.mem.eql(u8, val, "always")) {
+                    want_color = .always;
+                } else if (std.mem.eql(u8, val, "never")) {
+                    want_color = .never;
+                } else if (!std.mem.eql(u8, val, "auto")) {
+                    return error.UnknownFlag;
+                }
+                i += 1;
+            } else {
+                want_color = .always;
+            }
         } else if (std.mem.eql(u8, raw_args[i], "--import-path")) {
             if (i + 1 < raw_args.len) {
                 try import_paths.append(alloc, raw_args[i + 1]);
@@ -202,7 +233,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     const import_path_list = try import_paths.toOwnedSlice(alloc);
 
     if (want_version) {
-        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color };
     }
 
     const flags = GlobalFlags{
@@ -212,6 +243,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .strict = want_strict,
         .verbose_passes = want_verbose_passes,
         .json_errors = want_json_errors,
+        .color = want_color,
         .format = diff_format,
         .validate_only = want_validate_only,
         .quiet = want_quiet,
@@ -222,7 +254,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
         // Check for --help before treating as stdin compile
         if (hasHelpFlag(fargs)) {
-            return .{ .dialect = dialect, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+            return .{ .dialect = dialect, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color };
         }
         return .{
             .dialect = dialect,
@@ -239,6 +271,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             .strict = want_strict,
             .json_errors = want_json_errors,
             .import_paths = import_path_list,
+            .color = want_color,
         };
     }
 
@@ -246,7 +279,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     // Check for subcommand help: `rune <cmd> --help` or `rune <cmd> -h`
     if (hasHelpFlag(fargs)) {
-        return .{ .dialect = dialect, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+        return .{ .dialect = dialect, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color };
     }
 
     // Table-driven subcommand dispatch.
@@ -294,6 +327,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .strict = want_strict,
         .json_errors = want_json_errors,
         .import_paths = import_path_list,
+        .color = want_color,
     };
 }
 
@@ -343,7 +377,7 @@ fn isKnownLongFlag(flag: []const u8) bool {
         "--version",        "--help",        "--stats",  "--quiet",         "--check",  "--dry-run",
         "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
         "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
-        "--name",           "--dir",         "--incremental",
+        "--name",           "--dir",         "--incremental",               "--color",
     };
     inline for (known) |k| {
         if (std.mem.eql(u8, flag, k)) return true;
@@ -387,6 +421,7 @@ fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targe
         .strict = opts.strict,
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
+        .color = opts.color,
     };
 }
 
@@ -409,6 +444,7 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
             .strict = opts.strict,
             .json_errors = opts.json_errors,
             .import_paths = opts.import_paths,
+            .color = opts.color,
         };
     }
     if (fargs.len < 3) return error.MigrateMissingArgs;
@@ -448,6 +484,7 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
         .strict = opts.strict,
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
+        .color = opts.color,
     };
 }
 
@@ -478,6 +515,7 @@ fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
         .strict = opts.strict,
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
+        .color = opts.color,
     };
 }
 
@@ -514,6 +552,7 @@ fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
         .strict = opts.strict,
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
+        .color = opts.color,
     };
 }
 
@@ -525,6 +564,7 @@ const GlobalFlags = struct {
     strict: bool,
     verbose_passes: bool,
     json_errors: bool,
+    color: ColorMode,
     format: DiffFormat,
     validate_only: bool,
     quiet: bool,
@@ -540,6 +580,7 @@ fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Com
         .strict = opts.strict,
         .json_errors = opts.json_errors,
         .import_paths = opts.import_paths,
+        .color = opts.color,
     };
 }
 
@@ -610,6 +651,7 @@ pub fn printUsage() void {
     std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
     std.debug.print("  --import-path   Additional search path for @import directives\n", .{});
     std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
+    std.debug.print("  --color         Color output: auto (default), always, never\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
     std.debug.print("  -h, --help      Show this help message and exit\n", .{});
     std.debug.print("\nExamples:\n", .{});
