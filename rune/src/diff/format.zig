@@ -27,6 +27,7 @@ const markdown_fmt = @import("format/markdown.zig");
 // Re-export text format
 pub const writeDiffTo = text_fmt.writeDiffTo;
 pub const formatDiff = text_fmt.formatDiff;
+pub const formatDiffSummary = text_fmt.formatDiffSummary;
 pub const printDiff = text_fmt.printDiff;
 
 // Re-export JSON format

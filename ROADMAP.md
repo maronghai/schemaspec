@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.97.0 (2026-08-03) — 32,700+ lines production Zig, 936+ tests, 24 test suites.
+**Current version**: 0.99.0 (2026-08-03) — 32,700+ lines production Zig, 936+ tests, 24 test suites.
 
 ---
 
@@ -216,6 +216,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.99.0 (2026-08-03)
+
+- **Fixed `migrate status` 4-digit prefix bug** — `handleMigrateStatus` now correctly handles both 3-digit (legacy) and 4-digit migration file prefixes. Previously used `lastIndexOfScalar` which found the wrong underscore position for filenames like `0001_add_users.sql`. Changed to `indexOfScalar` for correct first-underscore detection.
+- **Fixed iterator string lifetime** — Directory entries are now duplicated before storage (`alloc.dupe`), preventing stale pointers when the iterator reuses its internal buffer.
+- **`migrate status --json-errors`** — Machine-readable JSON output for migration file listing. Outputs `{"files":[{"name":"...","label":"..."},...],"count":N}`.
+- **`rune diff --summary`** — Output only the summary line (`N tables changed (X added, Y dropped, Z modified)`) without the full diff. Useful for CI checks and commit messages.
+- **New test suite** — `tests/test_migrate_status.sh` with 7 tests covering 4-digit, 3-digit, mixed prefixes, empty directories, non-migration files, and JSON output.
 
 ### v0.98.0 (2026-08-03)
 

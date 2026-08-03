@@ -441,6 +441,50 @@ pub fn formatDiff(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, col
     return try aw.toOwnedSlice();
 }
 
+/// Format only the summary line for `rune diff --summary`.
+/// Outputs: "N tables changed (X added, Y dropped, Z modified)"
+pub fn formatDiffSummary(alloc: std.mem.Allocator, d: SchemaDiff, color_mode: cli.ColorMode, io: std.Io) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+    const use_color = color_mode.shouldUseColor(io);
+
+    const stats = DiffStats.compute(d);
+    const total = stats.dropped_tables + stats.added_tables + stats.modified_tables;
+    if (total == 0) {
+        try w.writeAll("no changes\n");
+    } else {
+        if (use_color) try w.writeAll(color_mod.BOLD);
+        try w.print("{d} table{s} changed", .{ total, if (total != 1) "s" else "" });
+        var parts: usize = 0;
+        if (stats.added_tables > 0) {
+            if (use_color) try w.writeAll(color_mod.GREEN);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} added", .{stats.added_tables});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
+        if (stats.dropped_tables > 0) {
+            if (use_color) try w.writeAll(color_mod.RED);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} dropped", .{stats.dropped_tables});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
+        if (stats.modified_tables > 0) {
+            if (use_color) try w.writeAll(color_mod.YELLOW);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} modified", .{stats.modified_tables});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
+        if (use_color) try w.writeAll(color_mod.RESET);
+        try w.writeAll("\n");
+    }
+
+    try w.flush();
+    return try aw.toOwnedSlice();
+}
+
 pub fn printDiff(d: SchemaDiff, dialect: Dialect) void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();

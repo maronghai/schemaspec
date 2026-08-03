@@ -140,6 +140,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .stats = cmd.stats,
                 .check = cmd.check,
                 .color = parsed.color,
+                .summary = cmd.summary,
             });
         },
         .migrate => |cmd| {
@@ -160,7 +161,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             });
         },
         .migrate_status => |cmd| {
-            return diff_pipe.handleMigrateStatus(io, alloc, cmd.dir);
+            return diff_pipe.handleMigrateStatus(io, alloc, cmd.dir, cmd.json_errors);
         },
         .reverse => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);

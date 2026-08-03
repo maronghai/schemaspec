@@ -25,6 +25,7 @@ pub const DiffConfig = struct {
     stats: bool = false,
     check: bool = false,
     color: cli.ColorMode = .auto,
+    summary: bool = false,
 };
 
 /// Configuration for `rune migrate` — replaces 10 positional parameters.
@@ -60,6 +61,7 @@ fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_p
 
 /// Handle `rune diff`: output schema differences between two .ss files.
 /// Supports text, JSON, and SARIF output formats via DiffConfig.format.
+/// With summary=true, outputs only the summary line without full diff.
 pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
     const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path, cfg.dialect);
     emitTraceAndStats(result, cfg.trace, cfg.stats);
@@ -73,6 +75,12 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
             }
             return error.CheckFailed;
         }
+        return;
+    }
+
+    if (cfg.summary) {
+        const summary_text = try diff_format.formatDiffSummary(alloc, result.schema_diff, cfg.color, io);
+        try io_mod.writeOutput(io, summary_text, null, false);
         return;
     }
 
@@ -154,7 +162,9 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
 }
 
 /// Handle `rune migrate status`: list migration files in a directory.
-pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]const u8) !void {
+/// Supports both 3-digit (legacy) and 4-digit (current) sequence prefixes.
+/// With json_errors=true, outputs JSON for CI tooling.
+pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]const u8, json_errors: bool) !void {
     const target_dir = dir_path orelse ".";
     var dir = std.Io.Dir.cwd().openDir(io, target_dir, .{ .iterate = true }) catch |err| {
         const msg = try std.fmt.allocPrint(alloc, "error: cannot open directory '{s}': {}\n", .{ target_dir, err });
@@ -170,17 +180,15 @@ pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]co
         const name = entry.name;
         if (name.len > 4 and std.mem.eql(u8, name[name.len - 4 ..], ".sql")) {
             const base = name[0 .. name.len - 4];
-            if (base.len >= 4 and base[3] == '_') {
-                const digits = base[0..3];
-                var is_digits = true;
-                for (digits) |d| {
-                    if (d < '0' or d > '9') {
-                        is_digits = false;
-                        break;
-                    }
-                }
-                if (is_digits) {
-                    try entries.append(alloc, name);
+            // Find first underscore separator — supports both 3-digit (legacy) and 4-digit sequences
+            if (std.mem.indexOfScalar(u8, base, '_')) |underscore_pos| {
+                const digits = base[0..underscore_pos];
+                if (digits.len > 0) {
+                    if (std.fmt.parseInt(u32, digits, 10)) |_| {
+                        // Duplicate the name — iterator reuses its internal buffer
+                        const owned = try alloc.dupe(u8, name);
+                        try entries.append(alloc, owned);
+                    } else |_| {}
                 }
             }
         }
@@ -193,6 +201,46 @@ pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]co
         }
     }.lessThan);
 
+    if (json_errors) {
+        // JSON output for CI tooling
+        if (entries.items.len == 0) {
+            try io_mod.writeOutput(io, "{\"files\":[],\"count\":0}", null, false);
+            return;
+        }
+        var json = try std.fmt.allocPrint(alloc, "{{\"files\":[", .{});
+        for (entries.items, 0..) |entry_name, idx| {
+            const base = entry_name[0 .. entry_name.len - 4];
+            const underscore_pos = std.mem.indexOfScalar(u8, base, '_') orelse continue;
+            const label = base[underscore_pos + 1 ..];
+            if (idx > 0) json = try std.fmt.allocPrint(alloc, "{s},", .{json});
+            json = try std.fmt.allocPrint(alloc, "{s}{{\"name\":\"", .{json});
+            // JSON-escape the filename
+            for (entry_name) |ch| {
+                if (ch == '"') {
+                    json = try std.fmt.allocPrint(alloc, "{s}\\\"", .{json});
+                } else if (ch == '\\') {
+                    json = try std.fmt.allocPrint(alloc, "{s}\\\\", .{json});
+                } else {
+                    json = try std.fmt.allocPrint(alloc, "{s}{c}", .{ json, ch });
+                }
+            }
+            json = try std.fmt.allocPrint(alloc, "{s}\",\"label\":\"", .{json});
+            for (label) |ch| {
+                if (ch == '"') {
+                    json = try std.fmt.allocPrint(alloc, "{s}\\\"", .{json});
+                } else if (ch == '\\') {
+                    json = try std.fmt.allocPrint(alloc, "{s}\\\\", .{json});
+                } else {
+                    json = try std.fmt.allocPrint(alloc, "{s}{c}", .{ json, ch });
+                }
+            }
+            json = try std.fmt.allocPrint(alloc, "{s}\"}}", .{json});
+        }
+        json = try std.fmt.allocPrint(alloc, "{s}],\"count\":{d}}}", .{ json, entries.items.len });
+        try io_mod.writeOutput(io, json, null, false);
+        return;
+    }
+
     if (entries.items.len == 0) {
         const msg = try std.fmt.allocPrint(alloc, "No migration files found in '{s}'\n", .{target_dir});
         try io_mod.writeOutput(io, msg, null, false);
@@ -202,8 +250,10 @@ pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]co
     var output = try std.fmt.allocPrint(alloc, "Migration files in '{s}':\n", .{target_dir});
     for (entries.items) |entry_name| {
         const base = entry_name[0 .. entry_name.len - 4];
-        const label = base[4..]; // skip NNN_
-        const line = try std.fmt.allocPrint(alloc, "  {s} — {s}\n", .{ entry_name[0..3], label });
+        const underscore_pos = std.mem.indexOfScalar(u8, base, '_') orelse continue;
+        const seq = base[0..underscore_pos];
+        const label = base[underscore_pos + 1 ..];
+        const line = try std.fmt.allocPrint(alloc, "  {s} — {s}\n", .{ seq, label });
         output = try std.fmt.allocPrint(alloc, "{s}{s}", .{ output, line });
     }
     try io_mod.writeOutput(io, output, null, false);
@@ -222,8 +272,8 @@ fn findNextSequenceNumber(io: std.Io, alloc: std.mem.Allocator, dir_path: []cons
         const name = entry.name;
         if (name.len > 4 and std.mem.eql(u8, name[name.len - 4 ..], ".sql")) {
             const base = name[0 .. name.len - 4];
-            // Find the underscore separator — supports both 3-digit (legacy) and 4-digit sequences
-            if (std.mem.lastIndexOfScalar(u8, base, '_')) |underscore_pos| {
+            // Find the first underscore separator — supports both 3-digit (legacy) and 4-digit sequences
+            if (std.mem.indexOfScalar(u8, base, '_')) |underscore_pos| {
                 const digits = base[0..underscore_pos];
                 if (std.fmt.parseInt(u32, digits, 10)) |num| {
                     if (num > max_num) max_num = num;

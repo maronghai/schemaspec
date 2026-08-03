@@ -12,9 +12,9 @@ pub const Command = union(enum) {
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     stats: struct { input: ?[]const u8 },
-    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool },
+    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool },
-    migrate_status: struct { dir: ?[]const u8 },
+    migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
     format_cmd: struct { input: ?[]const u8, output: ?[]const u8 },
@@ -142,6 +142,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_json_errors = false;
     var want_color: ColorMode = .auto;
     var want_init = false;
+    var want_summary = false;
     var diff_format: DiffFormat = .text;
     var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var want_validate_only = false;
@@ -199,6 +200,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             want_json_errors = true;
         } else if (std.mem.eql(u8, raw_args[i], "--verbose-passes")) {
             want_verbose_passes = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--summary")) {
+            want_summary = true;
         } else if (std.mem.eql(u8, raw_args[i], "--color")) {
             if (i + 1 < raw_args.len) {
                 const val = raw_args[i + 1];
@@ -252,6 +255,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .validate_only = want_validate_only,
         .quiet = want_quiet,
         .import_paths = import_path_list,
+        .summary = want_summary,
     };
 
     // No positional args, or first arg is a flag → default compile from stdin
@@ -384,6 +388,7 @@ fn isKnownLongFlag(flag: []const u8) bool {
         "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
         "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
         "--name",           "--dir",         "--incremental",               "--color",  "--init",
+        "--summary",
     };
     inline for (known) |k| {
         if (std.mem.eql(u8, flag, k)) return true;
@@ -422,6 +427,7 @@ fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targe
             .stats = opts.stats,
             .format = opts.format,
             .check = opts.check,
+            .summary = opts.summary,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,
@@ -445,7 +451,7 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
         return .{
             .dialect = dialect,
             .target = target,
-            .command = .{ .migrate_status = .{ .dir = status_dir } },
+            .command = .{ .migrate_status = .{ .dir = status_dir, .json_errors = opts.json_errors } },
             .quiet = opts.quiet,
             .strict = opts.strict,
             .json_errors = opts.json_errors,
@@ -575,6 +581,7 @@ const GlobalFlags = struct {
     validate_only: bool,
     quiet: bool,
     import_paths: []const []const u8,
+    summary: bool = false,
 };
 
 fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
