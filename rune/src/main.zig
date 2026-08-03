@@ -148,7 +148,13 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .rollback = cmd.rollback,
                 .dry_run = cmd.dry_run,
                 .check = cmd.check,
+                .name = cmd.name,
+                .dir = cmd.dir,
+                .incremental = cmd.incremental,
             });
+        },
+        .migrate_status => |cmd| {
+            return diff_pipe.handleMigrateStatus(io, alloc, cmd.dir);
         },
         .reverse => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);

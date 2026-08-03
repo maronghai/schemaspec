@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.92.0 (2026-08-03) — 32,400+ lines production Zig, 880+ tests, 23 test suites.
+**Current version**: 0.93.0 (2026-08-03) — 32,400+ lines production Zig, 880+ tests, 23 test suites.
 
 ---
 
@@ -104,14 +104,14 @@ Bridge the gap between database schema and application code. **Complete** — al
 
 ## Phase 4: Incremental & Live Workflows
 
-Move from batch compilation to interactive, incremental usage. **Not started.**
+Move from batch compilation to interactive, incremental usage. **In progress** — migration naming, incremental filter, and status shipped in v0.93.0.
 
 ### Incremental Migration
 
-- [ ] `rune migrate --incremental old.ss new.ss` — only emit SQL for changed tables
-- [ ] Migration file naming — `001_add_users.sql`, `002_add_posts.sql` with auto-sequencing
+- [x] `rune migrate --incremental old.ss new.ss` — only emit SQL for changed tables (v0.93.0)
+- [x] Migration file naming — `001_add_users.sql`, `002_add_posts.sql` with auto-sequencing (v0.93.0)
 - [ ] Migration dependency graph — detect and order dependent migrations
-- [ ] `rune migrate status` — compare migration files against current schema state
+- [x] `rune migrate status` — list migration files in a directory (v0.93.0)
 
 ### Live Schema Monitoring
 
@@ -216,6 +216,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.93.0 (2026-08-03)
+
+- **Migration file naming** — `rune migrate --name <label>` generates auto-numbered migration files (`001_add_users.sql`). Combined with `-o <dir>` or `--dir <path>`, writes directly to the target directory with sequential numbering.
+- **`--dir` flag for batch output** — `rune migrate old.ss new.ss --dir migrations/ --name add_users` scans the directory for existing `NNN_*.sql` files and generates the next sequence number.
+- **Incremental migration filter** — `rune migrate --incremental` filters out pure comment/metadata changes, emitting only structural diffs (table add/drop, field add/drop/modify, FK add/drop/modify, index add/drop/modify).
+- **`rune migrate status`** — Lists migration files in a directory, showing sequence numbers and names. Scans for `NNN_*.sql` pattern files.
 
 ### v0.92.0 (2026-08-03)
 
@@ -615,8 +622,8 @@ Ongoing improvements pursued alongside feature work.
 | 1: Core Solidification | ✅ Complete | 9/9 | 0 |
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
-| 4: Incremental & Live Workflows | 🔲 Not started | 0/10 | 10 |
+| 4: Incremental & Live Workflows | 🟡 Partial | 3/10 | 7 |
 | 5: Developer Experience | 🟡 Partial | 3/12 | 9 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 8/12 | 4 |
-| **Total** | | **47/81** | **34** |
+| **Total** | | **50/81** | **31** |

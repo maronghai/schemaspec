@@ -13,7 +13,8 @@ pub const Command = union(enum) {
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     stats: struct { input: ?[]const u8 },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool },
+    migrate_status: struct { dir: ?[]const u8 },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
     format_cmd: struct { input: ?[]const u8, output: ?[]const u8 },
@@ -327,7 +328,7 @@ const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "check", .args = "[input.ss]", .description = "Check schema validity (exit 1 on error)" },
     .{ .name = "stats", .args = "[input.ss]", .description = "Print schema statistics (table/field/view counts)" },
     .{ .name = "diff", .args = "<old.ss> <new.ss>", .description = "Show schema differences" },
-    .{ .name = "migrate", .args = "<old.ss> <new.ss>", .description = "Generate ALTER TABLE migration SQL" },
+    .{ .name = "migrate", .args = "<old.ss> <new.ss> [--name <label>] [--dir <path>] [--incremental]", .description = "Generate ALTER TABLE migration SQL" },
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
     .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
     .{ .name = "format", .args = "[input.ss]", .description = "Auto-format .ss schema file" },
@@ -342,6 +343,7 @@ fn isKnownLongFlag(flag: []const u8) bool {
         "--version",        "--help",        "--stats",  "--quiet",         "--check",  "--dry-run",
         "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
         "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
+        "--name",           "--dir",         "--incremental",
     };
     inline for (known) |k| {
         if (std.mem.eql(u8, flag, k)) return true;
@@ -389,7 +391,42 @@ fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targe
 }
 
 fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
+    // Handle `rune migrate status [--dir <path>]`
+    if (fargs.len >= 2 and std.mem.eql(u8, fargs[1], "status")) {
+        var status_dir: ?[]const u8 = null;
+        var j: usize = 2;
+        while (j < fargs.len) : (j += 1) {
+            if (std.mem.eql(u8, fargs[j], "--dir") and j + 1 < fargs.len) {
+                status_dir = fargs[j + 1];
+                j += 1;
+            }
+        }
+        return .{
+            .dialect = dialect,
+            .target = target,
+            .command = .{ .migrate_status = .{ .dir = status_dir } },
+            .quiet = opts.quiet,
+            .strict = opts.strict,
+            .json_errors = opts.json_errors,
+            .import_paths = opts.import_paths,
+        };
+    }
     if (fargs.len < 3) return error.MigrateMissingArgs;
+    var name: ?[]const u8 = null;
+    var dir: ?[]const u8 = null;
+    var incremental = false;
+    var j: usize = 3;
+    while (j < fargs.len) : (j += 1) {
+        if (std.mem.eql(u8, fargs[j], "--name") and j + 1 < fargs.len) {
+            name = fargs[j + 1];
+            j += 1;
+        } else if (std.mem.eql(u8, fargs[j], "--dir") and j + 1 < fargs.len) {
+            dir = fargs[j + 1];
+            j += 1;
+        } else if (std.mem.eql(u8, fargs[j], "--incremental")) {
+            incremental = true;
+        }
+    }
     return .{
         .dialect = dialect,
         .target = target,
@@ -403,6 +440,9 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
             .dry_run = opts.dry_run,
             .format = opts.format,
             .check = opts.check,
+            .name = name,
+            .dir = dir,
+            .incremental = incremental,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,
