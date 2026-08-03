@@ -21,7 +21,7 @@ pub const Command = union(enum) {
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },
     version,
-    help,
+    help: struct { subcommand: ?[]const u8 = null },
 };
 
 pub const ParsedArgs = struct {
@@ -42,6 +42,7 @@ pub const ArgError = error{
     UnknownFormat,
     UnknownCommand,
     UnknownFlag,
+    UnknownGenerator,
     DiffMissingArgs,
     MigrateMissingArgs,
 };
@@ -71,11 +72,11 @@ fn parseRollbackFlag(args: []const []const u8, start: usize) bool {
     return false;
 }
 
-/// Scan args for `-o <path>` and return the output path (or null).
+/// Scan args for `-o <path>` or `--output <path>` and return the output path (or null).
 fn parseOutputFlag(args: []const []const u8, start: usize) ?[]const u8 {
     var j: usize = start;
     while (j < args.len) : (j += 1) {
-        if (std.mem.eql(u8, args[j], "-o") and j + 1 < args.len) {
+        if ((std.mem.eql(u8, args[j], "-o") or std.mem.eql(u8, args[j], "--output")) and j + 1 < args.len) {
             const val = args[j + 1];
             // Reject if value starts with '-' (likely a missing value)
             if (val.len > 0 and val[0] == '-') return null;
@@ -96,6 +97,14 @@ fn parseTraceFlag(args: []const []const u8, start: usize) bool {
     return false;
 }
 
+/// Check if args contain `-h` or `--help`.
+fn hasHelpFlag(args: []const []const u8) bool {
+    for (args) |arg| {
+        if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) return true;
+    }
+    return false;
+}
+
 // ─── Argument Parsing ──────────────────────────────────────────
 
 pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !ParsedArgs {
@@ -106,7 +115,6 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     // Pass 1: extract global flags from all args
     var i: usize = 1; // skip argv[0]
     var want_version = false;
-    var want_help = false;
     var want_stats = false;
     var want_quiet = false;
     var want_check = false;
@@ -120,8 +128,6 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     while (i < raw_args.len) : (i += 1) {
         if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
             want_version = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--help") or std.mem.eql(u8, raw_args[i], "-h")) {
-            want_help = true;
         } else if (std.mem.eql(u8, raw_args[i], "--stats") or std.mem.eql(u8, raw_args[i], "-s")) {
             want_stats = true;
         } else if (std.mem.eql(u8, raw_args[i], "--quiet") or std.mem.eql(u8, raw_args[i], "-q")) {
@@ -176,6 +182,13 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 try import_paths.append(alloc, raw_args[i + 1]);
                 i += 1;
             }
+        } else if (std.mem.eql(u8, raw_args[i], "--output") or std.mem.eql(u8, raw_args[i], "-o")) {
+            // Output flag: append to filtered args, handled by parseOutputFlag below
+            try filtered.append(alloc, raw_args[i]);
+            if (i + 1 < raw_args.len) {
+                i += 1;
+                try filtered.append(alloc, raw_args[i]);
+            }
         } else {
             // Reject unrecognized long flags (--something)
             if (raw_args[i].len > 2 and raw_args[i][0] == '-' and raw_args[i][1] == '-' and !isKnownLongFlag(raw_args[i])) {
@@ -189,10 +202,6 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     if (want_version) {
         return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
-    }
-
-    if (want_help) {
-        return .{ .dialect = dialect, .target = target, .command = .help, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
     }
 
     const flags = GlobalFlags{
@@ -210,6 +219,10 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     // No positional args, or first arg is a flag → default compile from stdin
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
+        // Check for --help before treating as stdin compile
+        if (hasHelpFlag(fargs)) {
+            return .{ .dialect = dialect, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+        }
         return .{
             .dialect = dialect,
             .target = target,
@@ -229,6 +242,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     }
 
     const sub = fargs[0];
+
+    // Check for subcommand help: `rune <cmd> --help` or `rune <cmd> -h`
+    if (hasHelpFlag(fargs)) {
+        return .{ .dialect = dialect, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list };
+    }
 
     // Table-driven subcommand dispatch.
     const SubcommandParser = *const fn ([]const []const u8, dialect_enum.Dialect, Target, GlobalFlags) anyerror!ParsedArgs;
@@ -339,6 +357,15 @@ fn isKnownCommand(name: []const u8) bool {
     return false;
 }
 
+/// Check if a generator name is valid (matches an entry in the generator registry).
+fn isValidGeneratorName(name: []const u8) bool {
+    const generator = @import("generator.zig");
+    for (generator.REGISTRY) |gen| {
+        if (std.mem.eql(u8, gen.name, name)) return true;
+    }
+    return false;
+}
+
 // ─── Subcommand Parsers ──────────────────────────────────────
 
 fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
@@ -428,6 +455,12 @@ fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
             input = fargs[j];
         }
     }
+    // Early validation: reject unknown generator names before hitting the pipeline
+    if (generator) |gen_name| {
+        if (gen_name.len > 0 and !isValidGeneratorName(gen_name)) {
+            return error.UnknownGenerator;
+        }
+    }
     return .{
         .dialect = dialect,
         .target = target,
@@ -470,19 +503,28 @@ fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Com
     };
 }
 
-fn parseValidateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags, cmd: Command) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .validate = .{ .input = input, .stats = opts.stats, .verbose_passes = opts.verbose_passes } }, opts);
+    // Inject input into the command variant
+    const final_cmd: Command = switch (cmd) {
+        .validate => |c| .{ .validate = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes } },
+        .check => |c| .{ .check = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes } },
+        .stats => |c| .{ .stats = .{ .input = input orelse c.input } },
+        else => cmd,
+    };
+    return parseSimpleSubcommand(dialect, target, final_cmd, opts);
+}
+
+fn parseValidateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .validate = .{ .input = null, .stats = opts.stats, .verbose_passes = opts.verbose_passes } });
 }
 
 fn parseCheckArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const input = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .check = .{ .input = input, .stats = opts.stats, .verbose_passes = opts.verbose_passes } }, opts);
+    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .check = .{ .input = null, .stats = opts.stats, .verbose_passes = opts.verbose_passes } });
 }
 
 fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const input = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input } }, opts);
+    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .stats = .{ .input = null } });
 }
 
 fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
@@ -545,4 +587,51 @@ pub fn printUsage() void {
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});
     std.debug.print("  cat schema.sql | rune reverse -T\n", .{});
+}
+
+/// Print help for a specific subcommand.
+pub fn printSubcommandHelp(subcommand: []const u8) void {
+    std.debug.print("Usage: rune {s}", .{subcommand});
+    inline for (COMMAND_REGISTRY) |cmd| {
+        if (std.mem.eql(u8, cmd.name, subcommand)) {
+            std.debug.print(" {s}\n", .{cmd.args});
+            std.debug.print("\n{s}\n", .{cmd.description});
+            // Show command-specific options
+            if (std.mem.eql(u8, subcommand, "diff") or std.mem.eql(u8, subcommand, "migrate")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  --format        Output format: text (default), json, sarif, markdown\n", .{});
+                std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
+                std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
+                std.debug.print("  --check         Exit 1 if there are differences\n", .{});
+                if (std.mem.eql(u8, subcommand, "migrate")) {
+                    std.debug.print("  --rollback      Generate rollback SQL instead\n", .{});
+                    std.debug.print("  --dry-run       Show SQL without writing to file\n", .{});
+                    std.debug.print("  -o, --output    Output file path\n", .{});
+                }
+            } else if (std.mem.eql(u8, subcommand, "reverse")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  -T, --template  Extract shared templates\n", .{});
+                std.debug.print("  --format        Output format: text (default), json\n", .{});
+                std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
+                std.debug.print("  -o, --output    Output file path\n", .{});
+                std.debug.print("  --validate-only Validate SQL without generating output\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "generate")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  --list, -l      List available generators\n", .{});
+                std.debug.print("  -o, --output    Output file path\n", .{});
+                std.debug.print("\nRun 'rune generate --list' to see available generators.\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "validate") or std.mem.eql(u8, subcommand, "check")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
+                std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "completions")) {
+                std.debug.print("\nArguments:\n", .{});
+                std.debug.print("  shell           Target shell: bash (default), zsh, fish, powershell\n", .{});
+            } else {
+                std.debug.print("\nGlobal options also apply: -d/--dialect, -s/--stats, -q/--quiet, -h/--help\n", .{});
+            }
+            return;
+        }
+    }
+    std.debug.print("\nUnknown command: {s}\n", .{subcommand});
 }

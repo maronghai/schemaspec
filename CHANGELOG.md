@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.92.0] - 2026-08-03
+
+### Fixed
+- **`--output` long flag** — `--output` was listed as a known flag and in completions, but `parseArgs` only handled `-o`. The `--output` flag silently fell through as a positional argument. Now both `-o` and `--output` work correctly.
+
+### Added
+- **Subcommand help** — `rune diff --help`, `rune generate --help`, etc. now show subcommand-specific help instead of the general help. Added `hasHelpFlag` helper, `printSubcommandHelp` function, and updated `Command.help` to carry an optional subcommand name.
+- **Early generator name validation** — `rune generate <invalid>` now produces a clear error message at the CLI level instead of failing deep in the pipeline.
+
+### Changed
+- **Deduplicated validate/check/stats parsers** — Extracted `parseSimpleInputArgs` helper to eliminate duplicated code across `parseValidateArgs`, `parseCheckArgs`, and `parseStatsArgs`.
+
 ## [0.87.0] - 2026-08-02
 
 ### Changed

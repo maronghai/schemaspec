@@ -204,7 +204,7 @@ test "parseArgs: --help returns help command" {
     const alloc = arena.allocator();
     const args = makeArgs(2, .{ "rune", "--help" });
     const result = try cli.parseArgs(alloc, &args);
-    try testing.expectEqual(Command.help, result.command);
+    try testing.expectEqual(Command{ .help = .{} }, result.command);
 }
 
 test "parseArgs: -h returns help command" {
@@ -213,7 +213,7 @@ test "parseArgs: -h returns help command" {
     const alloc = arena.allocator();
     const args = makeArgs(2, .{ "rune", "-h" });
     const result = try cli.parseArgs(alloc, &args);
-    try testing.expectEqual(Command.help, result.command);
+    try testing.expectEqual(Command{ .help = .{} }, result.command);
 }
 
 test "parseArgs: --stats flag" {

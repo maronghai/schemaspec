@@ -80,8 +80,12 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             version.printVersion();
             return;
         },
-        .help => {
-            cli.printUsage();
+        .help => |cmd| {
+            if (cmd.subcommand) |sub| {
+                cli.printSubcommandHelp(sub);
+            } else {
+                cli.printUsage();
+            }
             return;
         },
         .compile => |cmd| {
@@ -201,5 +205,6 @@ fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
         error.MigrateMissingArgs => "migrate requires two arguments: <old.ss> <new.ss>",
         error.UnknownCommand => "unknown command. Run 'rune --help' for usage.",
         error.UnknownFlag => "unknown flag. Run 'rune --help' for usage.",
+        error.UnknownGenerator => "unknown generator. Run 'rune generate --list' for available generators.",
     };
 }
