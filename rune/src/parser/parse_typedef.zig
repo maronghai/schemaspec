@@ -10,6 +10,9 @@ fn parseDialect(s: []const u8) ?dialect_enum.Dialect {
     if (std.mem.eql(u8, s, "mysql")) return .mysql;
     if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
     if (std.mem.eql(u8, s, "sqlite") or std.mem.eql(u8, s, "sq")) return .sqlite;
+    if (std.mem.eql(u8, s, "mssql") or std.mem.eql(u8, s, "sqlserver")) return .mssql;
+    if (std.mem.eql(u8, s, "oracle")) return .oracle;
+    if (std.mem.eql(u8, s, "db2")) return .db2;
     return null;
 }
 

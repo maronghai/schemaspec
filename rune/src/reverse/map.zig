@@ -178,7 +178,10 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
                         j += 1;
                     }
                 }
-                if (j < 32) { sbuf.buf[j] = ','; j += 1; }
+                if (j < 32) {
+                    sbuf.buf[j] = ',';
+                    j += 1;
+                }
                 for (s) |ch| {
                     if (ch != ' ') {
                         if (j >= 32) return .{ .sym = t, .omit = false };

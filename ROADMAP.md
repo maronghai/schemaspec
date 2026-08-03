@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.89.0 (2026-08-03) — 29,500+ lines production Zig, 870+ tests, 21 test suites.
+**Current version**: 0.90.0 (2026-08-03) — 32,400+ lines production Zig, 880+ tests, 21 test suites.
 
 ---
 
@@ -216,6 +216,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.90.0 (2026-08-03)
+
+- **Fixed version-resilient golden tests** — `test_openapi.sh`, `test_graphql.sh`, and `test_json_schema.sh` now use `compare_files()`/`diff_versions()` from `lib.sh` instead of raw `diff -u`. Golden tests no longer break on version bumps. Added `strip_version_auto()` to `lib.sh` that auto-detects output format (SQL/JSON/GraphQL) and strips version strings. Added proper exit codes to the three test scripts.
+- **Fixed parse_typedef dialect support** — `parseDialect()` in `parse_typedef.zig` now handles all 6 dialects (was missing mssql, oracle, db2). Custom type dialect overrides for these backends were previously silently dropped.
+- **Added generator registry tests** — New `generator_test.zig` with 5 tests covering registry count, lookup, unknown names, non-empty fields, and name uniqueness.
+- **Formatted 4 files** — `zig fmt` applied to `completions_test.zig`, `diff/engine_test.zig`, `pipeline/stats_test.zig`, and `reverse/map.zig`.
 
 ### v0.89.0 (2026-08-03)
 

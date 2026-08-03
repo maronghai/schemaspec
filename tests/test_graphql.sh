@@ -33,14 +33,15 @@ for ss_file in "$TEST_DIR"/graphql-*.ss; do
     continue
   fi
 
-  if diff -u "$expected_file" "$tmp_file" >/dev/null 2>&1; then
+  if compare_files "$expected_file" "$tmp_file"; then
     pass "$base"
   else
-    fail "$base" "output differs"
-    diff -u "$expected_file" "$tmp_file" | head -20
+    diff_output=$(diff_versions "$expected_file" "$tmp_file")
+    fail "$base" "$diff_output"
   fi
 
   rm -f "$tmp_file"
 done
 
 summary "GraphQL"
+[ "$FAIL" -eq 0 ] && exit 0 || exit 1

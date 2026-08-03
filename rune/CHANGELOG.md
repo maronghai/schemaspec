@@ -4,6 +4,18 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.90.0] - 2026-08-03
+
+### Fixed
+- **Version-resilient golden tests** — OpenAPI, GraphQL, and JSON Schema test scripts now use `compare_files()`/`diff_versions()` from `lib.sh` instead of raw `diff -u`. Golden tests no longer break on version bumps.
+- **parse_typedef dialect support** — `parseDialect()` now handles all 6 SQL dialects (added mssql/sqlserver, oracle, db2). Custom type dialect overrides for these backends were previously silently dropped.
+
+### Added
+- **generator_test.zig** — 5 unit tests for the generator registry (count, lookup, unknown names, non-empty fields, name uniqueness).
+
+### Changed
+- Formatted 4 files with `zig fmt` (completions_test.zig, diff/engine_test.zig, pipeline/stats_test.zig, reverse/map.zig).
+
 ## [0.81.0] - 2026-08-02
 
 ### Added

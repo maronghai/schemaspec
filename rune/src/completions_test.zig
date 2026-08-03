@@ -29,8 +29,8 @@ test "STARTER_SCHEMA contains field types" {
 test "Bash completions contain all subcommands" {
     const bash = completions.COMPLETIONS_BASH;
     const subcommands = [_][]const u8{
-        "init",    "validate", "check",  "stats",  "diff",
-        "migrate", "reverse",  "docs",   "format", "generate",
+        "init",        "validate", "check", "stats",  "diff",
+        "migrate",     "reverse",  "docs",  "format", "generate",
         "completions",
     };
     for (subcommands) |cmd| {
@@ -54,8 +54,8 @@ test "Bash completions contain global flags" {
 test "Bash completions contain generator names" {
     const bash = completions.COMPLETIONS_BASH;
     const generators = [_][]const u8{
-        "json-schema", "sql-ddl", "prisma", "drizzle", "typeorm",
-        "sqlalchemy",  "knex",     "openapi", "graphql",
+        "json-schema", "sql-ddl", "prisma",  "drizzle", "typeorm",
+        "sqlalchemy",  "knex",    "openapi", "graphql",
     };
     for (generators) |gen| {
         if (std.mem.indexOf(u8, bash, gen) == null) {

@@ -89,9 +89,15 @@ test "formatStatsJson: zero values" {
     const alloc = arena.allocator();
 
     const s = stats_mod.Stats{
-        .tables = 0, .fields = 0, .views = 0,
-        .not_null_fields = 0, .numeric_fields = 0, .string_fields = 0,
-        .datetime_fields = 0, .boolean_fields = 0, .other_fields = 0,
+        .tables = 0,
+        .fields = 0,
+        .views = 0,
+        .not_null_fields = 0,
+        .numeric_fields = 0,
+        .string_fields = 0,
+        .datetime_fields = 0,
+        .boolean_fields = 0,
+        .other_fields = 0,
     };
     const json = try stats_mod.formatStatsJson(alloc, s);
     try testing.expectEqualStrings(
@@ -105,9 +111,15 @@ test "formatStatsJson: populated values" {
     const alloc = arena.allocator();
 
     const s = stats_mod.Stats{
-        .tables = 3, .fields = 20, .views = 1,
-        .not_null_fields = 12, .numeric_fields = 8, .string_fields = 10,
-        .datetime_fields = 1, .boolean_fields = 1, .other_fields = 0,
+        .tables = 3,
+        .fields = 20,
+        .views = 1,
+        .not_null_fields = 12,
+        .numeric_fields = 8,
+        .string_fields = 10,
+        .datetime_fields = 1,
+        .boolean_fields = 1,
+        .other_fields = 0,
     };
     const json = try stats_mod.formatStatsJson(alloc, s);
     try testing.expectEqualStrings(

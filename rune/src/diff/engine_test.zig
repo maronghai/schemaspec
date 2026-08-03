@@ -122,10 +122,22 @@ test "added field" {
     const old_fields = try alloc.dupe(Field, &[_]Field{try makeField(alloc, "id", .{ .simple = "n" })});
     const new_fields = try alloc.dupe(Field, &[_]Field{ try makeField(alloc, "id", .{ .simple = "n" }), try makeField(alloc, "name", .{ .simple = "s" }) });
     const old = makeResolvedAst(alloc, try alloc.dupe(ResolvedTable, &[_]ResolvedTable{.{
-        .name = "users", .comment = null, .engine = null, .fields = old_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1,
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = old_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
     }}));
     const new = makeResolvedAst(alloc, try alloc.dupe(ResolvedTable, &[_]ResolvedTable{.{
-        .name = "users", .comment = null, .engine = null, .fields = new_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1,
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = new_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
     }}));
     const result = try engine.diff(old, new, alloc, null);
     try testing.expect(result.hasChanges());
@@ -143,10 +155,22 @@ test "dropped field" {
     const old_fields = try alloc.dupe(Field, &[_]Field{ try makeField(alloc, "id", .{ .simple = "n" }), try makeField(alloc, "name", .{ .simple = "s" }) });
     const new_fields = try alloc.dupe(Field, &[_]Field{try makeField(alloc, "id", .{ .simple = "n" })});
     const old = makeResolvedAst(alloc, try alloc.dupe(ResolvedTable, &[_]ResolvedTable{.{
-        .name = "users", .comment = null, .engine = null, .fields = old_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1,
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = old_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
     }}));
     const new = makeResolvedAst(alloc, try alloc.dupe(ResolvedTable, &[_]ResolvedTable{.{
-        .name = "users", .comment = null, .engine = null, .fields = new_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1,
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = new_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
     }}));
     const result = try engine.diff(old, new, alloc, null);
     try testing.expect(result.hasChanges());
@@ -162,10 +186,22 @@ test "modified field — type change" {
     const old_fields = try alloc.dupe(Field, &[_]Field{try makeField(alloc, "name", .{ .simple = "s" })});
     const new_fields = try alloc.dupe(Field, &[_]Field{try makeField(alloc, "name", .{ .varchar_explicit = 512 })});
     const old = makeResolvedAst(alloc, try alloc.dupe(ResolvedTable, &[_]ResolvedTable{.{
-        .name = "users", .comment = null, .engine = null, .fields = old_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1,
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = old_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
     }}));
     const new = makeResolvedAst(alloc, try alloc.dupe(ResolvedTable, &[_]ResolvedTable{.{
-        .name = "users", .comment = null, .engine = null, .fields = new_fields, .fks = &.{}, .indexes = &.{}, .line_no = 1,
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = new_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
     }}));
     const result = try engine.diff(old, new, alloc, null);
     try testing.expect(result.hasChanges());
