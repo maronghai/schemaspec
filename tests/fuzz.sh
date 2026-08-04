@@ -38,7 +38,7 @@ generate_random_schema() {
       local type=$(rand_choice "n" "N" "s" "S" "b" "d" "t" "m" "j" "16" "32" "s64" "s128")
       local mods=""
       if [ $((RANDOM % 3)) -eq 0 ]; then
-        mods=$(rand_choice "++" "!" "*" "+")
+        mods=$(rand_choice "++" "!" "+")
       fi
       echo "$field_name $type $mods" >> "$file"
     done

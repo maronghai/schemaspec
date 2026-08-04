@@ -89,7 +89,7 @@ generate_random_schema() {
         mods="++"
         has_pk=1
       elif [ $((RANDOM % 4)) -eq 0 ]; then
-        mods=$(rand_choice "!" "*" "!=" "+")
+        mods=$(rand_choice "!" "!=" "+")
       fi
 
       # Size constraint for string types

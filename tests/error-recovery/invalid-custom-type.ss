@@ -5,5 +5,5 @@ $ demo
 
 # accounts
 id      n++
-balance money *
-price   unknown_type *
+balance money
+price   unknown_type

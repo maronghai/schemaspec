@@ -1,8 +1,8 @@
 # t
 id n++
-name s32 *
+name s32
 email s64
 
 # t2
 id n++
-title s128 *
+title s128

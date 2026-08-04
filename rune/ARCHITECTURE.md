@@ -370,8 +370,8 @@ $ mydb
   ~ ip_addr mysql=s45 postgres=inet sqlite=s45
 
 # user
-uuid uuid *
-email email *
+uuid uuid
+email email
 ip ip_addr
 ```
 

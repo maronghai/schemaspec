@@ -40,17 +40,16 @@ test "classifyLine: ... is Slot" {
 }
 
 test "classifyLine: plain text is Field" {
-    try std.testing.expectEqual(LineType.Field, Tokenizer.classifyLine("name s32 *"));
+    try std.testing.expectEqual(LineType.Field, Tokenizer.classifyLine("name s32"));
 }
 
 test "tokenizeLine: simple field" {
     const alloc = std.testing.allocator;
-    const toks = try Tokenizer.tokenizeLine(alloc, "name s32 *");
+    const toks = try Tokenizer.tokenizeLine(alloc, "name s32");
     defer alloc.free(toks);
-    try std.testing.expectEqual(@as(usize, 3), toks.len);
+    try std.testing.expectEqual(@as(usize, 2), toks.len);
     try std.testing.expectEqualStrings("name", toks[0]);
     try std.testing.expectEqualStrings("s32", toks[1]);
-    try std.testing.expectEqualStrings("*", toks[2]);
 }
 
 test "tokenizeLine: fused type modifier" {
@@ -128,7 +127,7 @@ test "tokenizeAll: empty lines" {
 
 test "tokenizeAll: mixed content" {
     const alloc = std.testing.allocator;
-    const lines = [_][]const u8{ "$ mydb", "", "# user", "name s32 *" };
+    const lines = [_][]const u8{ "$ mydb", "", "# user", "name s32" };
     const tok = Tokenizer.init(&lines);
     const result = try tok.tokenizeAll(alloc);
     defer {

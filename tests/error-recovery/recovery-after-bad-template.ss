@@ -3,7 +3,7 @@ $ testdb
 % base_template
 ...
 id   n++
-name s32 *
+name s32
 
 # valid_after_bad_template
 
@@ -17,4 +17,4 @@ data s
 # another_valid_table
 
 id   n++
-status s10 *
+status s10

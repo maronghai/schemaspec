@@ -9,6 +9,6 @@ balance m +
 
 # order
 
-order_no    s64 *
+order_no    s64
 user_id     > nonexistent.id
 amount      m

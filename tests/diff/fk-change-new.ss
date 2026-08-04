@@ -6,5 +6,5 @@ id    n++
 
 # order
 id        n++
-user_id   n *
-amount    m *
+user_id   n
+amount    m

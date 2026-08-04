@@ -3,7 +3,7 @@ $ demo
 
 # t
 id    n++
-name  s *
+name  s
 email s64
 
 @u email

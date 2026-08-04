@@ -41,7 +41,7 @@ pub const EnumTypeResult = struct {
     end_idx: usize,
 };
 
-/// Parse fused tokens like `n++`, `s128*`, `nu`, `*=0`, `t+`.
+/// Parse fused tokens like `n++`, `nu`, `t+`.
 /// Returns null if the token is not a fused type+modifier form.
 pub fn parseFusedTypeModifier(tok: []const u8, line_no: usize) ?FusedTypeResult {
     if (tok.len < 2) return null;
@@ -54,7 +54,7 @@ pub fn parseFusedTypeModifier(tok: []const u8, line_no: usize) ?FusedTypeResult 
         };
     }
 
-    // Prefix patterns: +n, +N, +i (unsigned), +n++, +N*, +n!, etc.
+    // Prefix patterns: +n, +N, +i (unsigned), +n++, +n!, etc.
     if (tok[0] == '+' and tok.len >= 2) {
         const rest = tok[1..];
         // ++, +! are NOT prefix-unsigned — fall through to suffix handling
@@ -90,7 +90,7 @@ pub fn parseFusedTypeModifier(tok: []const u8, line_no: usize) ?FusedTypeResult 
         }
     }
 
-    // Check all suffix patterns: ++, +, !, *, u
+    // Check all suffix patterns: ++, +, !, u
     const last = tok[tok.len - 1];
     if (last == '+' and tok.len >= 3 and tok[tok.len - 2] == '+') {
         const prefix = tok[0 .. tok.len - 2];
@@ -150,7 +150,7 @@ pub fn tryParseType(tok: []const u8) ?TypeInfo {
     }
 }
 
-/// Parse standalone modifiers: `++`, `+`, `*`, `!`, `@`, `@u`.
+/// Parse standalone modifiers: `++`, `+`, `!`, `@`, `@u`.
 pub fn parseStandaloneModifier(alloc: std.mem.Allocator, tokens: []const []const u8, idx: usize, raw: []const u8, line_no: usize) ?ModifierResult {
     const tok = tokens[idx];
     if (std.mem.eql(u8, tok, "++")) {
@@ -268,7 +268,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
     while (i < line.tokens.len) {
         const tok = line.tokens[i];
 
-        // 1. Fused type+modifier: n++, s128*, *=0, nu, t+
+        // 1. Fused type+modifier: n++, nu, t+
         if (parseFusedTypeModifier(tok, line.line_no)) |result| {
             if (result.type_info) |ti| {
                 // Only set type and add modifier if type wasn't already set
@@ -296,7 +296,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
                     if (result.modifier) |mod| try modifiers.append(alloc, mod);
                 }
             } else {
-                // No type (e.g. *=0) — always apply modifier + default
+                // No type — always apply modifier + default
                 if (result.modifier) |mod| try modifiers.append(alloc, mod);
                 if (result.default_val) |dv| default_val = dv;
             }
@@ -332,7 +332,7 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
         }
         if (tok[0] == ';') break;
 
-        // 5. Standalone modifiers: ++, +, *, !, @, @u
+        // 5. Standalone modifiers: ++, +, !, @, @u
         if (parseStandaloneModifier(alloc, line.tokens, i, line.raw, line.line_no)) |result| {
             try modifiers.append(alloc, result.modifier);
             i = result.end_idx;

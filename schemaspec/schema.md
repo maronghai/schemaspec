@@ -261,9 +261,9 @@ FOREIGN KEY (`coupon_id`) REFERENCES `coupon`(`id`) ON DELETE SET NULL ON UPDATE
 # order
 
 id          n++
-order_no    s64 *
+order_no    s64
 user_id     > user.id                  ; inline FK
-amount      m *
+amount      m
 ```
 
 ```sql
@@ -370,7 +370,7 @@ type    s32 {a,b,c}           ; CHECK (type IN ('a', 'b', 'c'))  — string IN l
 # user
 
 id          n++
-username    s32 *
+username    s32
 age         n =0 [0,150]
 status      n =0 {0,1,2}
 balance     m =0 {>=0}
@@ -483,8 +483,8 @@ deleted_at
 deleted_by n
 
 % user_mixin base + soft_delete   ; merges fields from both parents
-name s32 *
-email s128 *
+name s32
+email s128
 ```
 
 Each parent is resolved sequentially. Name conflicts → later parent wins. Max **4 parents**.
@@ -547,8 +547,8 @@ deleted_by n
 restore_token s64
 
 #base user
-name s32 *
-email s128 *
+name s32
+email s128
 ```
 
 ```sql
@@ -623,7 +623,7 @@ warning: unrecognized FK form on line 8
 
 ```asm
 status  e(pending,active,closed)     ; ENUM('pending','active','closed')
-gender  e(M,F,X) *                   ; ENUM('M','F','X') NOT NULL
+gender  e(M,F,X)                      ; ENUM('M','F','X')
 role    e('admin user','guest')      ; ENUM('admin user','guest')
 ```
 
@@ -661,8 +661,8 @@ deleted_at
 deleted_by n
 
 #soft_delete user
-name s32 *
-email s128 *
+name s32
+email s128
 ```
 
 ### Q7: FK actions?

@@ -26,11 +26,11 @@ restore_token s64
 ; ── User Table (uses soft_delete) ──
 #soft_delete user  : 用户表
 
-name      s32 *
-email     s128 *
+name      s32
+email     s128
 
 ; ── Order Table (uses audit) ──
 #audit order  : 订单表
 
-order_no  s64 *
-amount    m *
+order_no  s64
+amount    m

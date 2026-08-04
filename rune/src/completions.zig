@@ -19,7 +19,7 @@ pub const STARTER_SCHEMA =
     \\; Users table
     \\# users
     \\id       n++
-    \\email    s128 *
+    \\email    s128
     \\name     s64
     \\role     e(editor,viewer) =viewer
     \\@ email
@@ -27,9 +27,9 @@ pub const STARTER_SCHEMA =
     \\; Posts table
     \\# posts
     \\id         n++
-    \\title      s256 *
+    \\title      s256
     \\body       S
-    \\author_id  n *            ; FK → users.id (auto-inferred from _id suffix)
+    \\author_id  n              ; FK → users.id (auto-inferred from _id suffix)
     \\status     e(draft,published,archived) =draft
     \\@ author_id
     \\@ status
@@ -37,9 +37,9 @@ pub const STARTER_SCHEMA =
     \\; Comments table
     \\# comments
     \\id        n++
-    \\post_id   n *              ; FK → posts.id
+    \\post_id   n               ; FK → posts.id
     \\author_id n                ; FK → users.id
-    \\body      S *
+    \\body      S
     \\@ post_id
     \\
 ;

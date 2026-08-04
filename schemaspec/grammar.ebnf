@@ -63,7 +63,7 @@ type_symbol      = unsigned_type
                  | atomic_type ;
 
 unsigned_type    = "+", ( "n" | "N" | "i" ) ;          (* UNSIGNED int|bigint|smallint *)
-                  (* Also accepts trailing modifier: +n++ (AI+PK), +N* (NOT NULL), +n! (PK) *)
+                  (* Also accepts trailing modifier: +n++ (AI+PK), +n! (PK) *)
 numeric_type     = int_short | int_explicit | decimal_explicit ;
 int_short        = "n" | "N" ;                     (* MySQL: int | bigint *)
 int_explicit     = positive_int ;                  (* MySQL: int(n) *)
@@ -108,15 +108,12 @@ atomic_type      = "b" | "B" | "j" | "J" | "I" | "d" | "t" | "T" | "U" | "p" ;
 (* `=` always requires a value; see §4 and §13                    *)
 (* Modifier Resolution for details.                               *)
 
-modifier         = fused_not_null_default | default_val | auto_inc_pk | auto_inc
-                 | primary_key | not_null | inline_unique | inline_index ;
+modifier         = default_val | auto_inc_pk | auto_inc
+                 | primary_key | inline_unique | inline_index ;
 
-fused_not_null_default = "*", "=", default_value ;
-                       (* e.g. *=0 → NOT NULL + DEFAULT 0 *)
 auto_inc_pk      = "++" ;
 auto_inc         = "+" ;
 primary_key      = "!" ;
-not_null         = "*" ;
 inline_unique    = "@", "u" ;
 inline_index     = "@" ;  (* inline regular INDEX on this field *)
 default_val      = "=", default_value ;  (* no space: =0, not = 0 *)

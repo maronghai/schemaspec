@@ -7,7 +7,7 @@ $ demo
 # user
 
 id          n++
-username    s32 *
+username    s32
 email       s128 * @u
 age         n =0 [0,150]
 status      1 =0 [0,1,2]
@@ -24,7 +24,7 @@ role_id !
 # order
 
 id          n++
-order_no    s64 *
+order_no    s64
 user_id
 amount      m {>0}
 quantity    n =1 {>=1}

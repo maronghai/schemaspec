@@ -59,7 +59,7 @@ fn writeColumnType(w: anytype, col: sp.SqlColumn, dialect: Dialect) !TypeResult 
     return tr;
 }
 
-/// Write modifier suffixes: ++ / + / ! / * / u / @u / @
+/// Write modifier suffixes: ++ / + / ! / u / @u / @
 /// Returns true if an inline index suffix was emitted.
 fn writeColumnModifiers(w: anytype, col: sp.SqlColumn, indexes: []const sp.SqlIndex, tr: TypeResult) !bool {
     // Detect PRIMARY KEY from table-level indexes (single-field PK)

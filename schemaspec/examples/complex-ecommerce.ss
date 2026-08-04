@@ -58,7 +58,7 @@ created_at +
 
 name        s32 * @
 email       s128 * @u
-password    s256 *
+password    s256
 phone       s20 @
 avatar      S
 bio         s512
@@ -76,7 +76,7 @@ label     s16 =''     -- e.g. 'home', 'office'
 province  s32
 city      s32
 district  s32
-address   s256 *
+address   s256
 zip       s10
 phone     s20
 is_default b =0
@@ -90,7 +90,7 @@ is_default b =0
 
 user_id     @         ; > user.id
 provider  s32 *    -- 'github', 'google', 'wechat'
-open_id   s128 *
+open_id   s128
 access_token  S
 refresh_token S
 expires_on
@@ -106,7 +106,7 @@ expires_on
 ; ── Category (self-referencing tree) ──
 #base category  : 商品分类
 
-name      s64 *
+name      s64
 parent_id @         ; self-ref, nullable root
 sort_order n =0 @
 icon      s128
@@ -126,7 +126,7 @@ is_active b =1
 ; ── Product ──
 #soft_delete product  : 商品表
 
-name      s128 *
+name      s128
 subtitle  s256
 brand_id @        -- > brand.id
 category_id @     -- > category.id
@@ -196,7 +196,7 @@ end_on
 ; ── Coupon ──
 #coupon_base coupon  : 优惠券
 
-name      s64 *
+name      s64
 code      s64 * @u
 total     n =0
 used      n =0
@@ -232,9 +232,9 @@ product_id         -- > product.id
 sku_id             -- > product_sku.id
 product_name s128 *   -- snapshot
 sku_name     s128 *   -- snapshot
-price        m *
+price        m
 quantity     n * {>=1}
-subtotal     m *
+subtotal     m
 image        s256
 
 > order.id
@@ -246,7 +246,7 @@ image        s256
 
 order_id @         -- > order.id
 carrier     s32 *    -- 'SF', 'ZTO', 'YTO'
-tracking_no s64 *
+tracking_no s64
 status      1 =0 [0,1,2,3]
 shipped_on  t
 delivered_on t
@@ -279,7 +279,7 @@ extra      j
 
 #base article  : 文章/帮助中心
 
-title     s256 *
+title     s256
 slug      s128 * @u
 content   S *         -- long-form HTML
 summary   s512
@@ -296,8 +296,8 @@ published_on t
 ; ── Banner / Ad ──
 #base banner  : 轮播图
 
-title     s64 *
-image     s256 *
+title     s64
+image     s256
 link      s512
 position  s32 =''    -- 'home', 'list', 'detail'
 sort_order n =0
@@ -315,7 +315,7 @@ end_on
 
 user_id            -- > user.id
 type      s32 * @   -- 'order', 'system', 'promo'
-title     s128 *
+title     s128
 content   S
 is_read   b =0
 link      s512

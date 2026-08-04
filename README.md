@@ -15,8 +15,8 @@ update_at ++                               `balance` decimal(16, 2) DEFAULT 0,
                                             `version` bigint,
 #base user  : 用户表                       `status`  int(1) DEFAULT 0,
                                             ...
-name      s32 *                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-email     s128 *                             COMMENT='用户表';
+name      s32                             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+email     s128                               COMMENT='用户表';
 balance   m =0
 ```
 
@@ -35,7 +35,7 @@ Rune is a minimal DSL that compresses database schema declarations into single-c
 | `id n++` | `int AUTO_INCREMENT PRIMARY KEY` | 30 chars |
 | `balance m =0` | `decimal(16, 2) DEFAULT 0` | 24 chars |
 | `create_at +` | `datetime DEFAULT CURRENT_TIMESTAMP` | 34 chars |
-| `email s128 *` | `varchar(128) NOT NULL` | 21 chars |
+| `email s128` | `varchar(128) NOT NULL` | 10 chars |
 | `@ name` | `INDEX idx_name (name)` | 71% savings |
 | `> user.id` | `FOREIGN KEY (user_id) REFERENCES user(id)` | 76% savings |
 
@@ -56,9 +56,9 @@ update_at ++
 
 #base user  : 用户表
 
-name      s32 *
-email     s128 *
-password  s256 *
+name      s32
+email     s128
+password  s256
 balance   m =0
 
 @u email
@@ -66,9 +66,9 @@ balance   m =0
 
 #base order  ^MyISAM  : 订单表
 
-order_no    s64 *
+order_no    s64
 user_id               ; suffix _id → int
-amount      m *
+amount      m
 
 > user_id user.id     ; foreign key
 ```
@@ -134,8 +134,7 @@ One character = one type. Case matters.
 | `++` | AUTO_INCREMENT PK / CURRENT_TIMESTAMP ON UPDATE | `id n++` / `ts ++` |
 | `+` | AUTO_INCREMENT / CURRENT_TIMESTAMP | `seq n+` / `ts +` |
 | `!` | PRIMARY KEY | `code s32!` |
-| `*` | NOT NULL | `name s32 *` |
-| `=` / `*=` | DEFAULT / NOT NULL + DEFAULT | `status 1 =0` |
+| `=` | DEFAULT | `status 1 =0` |
 | `+n` / `+N` | UNSIGNED | `count +n` |
 | `@` / `@u` | INDEX / UNIQUE INDEX | `name s32 @` |
 | `[...]` | CHECK constraint | `age n [0,150]` |
@@ -191,7 +190,7 @@ create_at +
 update_at ++
 
 #base user
-name s32 *              ; → id, name, version, create_at, update_at
+name s32              ; → id, name, version, create_at, update_at
 ```
 
 Templates support inheritance (`% audit > base`) and mixins (`% mixed base + soft_delete`).

@@ -74,9 +74,9 @@ test "formatter: template indented" {
 
 test "formatter: full example" {
     const alloc = std.testing.allocator;
-    const input = "$ mydb\n\n\n; Users table\n# users\nid       n++\nemail    s128 *\nname     s64\n\n\n; Posts table\n# posts\nid         n++\ntitle      s256 *\nauthor_id  n *\n@ author_id\n";
+    const input = "$ mydb\n\n\n; Users table\n# users\nid       n++\nemail    s128\nname     s64\n\n\n; Posts table\n# posts\nid         n++\ntitle      s256\nauthor_id  n\n@ author_id\n";
     const result = try formatter.format(alloc, input);
     defer alloc.free(result);
-    const expected = "$ mydb\n\n; Users table\n# users\n  id       n++\n  email    s128 *\n  name     s64\n\n; Posts table\n# posts\n  id         n++\n  title      s256 *\n  author_id  n *\n  @ author_id\n";
+    const expected = "$ mydb\n\n; Users table\n# users\n  id       n++\n  email    s128\n  name     s64\n\n; Posts table\n# posts\n  id         n++\n  title      s256\n  author_id  n\n  @ author_id\n";
     try std.testing.expectEqualStrings(expected, result);
 }
