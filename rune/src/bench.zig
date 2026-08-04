@@ -125,7 +125,7 @@ fn parseBenchArgs(minimal_args: anytype) !BenchArgs {
             args.help = true;
         } else if (std.mem.eql(u8, arg, "--dialect") or std.mem.eql(u8, arg, "-d")) {
             if (arg_it.next()) |d| {
-                args.dialect = parseDialect(d) catch {
+                args.dialect = dialect_enum.parseDialect(d) catch {
                     std.debug.print("error: unknown dialect '{s}'. Expected: mysql, pg, sqlite, mssql, oracle, db2\n", .{d});
                     return error.UnknownDialect;
                 };
@@ -465,14 +465,4 @@ fn runPipeline(alloc: std.mem.Allocator, file_data: []const u8, dialect: dialect
 
     var cg = codegen.Codegen.init(alloc, dialect);
     return try cg.generateFromTypedAst(typed);
-}
-
-pub fn parseDialect(s: []const u8) !dialect_enum.Dialect {
-    if (std.mem.eql(u8, s, "mysql")) return .mysql;
-    if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
-    if (std.mem.eql(u8, s, "sqlite")) return .sqlite;
-    if (std.mem.eql(u8, s, "mssql") or std.mem.eql(u8, s, "sqlserver")) return .mssql;
-    if (std.mem.eql(u8, s, "oracle") or std.mem.eql(u8, s, "ora")) return .oracle;
-    if (std.mem.eql(u8, s, "db2") or std.mem.eql(u8, s, "idb2")) return .db2;
-    return error.UnknownDialect;
 }

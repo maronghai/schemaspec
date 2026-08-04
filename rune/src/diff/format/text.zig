@@ -34,8 +34,14 @@ const DiffStats = struct {
                     var has_changes = false;
                     for (td.field_diffs) |fd| {
                         switch (fd.action) {
-                            .add => { stats.added_fields += 1; has_changes = true; },
-                            .drop => { stats.dropped_fields += 1; has_changes = true; },
+                            .add => {
+                                stats.added_fields += 1;
+                                has_changes = true;
+                            },
+                            .drop => {
+                                stats.dropped_fields += 1;
+                                has_changes = true;
+                            },
                             .modify, .rename => has_changes = true,
                         }
                     }

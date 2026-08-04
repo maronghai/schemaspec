@@ -30,6 +30,7 @@ pub const Command = union(enum) {
 
 pub const ParsedArgs = struct {
     dialect: dialect_enum.Dialect,
+    dialect_was_explicit: bool = false,
     target: Target,
     command: Command,
     quiet: bool,
@@ -119,6 +120,7 @@ fn hasHelpFlag(args: []const []const u8) bool {
 
 pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !ParsedArgs {
     var dialect: dialect_enum.Dialect = .mysql;
+    var dialect_was_explicit = false;
     var target: Target = .sql;
     var filtered = try std.ArrayList([]const u8).initCapacity(alloc, raw_args.len);
 
@@ -153,10 +155,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             want_dry_run = true;
         } else if (std.mem.eql(u8, raw_args[i], "--dialect") or std.mem.eql(u8, raw_args[i], "-d")) {
             if (i + 1 < raw_args.len) {
-                dialect = parseDialect(raw_args[i + 1]) catch |e| {
+                dialect = dialect_enum.parseDialect(raw_args[i + 1]) catch |e| {
                     if (e == error.UnknownDialect) return error.UnknownDialect;
                     return error.MissingDialectValue;
                 };
+                dialect_was_explicit = true;
                 i += 1; // skip dialect value
             } else {
                 return error.MissingDialectValue;
@@ -241,10 +244,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     const import_path_list = try import_paths.toOwnedSlice(alloc);
 
     if (want_version) {
-        return .{ .dialect = dialect, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
+        return .{ .dialect = dialect, .dialect_was_explicit = dialect_was_explicit, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
     }
 
     const flags = GlobalFlags{
+        .dialect_was_explicit = dialect_was_explicit,
         .stats = want_stats,
         .check = want_check,
         .dry_run = want_dry_run,
@@ -264,10 +268,11 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
         // Check for --help before treating as stdin compile
         if (hasHelpFlag(fargs)) {
-            return .{ .dialect = dialect, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
+            return .{ .dialect = dialect, .dialect_was_explicit = dialect_was_explicit, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
         }
         return .{
             .dialect = dialect,
+            .dialect_was_explicit = dialect_was_explicit,
             .target = target,
             .command = .{ .compile = .{
                 .input = null,
@@ -292,7 +297,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     // Check for subcommand help: `rune <cmd> --help` or `rune <cmd> -h`
     if (hasHelpFlag(fargs)) {
-        return .{ .dialect = dialect, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
+        return .{ .dialect = dialect, .dialect_was_explicit = dialect_was_explicit, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
     }
 
     // Table-driven subcommand dispatch.
@@ -327,6 +332,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     const input = if (fargs.len > 0) fargs[0] else null;
     return .{
         .dialect = dialect,
+        .dialect_was_explicit = dialect_was_explicit,
         .target = target,
         .command = .{ .compile = .{
             .input = input,
@@ -347,15 +353,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     };
 }
 
-pub fn parseDialect(s: []const u8) !dialect_enum.Dialect {
-    if (std.mem.eql(u8, s, "mysql")) return .mysql;
-    if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
-    if (std.mem.eql(u8, s, "sqlite") or std.mem.eql(u8, s, "sq")) return .sqlite;
-    if (std.mem.eql(u8, s, "mssql") or std.mem.eql(u8, s, "sqlserver")) return .mssql;
-    if (std.mem.eql(u8, s, "oracle") or std.mem.eql(u8, s, "ora")) return .oracle;
-    if (std.mem.eql(u8, s, "db2") or std.mem.eql(u8, s, "idb2")) return .db2;
-    return error.UnknownDialect;
-}
+pub const parseDialect = dialect_enum.parseDialect;
 
 fn parseTarget(s: []const u8) !Target {
     if (std.mem.eql(u8, s, "sql")) return .sql;
@@ -389,11 +387,11 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
 
 /// Known long flags for edit-distance suggestions.
 pub const KNOWN_FLAGS = [_][]const u8{
-    "--version",        "--help",        "--stats",  "--quiet",         "--check",  "--dry-run",
-    "--dialect",        "--target",      "--format", "--validate-only", "--strict", "--json-errors",
-    "--verbose-passes", "--import-path", "--trace",  "--rollback",      "--output", "--list",
-    "--name",           "--dir",         "--incremental",               "--color",  "--init",
-    "--summary",        "--config",      "--template",                  "--graph",  "--stream",
+    "--version",        "--help",        "--stats",       "--quiet",         "--check",  "--dry-run",
+    "--dialect",        "--target",      "--format",      "--validate-only", "--strict", "--json-errors",
+    "--verbose-passes", "--import-path", "--trace",       "--rollback",      "--output", "--list",
+    "--name",           "--dir",         "--incremental", "--color",         "--init",   "--summary",
+    "--config",         "--template",    "--graph",       "--stream",
 };
 
 /// Find the most similar known flag using edit distance. Returns null if best match > 3.
@@ -442,6 +440,7 @@ fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targe
     if (fargs.len < 3) return error.DiffMissingArgs;
     return .{
         .dialect = dialect,
+        .dialect_was_explicit = opts.dialect_was_explicit,
         .target = target,
         .command = .{ .diff = .{
             .old = fargs[1],
@@ -474,6 +473,7 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
         }
         return .{
             .dialect = dialect,
+            .dialect_was_explicit = opts.dialect_was_explicit,
             .target = target,
             .command = .{ .migrate_status = .{ .dir = status_dir, .json_errors = opts.json_errors } },
             .quiet = opts.quiet,
@@ -505,6 +505,7 @@ fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
     }
     return .{
         .dialect = dialect,
+        .dialect_was_explicit = opts.dialect_was_explicit,
         .target = target,
         .command = .{ .migrate = .{
             .old = fargs[1],
@@ -544,6 +545,7 @@ fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
     }
     return .{
         .dialect = dialect,
+        .dialect_was_explicit = opts.dialect_was_explicit,
         .target = target,
         .command = .{ .reverse = .{
             .input = input,
@@ -585,6 +587,7 @@ fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
     }
     return .{
         .dialect = dialect,
+        .dialect_was_explicit = opts.dialect_was_explicit,
         .target = target,
         .command = .{ .generate = .{
             .generator = generator orelse "",
@@ -603,6 +606,7 @@ fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
 
 /// Flags extracted from the global pass (shared by all subcommands).
 const GlobalFlags = struct {
+    dialect_was_explicit: bool,
     stats: bool,
     check: bool,
     dry_run: bool,
@@ -621,6 +625,7 @@ const GlobalFlags = struct {
 fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
     return .{
         .dialect = dialect,
+        .dialect_was_explicit = opts.dialect_was_explicit,
         .target = target,
         .command = cmd,
         .quiet = opts.quiet,

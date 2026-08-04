@@ -5,51 +5,51 @@ const dialect_enum = @import("dialect/enum.zig");
 const testing = std.testing;
 
 test "parseDialect: mysql" {
-    try testing.expectEqual(dialect_enum.Dialect.mysql, bench.parseDialect("mysql"));
+    try testing.expectEqual(dialect_enum.Dialect.mysql, dialect_enum.parseDialect("mysql"));
 }
 
 test "parseDialect: pg" {
-    try testing.expectEqual(dialect_enum.Dialect.pg, bench.parseDialect("pg"));
+    try testing.expectEqual(dialect_enum.Dialect.pg, dialect_enum.parseDialect("pg"));
 }
 
 test "parseDialect: postgres" {
-    try testing.expectEqual(dialect_enum.Dialect.pg, bench.parseDialect("postgres"));
+    try testing.expectEqual(dialect_enum.Dialect.pg, dialect_enum.parseDialect("postgres"));
 }
 
 test "parseDialect: sqlite" {
-    try testing.expectEqual(dialect_enum.Dialect.sqlite, bench.parseDialect("sqlite"));
+    try testing.expectEqual(dialect_enum.Dialect.sqlite, dialect_enum.parseDialect("sqlite"));
 }
 
 test "parseDialect: mssql" {
-    try testing.expectEqual(dialect_enum.Dialect.mssql, bench.parseDialect("mssql"));
+    try testing.expectEqual(dialect_enum.Dialect.mssql, dialect_enum.parseDialect("mssql"));
 }
 
 test "parseDialect: sqlserver" {
-    try testing.expectEqual(dialect_enum.Dialect.mssql, bench.parseDialect("sqlserver"));
+    try testing.expectEqual(dialect_enum.Dialect.mssql, dialect_enum.parseDialect("sqlserver"));
 }
 
 test "parseDialect: oracle" {
-    try testing.expectEqual(dialect_enum.Dialect.oracle, bench.parseDialect("oracle"));
+    try testing.expectEqual(dialect_enum.Dialect.oracle, dialect_enum.parseDialect("oracle"));
 }
 
 test "parseDialect: ora" {
-    try testing.expectEqual(dialect_enum.Dialect.oracle, bench.parseDialect("ora"));
+    try testing.expectEqual(dialect_enum.Dialect.oracle, dialect_enum.parseDialect("ora"));
 }
 
 test "parseDialect: db2" {
-    try testing.expectEqual(dialect_enum.Dialect.db2, bench.parseDialect("db2"));
+    try testing.expectEqual(dialect_enum.Dialect.db2, dialect_enum.parseDialect("db2"));
 }
 
 test "parseDialect: idb2" {
-    try testing.expectEqual(dialect_enum.Dialect.db2, bench.parseDialect("idb2"));
+    try testing.expectEqual(dialect_enum.Dialect.db2, dialect_enum.parseDialect("idb2"));
 }
 
 test "parseDialect: unknown returns error" {
-    try testing.expectError(error.UnknownDialect, bench.parseDialect("unknown"));
+    try testing.expectError(error.UnknownDialect, dialect_enum.parseDialect("unknown"));
 }
 
 test "parseDialect: empty string returns error" {
-    try testing.expectError(error.UnknownDialect, bench.parseDialect(""));
+    try testing.expectError(error.UnknownDialect, dialect_enum.parseDialect(""));
 }
 
 test "stagePairs: returns 5 stages" {

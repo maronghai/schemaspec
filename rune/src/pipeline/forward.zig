@@ -127,7 +127,7 @@ fn compileInternal(
     // Successfully parsed tables are complete; errored tables are simply absent.
     const resolved = if (cfg.run_semantic) blk: {
         var sa = if (cfg.verbose_passes) semantic.SemanticAnalyzer.initVerbose(alloc) else semantic.SemanticAnalyzer.init(alloc);
-        break :blk sa.analyze(tree) catch |err| return err;
+        break :blk try sa.analyze(tree);
     } else null;
 
     return .{

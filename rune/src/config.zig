@@ -11,23 +11,9 @@ pub const Config = struct {
     quiet: ?bool = null,
     json_errors: ?bool = null,
     stats: ?bool = null,
-
-    /// Merge CLI args over config values. CLI non-null wins.
-    pub fn mergeWithArgs(self: Config, args: anytype) Config {
-        var result = self;
-        if (args.dialect) |d| result.dialect = d;
-        if (args.color) |c| result.color = c;
-        if (args.quiet) |q| result.quiet = q;
-        if (args.json_errors) |j| result.json_errors = j;
-        if (args.stats) |s| result.stats = s;
-        return result;
-    }
 };
 
-pub const ParseError = error{
-    InvalidSyntax,
-    UnexpectedEof,
-};
+pub const ParseError = error{InvalidSyntax};
 
 pub const ConfigError = error{
     InvalidDialect,

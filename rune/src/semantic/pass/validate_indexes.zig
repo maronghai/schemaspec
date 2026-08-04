@@ -100,7 +100,6 @@ const test_helpers = @import("../test_helpers.zig");
 const diag_mod = @import("../diagnostic.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
-
 test "validate_indexes: duplicate index name emits diagnostic" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();

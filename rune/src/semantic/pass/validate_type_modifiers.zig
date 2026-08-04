@@ -67,7 +67,6 @@ const diag_mod = @import("../diagnostic.zig");
 const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
-
 test "validate_type_modifiers: unsigned on numeric type — no diagnostic" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();

@@ -51,7 +51,7 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(1);
     };
     // Apply config defaults (CLI flags take precedence)
-    if (parsed.dialect == .mysql and cfg.dialect != null) {
+    if (!parsed.dialect_was_explicit and cfg.dialect != null) {
         final_parsed.dialect = cli.parseDialect(cfg.dialect.?) catch parsed.dialect;
     }
     if (cfg.quiet != null and !parsed.quiet) final_parsed.quiet = cfg.quiet.?;
@@ -109,7 +109,6 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             if (!parsed.quiet) {
                 std.debug.print("check failed: schema has differences\n", .{});
             }
-            std.debug.print("", .{});
             std.process.exit(1);
         },
         error.UnknownGenerator => {

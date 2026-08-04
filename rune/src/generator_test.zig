@@ -8,8 +8,8 @@ test "registry has expected generators" {
 
 test "get returns known generators" {
     const names = [_][]const u8{
-        "json-schema", "sql-ddl", "prisma", "docs",     "drizzle", "typeorm",
-        "sqlalchemy",  "knex",     "openapi", "graphql", "symbol-index",
+        "json-schema", "sql-ddl", "prisma",  "docs",    "drizzle",      "typeorm",
+        "sqlalchemy",  "knex",    "openapi", "graphql", "symbol-index",
     };
     for (names) |name| {
         const gen = generator.get(name);

@@ -18,6 +18,28 @@ const common = @import("common.zig");
 //   Each column → column constructor with modifiers
 //   Single-column FK → .references(() => table.column)
 //   Multi-column FK → foreignKey() in table callback
+
+fn drizzleTableFn(dialect: Dialect) []const u8 {
+    return switch (dialect) {
+        .mysql => "mysqlTable",
+        .pg => "pgTable",
+        .sqlite => "sqliteTable",
+        .mssql => "mssqlTable",
+        .oracle => "pgTable", // Drizzle Oracle uses pg-core driver
+        .db2 => "pgTable", // Drizzle Db2 uses pg-core driver
+    };
+}
+
+fn drizzleModuleName(dialect: Dialect) []const u8 {
+    return switch (dialect) {
+        .mysql => "mysql-core",
+        .pg => "pg-core",
+        .sqlite => "sqlite-core",
+        .mssql => "mssql-core",
+        .oracle => "pg-core", // Drizzle Oracle uses pg-core driver
+        .db2 => "pg-core", // Drizzle Db2 uses pg-core driver
+    };
+}
 //   Index → index()/uniqueIndex() in table callback
 //   Enum → pgEnum() (PG) or const array (MySQL/SQLite)
 
@@ -94,23 +116,9 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst, dialect: Dialect, has_enu
         }
     }
 
-    const table_fn = switch (dialect) {
-        .mysql => "mysqlTable",
-        .pg => "pgTable",
-        .sqlite => "sqliteTable",
-        .mssql => "mssqlTable",
-        .oracle => "pgTable", // Drizzle Oracle uses pg-core driver
-        .db2 => "pgTable", // Drizzle Db2 uses pg-core driver
-    };
+    const table_fn = drizzleTableFn(dialect);
 
-    const mod_name = switch (dialect) {
-        .mysql => "mysql-core",
-        .pg => "pg-core",
-        .sqlite => "sqlite-core",
-        .mssql => "mssql-core",
-        .oracle => "pg-core", // Drizzle Oracle uses pg-core driver
-        .db2 => "pg-core", // Drizzle Db2 uses pg-core driver
-    };
+    const mod_name = drizzleModuleName(dialect);
 
     try w.print("import {{ {s}", .{table_fn});
 
@@ -192,14 +200,7 @@ fn writeEnumDef(w: *Writer, col: typed_ast.TypedColumn, dialect: Dialect) !void 
 // ─── Table Generation ───────────────────────────────────────────
 
 fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
-    const table_fn = switch (dialect) {
-        .mysql => "mysqlTable",
-        .pg => "pgTable",
-        .sqlite => "sqliteTable",
-        .mssql => "mssqlTable",
-        .oracle => "pgTable", // Drizzle Oracle uses pg-core driver
-        .db2 => "pgTable", // Drizzle Db2 uses pg-core driver
-    };
+    const table_fn = drizzleTableFn(dialect);
 
     try w.print("export const {s} = {s}('{s}', {{\n", .{ table.name, table_fn, table.name });
 
