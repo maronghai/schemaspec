@@ -36,26 +36,8 @@ pub const ImportCache = import_res.ImportCache;
 
 // ─── Unified Pipeline ──────────────────────────────────────────
 
-/// Options controlling pipeline behavior. All fields have safe defaults
-/// so callers only need to specify what they change.
-pub const PipelineOptions = struct {
-    /// I/O handle for file reading (required for import resolution).
-    io: ?std.Io = null,
-    /// Import context for @import resolution. Requires io != null.
-    import_ctx: ?*ImportContext = null,
-    /// Resolve @import directives recursively.
-    resolve_imports: bool = false,
-    /// Merge imported definitions into the main AST.
-    merge_imports: bool = false,
-    /// Run semantic analysis. Set to false for parse-only mode.
-    run_semantic: bool = true,
-    /// Run semantic passes in verbose mode (print each pass name and timing).
-    verbose_passes: bool = false,
-    /// Emit diagnostics in JSON format (for CI/CD integration).
-    json_errors: bool = false,
-};
-
-/// Configuration for the compile handler — replaces 13 positional parameters.
+/// Configuration for the compile pipeline — replaces both the old `PipelineOptions` and
+/// `CompileConfig` structs. All fields have safe defaults so callers only specify what they change.
 pub const CompileConfig = struct {
     /// Input path. null = read from stdin, else file path.
     input: ?[]const u8 = null,
@@ -81,6 +63,16 @@ pub const CompileConfig = struct {
     import_paths: []const []const u8 = &.{},
     /// Use streaming compilation mode (emit each table's SQL independently).
     stream: bool = false,
+    /// I/O handle for file reading (required for import resolution).
+    io: ?std.Io = null,
+    /// Import context for @import resolution. Requires io != null.
+    import_ctx: ?*ImportContext = null,
+    /// Resolve @import directives recursively.
+    resolve_imports: bool = false,
+    /// Merge imported definitions into the main AST.
+    merge_imports: bool = false,
+    /// Run semantic analysis. Set to false for parse-only mode.
+    run_semantic: bool = true,
 };
 
 /// Unified internal compilation pipeline.
@@ -90,17 +82,15 @@ pub const CompileConfig = struct {
 /// When parsing succeeds but semantic errors exist, those are also printed.
 /// All errors from both phases are visible to the user.
 fn compileInternal(
-    io: ?std.Io,
     alloc: std.mem.Allocator,
     file_data: []const u8,
-    import_ctx: ?*ImportContext,
-    flags: PipelineOptions,
+    cfg: CompileConfig,
 ) !struct { tree: ast_mod.Ast, lines: []tokenizer.Line, resolved: ?resolved_ast.ResolvedAst, partial: bool } {
     const raw_lines = try import_res.splitLines(alloc, file_data);
 
     // Resolve @import directives only when enabled and io is available
-    const imports_result = if (flags.resolve_imports and import_ctx != null and io != null)
-        try import_res.resolveImports(io.?, alloc, raw_lines, import_ctx.?)
+    const imports_result = if (cfg.resolve_imports and cfg.import_ctx != null and cfg.io != null)
+        try import_res.resolveImports(cfg.io.?, alloc, raw_lines, cfg.import_ctx.?)
     else
         null;
 
@@ -109,7 +99,7 @@ fn compileInternal(
 
     // Tokenize and parse — returns error on parse errors (which are printed internally).
     // The tree is always valid; error_count indicates partial results.
-    const result = try import_res.tokenizeAndParseWithLines(alloc, final_lines, flags.json_errors);
+    const result = try import_res.tokenizeAndParseWithLines(alloc, final_lines, cfg.json_errors);
 
     // Merge imported definitions if requested
     var tree = result.tree;
@@ -120,11 +110,11 @@ fn compileInternal(
                 .error_count = tree.error_count,
                 .templates = try import_res.concatSlices(alloc, ast_mod.Template, tree.templates, imports.templates),
                 .tables = try import_res.concatSlices(alloc, ast_mod.Table, tree.tables, imports.tables),
-                .views = if (flags.merge_imports)
+                .views = if (cfg.merge_imports)
                     try import_res.concatSlices(alloc, ast_mod.View, tree.views, imports.views)
                 else
                     tree.views,
-                .sql_comments = if (flags.merge_imports)
+                .sql_comments = if (cfg.merge_imports)
                     try import_res.concatSlices(alloc, ast_mod.SqlComment, tree.sql_comments, imports.comments)
                 else
                     tree.sql_comments,
@@ -135,8 +125,8 @@ fn compileInternal(
     // Run semantic analysis if requested
     // In partial mode (error_count > 0), still run semantic analysis on available tables.
     // Successfully parsed tables are complete; errored tables are simply absent.
-    const resolved = if (flags.run_semantic) blk: {
-        var sa = if (flags.verbose_passes) semantic.SemanticAnalyzer.initVerbose(alloc) else semantic.SemanticAnalyzer.init(alloc);
+    const resolved = if (cfg.run_semantic) blk: {
+        var sa = if (cfg.verbose_passes) semantic.SemanticAnalyzer.initVerbose(alloc) else semantic.SemanticAnalyzer.init(alloc);
         break :blk sa.analyze(tree) catch |err| return err;
     } else null;
 
@@ -151,8 +141,8 @@ fn compileInternal(
 /// Shared tokenizer → parser → semantic pipeline.
 /// Unified entry point replacing compilePipeline/compilePipelineVerbose/compilePipelineWithImports.
 /// Returns PipelineResult with all intermediate IRs for trace inspection.
-pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8, opts: PipelineOptions) !PipelineResult {
-    const result = try compileInternal(opts.io, alloc, file_data, opts.import_ctx, opts);
+pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8, cfg: CompileConfig) !PipelineResult {
+    const result = try compileInternal(alloc, file_data, cfg);
     return .{
         .resolved = result.resolved orelse return error.SemanticError,
         .lines = result.lines,
@@ -165,7 +155,9 @@ pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8, opts: Pi
 /// Tokenize and parse a .ss file, resolving @import directives recursively.
 /// Used for importing templates and tables from other files.
 fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !ast_mod.Ast {
-    const result = try compileInternal(io, alloc, file_data, import_ctx, .{
+    const result = try compileInternal(alloc, file_data, .{
+        .io = io,
+        .import_ctx = import_ctx,
         .resolve_imports = true,
         .run_semantic = false,
     });
@@ -256,7 +248,7 @@ pub fn handleCompileRequest(
     const pipeline = if (cfg.input) |path|
         try compileFileWithPaths(io, alloc, path, cfg.import_paths, cfg.json_errors)
     else
-        try compilePipeline(alloc, try io_mod.readStdin(io, alloc), .{ .verbose_passes = cfg.verbose_passes, .json_errors = cfg.json_errors });
+        try compilePipeline(alloc, try io_mod.readStdin(io, alloc), .{ .verbose_passes = cfg.verbose_passes, .json_errors = cfg.json_errors, .io = io });
 
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, cfg.dialect);
 

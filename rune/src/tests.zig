@@ -39,6 +39,7 @@ comptime {
     _ = @import("diff/migrate_graph_test.zig");
     _ = @import("diff/types_test.zig");
     _ = @import("diff/rename_test.zig");
+    _ = @import("diff/invert.zig");
     _ = @import("diff/format/text_test.zig");
     _ = @import("diff/format/sarif_test.zig");
     _ = @import("diff/format/json_test.zig");
@@ -78,6 +79,10 @@ comptime {
     _ = @import("semantic/diagnostic_test.zig");
     _ = @import("semantic/pass_manager_test.zig");
     _ = @import("semantic/template_test.zig");
+    _ = @import("semantic/pass/validate_duplicates.zig");
+    _ = @import("semantic/pass/validate_circular_fk.zig");
+    _ = @import("semantic/pass/validate_fk_targets.zig");
+    _ = @import("semantic/pass/validate_unused_templates.zig");
     // types
     _ = @import("types/ast_test.zig");
     _ = @import("types/type_map_test.zig");

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.106.0 (2026-08-04) — 32,500+ lines production Zig, 969+ tests, 26 test suites.
+**Current version**: 0.107.0 (2026-08-04) — 35,500+ lines production Zig, 969+ tests, 26 test suites.
 
 ---
 
@@ -219,6 +219,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.107.0 (2026-08-04)
+
+- **Unified `CompileConfig`** — Merged the overlapping `PipelineOptions` and `CompileConfig` structs into a single `CompileConfig` in `pipeline/forward.zig`. Eliminates ~20 lines of field-mapping boilerplate between the two structs. The unified struct carries all pipeline, CLI, and import options in one place.
+- **Extracted `invertDiff`** — Pure data transformation in `diff/invert.zig` that inverts a `SchemaDiff` for rollback generation. Extracted the field/index/FK inversion logic (add↔drop, modify swaps old/new, rename reverses direction) from `diff/migrate.zig`. `generateRollback` now delegates to `invertDiff` for the transformation, reducing ~80 lines of inline inversion logic. Includes 4 unit tests.
+- **Split `validate_schema` pass** — The monolithic 453-line `semantic/pass/validate_schema.zig` was split into 4 focused passes: `validate_duplicates` (duplicate table names), `validate_circular_fk` (circular FK chains + self-referencing FK field count), `validate_fk_targets` (FK target field existence), and `validate_unused_templates` (unused template warnings). Each pass is independently testable with its own dependency declarations. Total: 8 unit tests across the 4 passes.
+- **`DiffFormatter` interface** — Added a unified `DiffFormatter` struct with `name` and `format_fn` fields in `diff/format.zig`. Provides a `FORMATTERS` registry array and `getFormatter(name)` / `getFormatterForEnum(fmt)` lookup functions for runtime format dispatch. Adapter functions wrap existing per-format functions into a common `FormatFn` signature.
+- **Consolidated error dispatch** — Extracted `handleParseError` and `handleDispatchError` from the 70-line inline error handling in `main.zig`. Both are `noreturn` functions that handle all error variants cleanly. Reduces inline error handling to ~4 lines.
+- **New unit tests** — `diff/invert.zig` (4 tests), `semantic/pass/validate_duplicates.zig` (2 tests), `semantic/pass/validate_circular_fk.zig` (3 tests), `semantic/pass/validate_fk_targets.zig` (2 tests), `semantic/pass/validate_unused_templates.zig` (2 tests).
 
 ### v0.106.0 (2026-08-04)
 

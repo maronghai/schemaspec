@@ -33,33 +33,7 @@ pub fn main(init: std.process.Init) !void {
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
-        if (err == error.OutOfMemory) {
-            std.debug.print("error: out of memory\n", .{});
-        } else if (err == error.UnknownFlag) {
-            if (cli.findUnknownFlag(arg_list)) |flag| {
-                if (cli.suggestSimilarFlag(flag)) |suggestion| {
-                    std.debug.print("error: unknown flag '{s}'. Did you mean '{s}'?\n", .{ flag, suggestion });
-                } else {
-                    std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
-                }
-            } else {
-                std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});
-            }
-        } else if (err == error.UnknownCommand) {
-            std.debug.print("error: unknown command '{s}'. Available commands:\n", .{arg_list[1]});
-            inline for (cli.COMMAND_REGISTRY) |cmd| {
-                std.debug.print("  {s}\n", .{cmd.name});
-            }
-        } else if (err == error.UnknownGenerator) {
-            std.debug.print("error: unknown generator. Available generators:\n", .{});
-            for (generator.REGISTRY) |gen| {
-                std.debug.print("  {s}\n", .{gen.name});
-            }
-        } else {
-            const cli_err: cli.ArgError = @errorCast(err);
-            std.debug.print("error: {s}\n", .{cliArgErrorMessage(cli_err)});
-        }
-        std.process.exit(1);
+        handleParseError(err, arg_list);
     };
 
     // Load project config (rune.toml) and apply defaults
@@ -92,48 +66,81 @@ pub fn main(init: std.process.Init) !void {
     }
 
     return dispatch(init.io, alloc, final_parsed) catch |err| {
-        switch (err) {
-            error.DiagnosticsError, error.SemanticError, error.SqlParseError, error.ReverseDiagnosticsError => {
-                // Error already printed by the compiler module
-            },
-            error.CheckFailed => {
-                if (!parsed.quiet) {
-                    std.debug.print("check failed: schema has differences\n", .{});
-                }
-                std.process.exit(1);
-            },
-            error.UnknownGenerator => {
-                std.debug.print("error: unknown generator. Available generators:\n", .{});
-                for (generator.REGISTRY) |gen| {
-                    std.debug.print("  {s}\n", .{gen.name});
-                }
-                std.process.exit(1);
-            },
-            error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
-            error.FileNotFound => {
-                const input_path = getInputPath(final_parsed.command);
-                const input_path2 = getInputPath2(final_parsed.command);
-                if (input_path) |path| {
-                    if (input_path2) |path2| {
-                        std.debug.print("error: file not found: {s} or {s}\n", .{ path, path2 });
-                    } else {
-                        std.debug.print("error: file not found: {s}\n", .{path});
-                    }
-                } else {
-                    std.debug.print("error: file not found\n", .{});
-                }
-            },
-            error.AccessDenied => std.debug.print("error: access denied\n", .{}),
-            error.IsDir => std.debug.print("error: expected a file, got a directory\n", .{}),
-            error.NotDir => std.debug.print("error: expected a directory, got a file\n", .{}),
-            error.UnknownShell => std.debug.print("error: unknown shell. Expected: bash, zsh, fish, powershell\n", .{}),
-            else => std.debug.print("error: {s}\n", .{@errorName(err)}),
-        }
-        std.process.exit(1);
+        handleDispatchError(err, final_parsed);
     };
 }
 
-// ─── Command Dispatch ──────────────────────────────────────────
+// ─── Error Handling ────────────────────────────────────────────
+
+fn handleParseError(err: anyerror, arg_list: []const []const u8) noreturn {
+    if (err == error.OutOfMemory) {
+        std.debug.print("error: out of memory\n", .{});
+    } else if (err == error.UnknownFlag) {
+        if (cli.findUnknownFlag(arg_list)) |flag| {
+            if (cli.suggestSimilarFlag(flag)) |suggestion| {
+                std.debug.print("error: unknown flag '{s}'. Did you mean '{s}'?\n", .{ flag, suggestion });
+            } else {
+                std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
+            }
+        } else {
+            std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});
+        }
+    } else if (err == error.UnknownCommand) {
+        std.debug.print("error: unknown command '{s}'. Available commands:\n", .{arg_list[1]});
+        inline for (cli.COMMAND_REGISTRY) |cmd| {
+            std.debug.print("  {s}\n", .{cmd.name});
+        }
+    } else if (err == error.UnknownGenerator) {
+        std.debug.print("error: unknown generator. Available generators:\n", .{});
+        for (generator.REGISTRY) |gen| {
+            std.debug.print("  {s}\n", .{gen.name});
+        }
+    } else {
+        const cli_err: cli.ArgError = @errorCast(err);
+        std.debug.print("error: {s}\n", .{cliArgErrorMessage(cli_err)});
+    }
+    std.process.exit(1);
+}
+
+fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
+    switch (err) {
+        error.DiagnosticsError, error.SemanticError, error.SqlParseError, error.ReverseDiagnosticsError => {},
+        error.CheckFailed => {
+            if (!parsed.quiet) {
+                std.debug.print("check failed: schema has differences\n", .{});
+            }
+            std.debug.print("", .{});
+            std.process.exit(1);
+        },
+        error.UnknownGenerator => {
+            std.debug.print("error: unknown generator. Available generators:\n", .{});
+            for (generator.REGISTRY) |gen| {
+                std.debug.print("  {s}\n", .{gen.name});
+            }
+            std.process.exit(1);
+        },
+        error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
+        error.FileNotFound => {
+            const input_path = getInputPath(parsed.command);
+            const input_path2 = getInputPath2(parsed.command);
+            if (input_path) |path| {
+                if (input_path2) |path2| {
+                    std.debug.print("error: file not found: {s} or {s}\n", .{ path, path2 });
+                } else {
+                    std.debug.print("error: file not found: {s}\n", .{path});
+                }
+            } else {
+                std.debug.print("error: file not found\n", .{});
+            }
+        },
+        error.AccessDenied => std.debug.print("error: access denied\n", .{}),
+        error.IsDir => std.debug.print("error: expected a file, got a directory\n", .{}),
+        error.NotDir => std.debug.print("error: expected a directory, got a file\n", .{}),
+        error.UnknownShell => std.debug.print("error: unknown shell. Expected: bash, zsh, fish, powershell\n", .{}),
+        else => std.debug.print("error: {s}\n", .{@errorName(err)}),
+    }
+    std.process.exit(1);
+}
 
 fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void {
     // Handle --init flag (invokes init without explicit subcommand)

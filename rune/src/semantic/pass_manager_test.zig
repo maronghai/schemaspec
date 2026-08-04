@@ -8,5 +8,5 @@ test "DEFAULT_PASSES: dependency order is valid" {
 }
 
 test "DEFAULT_PASSES: expected count" {
-    try testing.expectEqual(@as(usize, 8), pm.DEFAULT_PASSES.len);
+    try testing.expectEqual(@as(usize, 11), pm.DEFAULT_PASSES.len);
 }

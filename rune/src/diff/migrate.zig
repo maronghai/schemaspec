@@ -68,6 +68,8 @@ pub fn generateRollback(
     old_resolved: resolved_ast.ResolvedAst,
     dialect: Dialect,
 ) ![]const u8 {
+    const invert = @import("invert.zig");
+
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
@@ -78,24 +80,21 @@ pub fn generateRollback(
     var has_operations = false;
     const backend = dialect_mod.getBackend(dialect);
 
+    // Invert the diff: extracts field/index/FK inversion logic
+    var inv = try invert.invertDiff(alloc, d);
+    defer inv.deinit(alloc);
+
     // 1. Drop tables that were CREATED in forward migration
-    var created_tables = std.ArrayList([]const u8).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
-    defer created_tables.deinit(alloc);
-    for (d.table_diffs) |td| {
-        if (td.action == .create) {
-            created_tables.appendAssumeCapacity(td.name);
-        }
-    }
-    if (created_tables.items.len > 0) {
-        try emitDroppedTables(w, backend, created_tables.items);
+    if (inv.drop_created.len > 0) {
+        try emitDroppedTables(w, backend, inv.drop_created);
         has_operations = true;
     }
 
     // 2. Re-CREATE tables that were DROPPED in forward migration
-    try emitRollbackDroppedTables(alloc, w, d.dropped_tables, old_resolved, dialect, &has_operations);
+    try emitRollbackDroppedTables(alloc, w, inv.dropped_tables, old_resolved, dialect, &has_operations);
 
     // 3. Reverse view diffs (create→drop, drop→create, modify stays)
-    for (d.view_diffs) |vd| {
+    for (inv.view_diffs) |vd| {
         switch (vd.action) {
             .create => {
                 try w.writeAll("DROP VIEW IF EXISTS ");
@@ -111,7 +110,6 @@ pub fn generateRollback(
                 }
             },
             .modify => {
-                // Modify view: drop old, create new from old schema
                 try w.writeAll("DROP VIEW IF EXISTS ");
                 try backend.quoteIdent(w, vd.name);
                 try w.writeAll(";\n\n");
@@ -124,69 +122,10 @@ pub fn generateRollback(
         }
     }
 
-    // 4. Reverse table ALTER diffs (add↔drop, modify swaps old/new)
-    // Track ArrayLists to free their backing memory after use
-    var reversed_tables = std.ArrayList(diff_mod.TableDiff).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
-    defer reversed_tables.deinit(alloc);
-    var reversed_fields_list = std.ArrayList(std.ArrayList(diff_mod.FieldDiff)).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
-    defer {
-        for (reversed_fields_list.items) |*list| list.deinit(alloc);
-        reversed_fields_list.deinit(alloc);
-    }
-    var reversed_indexes_list = std.ArrayList(std.ArrayList(diff_mod.IndexDiff)).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
-    defer {
-        for (reversed_indexes_list.items) |*list| list.deinit(alloc);
-        reversed_indexes_list.deinit(alloc);
-    }
-    var reversed_fks_list = std.ArrayList(std.ArrayList(diff_mod.FkDiff)).initCapacity(alloc, d.table_diffs.len) catch return error.OutOfMemory;
-    defer {
-        for (reversed_fks_list.items) |*list| list.deinit(alloc);
-        reversed_fks_list.deinit(alloc);
-    }
-
-    for (d.table_diffs) |td| {
-        if (td.action == .alter) {
-            var r_fields = std.ArrayList(diff_mod.FieldDiff).initCapacity(alloc, td.field_diffs.len) catch continue;
-            for (td.field_diffs) |fd| {
-                r_fields.appendAssumeCapacity(switch (fd.action) {
-                    .add => .{ .name = fd.name, .action = .drop, .old_field = fd.new_field, .new_field = null, .rename_from = null },
-                    .drop => .{ .name = fd.name, .action = .add, .old_field = null, .new_field = fd.old_field, .rename_from = null },
-                    .modify => .{ .name = fd.name, .action = .modify, .old_field = fd.new_field, .new_field = fd.old_field, .rename_from = null },
-                    .rename => .{ .name = fd.rename_from orelse fd.name, .action = .rename, .old_field = fd.new_field, .new_field = fd.old_field, .rename_from = fd.name },
-                });
-            }
-            var r_indexes = std.ArrayList(diff_mod.IndexDiff).initCapacity(alloc, td.index_diffs.len) catch continue;
-            for (td.index_diffs) |idx_diff| {
-                r_indexes.appendAssumeCapacity(switch (idx_diff.action) {
-                    .add => .{ .name = idx_diff.name, .action = .drop, .old_idx = idx_diff.new_idx, .new_idx = null },
-                    .drop => .{ .name = idx_diff.name, .action = .add, .old_idx = null, .new_idx = idx_diff.old_idx },
-                    .modify => .{ .name = idx_diff.name, .action = .modify, .old_idx = idx_diff.new_idx, .new_idx = idx_diff.old_idx },
-                });
-            }
-            var r_fks = std.ArrayList(diff_mod.FkDiff).initCapacity(alloc, td.fk_diffs.len) catch continue;
-            for (td.fk_diffs) |fk_diff| {
-                r_fks.appendAssumeCapacity(switch (fk_diff.action) {
-                    .add => .{ .action = .drop, .old_fk = fk_diff.new_fk, .new_fk = null },
-                    .drop => .{ .action = .add, .old_fk = null, .new_fk = fk_diff.old_fk },
-                    .modify => .{ .action = .modify, .old_fk = fk_diff.new_fk, .new_fk = fk_diff.old_fk },
-                });
-            }
-            reversed_fields_list.appendAssumeCapacity(r_fields);
-            reversed_indexes_list.appendAssumeCapacity(r_indexes);
-            reversed_fks_list.appendAssumeCapacity(r_fks);
-            reversed_tables.appendAssumeCapacity(.{
-                .name = td.name,
-                .action = .alter,
-                .field_diffs = reversed_fields_list.items[reversed_fields_list.items.len - 1].items,
-                .index_diffs = reversed_indexes_list.items[reversed_indexes_list.items.len - 1].items,
-                .fk_diffs = reversed_fks_list.items[reversed_fks_list.items.len - 1].items,
-                .metadata_diff = null,
-            });
-        }
-    }
-    if (reversed_tables.items.len > 0) {
+    // 4. Emit inverted table ALTER diffs
+    if (inv.inverted_tables.len > 0) {
         var cg = codegen.Codegen.init(alloc, dialect);
-        try emitTableDiffs(alloc, w, reversed_tables.items, old_resolved, dialect, &cg, &has_operations);
+        try emitTableDiffs(alloc, w, inv.inverted_tables, old_resolved, dialect, &cg, &has_operations);
     }
 
     try w.writeAll("COMMIT;\n");
