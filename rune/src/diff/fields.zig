@@ -14,6 +14,17 @@ pub const FieldAction = diff_types.FieldAction;
 // ─── Field Diff + Rename Detection ─────────────────────────
 // Extracted from diff.zig for single-responsibility.
 
+// ─── Capacity Constants ────────────────────────────────────
+// Initial ArrayList capacities based on typical table patterns.
+// Most tables have 5-20 fields; few changes per migration.
+
+/// Typical number of field diffs per table (5-10 common).
+const INITIAL_FIELD_DIFF_CAPACITY = 8;
+/// Typical number of dropped fields per table (0-3 common).
+const INITIAL_DROPPED_NAMES_CAPACITY = 4;
+/// Typical number of added fields per table (0-3 common).
+const INITIAL_ADDED_FIELDS_CAPACITY = 4;
+
 pub const RenamePair = struct {
     old_name: []const u8,
     new_name: []const u8,
@@ -41,10 +52,10 @@ pub fn diffFields(
             try new_fmap.put(f.name, i);
     }
 
-    var diffs = try std.ArrayList(FieldDiff).initCapacity(alloc, 8);
-    var dropped_names = try std.ArrayList([]const u8).initCapacity(alloc, 4);
+    var diffs = try std.ArrayList(FieldDiff).initCapacity(alloc, INITIAL_FIELD_DIFF_CAPACITY);
+    var dropped_names = try std.ArrayList([]const u8).initCapacity(alloc, INITIAL_DROPPED_NAMES_CAPACITY);
     defer dropped_names.deinit(alloc);
-    var added_fields = try std.ArrayList(Field).initCapacity(alloc, 4);
+    var added_fields = try std.ArrayList(Field).initCapacity(alloc, INITIAL_ADDED_FIELDS_CAPACITY);
     defer added_fields.deinit(alloc);
 
     // Fields in both → compare

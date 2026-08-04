@@ -2,6 +2,7 @@ const std = @import("std");
 const ast_mod = @import("ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
+const ir_version = @import("ir_version.zig");
 const Writer = std.Io.Writer;
 const Field = ast_mod.Field;
 const TypeInfo = ast_mod.TypeInfo;
@@ -38,6 +39,8 @@ pub const ColumnFlags = packed struct {
 };
 
 pub const TypedAst = struct {
+    /// IR format version for forward/backward compatibility detection.
+    ir_version: u32 = ir_version.CURRENT_IR_VERSION,
     schema_name: ?[]const u8,
     schema_charset: ?[]const u8,
     tables: []const TypedTable,

@@ -7,8 +7,14 @@ pub const FkDiff = diff_types.FkDiff;
 pub const FkAction = diff_types.FkAction;
 pub const FieldDiff = diff_types.FieldDiff;
 
+// ─── Capacity Constants ────────────────────────────────────
+// Initial ArrayList capacity for FK diffs per table.
+// Most tables have 0-3 foreign keys; few changes per migration.
+
+const INITIAL_FK_DIFF_CAPACITY = 4;
+
 pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []const FkDecl, field_diffs: []const FieldDiff) ![]const FkDiff {
-    var diffs = try std.ArrayList(FkDiff).initCapacity(alloc, 4);
+    var diffs = try std.ArrayList(FkDiff).initCapacity(alloc, INITIAL_FK_DIFF_CAPACITY);
 
     var old_matched = try std.ArrayList(bool).initCapacity(alloc, old_fks.len);
     defer old_matched.deinit(alloc);

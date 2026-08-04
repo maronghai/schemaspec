@@ -4,6 +4,7 @@ const IndexDecl = ast_mod.IndexDecl;
 const CustomType = ast_mod.CustomType;
 const View = ast_mod.View;
 const SqlComment = ast_mod.SqlComment;
+const ir_version = @import("ir_version.zig");
 
 // ─── Resolved AST: Semantic analysis output ─────────────────
 // These types represent the output of template resolution + semantic passes.
@@ -20,6 +21,8 @@ pub const ResolvedTable = struct {
 };
 
 pub const ResolvedAst = struct {
+    /// IR format version for forward/backward compatibility detection.
+    ir_version: u32 = ir_version.CURRENT_IR_VERSION,
     schema_name: ?[]const u8,
     schema_charset: ?[]const u8,
     /// Custom type definitions from ~ directives

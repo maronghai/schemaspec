@@ -32,13 +32,24 @@ pub const TableDiff = diff_types.TableDiff;
 
 const optionalStrEq = utils.optionalStrEq;
 
+// ─── Capacity Constants ────────────────────────────────────
+// Initial ArrayList capacities based on typical schema patterns.
+// Most schemas have 5-20 tables; few changes per migration.
+
+/// Typical number of table diffs in a single migration (5-10 common).
+const INITIAL_TABLE_DIFF_CAPACITY = 8;
+/// Typical number of dropped tables per migration (1-3 common).
+const INITIAL_DROPPED_TABLES_CAPACITY = 4;
+/// Typical number of view diffs per migration (0-2 common).
+const INITIAL_VIEW_DIFF_CAPACITY = 4;
+
 // ─── Diff Engine ───────────────────────────────────────────
 
 /// Compare two ResolvedAsts and produce a SchemaDiff describing all differences.
 pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc: std.mem.Allocator) !SchemaDiff {
-    var table_diffs = try std.ArrayList(TableDiff).initCapacity(alloc, 8);
-    var dropped_tables = try std.ArrayList([]const u8).initCapacity(alloc, 4);
-    var view_diffs = try std.ArrayList(ViewDiff).initCapacity(alloc, 4);
+    var table_diffs = try std.ArrayList(TableDiff).initCapacity(alloc, INITIAL_TABLE_DIFF_CAPACITY);
+    var dropped_tables = try std.ArrayList([]const u8).initCapacity(alloc, INITIAL_DROPPED_TABLES_CAPACITY);
+    var view_diffs = try std.ArrayList(ViewDiff).initCapacity(alloc, INITIAL_VIEW_DIFF_CAPACITY);
 
     // Build name→table maps
     var old_map = std.StringHashMap(usize).init(alloc);

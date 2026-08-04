@@ -8,8 +8,14 @@ pub const IndexDiff = diff_types.IndexDiff;
 pub const IndexAction = diff_types.IndexAction;
 pub const FieldDiff = diff_types.FieldDiff;
 
+// ─── Capacity Constants ────────────────────────────────────
+// Initial ArrayList capacity for index diffs per table.
+// Most tables have 1-5 indexes; few changes per migration.
+
+const INITIAL_INDEX_DIFF_CAPACITY = 4;
+
 pub fn diffIndexes(alloc: std.mem.Allocator, old_idxs: []const IndexDecl, new_idxs: []const IndexDecl, field_diffs: []const FieldDiff) ![]const IndexDiff {
-    var diffs = try std.ArrayList(IndexDiff).initCapacity(alloc, 4);
+    var diffs = try std.ArrayList(IndexDiff).initCapacity(alloc, INITIAL_INDEX_DIFF_CAPACITY);
 
     var old_matched = try std.ArrayList(bool).initCapacity(alloc, old_idxs.len);
     defer old_matched.deinit(alloc);

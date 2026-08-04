@@ -85,6 +85,7 @@ comptime {
     _ = @import("semantic/pass/validate_unused_templates.zig");
     // types
     _ = @import("types/ast_test.zig");
+    _ = @import("types/ir_version.zig");
     _ = @import("types/type_map_test.zig");
     _ = @import("types/type_resolver_test.zig");
     _ = @import("types/type_registry_test.zig");

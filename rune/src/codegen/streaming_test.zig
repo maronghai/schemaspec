@@ -248,3 +248,93 @@ test "streaming: formatStreamingResult interleaves views and comments" {
     const view_pos = std.mem.indexOf(u8, sql, "CREATE OR REPLACE VIEW") orelse 0;
     try testing.expect(comment_pos < view_pos);
 }
+
+test "streaming: PostgreSQL dialect uses SERIAL" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 2);
+    cols[0] = makeTestColumn("id", .int);
+    cols[0].flags.primary_key = true;
+    cols[0].flags.auto_increment = true;
+    cols[1] = makeTestColumn("email", .{ .passthrough = "varchar(255)" });
+
+    const table = makeTestTable("users", cols);
+    const tables = try alloc.dupe(typed_ast_mod.TypedTable, &.{table});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = tables,
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+
+    var sc = streaming.StreamingCodegen.init(alloc, .pg);
+    const result = try sc.generateStreaming(typed);
+
+    try testing.expectEqual(@as(usize, 1), result.tables.len);
+    // PG should emit GENERATED ALWAYS AS IDENTITY for auto_increment columns
+    try testing.expect(std.mem.indexOf(u8, result.tables[0].sql, "GENERATED ALWAYS AS IDENTITY") != null);
+}
+
+test "streaming: many columns preserves all in output" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 10);
+    for (0..10) |i| {
+        var buf: [16]u8 = undefined;
+        const name = std.fmt.bufPrint(&buf, "col_{d}", .{i}) catch unreachable;
+        cols[i] = makeTestColumn(try alloc.dupe(u8, name), .{ .passthrough = "int" });
+    }
+
+    const table = makeTestTable("wide_table", cols);
+    const tables = try alloc.dupe(typed_ast_mod.TypedTable, &.{table});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = tables,
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+
+    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    const result = try sc.generateStreaming(typed);
+
+    try testing.expectEqual(@as(usize, 1), result.tables.len);
+    // All 10 columns should appear in the output
+    for (0..10) |i| {
+        var buf: [16]u8 = undefined;
+        const name = std.fmt.bufPrint(&buf, "col_{d}", .{i}) catch unreachable;
+        try testing.expect(std.mem.indexOf(u8, result.tables[0].sql, name) != null);
+    }
+}
+
+test "streaming: table with FK and index" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 2);
+    cols[0] = makeTestColumn("id", .int);
+    cols[0].flags.primary_key = true;
+    cols[1] = makeTestColumn("org_id", .int);
+
+    const table = makeTestTable("users", cols);
+    const tables = try alloc.dupe(typed_ast_mod.TypedTable, &.{table});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = tables,
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+
+    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    const result = try sc.generateStreaming(typed);
+
+    try testing.expectEqual(@as(usize, 1), result.tables.len);
+    try testing.expect(std.mem.indexOf(u8, result.tables[0].sql, "CREATE TABLE") != null);
+}

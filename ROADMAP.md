@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.107.0 (2026-08-04) — 35,500+ lines production Zig, 969+ tests, 26 test suites.
+**Current version**: 0.108.0 (2026-08-04) — 36,500+ lines production Zig, 984+ tests, 26 test suites.
 
 ---
 
@@ -206,7 +206,7 @@ Ongoing improvements pursued alongside feature work.
 - [x] Named constants for magic numbers — `STDIN_BUFFER_SIZE`, `OUTPUT_BUFFER_SIZE`, etc. (v0.80.0)
 - [x] Eliminate `std.process.exit` in library code — all errors propagate to main.zig (v0.80.0, v0.103.0)
 - [ ] Zero-allocation codegen path — reuse buffers across compilations
-- [ ] Formalize IR versioning — schema for forward/backward compatibility
+- [x] Formalize IR versioning — schema for forward/backward compatibility (v0.108.0)
 - [ ] Memory leak audit — reduce remaining leaks toward zero
 - [ ] Fuzz testing expansion — longer runs, more seed variety, coverage-guided mutation
 
@@ -219,6 +219,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.108.0 (2026-08-04)
+
+- **Named constants for diff engine** — Extracted `INITIAL_TABLE_DIFF_CAPACITY`, `INITIAL_DROPPED_TABLES_CAPACITY`, `INITIAL_VIEW_DIFF_CAPACITY`, `INITIAL_FIELD_DIFF_CAPACITY`, `INITIAL_INDEX_DIFF_CAPACITY`, `INITIAL_FK_DIFF_CAPACITY` as named constants in `diff/engine.zig`, `diff/fields.zig`, `diff/indexes.zig`, `diff/fks.zig`. Replaces 6 hardcoded `initCapacity` values with documented constants that explain typical schema patterns.
+- **Codegen buffer pool** — New `BufferPool` struct in `codegen/codegen.zig` manages reusable `Writer.Allocating` instances for batch codegen scenarios. Methods: `init`, `deinit`, `acquire`, `release`. New `generateFromTypedAstPooled` method enables buffer reuse across multiple compilations. Existing `generateFromTypedAst` preserved for backward compatibility.
+- **IR versioning** — Added `ir_version: u32` field to both `ResolvedAst` (types/resolved_ast.zig) and `TypedAst` (types/typed_ast.zig). New `types/ir_version.zig` module defines `CURRENT_IR_VERSION = 1` and `validateIrVersion()` for forward/backward compatibility detection. 4 unit tests cover version constant, validation, and error cases.
+- **New unit tests** — `types/ir_version.zig` (4 tests: version positive, validate current, validate zero, validate future). `codegen/streaming_test.zig` expanded from 7 to 10 tests (added PostgreSQL dialect, many-columns, FK+index edge cases).
 
 ### v0.107.0 (2026-08-04)
 
@@ -737,5 +744,5 @@ Ongoing improvements pursued alongside feature work.
 | 4: Incremental & Live Workflows | 🟡 Partial | 4/10 | 6 |
 | 5: Developer Experience | 🟡 Partial | 7/12 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
-| Architecture Targets | 🟡 Ongoing | 9/12 | 3 |
+| Architecture Targets | 🟡 Ongoing | 10/12 | 2 |
 | **Total** | | **56/81** | **25** |
