@@ -35,7 +35,7 @@ const optionalStrEq = utils.optionalStrEq;
 // ─── Diff Engine ───────────────────────────────────────────
 
 /// Compare two ResolvedAsts and produce a SchemaDiff describing all differences.
-pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc: std.mem.Allocator, dialect: ?Dialect) !SchemaDiff {
+pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc: std.mem.Allocator) !SchemaDiff {
     var table_diffs = try std.ArrayList(TableDiff).initCapacity(alloc, 8);
     var dropped_tables = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var view_diffs = try std.ArrayList(ViewDiff).initCapacity(alloc, 4);
@@ -75,7 +75,7 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
     for (old.tables) |old_table| {
         if (new_map.get(old_table.name)) |new_idx| {
             const new_table = new.tables[new_idx];
-            const td = try diffTable(alloc, old_table, new_table, dialect);
+            const td = try diffTable(alloc, old_table, new_table);
             if (td.field_diffs.len > 0 or td.index_diffs.len > 0 or td.fk_diffs.len > 0 or td.metadata_diff != null) {
                 try table_diffs.append(alloc, td);
             }
@@ -138,8 +138,8 @@ fn viewQueriesEql(old: ast_mod.View, new: ast_mod.View) bool {
     return std.mem.eql(u8, old_second, new_second);
 }
 
-fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: resolved_ast.ResolvedTable, dialect: ?Dialect) !TableDiff {
-    const field_diffs = try diff_fields.diffFields(alloc, old.fields, new.fields, dialect);
+fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: resolved_ast.ResolvedTable) !TableDiff {
+    const field_diffs = try diff_fields.diffFields(alloc, old.fields, new.fields);
     const index_diffs = try diff_indexes.diffIndexes(alloc, old.indexes, new.indexes, field_diffs);
     const fk_diffs = try diff_fks.diffFks(alloc, old.fks, new.fks, field_diffs);
 

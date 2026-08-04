@@ -22,7 +22,7 @@ test "diff: identical schemas produce no table diffs" {
     ;
     const old_resolved = try pipeline_forward.compilePipeline(alloc, ss, .{});
     const new_resolved = try pipeline_forward.compilePipeline(alloc, ss, .{});
-    const schema_diff = try diff.diff(old_resolved.resolved, new_resolved.resolved, alloc, .mysql);
+    const schema_diff = try diff.diff(old_resolved.resolved, new_resolved.resolved, alloc);
     try testing.expectEqual(@as(usize, 0), schema_diff.table_diffs.len);
     try testing.expectEqual(@as(usize, 0), schema_diff.dropped_tables.len);
 }
@@ -53,7 +53,7 @@ test "diff: adding a table produces a create action" {
     ;
     const old_resolved = try pipeline_forward.compilePipeline(alloc, old_ss, .{});
     const new_resolved = try pipeline_forward.compilePipeline(alloc, new_ss, .{});
-    const schema_diff = try diff.diff(old_resolved.resolved, new_resolved.resolved, alloc, .mysql);
+    const schema_diff = try diff.diff(old_resolved.resolved, new_resolved.resolved, alloc);
     try testing.expectEqual(@as(usize, 1), schema_diff.table_diffs.len);
     try testing.expectEqual(diff_types.TableAction.create, schema_diff.table_diffs[0].action);
     try testing.expectEqualStrings("post", schema_diff.table_diffs[0].name);
@@ -86,7 +86,7 @@ test "diff format json: produces valid JSON structure" {
     ;
     const old_resolved = try pipeline_forward.compilePipeline(alloc, old_ss, .{});
     const new_resolved = try pipeline_forward.compilePipeline(alloc, new_ss, .{});
-    const schema_diff = try diff.diff(old_resolved.resolved, new_resolved.resolved, alloc, .mysql);
+    const schema_diff = try diff.diff(old_resolved.resolved, new_resolved.resolved, alloc);
     const json = try diff_format.formatDiffJson(alloc, schema_diff);
 
     try testing.expect(std.mem.indexOf(u8, json, "\"dropped_tables\"") != null);

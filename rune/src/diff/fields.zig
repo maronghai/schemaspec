@@ -26,7 +26,6 @@ pub fn diffFields(
     alloc: std.mem.Allocator,
     old_fields: []const Field,
     new_fields: []const Field,
-    dialect: ?Dialect,
 ) ![]const FieldDiff {
     // Build name→field maps (skip slot markers)
     var old_fmap = std.StringHashMap(usize).init(alloc);
@@ -53,7 +52,7 @@ pub fn diffFields(
         if (std.mem.eql(u8, old_field.name, "...")) continue;
         if (new_fmap.get(old_field.name)) |new_idx| {
             const new_field = new_fields[new_idx];
-            if (!fieldsEqual(old_field, new_field, dialect)) {
+            if (!fieldsEqual(old_field, new_field)) {
                 try diffs.append(alloc, .{
                     .name = old_field.name,
                     .action = .modify,
@@ -76,7 +75,7 @@ pub fn diffFields(
     }
 
     // Rename detection: match dropped ↔ added by (type_info, modifiers, default, check)
-    const renames = try detectRenames(old_fmap, new_fmap, old_fields, new_fields, &dropped_names, alloc, dialect);
+    const renames = try detectRenames(old_fmap, new_fmap, old_fields, new_fields, &dropped_names, alloc);
 
     // Emit add for unmatched added fields
     for (added_fields.items) |af| {
@@ -162,7 +161,6 @@ fn detectRenames(
     new_fields: []const Field,
     dropped_names: *const std.ArrayList([]const u8),
     alloc: std.mem.Allocator,
-    dialect: ?Dialect,
 ) ![]const RenamePair {
     var renames = try std.ArrayList(RenamePair).initCapacity(alloc, 4);
 
@@ -178,7 +176,7 @@ fn detectRenames(
             // Skip fields that exist in both old and new (not a rename candidate)
             if (old_fmap.contains(new_f.name)) continue;
 
-            if (fieldSignatureMatch(old_f, new_f, dialect)) {
+            if (fieldSignatureMatch(old_f, new_f)) {
                 match_name = new_f.name;
                 match_count += 1;
             }
@@ -205,8 +203,8 @@ fn detectRenames(
 
 /// Check if two fields have the same signature (type, modifiers, default, check).
 /// Used by rename detection to match dropped ↔ added fields.
-pub fn fieldSignatureMatch(a: Field, b: Field, dialect: ?Dialect) bool {
-    if (!typeInfoEqualDialect(a.type_info, b.type_info, dialect)) return false;
+pub fn fieldSignatureMatch(a: Field, b: Field) bool {
+    if (!typeInfoEqualDialect(a.type_info, b.type_info)) return false;
     if (a.modifiers.len != b.modifiers.len) return false;
     for (a.modifiers, 0..) |am, i| {
         if (am.kind != b.modifiers[i].kind) return false;
@@ -217,8 +215,8 @@ pub fn fieldSignatureMatch(a: Field, b: Field, dialect: ?Dialect) bool {
 }
 
 /// Check if two fields are fully equal (type, modifiers, default, check).
-pub fn fieldsEqual(a: Field, b: Field, dialect: ?Dialect) bool {
-    return fieldSignatureMatch(a, b, dialect);
+pub fn fieldsEqual(a: Field, b: Field) bool {
+    return fieldSignatureMatch(a, b);
 }
 
 pub fn typeInfoEqual(a: TypeInfo, b: TypeInfo) bool {
@@ -226,10 +224,7 @@ pub fn typeInfoEqual(a: TypeInfo, b: TypeInfo) bool {
 }
 
 /// Dialect-aware type info equality: uses semantic equivalence.
-/// The `dialect` parameter is retained for API compatibility but is no longer used
-/// by the underlying `typeInfoEquiv` which is now dialect-agnostic.
-pub fn typeInfoEqualDialect(a: TypeInfo, b: TypeInfo, dialect: ?Dialect) bool {
-    _ = dialect;
+pub fn typeInfoEqualDialect(a: TypeInfo, b: TypeInfo) bool {
     return diff_semantic.typeInfoEquiv(a, b);
 }
 
@@ -291,31 +286,31 @@ fn makeTestFieldWithCheck(name: []const u8, sym: []const u8, expr: []const u8) F
 test "fieldSignatureMatch: identical fields match" {
     const a = makeTestField("id", "n");
     const b = makeTestField("id", "n");
-    try testing.expect(fieldSignatureMatch(a, b, null));
+    try testing.expect(fieldSignatureMatch(a, b));
 }
 
 test "fieldSignatureMatch: different type does not match" {
     const a = makeTestField("id", "n");
     const b = makeTestField("id", "s");
-    try testing.expect(!fieldSignatureMatch(a, b, null));
+    try testing.expect(!fieldSignatureMatch(a, b));
 }
 
 test "fieldSignatureMatch: different default does not match" {
     const a = makeTestFieldWithDefault("col", "n", "0");
     const b = makeTestFieldWithDefault("col", "n", "1");
-    try testing.expect(!fieldSignatureMatch(a, b, null));
+    try testing.expect(!fieldSignatureMatch(a, b));
 }
 
 test "fieldSignatureMatch: different check does not match" {
     const a = makeTestFieldWithCheck("col", "n", "x > 0");
     const b = makeTestFieldWithCheck("col", "n", "x < 100");
-    try testing.expect(!fieldSignatureMatch(a, b, null));
+    try testing.expect(!fieldSignatureMatch(a, b));
 }
 
 test "fieldSignatureMatch: both null checks match" {
     const a = makeTestField("col", "n");
     const b = makeTestField("col", "n");
-    try testing.expect(fieldSignatureMatch(a, b, null));
+    try testing.expect(fieldSignatureMatch(a, b));
 }
 
 test "checkEqual: both null" {
@@ -337,7 +332,7 @@ test "diffFields: one-to-one rename" {
     const new_fields = try alloc.alloc(Field, 1);
     new_fields[0] = makeTestField("new_name", "n");
 
-    const diffs = try diffFields(alloc, old_fields, new_fields, null);
+    const diffs = try diffFields(alloc, old_fields, new_fields);
     try testing.expectEqual(@as(usize, 1), diffs.len);
     try testing.expectEqual(FieldAction.rename, diffs[0].action);
     try testing.expectEqualStrings("new_name", diffs[0].name);
@@ -355,7 +350,7 @@ test "diffFields: ambiguous renames produce no rename" {
     new_fields[0] = makeTestField("c", "n");
     new_fields[1] = makeTestField("d", "n");
 
-    const diffs = try diffFields(alloc, old_fields, new_fields, null);
+    const diffs = try diffFields(alloc, old_fields, new_fields);
     // Ambiguous: 2 dropped + 2 added with same signature → 2 drops + 2 adds, no renames
     var renames: usize = 0;
     var adds: usize = 0;

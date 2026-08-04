@@ -44,7 +44,7 @@ test "empty schemas — no differences" {
 
     const old = makeResolvedAst(alloc, &.{});
     const new = makeResolvedAst(alloc, &.{});
-    const result = try engine.diff(old, new, alloc, null);
+    const result = try engine.diff(old, new, alloc);
     try testing.expect(!result.hasChanges());
 }
 
@@ -64,7 +64,7 @@ test "added table" {
         .indexes = &.{},
         .line_no = 1,
     }}));
-    const result = try engine.diff(old, new, alloc, null);
+    const result = try engine.diff(old, new, alloc);
     try testing.expect(result.hasChanges());
     try testing.expectEqual(@as(usize, 1), result.table_diffs.len);
     try testing.expectEqual(engine.TableAction.create, result.table_diffs[0].action);
@@ -87,7 +87,7 @@ test "dropped table" {
         .line_no = 1,
     }}));
     const new = makeResolvedAst(alloc, &.{});
-    const result = try engine.diff(old, new, alloc, null);
+    const result = try engine.diff(old, new, alloc);
     try testing.expect(result.hasChanges());
     try testing.expectEqual(@as(usize, 1), result.dropped_tables.len);
     try testing.expectEqualStrings("users", result.dropped_tables[0]);
@@ -110,7 +110,7 @@ test "identical tables — no changes" {
     }});
     const old = makeResolvedAst(alloc, table);
     const new = makeResolvedAst(alloc, table);
-    const result = try engine.diff(old, new, alloc, null);
+    const result = try engine.diff(old, new, alloc);
     try testing.expect(!result.hasChanges());
 }
 
@@ -139,7 +139,7 @@ test "added field" {
         .indexes = &.{},
         .line_no = 1,
     }}));
-    const result = try engine.diff(old, new, alloc, null);
+    const result = try engine.diff(old, new, alloc);
     try testing.expect(result.hasChanges());
     try testing.expectEqual(@as(usize, 1), result.table_diffs.len);
     try testing.expectEqual(@as(usize, 1), result.table_diffs[0].field_diffs.len);
@@ -172,7 +172,7 @@ test "dropped field" {
         .indexes = &.{},
         .line_no = 1,
     }}));
-    const result = try engine.diff(old, new, alloc, null);
+    const result = try engine.diff(old, new, alloc);
     try testing.expect(result.hasChanges());
     try testing.expectEqual(@as(usize, 1), result.table_diffs[0].field_diffs.len);
     try testing.expectEqual(engine.FieldAction.drop, result.table_diffs[0].field_diffs[0].action);
@@ -203,7 +203,7 @@ test "modified field — type change" {
         .indexes = &.{},
         .line_no = 1,
     }}));
-    const result = try engine.diff(old, new, alloc, null);
+    const result = try engine.diff(old, new, alloc);
     try testing.expect(result.hasChanges());
     try testing.expectEqual(@as(usize, 1), result.table_diffs[0].field_diffs.len);
     try testing.expectEqual(engine.FieldAction.modify, result.table_diffs[0].field_diffs[0].action);
@@ -223,7 +223,7 @@ test "multiple tables — mixed changes" {
         .{ .name = "users", .comment = null, .engine = null, .fields = fields, .fks = &.{}, .indexes = &.{}, .line_no = 1 },
         .{ .name = "comments", .comment = null, .engine = null, .fields = fields, .fks = &.{}, .indexes = &.{}, .line_no = 1 },
     }));
-    const result = try engine.diff(old, new, alloc, null);
+    const result = try engine.diff(old, new, alloc);
     try testing.expect(result.hasChanges());
     try testing.expectEqual(@as(usize, 1), result.dropped_tables.len);
     try testing.expectEqualStrings("posts", result.dropped_tables[0]);

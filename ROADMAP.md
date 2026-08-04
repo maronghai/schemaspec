@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.105.0 (2026-08-04) — 35,000+ lines production Zig, 964+ tests, 26 test suites.
+**Current version**: 0.106.0 (2026-08-04) — 32,500+ lines production Zig, 969+ tests, 26 test suites.
 
 ---
 
@@ -219,6 +219,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.106.0 (2026-08-04)
+
+- **Streaming compilation fix** — `rune schema.ss --stream` now includes views and SQL comments in the output. Previously, views and comments were silently skipped (data loss bug). `StreamingResult` now includes `views` and `comments` fields with line numbers for proper interleaving in `formatStreamingResult`.
+- **Stats field naming correction** — `Stats.templates` renamed to `Stats.custom_types` to accurately reflect that the field counts custom type definitions (`~` directives), not templates (`%` definitions). JSON output key changed from `"templates"` to `"custom_types"`.
+- **Dead dialect parameter removal** — Removed unused `dialect` parameter from `typeInfoEqualDialect`, `fieldSignatureMatch`, `fieldsEqual`, `diffFields`, `diffTable`, and `diff` functions in the diff engine. The parameter was a dead code path since the underlying `typeInfoEquiv` is dialect-agnostic.
+- **Migrate status JSON optimization** — Replaced O(n²) hand-rolled JSON string concatenation with streaming `std.Io.Writer.Allocating` approach using `utils.jsonEscapeString`. Also optimized the non-JSON text output path.
+- **`emitCheckExpr` relocated** — Moved from `codegen/codegen.zig` to `codegen/columns.zig` where it belongs (CHECK expression rendering is part of column definition codegen).
+- **New unit tests** — 4 streaming compilation tests covering views, comments, interleaving, and output ordering.
 
 ### v0.105.0 (2026-08-04)
 

@@ -21,7 +21,6 @@ pub const Stats = struct {
     foreign_keys: usize,
     indexes: usize,
     check_constraints: usize,
-    templates: usize,
     custom_types: usize,
 };
 
@@ -82,8 +81,7 @@ pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
         .foreign_keys = fk_count,
         .indexes = idx_count,
         .check_constraints = check_count,
-        .templates = resolved.custom_types.len,
-        .custom_types = 0,
+        .custom_types = resolved.custom_types.len,
     };
 }
 
@@ -101,13 +99,13 @@ pub fn printStats(stats: Stats) void {
     std.debug.print("foreign_keys:     {d}\n", .{stats.foreign_keys});
     std.debug.print("indexes:          {d}\n", .{stats.indexes});
     std.debug.print("check_constraints:{d}\n", .{stats.check_constraints});
-    std.debug.print("templates:        {d}\n", .{stats.templates});
+    std.debug.print("custom_types:    {d}\n", .{stats.custom_types});
 }
 
 /// Format stats as a JSON string.
 pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
     return std.fmt.allocPrint(alloc,
-        \\{{"tables":{d},"fields":{d},"not_null":{d},"numeric":{d},"string":{d},"datetime":{d},"boolean":{d},"other":{d},"views":{d},"foreign_keys":{d},"indexes":{d},"check_constraints":{d},"templates":{d}}}
+        \\{{"tables":{d},"fields":{d},"not_null":{d},"numeric":{d},"string":{d},"datetime":{d},"boolean":{d},"other":{d},"views":{d},"foreign_keys":{d},"indexes":{d},"check_constraints":{d},"custom_types":{d}}}
     , .{
         stats.tables,
         stats.fields,
@@ -121,6 +119,6 @@ pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
         stats.foreign_keys,
         stats.indexes,
         stats.check_constraints,
-        stats.templates,
+        stats.custom_types,
     });
 }

@@ -101,12 +101,11 @@ test "formatStatsJson: zero values" {
         .foreign_keys = 0,
         .indexes = 0,
         .check_constraints = 0,
-        .templates = 0,
         .custom_types = 0,
     };
     const json = try stats_mod.formatStatsJson(alloc, s);
     try testing.expectEqualStrings(
-        \\{"tables":0,"fields":0,"not_null":0,"numeric":0,"string":0,"datetime":0,"boolean":0,"other":0,"views":0,"foreign_keys":0,"indexes":0,"check_constraints":0,"templates":0}
+        \\{"tables":0,"fields":0,"not_null":0,"numeric":0,"string":0,"datetime":0,"boolean":0,"other":0,"views":0,"foreign_keys":0,"indexes":0,"check_constraints":0,"custom_types":0}
     , json);
 }
 
@@ -128,11 +127,10 @@ test "formatStatsJson: populated values" {
         .foreign_keys = 2,
         .indexes = 4,
         .check_constraints = 3,
-        .templates = 1,
-        .custom_types = 0,
+        .custom_types = 1,
     };
     const json = try stats_mod.formatStatsJson(alloc, s);
     try testing.expectEqualStrings(
-        \\{"tables":3,"fields":20,"not_null":12,"numeric":8,"string":10,"datetime":1,"boolean":1,"other":0,"views":1,"foreign_keys":2,"indexes":4,"check_constraints":3,"templates":1}
+        \\{"tables":3,"fields":20,"not_null":12,"numeric":8,"string":10,"datetime":1,"boolean":1,"other":0,"views":1,"foreign_keys":2,"indexes":4,"check_constraints":3,"custom_types":1}
     , json);
 }

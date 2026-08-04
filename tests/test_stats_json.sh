@@ -12,7 +12,7 @@ TEST_DIR="$SCRIPT_DIR"
 output=$("$COMPILER" stats "$TEST_DIR"/01-schema-only.ss --format json 2>&1) && exit_code=0 || exit_code=$?
 if [ "$exit_code" -eq 0 ]; then
   missing=0
-  for key in tables fields indexes templates; do
+  for key in tables fields indexes custom_types; do
     echo "$output" | grep -q "\"$key\"" || missing=1
   done
   if [ "$missing" -eq 0 ]; then
@@ -28,7 +28,7 @@ fi
 output=$("$COMPILER" stats "$TEST_DIR"/03-all-types.ss --format json 2>&1) && exit_code=0 || exit_code=$?
 if [ "$exit_code" -eq 0 ]; then
   missing=0
-  for key in tables fields numeric string datetime boolean templates; do
+  for key in tables fields numeric string datetime boolean custom_types; do
     echo "$output" | grep -q "\"$key\"" || missing=1
   done
   if [ "$missing" -eq 0 ]; then

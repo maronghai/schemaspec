@@ -12,6 +12,7 @@ const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const pipeline_forward = @import("../pipeline/forward.zig");
 const io_mod = @import("../io.zig");
 const cli = @import("../cli.zig");
+const utils = @import("../utils.zig");
 
 // ─── Diff/Migrate Pipeline ────────────────────────────────────
 
@@ -56,10 +57,10 @@ const DiffResult = struct {
 };
 
 /// Compile both schemas and compute their diff. Shared by all diff/migrate handlers.
-fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: codegen.Dialect) !DiffResult {
+fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8) !DiffResult {
     const old_ast = try pipeline_forward.compileToAst(io, alloc, old_path);
     const new_ast = try pipeline_forward.compileToAst(io, alloc, new_path);
-    const schema_diff = try diff.diff(old_ast, new_ast, alloc, dialect);
+    const schema_diff = try diff.diff(old_ast, new_ast, alloc);
     return .{ .old_ast = old_ast, .new_ast = new_ast, .schema_diff = schema_diff };
 }
 
@@ -67,7 +68,7 @@ fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_p
 /// Supports text, JSON, and SARIF output formats via DiffConfig.format.
 /// With summary=true, outputs only the summary line without full diff.
 pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
-    const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path, cfg.dialect);
+    const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path);
     emitTraceAndStats(result, cfg.trace, cfg.stats);
 
     if (cfg.check) {
@@ -137,7 +138,7 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
         return;
     }
 
-    const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path, cfg.dialect);
+    const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path);
     emitTraceAndStats(result, cfg.trace, cfg.stats);
 
     if (cfg.check) {
@@ -243,36 +244,23 @@ pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]co
             try io_mod.writeOutput(io, "{\"files\":[],\"count\":0}", null, false);
             return;
         }
-        var json = try std.fmt.allocPrint(alloc, "{{\"files\":[", .{});
+        var aw = std.Io.Writer.Allocating.init(alloc);
+        const w = &aw.writer;
+        try w.writeAll("{\"files\":[");
         for (entries.items, 0..) |entry_name, idx| {
             const base = entry_name[0 .. entry_name.len - 4];
             const underscore_pos = std.mem.indexOfScalar(u8, base, '_') orelse continue;
             const label = base[underscore_pos + 1 ..];
-            if (idx > 0) json = try std.fmt.allocPrint(alloc, "{s},", .{json});
-            json = try std.fmt.allocPrint(alloc, "{s}{{\"name\":\"", .{json});
-            // JSON-escape the filename
-            for (entry_name) |ch| {
-                if (ch == '"') {
-                    json = try std.fmt.allocPrint(alloc, "{s}\\\"", .{json});
-                } else if (ch == '\\') {
-                    json = try std.fmt.allocPrint(alloc, "{s}\\\\", .{json});
-                } else {
-                    json = try std.fmt.allocPrint(alloc, "{s}{c}", .{ json, ch });
-                }
-            }
-            json = try std.fmt.allocPrint(alloc, "{s}\",\"label\":\"", .{json});
-            for (label) |ch| {
-                if (ch == '"') {
-                    json = try std.fmt.allocPrint(alloc, "{s}\\\"", .{json});
-                } else if (ch == '\\') {
-                    json = try std.fmt.allocPrint(alloc, "{s}\\\\", .{json});
-                } else {
-                    json = try std.fmt.allocPrint(alloc, "{s}{c}", .{ json, ch });
-                }
-            }
-            json = try std.fmt.allocPrint(alloc, "{s}\"}}", .{json});
+            if (idx > 0) try w.writeAll(",");
+            try w.writeAll("{\"name\":\"");
+            try utils.jsonEscapeString(w, entry_name);
+            try w.writeAll("\",\"label\":\"");
+            try utils.jsonEscapeString(w, label);
+            try w.writeAll("\"}");
         }
-        json = try std.fmt.allocPrint(alloc, "{s}],\"count\":{d}}}", .{ json, entries.items.len });
+        try w.print("],\"count\":{d}}}", .{entries.items.len});
+        try w.flush();
+        const json = try aw.toOwnedSlice();
         try io_mod.writeOutput(io, json, null, false);
         return;
     }
@@ -283,15 +271,18 @@ pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]co
         return;
     }
 
-    var output = try std.fmt.allocPrint(alloc, "Migration files in '{s}':\n", .{target_dir});
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+    try w.print("Migration files in '{s}':\n", .{target_dir});
     for (entries.items) |entry_name| {
         const base = entry_name[0 .. entry_name.len - 4];
         const underscore_pos = std.mem.indexOfScalar(u8, base, '_') orelse continue;
         const seq = base[0..underscore_pos];
         const label = base[underscore_pos + 1 ..];
-        const line = try std.fmt.allocPrint(alloc, "  {s} — {s}\n", .{ seq, label });
-        output = try std.fmt.allocPrint(alloc, "{s}{s}", .{ output, line });
+        try w.print("  {s} — {s}\n", .{ seq, label });
     }
+    try w.flush();
+    const output = try aw.toOwnedSlice();
     try io_mod.writeOutput(io, output, null, false);
 }
 

@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.106.0] - 2026-08-04
+
+### Fixed
+- **Streaming compilation includes views and comments** — `rune schema.ss --stream` now properly includes views and SQL comments in the output. Previously, views and comments were silently skipped (data loss bug). `StreamingResult` now includes `views` and `comments` fields with line numbers for proper interleaving.
+- **Stats field naming** — Renamed `Stats.templates` to `Stats.custom_types` to accurately reflect that the field counts custom type definitions (`~` directives), not templates (`%` definitions). Templates are resolved during semantic analysis and don't appear in the resolved AST. JSON output key changed from `"templates"` to `"custom_types"`.
+- **Unused dialect parameter removed** — Removed the unused `dialect` parameter from `typeInfoEqualDialect`, `fieldSignatureMatch`, `fieldsEqual`, `diffFields`, `diffTable`, and `diff` functions in the diff engine. The dialect parameter was a dead code path since the underlying `typeInfoEquiv` is dialect-agnostic.
+- **Migrate status JSON optimization** — Replaced O(n²) hand-rolled JSON string concatenation with streaming `std.Io.Writer.Allocating` approach using the existing `utils.jsonEscapeString` helper. Also optimized the non-JSON text output path.
+- **`emitCheckExpr` relocated** — Moved `emitCheckExpr` from `codegen/codegen.zig` to `codegen/columns.zig` where it belongs (CHECK expression rendering is part of column definition codegen). Backward-compatible re-export maintained in `codegen.zig`.
+
+### Added
+- **Streaming compilation tests** — 4 new unit tests covering views, comments, interleaving, and `formatStreamingResult` output ordering.
+
+### Changed
+- Updated test suite for stats JSON (3 tests) and migrate status (7 tests).
+
 ## [0.99.0] - 2026-08-03
 
 ### Fixed
