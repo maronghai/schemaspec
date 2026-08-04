@@ -89,13 +89,7 @@ fn mysqlEmitPrimaryKey(w: *Writer, _: bool) anyerror!void {
 }
 
 fn mysqlEmitInlineIndex(w: *Writer, col_name: []const u8, is_unique: bool, needs_comma: *bool) anyerror!void {
-    if (needs_comma.*) try w.writeAll(",\n");
-    needs_comma.* = true;
-    if (is_unique) {
-        try w.print("  UNIQUE INDEX `uk_{s}` (`{s}`)", .{ col_name, col_name });
-    } else {
-        try w.print("  INDEX `idx_{s}` (`{s}`)", .{ col_name, col_name });
-    }
+    try common.emitInlineIndexWithQuote(w, col_name, is_unique, needs_comma, '`', '`');
 }
 
 fn mysqlEmitStandaloneIndex(_: *Writer, _: []const u8, _: IndexDecl) anyerror!void {

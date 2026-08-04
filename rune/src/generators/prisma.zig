@@ -24,19 +24,8 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    // Collect enum types (tables with enum columns)
-    var has_enums = false;
-    for (typed.tables) |table| {
-        for (table.columns) |col| {
-            if (col.flags.is_enum) {
-                has_enums = true;
-                break;
-            }
-        }
-        if (has_enums) break;
-    }
-
     // Generate enum blocks first
+    const has_enums = common.hasAnyEnums(typed);
     if (has_enums) {
         for (typed.tables) |table| {
             for (table.columns) |col| {

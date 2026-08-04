@@ -20,6 +20,26 @@ pub fn tableHasNonPkIndexes(table: typed_ast.TypedTable) bool {
     return false;
 }
 
+/// Check if any table in the AST has at least one enum column.
+/// Used by drizzle and prisma generators to determine if enum definitions are needed.
+pub fn hasAnyEnums(typed: typed_ast.TypedAst) bool {
+    for (typed.tables) |table| {
+        for (table.columns) |col| {
+            if (col.flags.is_enum) return true;
+        }
+    }
+    return false;
+}
+
+/// Check if any table in the AST has at least one composite (multi-column) FK.
+/// Used by drizzle generator to determine if foreignKey import is needed.
+pub fn hasAnyCompositeFks(typed: typed_ast.TypedAst) bool {
+    for (typed.tables) |table| {
+        if (tableHasCompositeFks(table)) return true;
+    }
+    return false;
+}
+
 /// Count tables that have at least one composite (multi-column) FK.
 pub fn tableHasCompositeFks(table: typed_ast.TypedTable) bool {
     for (table.fks) |fk| {

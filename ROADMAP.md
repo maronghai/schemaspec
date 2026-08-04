@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.110.0 (2026-08-04) — 36,000+ lines production Zig, 984+ tests, 26 test suites.
+**Current version**: 0.111.0 (2026-08-04) — 22,500+ lines production Zig, 930+ tests, 26 test suites.
 
 ---
 
@@ -219,6 +219,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.111.0 (2026-08-04)
+
+- **Shared ORM generator helpers** — Added `hasAnyEnums()` and `hasAnyCompositeFks()` to `generators/common.zig`. Eliminates duplicated 9-line scan patterns in `drizzle.zig` and `prisma.zig` for detecting enum columns and composite foreign keys across all tables.
+- **Shared dialect inline index emission** — Added `emitInlineIndexWithQuote()` and `emitStandaloneCreateIndexWithQuote()` to `dialect/common.zig` with comptime quote character parameters. Eliminates 4 near-identical `emitInlineIndex` implementations across MySQL (backtick), MSSQL (square brackets), Oracle (double-quote), and Db2 (double-quote). Each dialect now delegates to the shared parameterized helper. Also eliminated 2 `emitInlineColumnStandaloneIndex` copies (MSSQL, Db2).
+- **Expanded diff format test coverage** — Added 13 new unit tests across `diff/format/text_test.zig` (4 tests), `json_test.zig` (5 tests), `sarif_test.zig` (4 tests), and `markdown_test.zig` (6 tests). Covers field add/drop/modify, multiple dropped tables, created tables, view diffs, and SARIF structure.
+- **Expanded semantic pass test coverage** — Added 7 new unit tests across `semantic/pass/validate.zig` (4 tests) and `semantic/pass/resolve_names.zig` (5 tests). Covers FK to valid table, inline FK validation, duplicate field detection, table-template name conflicts, empty table names, and parser artifact skipping.
 
 ### v0.110.0 (2026-08-04)
 

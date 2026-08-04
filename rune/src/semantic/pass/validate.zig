@@ -218,3 +218,122 @@ test "validate: FK to misspelled table suggests correction" {
     const msg = diagnostics.diagnostics.items[0].message;
     try testing.expect(std.mem.indexOf(u8, msg, "did you mean 'users'") != null);
 }
+
+test "validate: FK to valid table produces no diagnostic" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const user_fields = try alloc.alloc(ast.Field, 1);
+    user_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" });
+
+    const order_fields = try alloc.alloc(ast.Field, 1);
+    order_fields[0] = test_helpers.makeTestField("user_id", .{ .simple = "n" });
+
+    const fks = try alloc.alloc(ast.FkDecl, 1);
+    fks[0] = .{
+        .fields = try alloc.dupe([]const u8, &.{"user_id"}),
+        .ref_table = "users",
+        .ref_fields = try alloc.dupe([]const u8, &.{"id"}),
+        .actions = &.{},
+        .line_no = 3,
+    };
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
+    try tables.append(alloc, .{
+        .name = "orders",
+        .comment = null,
+        .engine = null,
+        .fields = order_fields,
+        .fks = fks,
+        .indexes = &.{},
+        .line_no = 1,
+    });
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = user_fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 5,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
+    try run(&ctx);
+
+    try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
+}
+
+test "validate: inline FK to non-existent table emits diagnostic" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const fields = try alloc.alloc(ast.Field, 1);
+    fields[0] = .{
+        .name = "author_id",
+        .type_info = .{ .simple = "n" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = .{
+            .fields = try alloc.dupe([]const u8, &.{"author_id"}),
+            .ref_table = "authors",
+            .ref_fields = try alloc.dupe([]const u8, &.{"id"}),
+            .actions = &.{},
+            .line_no = 1,
+        },
+        .comment = null,
+        .line_no = 1,
+    };
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "posts",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
+    try run(&ctx);
+
+    try testing.expect(diagnostics.diagnostics.items.len > 0);
+    const msg = diagnostics.diagnostics.items[0].message;
+    try testing.expect(std.mem.indexOf(u8, msg, "non-existent table 'authors'") != null);
+}
+
+test "validate: multiple duplicate fields emit multiple diagnostics" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const fields = try alloc.alloc(ast.Field, 3);
+    fields[0] = test_helpers.makeTestField("name", .{ .simple = "s" });
+    fields[1] = test_helpers.makeTestField("email", .{ .simple = "s" });
+    fields[2] = test_helpers.makeTestField("name", .{ .simple = "s" });
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    try tables.append(alloc, .{
+        .name = "users",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
+    try run(&ctx);
+
+    try testing.expectEqual(@as(usize, 1), diagnostics.diagnostics.items.len);
+    const msg = diagnostics.diagnostics.items[0].message;
+    try testing.expect(std.mem.indexOf(u8, msg, "duplicate field 'name'") != null);
+}

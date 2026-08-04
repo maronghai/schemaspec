@@ -219,3 +219,53 @@ test "writeJsonValue: string" {
     defer testing.allocator.free(result);
     try testing.expectEqualStrings("\"hello\"", result);
 }
+
+test "hasAnyEnums: returns true when enum column exists" {
+    const col = makeTestColumnWithFlags("role", .{ .enum_values = &.{ "admin", "user" } }, .{ .is_enum = true });
+    const table = makeTestTable("users", &.{col});
+    const ast = makeTestAst(&.{table});
+    try testing.expect(common.hasAnyEnums(ast));
+}
+
+test "hasAnyEnums: returns false when no enum columns" {
+    const col = makeTestColumn("name", .text);
+    const table = makeTestTable("users", &.{col});
+    const ast = makeTestAst(&.{table});
+    try testing.expect(!common.hasAnyEnums(ast));
+}
+
+test "hasAnyEnums: returns false for empty schema" {
+    const ast = makeTestAst(&.{});
+    try testing.expect(!common.hasAnyEnums(ast));
+}
+
+test "hasAnyCompositeFks: returns true when composite FK exists" {
+    const fk = FkDecl{
+        .fields = &.{ "org_id", "user_id" },
+        .ref_table = "users",
+        .ref_fields = &.{ "org_id", "id" },
+        .actions = &.{},
+        .line_no = 0,
+    };
+    const table = makeTestTableWithFks("orders", &.{}, &.{fk});
+    const ast = makeTestAst(&.{table});
+    try testing.expect(common.hasAnyCompositeFks(ast));
+}
+
+test "hasAnyCompositeFks: returns false for single-column FKs only" {
+    const fk = FkDecl{
+        .fields = &.{"user_id"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 0,
+    };
+    const table = makeTestTableWithFks("orders", &.{}, &.{fk});
+    const ast = makeTestAst(&.{table});
+    try testing.expect(!common.hasAnyCompositeFks(ast));
+}
+
+test "hasAnyCompositeFks: returns false for empty schema" {
+    const ast = makeTestAst(&.{});
+    try testing.expect(!common.hasAnyCompositeFks(ast));
+}

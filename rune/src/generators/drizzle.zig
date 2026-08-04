@@ -25,19 +25,8 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, dialect: Di
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    // Collect enum types across all tables
-    var has_enums = false;
-    for (typed.tables) |table| {
-        for (table.columns) |col| {
-            if (col.flags.is_enum) {
-                has_enums = true;
-                break;
-            }
-        }
-        if (has_enums) break;
-    }
-
     // Generate import statement
+    const has_enums = common.hasAnyEnums(typed);
     try writeImports(w, typed, dialect, has_enums);
 
     // Generate enum definitions
@@ -172,17 +161,7 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst, dialect: Dialect, has_enu
     try w.print(" }} from 'drizzle-orm/{s}';\n", .{mod_name});
 
     // Add foreignKey import if any table has composite FKs
-    var has_composite_fks = false;
-    for (typed.tables) |table| {
-        for (table.fks) |fk| {
-            if (fk.fields.len > 1) {
-                has_composite_fks = true;
-                break;
-            }
-        }
-        if (has_composite_fks) break;
-    }
-    if (has_composite_fks) {
+    if (common.hasAnyCompositeFks(typed)) {
         try w.print("import {{ foreignKey }} from 'drizzle-orm/{s}';\n", .{mod_name});
     }
 

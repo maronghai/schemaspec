@@ -56,13 +56,7 @@ fn mssqlEmitPrimaryKey(w: *Writer, _: bool) anyerror!void {
 }
 
 fn mssqlEmitInlineIndex(w: *Writer, col_name: []const u8, is_unique: bool, needs_comma: *bool) anyerror!void {
-    if (needs_comma.*) try w.writeAll(",\n");
-    needs_comma.* = true;
-    if (is_unique) {
-        try w.print("  UNIQUE INDEX [uk_{s}] ([{s}])", .{ col_name, col_name });
-    } else {
-        try w.print("  INDEX [idx_{s}] ([{s}])", .{ col_name, col_name });
-    }
+    try common.emitInlineIndexWithQuote(w, col_name, is_unique, needs_comma, '[', ']');
 }
 
 fn mssqlEmitStandaloneIndex(_: *Writer, _: []const u8, _: IndexDecl) anyerror!void {
@@ -87,13 +81,7 @@ fn mssqlEmitEnumTypeCheck(w: *Writer, col_name: []const u8, enum_values: []const
 }
 
 fn mssqlEmitInlineColumnStandaloneIndex(w: *Writer, table_name: []const u8, col_name: []const u8) anyerror!void {
-    try w.writeAll("CREATE INDEX ");
-    try w.print("[idx_{s}_{s}]", .{ table_name, col_name });
-    try w.writeAll(" ON ");
-    try mssqlQuoteIdent(w, table_name);
-    try w.writeAll(" (");
-    try mssqlQuoteIdent(w, col_name);
-    try w.writeAll(");\n");
+    try common.emitStandaloneCreateIndexWithQuote(w, table_name, col_name, '[', ']');
 }
 
 // ─── ALTER TABLE Methods ─────────────────────────────────────

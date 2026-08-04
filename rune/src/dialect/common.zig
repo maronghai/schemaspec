@@ -168,6 +168,31 @@ pub fn quoteIdentDoubleQuote(w: *Writer, name: []const u8) anyerror!void {
 
 // ─── Inline Index Emission ───────────────────────────────────
 
+/// Parameterized inline index emission — shared by MySQL, MSSQL, Oracle, Db2.
+/// Eliminates 4 near-identical implementations that differ only in identifier quoting.
+/// `open`/`close` are the identifier quote characters (e.g. '`' for MySQL, '['/']' for MSSQL, '"' for Oracle/Db2).
+pub fn emitInlineIndexWithQuote(w: *Writer, col_name: []const u8, is_unique: bool, needs_comma: *bool, comptime open: u8, comptime close: u8) anyerror!void {
+    if (needs_comma.*) try w.writeAll(",\n");
+    needs_comma.* = true;
+    if (is_unique) {
+        try w.writeAll("  UNIQUE INDEX ");
+        try w.print("{c}uk_{s}{c} ({c}{s}{c})", .{ open, col_name, close, open, col_name, close });
+    } else {
+        try w.writeAll("  INDEX ");
+        try w.print("{c}idx_{s}{c} ({c}{s}{c})", .{ open, col_name, close, open, col_name, close });
+    }
+}
+
+/// Parameterized standalone CREATE INDEX for column-level inline indexes.
+/// Used by MSSQL and Db2 (MySQL handles inline indexes in CREATE TABLE, Oracle uses no-op).
+pub fn emitStandaloneCreateIndexWithQuote(w: *Writer, table_name: []const u8, col_name: []const u8, comptime open: u8, comptime close: u8) anyerror!void {
+    try w.writeAll("CREATE INDEX ");
+    try w.print("{c}idx_{s}_{s}{c}", .{ open, col_name, table_name, close });
+    try w.writeAll(" ON ");
+    try w.print("{c}{s}{c} ({c}{s}{c})", .{ open, table_name, close, open, col_name, close });
+    try w.writeAll(";\n");
+}
+
 pub fn emitIndex(w: *Writer, idx: IndexDecl, needs_comma: *bool) anyerror!void {
     switch (idx.kind) {
         .regular => return,
