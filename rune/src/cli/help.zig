@@ -1,0 +1,111 @@
+const std = @import("std");
+const types = @import("types.zig");
+
+const COMMAND_REGISTRY = types.COMMAND_REGISTRY;
+
+// ─── Usage ─────────────────────────────────────────────────────
+
+pub fn printUsage() void {
+    std.debug.print("Usage:\n", .{});
+    std.debug.print("  rune [input.ss] [-o output] [--trace] [--stats] [--check] [-d mysql|pg|sqlite|mssql|oracle|db2] [--target sql|json-schema]\n", .{});
+    std.debug.print("                                                       Compile .ss to SQL DDL or JSON Schema\n", .{});
+    inline for (COMMAND_REGISTRY) |cmd| {
+        std.debug.print("  rune {s:<32}{s}\n", .{ cmd.name ++ " " ++ cmd.args, cmd.description });
+    }
+    std.debug.print("                                                       -T: extract shared templates (reverse only)\n", .{});
+    std.debug.print("\nOptions:\n", .{});
+    std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql, oracle, db2\n", .{});
+    std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
+    std.debug.print("  --format        Output format: text (default), json, sarif, markdown (for diff/migrate/stats)\n", .{});
+    std.debug.print("  --trace         Print intermediate pipeline stages for debugging\n", .{});
+    std.debug.print("  -s, --stats     Print compilation statistics (table/field counts)\n", .{});
+    std.debug.print("  --check         Dry-run: validate schema without writing output\n", .{});
+    std.debug.print("  --dry-run       Show migration SQL without writing to file\n", .{});
+    std.debug.print("  --strict        Treat warnings as errors (for CI/CD)\n", .{});
+    std.debug.print("  --json-errors   Output diagnostics as JSON (machine-readable)\n", .{});
+    std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
+    std.debug.print("  --import-path   Additional search path for @import directives\n", .{});
+    std.debug.print("  -q, --quiet     Suppress non-essential output\n", .{});
+    std.debug.print("  --color         Color output: auto (default), always, never\n", .{});
+    std.debug.print("  --init          Create a starter schema file (equivalent to 'rune init')\n", .{});
+    std.debug.print("  --config        Path to project config file (default: ./rune.toml)\n", .{});
+    std.debug.print("  -v, --version   Print version and exit\n", .{});
+    std.debug.print("  -h, --help      Show this help message and exit\n", .{});
+    std.debug.print("\nExamples:\n", .{});
+    std.debug.print("  rune schema.ss                       # Compile to MySQL DDL\n", .{});
+    std.debug.print("  rune schema.ss -d pg                 # Compile to PostgreSQL\n", .{});
+    std.debug.print("  rune schema.ss -d oracle             # Compile to Oracle\n", .{});
+    std.debug.print("  rune schema.ss --stream              # Streaming compilation\n", .{});
+    std.debug.print("  rune validate schema.ss              # Validate schema (no output)\n", .{});
+    std.debug.print("  rune validate schema.ss -s           # Validate with stats\n", .{});
+    std.debug.print("  rune --stats schema.ss               # Show compilation stats\n", .{});
+    std.debug.print("  rune stats schema.ss --format json   # Stats as JSON\n", .{});
+    std.debug.print("  rune --check schema.ss               # Validate without output\n", .{});
+    std.debug.print("  rune diff old.ss new.ss              # Show schema differences\n", .{});
+    std.debug.print("  rune diff old.ss new.ss --format json # Diff as JSON\n", .{});
+    std.debug.print("  rune migrate old.ss new.ss -o m.sql  # Generate migration SQL\n", .{});
+    std.debug.print("  rune migrate old.ss new.ss --rollback # Generate rollback SQL\n", .{});
+    std.debug.print("  rune migrate old.ss new.ss --graph    # Show migration dependency graph\n", .{});
+    std.debug.print("  rune reverse schema.sql -T           # Reverse-engineer with templates\n", .{});
+    std.debug.print("  rune generate json-schema schema.ss  # Generate JSON Schema from .ss\n", .{});
+    std.debug.print("  rune generate --list                 # Show available generators\n", .{});
+    std.debug.print("  rune init myapp                      # Create starter schema\n", .{});
+    std.debug.print("  rune init myapp -d pg                # Create starter schema for PostgreSQL\n", .{});
+    std.debug.print("  rune fmt schema.ss                   # Auto-format schema\n", .{});
+    std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
+    std.debug.print("  echo '# t\\nid n' | rune\n", .{});
+    std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});
+    std.debug.print("  cat schema.sql | rune reverse -T\n", .{});
+}
+
+/// Print help for a specific subcommand.
+pub fn printSubcommandHelp(subcommand: []const u8) void {
+    std.debug.print("Usage: rune {s}", .{subcommand});
+    inline for (COMMAND_REGISTRY) |cmd| {
+        if (std.mem.eql(u8, cmd.name, subcommand)) {
+            std.debug.print(" {s}\n", .{cmd.args});
+            std.debug.print("\n{s}\n", .{cmd.description});
+            if (std.mem.eql(u8, subcommand, "diff") or std.mem.eql(u8, subcommand, "migrate")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  --format        Output format: text (default), json, sarif, markdown\n", .{});
+                std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
+                std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
+                std.debug.print("  --check         Exit 1 if there are differences\n", .{});
+                if (std.mem.eql(u8, subcommand, "migrate")) {
+                    std.debug.print("  --rollback      Generate rollback SQL instead\n", .{});
+                    std.debug.print("  --dry-run       Show SQL without writing to file\n", .{});
+                    std.debug.print("  --summary       Show summary only (no full SQL)\n", .{});
+                    std.debug.print("  --graph         Show migration dependency graph\n", .{});
+                    std.debug.print("  -o, --output    Output file path\n", .{});
+                }
+            } else if (std.mem.eql(u8, subcommand, "reverse")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  -T, --template  Extract shared templates\n", .{});
+                std.debug.print("  --format        Output format: text (default), json\n", .{});
+                std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
+                std.debug.print("  -o, --output    Output file path\n", .{});
+                std.debug.print("  --validate-only Validate SQL without generating output\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "generate")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  --list, -l      List available generators\n", .{});
+                std.debug.print("  -o, --output    Output file path\n", .{});
+                std.debug.print("\nRun 'rune generate --list' to see available generators.\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "validate") or std.mem.eql(u8, subcommand, "check")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
+                std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "init")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  -d, --dialect   Target dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
+                std.debug.print("  -o, --output    Output file path\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "completions")) {
+                std.debug.print("\nArguments:\n", .{});
+                std.debug.print("  shell           Target shell: bash (default), zsh, fish, powershell\n", .{});
+            } else {
+                std.debug.print("\nGlobal options also apply: -d/--dialect, -s/--stats, -q/--quiet, -h/--help\n", .{});
+            }
+            return;
+        }
+    }
+    std.debug.print("\nUnknown command: {s}\n", .{subcommand});
+}

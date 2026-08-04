@@ -254,7 +254,9 @@ pub fn handleCompileRequest(
 
     const output = if (cfg.stream and cfg.format == .sql) blk: {
         const streaming = @import("../codegen/streaming.zig");
-        var sc = streaming.StreamingCodegen.init(alloc, cfg.dialect);
+        var pool = codegen.BufferPool.init(alloc);
+        defer pool.deinit();
+        var sc = streaming.StreamingCodegen.initWithPool(alloc, cfg.dialect, &pool);
         const result = try sc.generateStreaming(typed);
         break :blk try streaming.formatStreamingResult(alloc, &result, cfg.dialect);
     } else switch (cfg.format) {

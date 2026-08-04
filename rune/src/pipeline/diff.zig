@@ -198,74 +198,85 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
     }
 }
 
-/// Handle `rune migrate status`: list migration files in a directory.
-/// Supports both 3-digit (legacy) and 4-digit (current) sequence prefixes.
-/// With json_errors=true, outputs JSON for CI tooling.
-pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]const u8, json_errors: bool) !void {
-    const target_dir = dir_path orelse ".";
-    var dir = std.Io.Dir.cwd().openDir(io, target_dir, .{ .iterate = true }) catch |err| {
-        const msg = try std.fmt.allocPrint(alloc, "error: cannot open directory '{s}': {}\n", .{ target_dir, err });
+/// A parsed migration file entry.
+const MigrateFile = struct {
+    name: []const u8,
+    seq: []const u8,
+    label: []const u8,
+};
+
+/// Collect migration files from a directory, sorted by sequence number.
+fn collectMigrateFiles(io: std.Io, alloc: std.mem.Allocator, dir_path: []const u8) ![]MigrateFile {
+    var dir = std.Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true }) catch |err| {
+        const msg = try std.fmt.allocPrint(alloc, "error: cannot open directory '{s}': {}\n", .{ dir_path, err });
         try io_mod.writeOutput(io, msg, null, false);
-        return;
+        return error.MigrationDirectoryError;
     };
     defer dir.close(io);
 
-    var entries = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+    var entries = try std.ArrayList(MigrateFile).initCapacity(alloc, 16);
     var iter = dir.iterate();
     while (try iter.next(io)) |entry| {
         if (entry.kind != .file) continue;
         const name = entry.name;
         if (name.len > 4 and std.mem.eql(u8, name[name.len - 4 ..], ".sql")) {
             const base = name[0 .. name.len - 4];
-            // Find first underscore separator — supports both 3-digit (legacy) and 4-digit sequences
             if (std.mem.indexOfScalar(u8, base, '_')) |underscore_pos| {
                 const digits = base[0..underscore_pos];
                 if (digits.len > 0) {
                     if (std.fmt.parseInt(u32, digits, 10)) |_| {
-                        // Duplicate the name — iterator reuses its internal buffer
-                        const owned = try alloc.dupe(u8, name);
-                        try entries.append(alloc, owned);
+                        const owned_name = try alloc.dupe(u8, name);
+                        try entries.append(alloc, .{
+                            .name = owned_name,
+                            .seq = base[0..underscore_pos],
+                            .label = base[underscore_pos + 1 ..],
+                        });
                     } else |_| {}
                 }
             }
         }
     }
 
-    // Sort entries
-    std.mem.sort([]const u8, entries.items, {}, struct {
-        fn lessThan(_: void, a: []const u8, b: []const u8) bool {
-            return std.mem.order(u8, a, b) == .lt;
+    std.mem.sort(MigrateFile, entries.items, {}, struct {
+        fn lessThan(_: void, a: MigrateFile, b: MigrateFile) bool {
+            return std.mem.order(u8, a.name, b.name) == .lt;
         }
     }.lessThan);
 
+    return try entries.toOwnedSlice(alloc);
+}
+
+/// Handle `rune migrate status`: list migration files in a directory.
+/// Supports both 3-digit (legacy) and 4-digit (current) sequence prefixes.
+/// With json_errors=true, outputs JSON for CI tooling.
+pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]const u8, json_errors: bool) !void {
+    const target_dir = dir_path orelse ".";
+    const files = collectMigrateFiles(io, alloc, target_dir) catch return;
+
     if (json_errors) {
-        // JSON output for CI tooling
-        if (entries.items.len == 0) {
+        if (files.len == 0) {
             try io_mod.writeOutput(io, "{\"files\":[],\"count\":0}", null, false);
             return;
         }
         var aw = std.Io.Writer.Allocating.init(alloc);
         const w = &aw.writer;
         try w.writeAll("{\"files\":[");
-        for (entries.items, 0..) |entry_name, idx| {
-            const base = entry_name[0 .. entry_name.len - 4];
-            const underscore_pos = std.mem.indexOfScalar(u8, base, '_') orelse continue;
-            const label = base[underscore_pos + 1 ..];
+        for (files, 0..) |f, idx| {
             if (idx > 0) try w.writeAll(",");
             try w.writeAll("{\"name\":\"");
-            try utils.jsonEscapeString(w, entry_name);
+            try utils.jsonEscapeString(w, f.name);
             try w.writeAll("\",\"label\":\"");
-            try utils.jsonEscapeString(w, label);
+            try utils.jsonEscapeString(w, f.label);
             try w.writeAll("\"}");
         }
-        try w.print("],\"count\":{d}}}", .{entries.items.len});
+        try w.print("],\"count\":{d}}}", .{files.len});
         try w.flush();
         const json = try aw.toOwnedSlice();
         try io_mod.writeOutput(io, json, null, false);
         return;
     }
 
-    if (entries.items.len == 0) {
+    if (files.len == 0) {
         const msg = try std.fmt.allocPrint(alloc, "No migration files found in '{s}'\n", .{target_dir});
         try io_mod.writeOutput(io, msg, null, false);
         return;
@@ -274,12 +285,8 @@ pub fn handleMigrateStatus(io: std.Io, alloc: std.mem.Allocator, dir_path: ?[]co
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
     try w.print("Migration files in '{s}':\n", .{target_dir});
-    for (entries.items) |entry_name| {
-        const base = entry_name[0 .. entry_name.len - 4];
-        const underscore_pos = std.mem.indexOfScalar(u8, base, '_') orelse continue;
-        const seq = base[0..underscore_pos];
-        const label = base[underscore_pos + 1 ..];
-        try w.print("  {s} — {s}\n", .{ seq, label });
+    for (files) |f| {
+        try w.print("  {s} — {s}\n", .{ f.seq, f.label });
     }
     try w.flush();
     const output = try aw.toOwnedSlice();

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.112.0 (2026-08-04) — 22,500+ lines production Zig, 930+ tests, 26 test suites.
+**Current version**: 0.113.0 (2026-08-04) — 22,500+ lines production Zig, 930+ tests, 26 test suites.
 
 ---
 
@@ -219,6 +219,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.113.0 (2026-08-04)
+
+- **Shared interleaving iterator** — Extracted `codegen/interleave.zig` with a generic `LineMerger` struct that merges three sorted-by-line_no sequences. Replaces three duplicated interleaving loops in `codegen/codegen.zig:fillWriter`, `codegen/streaming.zig:generateStreaming`, and the removed `InterleaveIterator`. Eliminates ~60 lines of duplicated merge logic.
+- **Split `cli.zig` into focused modules** — Split 792-line `cli.zig` into `cli/types.zig` (type definitions), `cli/parse.zig` (argument parsing), and `cli/help.zig` (help text). `cli.zig` is now a thin re-export barrel (~40 lines). All existing callers continue to work unchanged.
+- **BufferPool integration** — Wired the existing `BufferPool` (codegen.zig) into the streaming compilation path via `StreamingCodegen.initWithPool`. Fixed Zig 0.16 API compatibility (`ArrayList.empty`, `pop()` returns optional, `deinit(alloc)`). Buffers are reused across table/view generation in streaming mode.
+- **Reverse JSON cleanup** — Removed `_end: true` sentinel hack from `generateReverseJson`. Uses proper first-property tracking for trailing commas. Replaced raw `w.print("{s}")` with `utils.jsonEscapeString` for safe string escaping.
+- **Migrate status refactor** — Extracted `MigrateFile` struct and `collectMigrateFiles` helper from `handleMigrateStatus`. Both JSON and text branches now consume the same pre-parsed, pre-sorted file list.
+- **Diff engine allocation fix** — Replaced `alloc.dupe` + `clearAndFree` double-allocation pattern in `diff/engine.zig` with single `toOwnedSlice` call.
 
 ### v0.112.0 (2026-08-04)
 

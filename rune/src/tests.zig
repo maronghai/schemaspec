@@ -16,6 +16,7 @@ comptime {
     _ = @import("codegen/codegen_test.zig");
     _ = @import("codegen/columns_test.zig");
     _ = @import("codegen/indexes_test.zig");
+    _ = @import("codegen/interleave.zig");
     _ = @import("codegen/streaming_test.zig");
     // dialect
     _ = @import("dialect/dialect_test.zig");

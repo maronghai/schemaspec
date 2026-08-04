@@ -106,36 +106,61 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
 // ─── Reverse JSON Output ──────────────────────────────────────
 
 fn generateReverseJson(alloc: std.mem.Allocator, schema: sql_parser.SqlSchema) ![]const u8 {
+    const utils = @import("../utils.zig");
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
     try w.writeAll("{\n");
     if (schema.name) |name| {
-        try w.print("  \"schema\": \"{s}\",\n", .{name});
+        try w.writeAll("  \"schema\": \"");
+        try utils.jsonEscapeString(w, name);
+        try w.writeAll("\",\n");
     }
-    try w.print("  \"tables\": [\n", .{});
+    try w.writeAll("  \"tables\": [\n");
 
     for (schema.tables, 0..) |table, ti| {
         try w.writeAll("    {\n");
-        try w.print("      \"name\": \"{s}\",\n", .{table.name});
+        try w.writeAll("      \"name\": \"");
+        try utils.jsonEscapeString(w, table.name);
+        try w.writeAll("\",\n");
         if (table.comment) |c| {
-            try w.print("      \"comment\": \"{s}\",\n", .{c});
+            try w.writeAll("      \"comment\": \"");
+            try utils.jsonEscapeString(w, c);
+            try w.writeAll("\",\n");
         }
         // Columns
         try w.writeAll("      \"columns\": [\n");
         for (table.columns, 0..) |col, ci| {
             try w.writeAll("        {\n");
-            try w.print("          \"name\": \"{s}\",\n", .{col.name});
-            try w.print("          \"type\": \"{s}\",\n", .{col.type_sql});
-            if (col.primary_key) try w.writeAll("          \"primary_key\": true,\n");
-            if (col.auto_increment) try w.writeAll("          \"auto_increment\": true,\n");
-            if (col.nullable) try w.writeAll("          \"nullable\": true,\n");
-            if (col.default_val) |dv| {
-                try w.print("          \"default\": \"{s}\",\n", .{dv});
+            try w.writeAll("          \"name\": \"");
+            try utils.jsonEscapeString(w, col.name);
+            try w.writeAll("\",\n");
+            try w.writeAll("          \"type\": \"");
+            try utils.jsonEscapeString(w, col.type_sql);
+            try w.writeAll("\",\n");
+            // Track whether we've emitted any boolean property, for comma insertion
+            var emitted_prop = false;
+            if (col.primary_key) {
+                try w.writeAll("          \"primary_key\": true");
+                emitted_prop = true;
             }
-            // Remove trailing comma from last property
-            try w.writeAll("          \"_end\": true\n");
-            try w.writeAll("        }");
+            if (col.auto_increment) {
+                if (emitted_prop) try w.writeAll(",\n");
+                try w.writeAll("          \"auto_increment\": true");
+                emitted_prop = true;
+            }
+            if (col.nullable) {
+                if (emitted_prop) try w.writeAll(",\n");
+                try w.writeAll("          \"nullable\": true");
+                emitted_prop = true;
+            }
+            if (col.default_val) |dv| {
+                if (emitted_prop) try w.writeAll(",\n");
+                try w.writeAll("          \"default\": \"");
+                try utils.jsonEscapeString(w, dv);
+                try w.writeAll("\"");
+            }
+            try w.writeAll("\n        }");
             if (ci < table.columns.len - 1) try w.writeAll(",");
             try w.writeAll("\n");
         }
@@ -145,12 +170,18 @@ fn generateReverseJson(alloc: std.mem.Allocator, schema: sql_parser.SqlSchema) !
             try w.writeAll("      \"indexes\": [\n");
             for (table.indexes, 0..) |idx, ii| {
                 try w.writeAll("        {\n");
-                try w.print("          \"name\": \"{s}\",\n", .{idx.name});
-                try w.print("          \"kind\": \"{s}\",\n", .{@tagName(idx.kind)});
+                try w.writeAll("          \"name\": \"");
+                try utils.jsonEscapeString(w, idx.name);
+                try w.writeAll("\",\n");
+                try w.writeAll("          \"kind\": \"");
+                try w.writeAll(@tagName(idx.kind));
+                try w.writeAll("\",\n");
                 try w.writeAll("          \"fields\": [");
                 for (idx.fields, 0..) |f, fi| {
                     if (fi > 0) try w.writeAll(", ");
-                    try w.print("\"{s}\"", .{f});
+                    try w.writeAll("\"");
+                    try utils.jsonEscapeString(w, f);
+                    try w.writeAll("\"");
                 }
                 try w.writeAll("]\n");
                 try w.writeAll("        }");
@@ -167,14 +198,20 @@ fn generateReverseJson(alloc: std.mem.Allocator, schema: sql_parser.SqlSchema) !
                 try w.writeAll("          \"fields\": [");
                 for (fk.fields, 0..) |f, ffi| {
                     if (ffi > 0) try w.writeAll(", ");
-                    try w.print("\"{s}\"", .{f});
+                    try w.writeAll("\"");
+                    try utils.jsonEscapeString(w, f);
+                    try w.writeAll("\"");
                 }
                 try w.writeAll("],\n");
-                try w.print("          \"ref_table\": \"{s}\",\n", .{fk.ref_table});
+                try w.writeAll("          \"ref_table\": \"");
+                try utils.jsonEscapeString(w, fk.ref_table);
+                try w.writeAll("\",\n");
                 try w.writeAll("          \"ref_fields\": [");
                 for (fk.ref_fields, 0..) |f, rfi| {
                     if (rfi > 0) try w.writeAll(", ");
-                    try w.print("\"{s}\"", .{f});
+                    try w.writeAll("\"");
+                    try utils.jsonEscapeString(w, f);
+                    try w.writeAll("\"");
                 }
                 try w.writeAll("]\n");
                 try w.writeAll("        }");
@@ -182,8 +219,6 @@ fn generateReverseJson(alloc: std.mem.Allocator, schema: sql_parser.SqlSchema) !
                 try w.writeAll("\n");
             }
             try w.writeAll("      ]\n");
-        } else {
-            try w.writeAll("      \"_end\": true\n");
         }
         try w.writeAll("    }");
         if (ti < schema.tables.len - 1) try w.writeAll(",");

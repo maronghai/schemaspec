@@ -123,13 +123,10 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
         }
     }
 
-    // Safe toOwnedSlice: copy items to new allocation, then free ArrayList buffer
-    const table_diffs_slice = try alloc.dupe(TableDiff, table_diffs.items);
-    table_diffs.clearAndFree(alloc);
-    const dropped_tables_slice = try alloc.dupe([]const u8, dropped_tables.items);
-    dropped_tables.clearAndFree(alloc);
-    const view_diffs_slice = try alloc.dupe(ViewDiff, view_diffs.items);
-    view_diffs.clearAndFree(alloc);
+    // Safe toOwnedSlice: transfer ownership of the backing buffer
+    const table_diffs_slice = try table_diffs.toOwnedSlice(alloc);
+    const dropped_tables_slice = try dropped_tables.toOwnedSlice(alloc);
+    const view_diffs_slice = try view_diffs.toOwnedSlice(alloc);
 
     return .{
         .table_diffs = table_diffs_slice,

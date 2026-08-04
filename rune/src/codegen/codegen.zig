@@ -5,6 +5,7 @@ const dialect_enum = @import("../dialect/enum.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
 const columns_mod = @import("columns.zig");
 const indexes_mod = @import("indexes.zig");
+const interleave = @import("interleave.zig");
 const version = @import("../version.zig");
 const Writer = std.Io.Writer;
 
@@ -19,7 +20,7 @@ pub const BufferPool = struct {
     pub fn init(alloc: std.mem.Allocator) BufferPool {
         return .{
             .alloc = alloc,
-            .buffers = std.ArrayList(std.Io.Writer.Allocating).init(alloc),
+            .buffers = .empty,
         };
     }
 
@@ -27,13 +28,13 @@ pub const BufferPool = struct {
         for (self.buffers.items) |*buf| {
             buf.deinit();
         }
-        self.buffers.deinit();
+        self.buffers.deinit(self.alloc);
     }
 
     /// Acquire a buffer from the pool (or create a new one).
     pub fn acquire(self: *BufferPool) !std.Io.Writer.Allocating {
         if (self.buffers.items.len > 0) {
-            return self.buffers.pop();
+            return self.buffers.pop() orelse return std.Io.Writer.Allocating.init(self.alloc);
         }
         return std.Io.Writer.Allocating.init(self.alloc);
     }
@@ -42,7 +43,7 @@ pub const BufferPool = struct {
     pub fn release(self: *BufferPool, buf: std.Io.Writer.Allocating) !void {
         var mutable = buf;
         mutable.clearRetainingCapacity();
-        try self.buffers.append(mutable);
+        try self.buffers.append(self.alloc, mutable);
     }
 };
 
@@ -86,32 +87,28 @@ pub const Codegen = struct {
         }
 
         // Interleave tables, views, and sql_comments by line number
-        var ti: usize = 0;
-        var vi: usize = 0;
-        var ci: usize = 0;
-        while (ti < typed.tables.len or vi < typed.views.len or ci < typed.sql_comments.len) {
-            const table_line = if (ti < typed.tables.len) typed.tables[ti].line_no else std.math.maxInt(usize);
-            const view_line = if (vi < typed.views.len) typed.views[vi].line_no else std.math.maxInt(usize);
-            const comment_line = if (ci < typed.sql_comments.len) typed.sql_comments[ci].line_no else std.math.maxInt(usize);
-
-            const min_line = @min(table_line, view_line, comment_line);
-
-            if (comment_line == min_line) {
-                try w.writeAll(typed.sql_comments[ci].text);
-                try w.writeAll("\n");
-                ci += 1;
-            } else if (view_line == min_line) {
-                try self.generateTypedView(w, typed.views[vi]);
-                vi += 1;
-                if (ti < typed.tables.len or vi < typed.views.len or ci < typed.sql_comments.len) {
+        var lm = interleave.LineMerger.init(typed.tables, typed.views, typed.sql_comments);
+        while (lm.next()) |kind| {
+            switch (kind) {
+                .comment => {
+                    try w.writeAll(typed.sql_comments[lm.ci - 1].text);
                     try w.writeAll("\n");
-                }
-            } else if (table_line == min_line) {
-                try self.generateTypedTable(w, typed.tables[ti]);
-                ti += 1;
-                if (ti < typed.tables.len or vi < typed.views.len or ci < typed.sql_comments.len) {
-                    try w.writeAll("\n");
-                }
+                    lm.advanceComment(typed.sql_comments);
+                },
+                .view => {
+                    try self.generateTypedView(w, typed.views[lm.vi - 1]);
+                    lm.advanceView(typed.views);
+                    if (lm.ti < typed.tables.len or lm.vi < typed.views.len or lm.ci < typed.sql_comments.len) {
+                        try w.writeAll("\n");
+                    }
+                },
+                .table => {
+                    try self.generateTypedTable(w, typed.tables[lm.ti - 1]);
+                    lm.advanceTable(typed.tables);
+                    if (lm.ti < typed.tables.len or lm.vi < typed.views.len or lm.ci < typed.sql_comments.len) {
+                        try w.writeAll("\n");
+                    }
+                },
             }
         }
     }
