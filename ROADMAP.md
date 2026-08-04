@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.116.0 (2026-08-05) — 23,000+ lines production Zig, 1014+ tests, 26 test suites.
+**Current version**: 0.117.0 (2026-08-05) — 23,000+ lines production Zig, 1014+ tests, 26 test suites.
 
 ---
 
@@ -157,6 +157,7 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 - [x] `rune validate` as first-class CLI command — exposed in help text with examples (v0.101.0)
 - [x] Unknown flag suggestions — edit-distance-based "Did you mean?" for mistyped flags (v0.101.0)
 - [x] `rune stats --format json` — JSON output for schema statistics (v0.101.0)
+- [x] `rune watch` — watch file changes and recompile automatically (v0.117.0)
 
 ---
 
@@ -219,6 +220,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.117.0 (2026-08-05)
+
+- **`rune watch`** — New subcommand that watches a `.ss` file for changes and automatically recompiles when modifications are detected. Uses file content hash comparison for change detection. Supports `--interval <ms>` flag (default: 1000ms). Press Ctrl+C to stop watching.
+- **CLI help improvements** — Added `watch` command to help text with examples and options.
+- **Shell completions updated** — Bash, Zsh, Fish, PowerShell completions now include `watch` subcommand.
+- **New unit tests** — `watch_test.zig` (3 tests): WatchConfig defaults, custom values, dialect configuration.
 
 ### v0.116.0 (2026-08-05)
 

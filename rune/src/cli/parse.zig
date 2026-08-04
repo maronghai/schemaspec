@@ -302,6 +302,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .{ .name = "init", .parse = parseInitArgs },
         .{ .name = "completions", .parse = parseCompletionsArgs },
         .{ .name = "hooks", .parse = parseHooksArgs },
+        .{ .name = "watch", .parse = parseWatchArgs },
     };
     for (parsers) |entry| {
         if (std.mem.eql(u8, sub, entry.name)) {
@@ -570,4 +571,32 @@ fn parseCompletionsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
 fn parseHooksArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const hook_type = if (fargs.len > 1) fargs[1] else "pre-commit";
     return parseSimpleSubcommand(dialect, target, .{ .hooks = .{ .hook_type = hook_type } }, opts);
+}
+
+fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    if (fargs.len < 2) return error.MissingArgs;
+    var interval_ms: u64 = 1000;
+    var j: usize = 2;
+    while (j < fargs.len) : (j += 1) {
+        if (std.mem.eql(u8, fargs[j], "--interval") and j + 1 < fargs.len) {
+            interval_ms = std.fmt.parseInt(u64, fargs[j + 1], 10) catch 1000;
+            j += 1;
+        }
+    }
+    return .{
+        .dialect = dialect,
+        .dialect_was_explicit = opts.dialect_was_explicit,
+        .target = target,
+        .command = .{ .watch = .{
+            .input = fargs[1],
+            .interval_ms = interval_ms,
+            .output = parseOutputFlag(fargs, 2),
+        } },
+        .quiet = opts.quiet,
+        .strict = opts.strict,
+        .json_errors = opts.json_errors,
+        .import_paths = opts.import_paths,
+        .color = opts.color,
+        .config_path = opts.config_path,
+    };
 }

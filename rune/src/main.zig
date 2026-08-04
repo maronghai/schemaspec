@@ -278,6 +278,21 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         .hooks => |cmd| {
             return completions.handleHooks(io, alloc, cmd.hook_type);
         },
+        .watch => |cmd| {
+            const watch_mod = @import("watch.zig");
+            const format: forward.OutputFormat = switch (parsed.target) {
+                .sql => .sql,
+                .json_schema => .json_schema,
+            };
+            return watch_mod.watch(io, alloc, .{
+                .input = cmd.input,
+                .interval_ms = cmd.interval_ms,
+                .dialect = parsed.dialect,
+                .target = format,
+                .output_path = cmd.output,
+                .quiet = parsed.quiet,
+            });
+        },
     }
 }
 
@@ -296,6 +311,7 @@ fn getInputPath(command: cli.Command) ?[]const u8 {
         .docs => |cmd| cmd.input,
         .format_cmd => |cmd| cmd.input,
         .generate => |cmd| cmd.input,
+        .watch => |cmd| cmd.input,
         else => null,
     };
 }
@@ -319,6 +335,7 @@ fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
         error.UnknownFormat => "unknown format, expected one of: text, json, sarif, markdown",
         error.DiffMissingArgs => "diff requires two arguments: <old.ss> <new.ss>",
         error.MigrateMissingArgs => "migrate requires two arguments: <old.ss> <new.ss>",
+        error.MissingArgs => "missing required argument. Run 'rune <command> --help' for usage.",
         error.UnknownCommand => "unknown command. Run 'rune --help' for usage.",
         error.UnknownFlag => "unknown flag. Run 'rune --help' for usage.",
         error.UnknownGenerator => "unknown generator. Run 'rune generate --list' for available generators.",

@@ -502,6 +502,17 @@ rune completions fish > ~/.config/fish/completions/rune.fish
 . $(rune completions powershell)
 ```
 
+### Watch Mode
+
+```bash
+rune watch schema.ss                    # Watch and recompile on change (1s interval)
+rune watch schema.ss --interval 500     # Watch with 500ms polling interval
+rune watch schema.ss -d pg              # Watch and compile to PostgreSQL
+rune watch schema.ss -o out.sql         # Watch and write to file
+```
+
+Watch mode polls the file for changes and automatically recompiles when modifications are detected. Press Ctrl+C to stop watching.
+
 ## Roadmap
 
 - [ ] LSP language server (completion, diagnostics, go-to-definition)

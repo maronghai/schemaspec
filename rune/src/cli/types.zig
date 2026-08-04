@@ -24,6 +24,7 @@ pub const Command = union(enum) {
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },
+    watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null },
     version,
     help: struct { subcommand: ?[]const u8 = null },
 };
@@ -56,6 +57,7 @@ pub const ArgError = error{
     UnknownShell,
     DiffMissingArgs,
     MigrateMissingArgs,
+    MissingArgs,
 };
 
 /// Flags extracted from the global pass (shared by all subcommands).
@@ -97,6 +99,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "init", .args = "[name]", .description = "Create a starter .ss schema file" },
     .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
     .{ .name = "hooks", .args = "<type>", .description = "Generate git hooks (pre-commit)" },
+    .{ .name = "watch", .args = "<input.ss> [--interval <ms>]", .description = "Watch file and recompile on change" },
 };
 
 /// Known long flags for edit-distance suggestions.
@@ -105,5 +108,5 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--dialect",        "--target",      "--format",      "--validate-only", "--strict", "--json-errors",
     "--verbose-passes", "--import-path", "--trace",       "--rollback",      "--output", "--list",
     "--name",           "--dir",         "--incremental", "--color",         "--init",   "--summary",
-    "--config",         "--template",    "--graph",       "--stream",
+    "--config",         "--template",    "--graph",       "--stream",      "--interval",
 };
