@@ -352,9 +352,7 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
         const json = try stats_mod.formatStatsJson(alloc, s);
         try io_mod.writeOutput(io, json, null, false);
     } else {
-        std.debug.print("tables:  {d}\n", .{s.tables});
-        std.debug.print("fields:  {d}\n", .{s.fields});
-        std.debug.print("views:   {d}\n", .{s.views});
+        printStats(s);
     }
 }
 
