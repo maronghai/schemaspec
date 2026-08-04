@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.103.0 (2026-08-04) — 35,000+ lines production Zig, 960+ tests, 26 test suites.
+**Current version**: 0.105.0 (2026-08-04) — 35,000+ lines production Zig, 964+ tests, 26 test suites.
 
 ---
 
@@ -201,7 +201,7 @@ Ongoing improvements pursued alongside feature work.
 
 ### Code Quality
 
-- [x] Remove all `catch unreachable` in production code (v0.39.0, v0.103.0)
+- [x] Remove all `catch unreachable` in production code (v0.39.0, v0.103.0, v0.105.0)
 - [x] Remove all unsafe `@intCast`/`@enumFromInt` in production code (v0.80.0)
 - [x] Named constants for magic numbers — `STDIN_BUFFER_SIZE`, `OUTPUT_BUFFER_SIZE`, etc. (v0.80.0)
 - [x] Eliminate `std.process.exit` in library code — all errors propagate to main.zig (v0.80.0, v0.103.0)
@@ -219,6 +219,17 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.105.0 (2026-08-04)
+
+- **Version sync** — Fixed version drift: `version.zig` updated to match `VERSION` file (was 0.103.0 vs 0.104.0). Both now report 0.105.0.
+- **Removed last `orelse unreachable`** — `dialect/dialect.zig:293` comptime block now uses explicit null check with `@compileError` instead of `orelse unreachable`. ROADMAP code quality target completed.
+- **Deduplicated `ColorMode`** — Removed duplicate `ColorMode` enum from `cli.zig`. Now re-exports `color.ColorMode` via `pub const ColorMode = color_mod.ColorMode`. Single source of truth.
+- **`rune init -d/--dialect`** — `rune init` now accepts `-d`/`--dialect` to specify target SQL dialect. Generated starter schema includes a dialect hint comment. Example: `rune init myapp -d pg`.
+- **Improved error messages** — `FileNotFound` errors now show the specific file path that was not found. For `diff`/`migrate`, both file paths are shown.
+- **Config validation** — `rune.toml` values are now validated: `[dialect] default` must be a valid dialect name, `[output] color` must be `auto`, `always`, or `never`. Invalid values produce clear error messages.
+- **New unit tests** — `cli_test.zig` expanded with 3 tests (init with `-d`, init with `--dialect`, ColorMode re-export). `config_test.zig` expanded with 4 tests (valid config, invalid dialect, invalid color, null values).
+- **Documentation** — Updated README.md, ROADMAP.md, CLAUDE.md.
 
 ### v0.103.0 (2026-08-04)
 

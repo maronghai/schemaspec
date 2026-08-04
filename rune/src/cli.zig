@@ -1,5 +1,6 @@
 const std = @import("std");
 const dialect_enum = @import("dialect/enum.zig");
+const color_mod = @import("color.zig");
 
 // ─── Command Types ─────────────────────────────────────────────
 
@@ -40,20 +41,7 @@ pub const ParsedArgs = struct {
     config_path: ?[]const u8 = null,
 };
 
-pub const ColorMode = enum {
-    auto,
-    always,
-    never,
-
-    /// Determine if color should be used. For `auto`, checks if stdout is a TTY.
-    pub fn shouldUseColor(self: ColorMode, io: std.Io) bool {
-        return switch (self) {
-            .always => true,
-            .never => false,
-            .auto => std.Io.File.stdout().isTty(io) catch false,
-        };
-    }
-};
+pub const ColorMode = color_mod.ColorMode;
 
 pub const ArgError = error{
     UnknownDialect,
@@ -737,6 +725,7 @@ pub fn printUsage() void {
     std.debug.print("  rune generate json-schema schema.ss  # Generate JSON Schema from .ss\n", .{});
     std.debug.print("  rune generate --list                 # Show available generators\n", .{});
     std.debug.print("  rune init myapp                      # Create starter schema\n", .{});
+    std.debug.print("  rune init myapp -d pg                # Create starter schema for PostgreSQL\n", .{});
     std.debug.print("  rune fmt schema.ss                   # Auto-format schema\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
@@ -781,6 +770,10 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
                 std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "init")) {
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  -d, --dialect   Target dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
+                std.debug.print("  -o, --output    Output file path\n", .{});
             } else if (std.mem.eql(u8, subcommand, "completions")) {
                 std.debug.print("\nArguments:\n", .{});
                 std.debug.print("  shell           Target shell: bash (default), zsh, fish, powershell\n", .{});

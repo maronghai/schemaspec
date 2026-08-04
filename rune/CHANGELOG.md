@@ -4,6 +4,20 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.105.0] - 2026-08-04
+
+### Added
+- **`rune init -d/--dialect`** — `rune init` now accepts `-d`/`--dialect` to specify target SQL dialect. Generated starter schema includes a dialect hint comment.
+- **Config validation** — `rune.toml` values are now validated: `[dialect] default` must be a valid dialect name, `[output] color` must be `auto`, `always`, or `never`.
+
+### Fixed
+- **Version sync** — Fixed version drift between `version.zig` (0.103.0) and `VERSION` file (0.104.0). Both now report 0.105.0.
+- **Improved error messages** — `FileNotFound` errors now show the specific file path that was not found.
+- **Removed last `orelse unreachable`** — `dialect/dialect.zig:293` comptime block now uses explicit null check.
+
+### Refactored
+- **Deduplicated `ColorMode`** — Removed duplicate `ColorMode` enum from `cli.zig`. Now re-exports `color.ColorMode`.
+
 ## [0.91.0] - 2026-08-03
 
 ### Removed

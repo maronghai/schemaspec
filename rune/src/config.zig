@@ -29,6 +29,11 @@ pub const ParseError = error{
     UnexpectedEof,
 };
 
+pub const ConfigError = error{
+    InvalidDialect,
+    InvalidColor,
+};
+
 const Section = enum {
     project,
     dialect,
@@ -103,6 +108,28 @@ pub fn parseConfig(_: std.mem.Allocator, data: []const u8) !Config {
     }
 
     return config;
+}
+
+/// Validate config values. Returns an error with a descriptive message.
+pub fn validateConfig(cfg: Config) ConfigError!void {
+    if (cfg.dialect) |d| {
+        if (!isValidDialect(d)) return error.InvalidDialect;
+    }
+    if (cfg.color) |c| {
+        if (!isValidColor(c)) return error.InvalidColor;
+    }
+}
+
+fn isValidDialect(s: []const u8) bool {
+    const valid = [_][]const u8{ "mysql", "pg", "postgres", "sqlite", "mssql", "oracle", "db2" };
+    for (valid) |v| {
+        if (std.mem.eql(u8, s, v)) return true;
+    }
+    return false;
+}
+
+fn isValidColor(s: []const u8) bool {
+    return std.mem.eql(u8, s, "auto") or std.mem.eql(u8, s, "always") or std.mem.eql(u8, s, "never");
 }
 
 fn trimComment(line: []const u8) []const u8 {
@@ -193,4 +220,24 @@ test "parse bare values" {
     ;
     const result = try parseConfig(std.testing.allocator, toml);
     try std.testing.expectEqualStrings("pg", result.dialect.?);
+}
+
+test "validate valid config" {
+    const cfg = Config{ .dialect = "pg", .color = "always" };
+    try validateConfig(cfg);
+}
+
+test "validate invalid dialect" {
+    const cfg = Config{ .dialect = "oracl" };
+    try std.testing.expectError(error.InvalidDialect, validateConfig(cfg));
+}
+
+test "validate invalid color" {
+    const cfg = Config{ .color = "sometimes" };
+    try std.testing.expectError(error.InvalidColor, validateConfig(cfg));
+}
+
+test "validate null values pass" {
+    const cfg = Config{};
+    try validateConfig(cfg);
 }

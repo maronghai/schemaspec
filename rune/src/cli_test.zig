@@ -623,3 +623,42 @@ test "parseArgs: diff --color always" {
     const result = try cli.parseArgs(alloc, &args);
     try testing.expectEqual(cli.ColorMode.always, result.color);
 }
+
+test "parseArgs: init with dialect" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const D = @import("dialect/enum.zig").Dialect;
+    const args = makeArgs(5, .{ "rune", "init", "myapp", "-d", "pg" });
+    const result = try cli.parseArgs(alloc, &args);
+    try testing.expectEqual(D.pg, result.dialect);
+    switch (result.command) {
+        .init => |cmd| {
+            try testing.expectEqualStrings("myapp", cmd.name.?);
+        },
+        else => try testing.expect(false),
+    }
+}
+
+test "parseArgs: init with --dialect long flag" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const D = @import("dialect/enum.zig").Dialect;
+    const args = makeArgs(5, .{ "rune", "init", "myapp", "--dialect", "sqlite" });
+    const result = try cli.parseArgs(alloc, &args);
+    try testing.expectEqual(D.sqlite, result.dialect);
+    switch (result.command) {
+        .init => |cmd| {
+            try testing.expectEqualStrings("myapp", cmd.name.?);
+        },
+        else => try testing.expect(false),
+    }
+}
+
+test "ColorMode re-export is same type as color.ColorMode" {
+    const color_mod = @import("color.zig");
+    const cli_mode: cli.ColorMode = .auto;
+    const color_mode: color_mod.ColorMode = cli_mode;
+    _ = color_mode;
+}

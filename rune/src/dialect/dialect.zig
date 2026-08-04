@@ -290,7 +290,9 @@ pub fn renderFromTable(w: *Writer, sql_type: SqlType, comptime table: []const Re
     // Comptime check: table must have one entry per SqlType variant.
     // Catches silent mismatches when adding new SqlType variants.
     comptime {
-        const tag_type = @typeInfo(SqlType).@"union".tag_type orelse unreachable;
+        const union_info = @typeInfo(SqlType).@"union";
+        if (union_info.tag_type == null) @compileError("SqlType must be a tagged union");
+        const tag_type = union_info.tag_type.?;
         const total = @typeInfo(tag_type).@"enum".fields.len;
         if (table.len != total) {
             @compileError(std.fmt.comptimePrint("RenderEntry table length mismatch: expected {d} entries (one per SqlType variant), got {d}", .{ total, table.len }));

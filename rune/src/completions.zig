@@ -1,5 +1,6 @@
 const std = @import("std");
 const io_mod = @import("io.zig");
+const dialect_enum = @import("dialect/enum.zig");
 
 // ─── Shell Completions & Init ──────────────────────────────────
 // Extracted from main.zig for single-responsibility.
@@ -44,15 +45,18 @@ pub const STARTER_SCHEMA =
     \\
 ;
 
-pub fn handleInit(io: std.Io, alloc: std.mem.Allocator, name: ?[]const u8, output: ?[]const u8) !void {
+pub fn handleInit(io: std.Io, alloc: std.mem.Allocator, name: ?[]const u8, output: ?[]const u8, dialect: dialect_enum.Dialect) !void {
     const filename = name orelse "schema";
     const out_path = output orelse blk: {
         const path = try std.fmt.allocPrint(alloc, "{s}.ss", .{filename});
         break :blk path;
     };
-    try io_mod.writeOutput(io, STARTER_SCHEMA, out_path, false);
-    std.debug.print("Created {s}\n", .{out_path});
-    std.debug.print("Edit this file, then run: rune {s}\n", .{out_path});
+    // Prepend dialect hint comment for the user
+    const dialect_name = @tagName(dialect);
+    const schema_with_hint = try std.fmt.allocPrint(alloc, "; Target dialect: {s}\n{s}", .{ dialect_name, STARTER_SCHEMA });
+    try io_mod.writeOutput(io, schema_with_hint, out_path, false);
+    std.debug.print("Created {s} (dialect: {s})\n", .{ out_path, dialect_name });
+    std.debug.print("Edit this file, then run: rune {s} -d {s}\n", .{ out_path, dialect_name });
 }
 
 // ─── `rune completions` ───────────────────────────────────────

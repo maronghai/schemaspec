@@ -68,6 +68,14 @@ pub fn main(init: std.process.Init) !void {
     const cfg = config_mod.loadConfig(init.io, alloc, config_path) catch blk: {
         break :blk config_mod.Config{};
     };
+    // Validate config values
+    config_mod.validateConfig(cfg) catch |err| {
+        switch (err) {
+            error.InvalidDialect => std.debug.print("error: invalid dialect '{s}' in {s}\n", .{ cfg.dialect.?, config_path }),
+            error.InvalidColor => std.debug.print("error: invalid color '{s}' in {s}. Expected: auto, always, never\n", .{ cfg.color.?, config_path }),
+        }
+        std.process.exit(1);
+    };
     // Apply config defaults (CLI flags take precedence)
     if (parsed.dialect == .mysql and cfg.dialect != null) {
         final_parsed.dialect = cli.parseDialect(cfg.dialect.?) catch parsed.dialect;
@@ -102,7 +110,19 @@ pub fn main(init: std.process.Init) !void {
                 std.process.exit(1);
             },
             error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
-            error.FileNotFound => std.debug.print("error: file not found\n", .{}),
+            error.FileNotFound => {
+                const input_path = getInputPath(final_parsed.command);
+                const input_path2 = getInputPath2(final_parsed.command);
+                if (input_path) |path| {
+                    if (input_path2) |path2| {
+                        std.debug.print("error: file not found: {s} or {s}\n", .{ path, path2 });
+                    } else {
+                        std.debug.print("error: file not found: {s}\n", .{path});
+                    }
+                } else {
+                    std.debug.print("error: file not found\n", .{});
+                }
+            },
             error.AccessDenied => std.debug.print("error: access denied\n", .{}),
             error.IsDir => std.debug.print("error: expected a file, got a directory\n", .{}),
             error.NotDir => std.debug.print("error: expected a directory, got a file\n", .{}),
@@ -118,7 +138,7 @@ pub fn main(init: std.process.Init) !void {
 fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void {
     // Handle --init flag (invokes init without explicit subcommand)
     if (parsed.init_flag) {
-        return completions.handleInit(io, alloc, null, null);
+        return completions.handleInit(io, alloc, null, null, parsed.dialect);
     }
 
     switch (parsed.command) {
@@ -235,7 +255,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return forward.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
         },
         .init => |cmd| {
-            return completions.handleInit(io, alloc, cmd.name, cmd.output);
+            return completions.handleInit(io, alloc, cmd.name, cmd.output, parsed.dialect);
         },
         .format_cmd => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
@@ -250,6 +270,32 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
 }
 
 // ─── Error Messages ───────────────────────────────────────────
+
+/// Extract the input file path from a Command for error messages.
+fn getInputPath(command: cli.Command) ?[]const u8 {
+    return switch (command) {
+        .compile => |cmd| cmd.input,
+        .validate => |cmd| cmd.input,
+        .check => |cmd| cmd.input,
+        .stats => |cmd| cmd.input,
+        .diff => |cmd| cmd.old,
+        .migrate => |cmd| cmd.old,
+        .reverse => |cmd| cmd.input,
+        .docs => |cmd| cmd.input,
+        .format_cmd => |cmd| cmd.input,
+        .generate => |cmd| cmd.input,
+        else => null,
+    };
+}
+
+/// Extract the second input file path (for diff/migrate) for error messages.
+fn getInputPath2(command: cli.Command) ?[]const u8 {
+    return switch (command) {
+        .diff => |cmd| cmd.new,
+        .migrate => |cmd| cmd.new,
+        else => null,
+    };
+}
 
 /// Map CLI argument errors to human-readable messages.
 fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
