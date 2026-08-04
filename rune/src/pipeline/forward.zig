@@ -63,6 +63,8 @@ pub const CompileConfig = struct {
     import_paths: []const []const u8 = &.{},
     /// Use streaming compilation mode (emit each table's SQL independently).
     stream: bool = false,
+    /// Enable ANSI color output for diagnostics.
+    color: bool = false,
     /// I/O handle for file reading (required for import resolution).
     io: ?std.Io = null,
     /// Import context for @import resolution. Requires io != null.
@@ -126,7 +128,7 @@ fn compileInternal(
     // In partial mode (error_count > 0), still run semantic analysis on available tables.
     // Successfully parsed tables are complete; errored tables are simply absent.
     const resolved = if (cfg.run_semantic) blk: {
-        var sa = if (cfg.verbose_passes) semantic.SemanticAnalyzer.initVerbose(alloc) else semantic.SemanticAnalyzer.init(alloc);
+        var sa = semantic.SemanticAnalyzer.initWithColor(alloc, cfg.verbose_passes, cfg.color);
         break :blk try sa.analyze(tree);
     } else null;
 
@@ -258,6 +260,7 @@ pub fn handleCompileRequest(
             .check = cfg.check,
             .quiet = cfg.quiet,
             .stream = cfg.stream,
+            .color = cfg.color,
             .run_semantic = cfg.run_semantic,
         });
 

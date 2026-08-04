@@ -55,6 +55,7 @@ pub const ArgError = error{
     UnknownFlag,
     UnknownGenerator,
     UnknownShell,
+    UnknownHookType,
     DiffMissingArgs,
     MigrateMissingArgs,
     MissingArgs,

@@ -83,11 +83,13 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
 
     // Poll loop
     while (true) {
-        // Sleep for the polling interval using a busy-wait approach
-        const start = std.Io.Clock.Timestamp.now(io, .awake);
+        // Sleep using the Io clock — non-blocking, efficient
+        const deadline = std.Io.Clock.Timestamp.now(io, .awake);
+        const target_ns = cfg.interval_ms * std.time.ns_per_ms;
         while (true) {
-            const elapsed = std.Io.Clock.Timestamp.now(io, .awake).raw.nanoseconds - start.raw.nanoseconds;
-            if (elapsed >= cfg.interval_ms * std.time.ns_per_ms) break;
+            const now = std.Io.Clock.Timestamp.now(io, .awake);
+            const elapsed_ns = now.raw.nanoseconds - deadline.raw.nanoseconds;
+            if (elapsed_ns >= target_ns) break;
             std.Thread.yield() catch {};
         }
 

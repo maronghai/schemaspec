@@ -81,8 +81,7 @@ pub fn handleHooks(io: std.Io, _: std.mem.Allocator, hook_type: []const u8) !voi
     if (std.mem.eql(u8, hook_type, "pre-commit")) {
         try io_mod.writeOutput(io, HOOK_PRECOMMIT, null, false);
     } else {
-        std.debug.print("error: unknown hook type '{s}'. Available: pre-commit\n", .{hook_type});
-        std.process.exit(1);
+        return error.UnknownHookType;
     }
 }
 

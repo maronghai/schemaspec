@@ -122,6 +122,10 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             std.process.exit(1);
         },
         error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
+        error.UnknownHookType => {
+            std.debug.print("error: unknown hook type. Available: pre-commit\n", .{});
+            std.process.exit(1);
+        },
         error.FileNotFound => {
             const input_path = getInputPath(parsed.command);
             const input_path2 = getInputPath2(parsed.command);
@@ -187,6 +191,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .json_errors = parsed.json_errors,
                 .import_paths = parsed.import_paths,
                 .stream = cmd.stream,
+                .color = parsed.color.shouldUseColor(io),
             });
         },
         .validate => |cmd| {
@@ -340,5 +345,6 @@ fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
         error.UnknownFlag => "unknown flag. Run 'rune --help' for usage.",
         error.UnknownGenerator => "unknown generator. Run 'rune generate --list' for available generators.",
         error.UnknownShell => "unknown shell. Expected: bash, zsh, fish, powershell.",
+        error.UnknownHookType => "unknown hook type. Available: pre-commit.",
     };
 }

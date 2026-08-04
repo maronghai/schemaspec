@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.118.0 (2026-08-05) — 23,000+ lines production Zig, 1014+ tests, 26 test suites.
+**Current version**: 0.119.0 (2026-08-05) — 23,000+ lines production Zig, 1014+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.119.0 (2026-08-05)
+
+- **Colored diagnostics** — Schema errors, warnings, and notes now display with ANSI color codes when `--color` is enabled. Errors in red, warnings in yellow, notes in gray. Line numbers bold, source context dimmed. Color mode flows from CLI `--color` flag through the semantic analyzer to all diagnostic output.
+- **Fixed `std.process.exit` in `handleHooks`** — `completions.zig:handleHooks` now returns `error.UnknownHookType` instead of calling `std.process.exit(1)` directly. Error handling now flows through `main.zig`'s dispatch error handler, consistent with the code quality target (v0.80.0).
+- **Watch mode cleanup** — Simplified the polling loop in `watch.zig`.
 
 ### v0.118.0 (2026-08-05)
 

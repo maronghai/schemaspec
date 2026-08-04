@@ -11,6 +11,8 @@ pub const Config = struct {
     quiet: ?bool = null,
     json_errors: ?bool = null,
     stats: ?bool = null,
+    strict: ?bool = null,
+    verbose_passes: ?bool = null,
 };
 
 pub const ParseError = error{InvalidSyntax};
@@ -86,6 +88,10 @@ pub fn parseConfig(_: std.mem.Allocator, data: []const u8) !Config {
                         config.json_errors = try parseBool(value_raw);
                     } else if (std.mem.eql(u8, key, "stats")) {
                         config.stats = try parseBool(value_raw);
+                    } else if (std.mem.eql(u8, key, "strict")) {
+                        config.strict = try parseBool(value_raw);
+                    } else if (std.mem.eql(u8, key, "verbose_passes")) {
+                        config.verbose_passes = try parseBool(value_raw);
                     }
                 },
                 .unknown => {},

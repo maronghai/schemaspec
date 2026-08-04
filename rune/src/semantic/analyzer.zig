@@ -16,6 +16,7 @@ const ResolvedAst = resolved_ast.ResolvedAst;
 pub const SemanticAnalyzer = struct {
     alloc: std.mem.Allocator,
     verbose: bool,
+    use_color: bool = false,
 
     pub fn init(alloc: std.mem.Allocator) SemanticAnalyzer {
         return .{ .alloc = alloc, .verbose = false };
@@ -23,6 +24,10 @@ pub const SemanticAnalyzer = struct {
 
     pub fn initVerbose(alloc: std.mem.Allocator) SemanticAnalyzer {
         return .{ .alloc = alloc, .verbose = true };
+    }
+
+    pub fn initWithColor(alloc: std.mem.Allocator, verbose: bool, use_color: bool) SemanticAnalyzer {
+        return .{ .alloc = alloc, .verbose = verbose, .use_color = use_color };
     }
 
     pub fn analyze(self: *SemanticAnalyzer, tree: Ast) !ResolvedAst {
@@ -51,6 +56,7 @@ pub const SemanticAnalyzer = struct {
         pm.validateDependencyOrder(self.alloc);
         pm.validatePassAccess(self.alloc);
         var diagnostics = try diag.DiagnosticCollector.init(self.alloc);
+        diagnostics.use_color = self.use_color;
         var ctx = PassContext{
             .alloc = self.alloc,
             .tables = &tables,

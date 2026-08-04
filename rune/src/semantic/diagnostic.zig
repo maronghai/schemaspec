@@ -1,4 +1,5 @@
 const std = @import("std");
+const color = @import("../color.zig");
 
 pub const Severity = enum {
     warning,
@@ -15,6 +16,8 @@ pub const Diagnostic = struct {
     expected: ?[]const u8 = null,
     actual: ?[]const u8 = null,
     source_line: ?[]const u8 = null,
+    /// Enable ANSI color output for this diagnostic.
+    use_color: bool = false,
 };
 
 /// Compute 1-based column of `tok` within `raw_line`.
@@ -38,36 +41,52 @@ pub fn tokenColumn(tok: []const u8, raw_line: []const u8) usize {
 
 /// Format a single diagnostic to any writer. Shared by printDiagnostic and formatTerminal.
 fn formatDiagnosticTo(w: anytype, d: Diagnostic) !void {
+    const c = d.use_color;
     const sev_str: []const u8 = switch (d.severity) {
         .warning => "warning",
         .@"error" => "error",
         .note => "note",
     };
+    const sev_color: []const u8 = switch (d.severity) {
+        .warning => color.YELLOW,
+        .@"error" => color.RED,
+        .note => color.GRAY,
+    };
 
     // Header: "warning: message — expected '...', got '...'"
+    if (c) try w.writeAll(sev_color);
+    try w.writeAll(sev_str);
+    if (c) try w.writeAll(color.RESET);
     if (d.expected) |exp| {
         if (d.actual) |act| {
-            try w.print("{s}: {s} — expected {s}, got '{s}'\n", .{ sev_str, d.message, exp, act });
+            try w.print(": {s} — expected {s}, got '{s}'\n", .{ d.message, exp, act });
         } else {
-            try w.print("{s}: {s} — expected {s}\n", .{ sev_str, d.message, exp });
+            try w.print(": {s} — expected {s}\n", .{ d.message, exp });
         }
     } else if (d.actual) |act| {
-        try w.print("{s}: {s}, got '{s}'\n", .{ sev_str, d.message, act });
+        try w.print(": {s}, got '{s}'\n", .{ d.message, act });
     } else {
-        try w.print("{s}: {s}\n", .{ sev_str, d.message });
+        try w.print(": {s}\n", .{d.message});
     }
 
     // Location: "  --> file:line:col"
+    if (c) try w.writeAll(color.DIM);
     if (d.col) |col| {
         try w.print("  --> {s}:{d}:{d}\n", .{ d.file, d.line_no, col });
     } else {
         try w.print("  --> {s}:{d}\n", .{ d.file, d.line_no });
     }
+    if (c) try w.writeAll(color.RESET);
 
     // Source context with caret pointer
     if (d.source_line) |raw| {
+        if (c) try w.writeAll(color.DIM);
         try w.writeAll("   |\n");
-        try w.print(" {d} | {s}\n", .{ d.line_no, raw });
+        if (c) try w.writeAll(color.RESET);
+        if (c) try w.writeAll(color.BOLD);
+        try w.print(" {d} | ", .{d.line_no});
+        if (c) try w.writeAll(color.RESET);
+        try w.print("{s}\n", .{raw});
         if (d.col) |col| {
             const indent = digitCount(d.line_no) + 3; // " N | " prefix width
             var j: usize = 0;
@@ -78,10 +97,12 @@ fn formatDiagnosticTo(w: anytype, d: Diagnostic) !void {
                 if (std.mem.indexOfScalar(u8, a, ' ') != null or a.len > 20) break :blk 1;
                 break :blk a.len;
             } else 1;
+            if (c) try w.writeAll(sev_color);
             var k: usize = 0;
             while (k < width) : (k += 1) {
                 try w.writeAll("^");
             }
+            if (c) try w.writeAll(color.RESET);
             try w.writeAll("\n");
         }
     }
@@ -93,6 +114,13 @@ pub fn printDiagnostic(alloc: std.mem.Allocator, d: Diagnostic) void {
     formatDiagnosticTo(w, d) catch return;
     const out = aw.toArrayList();
     std.debug.print("{s}", .{out.items});
+}
+
+/// Print a diagnostic with color support.
+pub fn printDiagnosticColor(alloc: std.mem.Allocator, d: Diagnostic, use_color: bool) void {
+    var diag = d;
+    diag.use_color = use_color;
+    printDiagnostic(alloc, diag);
 }
 
 fn digitCount(n: usize) usize {
@@ -115,6 +143,7 @@ pub const DiagnosticCollector = struct {
     overflow: bool = false,
     oom: bool = false,
     json_errors: bool = false,
+    use_color: bool = false,
     cached_error_count: usize = 0,
 
     pub fn init(alloc: std.mem.Allocator) !DiagnosticCollector {
@@ -134,7 +163,9 @@ pub const DiagnosticCollector = struct {
             return;
         }
         if (d.severity == .@"error") self.cached_error_count += 1;
-        self.diagnostics.append(self.alloc, d) catch {
+        var diag = d;
+        diag.use_color = self.use_color;
+        self.diagnostics.append(self.alloc, diag) catch {
             self.oom = true;
         };
     }
