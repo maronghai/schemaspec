@@ -51,6 +51,7 @@ pub fn printUsage() void {
     std.debug.print("  rune generate --list                 # Show available generators\n", .{});
     std.debug.print("  rune init myapp                      # Create starter schema\n", .{});
     std.debug.print("  rune init myapp -d pg                # Create starter schema for PostgreSQL\n", .{});
+    std.debug.print("  rune hooks pre-commit               # Generate pre-commit hook\n", .{});
     std.debug.print("  rune fmt schema.ss                   # Auto-format schema\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
@@ -101,6 +102,11 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
             } else if (std.mem.eql(u8, subcommand, "completions")) {
                 std.debug.print("\nArguments:\n", .{});
                 std.debug.print("  shell           Target shell: bash (default), zsh, fish, powershell\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "hooks")) {
+                std.debug.print("\nArguments:\n", .{});
+                std.debug.print("  type            Hook type: pre-commit (default)\n", .{});
+                std.debug.print("\nInstall:\n", .{});
+                std.debug.print("  rune hooks pre-commit > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit\n", .{});
             } else {
                 std.debug.print("\nGlobal options also apply: -d/--dialect, -s/--stats, -q/--quiet, -h/--help\n", .{});
             }

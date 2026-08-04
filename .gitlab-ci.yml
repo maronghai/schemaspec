@@ -1,0 +1,50 @@
+# GitLab CI template for Rune schema validation
+# Include this in your .gitlab-ci.yml:
+#   include:
+#     - local: '.gitlab-ci.yml'
+#       inputs:
+#         schema_path: 'schemas/'
+#         dialect: 'pg'
+
+stages:
+  - validate
+
+.rune-schema-validation:
+  stage: validate
+  image: alpine:latest
+  before_script:
+    - apk add --no-cache git zig
+    - git clone --depth 1 https://github.com/rune-lang/rune.git /tmp/rune-src
+    - cd /tmp/rune-src/rune && zig build -Doptimize=ReleaseSafe
+    - cp /tmp/rune-src/rune/zig-out/bin/rune /usr/local/bin/rune
+  variables:
+    SCHEMA_PATH: "schema.ss"
+    DIALECT: "mysql"
+    STRICT: "false"
+  script:
+    - |
+      echo "Validating schema: $SCHEMA_PATH (dialect: $DIALECT)"
+      ARGS="validate $SCHEMA_PATH"
+      if [ "$DIALECT" != "mysql" ]; then
+        ARGS="$ARGS -d $DIALECT"
+      fi
+      if [ "$STRICT" = "true" ]; then
+        ARGS="$ARGS --strict"
+      fi
+      rune $ARGS
+    - echo "Schema validation passed."
+
+rune-validate:
+  extends: .rune-schema-validation
+  rules:
+    - changes:
+        - "**/*.ss"
+
+rune-validate-strict:
+  extends: .rune-schema-validation
+  variables:
+    STRICT: "true"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes:
+        - "**/*.ss"

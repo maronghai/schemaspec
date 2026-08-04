@@ -275,6 +275,9 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         .completions => |cmd| {
             return completions.handleCompletions(io, alloc, cmd.shell);
         },
+        .hooks => |cmd| {
+            return completions.handleHooks(io, alloc, cmd.hook_type);
+        },
     }
 }
 

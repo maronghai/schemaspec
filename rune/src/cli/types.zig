@@ -23,6 +23,7 @@ pub const Command = union(enum) {
     generate: struct { generator: []const u8, input: ?[]const u8, output: ?[]const u8, list: bool },
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },
+    hooks: struct { hook_type: []const u8 },
     version,
     help: struct { subcommand: ?[]const u8 = null },
 };
@@ -95,6 +96,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "generate", .args = "<generator> [input.ss]", .description = "Generate output in specified format" },
     .{ .name = "init", .args = "[name]", .description = "Create a starter .ss schema file" },
     .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
+    .{ .name = "hooks", .args = "<type>", .description = "Generate git hooks (pre-commit)" },
 };
 
 /// Known long flags for edit-distance suggestions.

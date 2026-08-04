@@ -1,0 +1,90 @@
+name: 'Rune Schema Validation'
+description: 'Validate Rune .ss schema files using the rune compiler'
+author: 'rune-lang'
+
+inputs:
+  schema:
+    description: 'Path to .ss schema file(s) — space-separated for multiple'
+    required: true
+  dialect:
+    description: 'Target SQL dialect (mysql, pg, sqlite, mssql, oracle, db2)'
+    required: false
+    default: 'mysql'
+  strict:
+    description: 'Treat warnings as errors'
+    required: false
+    default: 'false'
+  check:
+    description: 'Check mode — exit 1 if schema has differences'
+    required: false
+    default: 'false'
+  version:
+    description: 'Rune version to install'
+    required: false
+    default: 'latest'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Zig
+      uses: step-security/setup-zig@v2
+      with:
+        version: 0.16.0
+
+    - name: Install Rune
+      shell: bash
+      run: |
+        if command -v rune >/dev/null 2>&1; then
+          echo "rune already installed: $(rune --version)"
+        else
+          echo "Installing rune from source..."
+          git clone --depth 1 https://github.com/rune-lang/rune.git /tmp/rune-src
+          cd /tmp/rune-src/rune
+          zig build -Doptimize=ReleaseSafe
+          sudo cp zig-out/bin/rune /usr/local/bin/rune
+          echo "Installed: $(rune --version)"
+        fi
+
+    - name: Validate Schema
+      shell: bash
+      run: |
+        FAILED=0
+        for schema in ${{ inputs.schema }}; do
+          echo "Validating: $schema"
+          ARGS="validate $schema"
+          if [ "${{ inputs.dialect }}" != "mysql" ]; then
+            ARGS="$ARGS -d ${{ inputs.dialect }}"
+          fi
+          if [ "${{ inputs.strict }}" = "true" ]; then
+            ARGS="$ARGS --strict"
+          fi
+          if ! rune $ARGS 2>&1; then
+            FAILED=1
+          fi
+        done
+        if [ "$FAILED" -ne 0 ]; then
+          echo "::error::Schema validation failed"
+          exit 1
+        fi
+        echo "All schemas valid."
+
+    - name: Check Schema
+      if: inputs.check == 'true'
+      shell: bash
+      run: |
+        FAILED=0
+        for schema in ${{ inputs.schema }}; do
+          echo "Checking: $schema"
+          ARGS="check $schema"
+          if [ "${{ inputs.dialect }}" != "mysql" ]; then
+            ARGS="$ARGS -d ${{ inputs.dialect }}"
+          fi
+          if ! rune $ARGS 2>&1; then
+            FAILED=1
+          fi
+        done
+        if [ "$FAILED" -ne 0 ]; then
+          echo "::error::Schema check failed"
+          exit 1
+        fi
+        echo "All schemas passed check."

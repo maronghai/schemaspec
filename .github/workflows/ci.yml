@@ -16,8 +16,6 @@ jobs:
         uses: step-security/setup-zig@v2
         with:
           version: 0.16.0
-      - name: debug
-        run: pwd && ls
 
       - name: Check formatting
         run: zig fmt --check rune/src/
@@ -37,11 +35,29 @@ jobs:
       - name: SQLite golden tests
         run: bash tests/test_sqlite.sh
 
+      - name: MSSQL golden tests
+        run: bash tests/test_mssql.sh
+
+      - name: Oracle golden tests
+        run: bash tests/test_oracle.sh
+
+      - name: Db2 golden tests
+        run: bash tests/test_db2.sh
+
       - name: Migration tests
         run: bash tests/test_migrate.sh
 
+      - name: Migration status tests
+        run: bash tests/test_migrate_status.sh
+
       - name: Reverse engineering tests
         run: bash tests/test_reverse.sh
+
+      - name: Reverse Oracle tests
+        run: bash tests/test_reverse_oracle.sh
+
+      - name: Reverse Db2 tests
+        run: bash tests/test_reverse_db2.sh
 
       - name: Diff tests
         run: bash tests/test_diff.sh
@@ -49,8 +65,51 @@ jobs:
       - name: Error recovery tests
         run: bash tests/test_error_recovery.sh
 
+      - name: JSON Schema tests
+        run: bash tests/test_json_schema.sh
+
       - name: Roundtrip tests
         run: bash tests/test_roundtrip.sh
+
+      - name: Import tests
+        run: bash tests/test_imports.sh
+
+      - name: Stdin tests
+        run: bash tests/test_stdin.sh
+
+      - name: Init tests
+        run: bash tests/test_init.sh
+
+      - name: Color tests
+        run: bash tests/test_color.sh
+
+      - name: Validate tests
+        run: bash tests/test_validate.sh
+
+      - name: Stats JSON tests
+        run: bash tests/test_stats_json.sh
+
+  test-arm64:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: step-security/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Cross-compile for ARM64
+        run: cd rune && zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-linux
+
+      - name: Unit tests (native)
+        run: cd rune && zig build test
+
+      - name: MySQL golden tests (native)
+        run: bash tests/test.sh
+
+      - name: PostgreSQL golden tests (native)
+        run: bash tests/test_postgres.sh
 
   bench:
     runs-on: ubuntu-latest

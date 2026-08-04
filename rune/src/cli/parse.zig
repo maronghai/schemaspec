@@ -301,6 +301,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .{ .name = "format", .parse = parseFormatArgs },
         .{ .name = "init", .parse = parseInitArgs },
         .{ .name = "completions", .parse = parseCompletionsArgs },
+        .{ .name = "hooks", .parse = parseHooksArgs },
     };
     for (parsers) |entry| {
         if (std.mem.eql(u8, sub, entry.name)) {
@@ -564,4 +565,9 @@ fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targe
 fn parseCompletionsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const shell = if (fargs.len > 1) fargs[1] else "bash";
     return parseSimpleSubcommand(dialect, target, .{ .completions = .{ .shell = shell } }, opts);
+}
+
+fn parseHooksArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const hook_type = if (fargs.len > 1) fargs[1] else "pre-commit";
+    return parseSimpleSubcommand(dialect, target, .{ .hooks = .{ .hook_type = hook_type } }, opts);
 }

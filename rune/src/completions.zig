@@ -75,6 +75,62 @@ pub fn handleCompletions(io: std.Io, _: std.mem.Allocator, shell: []const u8) !v
     }
 }
 
+// ─── `rune hooks` ────────────────────────────────────────────
+
+pub fn handleHooks(io: std.Io, _: std.mem.Allocator, hook_type: []const u8) !void {
+    if (std.mem.eql(u8, hook_type, "pre-commit")) {
+        try io_mod.writeOutput(io, HOOK_PRECOMMIT, null, false);
+    } else {
+        std.debug.print("error: unknown hook type '{s}'. Available: pre-commit\n", .{hook_type});
+        std.process.exit(1);
+    }
+}
+
+pub const HOOK_PRECOMMIT =
+    \\#!/usr/bin/env bash
+    \\# Pre-commit hook for Rune schema validation
+    \\# Install: rune hooks pre-commit > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
+    \\
+    \\set -euo pipefail
+    \\
+    \\# Find rune binary — prefer local build, then PATH
+    \\RUNE=""
+    \\if [ -x "./rune/zig-out/bin/rune" ]; then
+    \\    RUNE="./rune/zig-out/bin/rune"
+    \\elif command -v rune >/dev/null 2>&1; then
+    \\    RUNE="rune"
+    \\else
+    \\    echo "warning: rune not found, skipping schema validation"
+    \\    exit 0
+    \\fi
+    \\
+    \\# Get staged .ss files
+    \\SS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.ss$' || true)
+    \\
+    \\if [ -z "$SS_FILES" ]; then
+    \\    exit 0
+    \\fi
+    \\
+    \\echo "Validating $(echo "$SS_FILES" | wc -l | tr -d ' ') schema file(s)..."
+    \\
+    \\FAILED=0
+    \\for f in $SS_FILES; do
+    \\    if ! $RUNE validate "$f" 2>&1; then
+    \\        FAILED=1
+    \\    fi
+    \\done
+    \\
+    \\if [ "$FAILED" -ne 0 ]; then
+    \\    echo ""
+    \\    echo "Schema validation failed. Fix errors before committing."
+    \\    echo "To skip this check: git commit --no-verify"
+    \\    exit 1
+    \\fi
+    \\
+    \\echo "All schemas valid."
+    \\
+;
+
 pub const COMPLETIONS_BASH =
     \\# Bash completions for rune
     \\# Source this file: source <(rune completions bash)
@@ -84,7 +140,7 @@ pub const COMPLETIONS_BASH =
     \\    COMPREPLY=()
     \\    cur="${COMP_WORDS[COMP_CWORD]}"
     \\    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    \\    commands="init validate check stats diff migrate reverse docs format generate completions"
+    \\    commands="init validate check stats diff migrate reverse docs format generate completions hooks"
     \\
     \\    if [[ ${cur} == -* ]]; then
     \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init" -- ${cur}) )
@@ -112,6 +168,9 @@ pub const COMPLETIONS_BASH =
     \\            ;;
     \\        completions)
     \\            COMPREPLY=( $(compgen -W "bash zsh fish powershell" -- ${cur}) )
+    \\            ;;
+    \\        hooks)
+    \\            COMPREPLY=( $(compgen -W "pre-commit" -- ${cur}) )
     \\            ;;
     \\        validate|check|stats|docs|format|init)
     \\            COMPREPLY=( $(compgen -f -X '!*.ss' -- ${cur}) )
@@ -144,6 +203,7 @@ pub const COMPLETIONS_ZSH =
     \\        'format:Auto-format .ss schema file'
     \\        'generate:Generate output in specified format'
     \\        'completions:Generate shell completions'
+    \\        'hooks:Generate git hooks'
     \\    )
     \\
     \\    _arguments -C \
@@ -170,6 +230,9 @@ pub const COMPLETIONS_ZSH =
     \\                    ;;
     \\                completions)
     \\                    _arguments '1:shell:(bash zsh fish powershell)'
+    \\                    ;;
+    \\                hooks)
+    \\                    _arguments '1:type:(pre-commit)'
     \\                    ;;
     \\                diff|migrate)
     \\                    _arguments '1:old:_files -g "*.ss"' '2:new:_files -g "*.ss"'
@@ -205,6 +268,7 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -n __fish_use_subcommand -a format -d 'Auto-format .ss schema file'
     \\complete -c rune -n __fish_use_subcommand -a generate -d 'Generate output in specified format'
     \\complete -c rune -n __fish_use_subcommand -a completions -d 'Generate shell completions'
+    \\complete -c rune -n __fish_use_subcommand -a hooks -d 'Generate git hooks'
     \\
     \\# Global flags
     \\complete -c rune -l help -s h -d 'Show help'
@@ -230,6 +294,9 @@ pub const COMPLETIONS_FISH =
     \\
     \\# completions subcommand
     \\complete -c rune -n '__fish_seen_subcommand_from completions' -a 'bash zsh fish powershell' -d 'Shell'
+    \\
+    \\# hooks subcommand
+    \\complete -c rune -n '__fish_seen_subcommand_from hooks' -a 'pre-commit' -d 'Hook type'
     \\
     \\# File arguments
     \\complete -c rune -n '__fish_seen_subcommand_from validate check stats docs format init' -F -r
@@ -258,6 +325,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('format', 'format', 'ParameterValue', 'Auto-format .ss schema file')
     \\        [System.Management.Automation.CompletionResult]::new('generate', 'generate', 'ParameterValue', 'Generate output in specified format')
     \\        [System.Management.Automation.CompletionResult]::new('completions', 'completions', 'ParameterValue', 'Generate shell completions')
+    \\        [System.Management.Automation.CompletionResult]::new('hooks', 'hooks', 'ParameterValue', 'Generate git hooks')
     \\    )
     \\
     \\    $generators = @(
@@ -295,6 +363,11 @@ pub const COMPLETIONS_POWERSHELL =
     \\    }
     \\    if ($subcmd -eq 'completions' -and $tokens.Count -eq 3) {
     \\        return $shells
+    \\    }
+    \\    if ($subcmd -eq 'hooks' -and $tokens.Count -eq 3) {
+    \\        return @(
+    \\            [System.Management.Automation.CompletionResult]::new('pre-commit', 'pre-commit', 'ParameterValue', 'Pre-commit hook')
+    \\        )
     \\    }
     \\
     \\    if ($cursorToken.StartsWith('-')) {

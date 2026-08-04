@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.115.0 (2026-08-05) — 22,800+ lines production Zig, 1014+ tests, 26 test suites.
+**Current version**: 0.116.0 (2026-08-05) — 23,000+ lines production Zig, 1014+ tests, 26 test suites.
 
 ---
 
@@ -121,9 +121,9 @@ Move from batch compilation to interactive, incremental usage. **In progress** �
 
 ### CI/CD Integration
 
-- [ ] GitHub Action — `rune-ci/check-schema` composite action
-- [ ] GitLab CI template — `.rune-ci.yml` for pipeline integration
-- [ ] Pre-commit hook generator — `rune hooks pre-commit` outputs shell scripts
+- [x] GitHub Action — `rune-ci/check-schema` composite action (v0.116.0)
+- [x] GitLab CI template — `.rune-ci.yml` for pipeline integration (v0.116.0)
+- [x] Pre-commit hook generator — `rune hooks pre-commit` outputs shell scripts (v0.116.0)
 
 ---
 
@@ -219,6 +219,17 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.116.0 (2026-08-05)
+
+- **`rune hooks pre-commit`** — New subcommand that outputs a pre-commit shell script for validating `.ss` schema files before commits. Auto-detects `rune` binary (local build or PATH), filters staged `.ss` files, and runs `rune validate` on each.
+- **GitHub Action** — Reusable composite action at `.github/actions/rune-ci/action.yml` for schema validation in CI pipelines. Supports dialect selection, strict mode, and check mode.
+- **GitLab CI template** — `.gitlab-ci.yml` with `rune-validate` and `rune-validate-strict` jobs that trigger on `.ss` file changes.
+- **Enhanced fuzzer** — `rune/fuzz` now supports 6 mutation strategies (random, boundary, truncate, duplicate, structural, combined) and cross-dialect reverse pipeline fuzzing (all 6 dialects tested per iteration).
+- **ARM64 CI testing** — Added `test-arm64` job to CI workflow that cross-compiles for aarch64-linux and runs unit + golden tests on native x86_64.
+- **Expanded CI coverage** — CI workflow now runs all 25 test suites (was 10): added MSSQL, Oracle, Db2, migration status, reverse Oracle/Db2, JSON Schema, imports, stdin, init, color, validate, and stats JSON tests.
+- **Shell completions updated** — Bash, Zsh, Fish, PowerShell completions now include `hooks` subcommand with `pre-commit` argument.
+- **CLI help updated** — `rune --help` and `rune hooks --help` show usage and installation instructions.
 
 ### v0.115.0 (2026-08-05)
 
@@ -795,8 +806,8 @@ Ongoing improvements pursued alongside feature work.
 | 1: Core Solidification | ✅ Complete | 9/9 | 0 |
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
-| 4: Incremental & Live Workflows | 🟡 Partial | 4/10 | 6 |
+| 4: Incremental & Live Workflows | 🟡 Partial | 7/10 | 3 |
 | 5: Developer Experience | 🟡 Partial | 7/12 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 10/12 | 2 |
-| **Total** | | **56/81** | **25** |
+| **Total** | | **59/81** | **22** |
