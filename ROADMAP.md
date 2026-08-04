@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.117.0 (2026-08-05) — 23,000+ lines production Zig, 1014+ tests, 26 test suites.
+**Current version**: 0.118.0 (2026-08-05) — 23,000+ lines production Zig, 1014+ tests, 26 test suites.
 
 ---
 
@@ -115,7 +115,7 @@ Move from batch compilation to interactive, incremental usage. **In progress** �
 
 ### Live Schema Monitoring
 
-- [ ] `rune watch schema.ss` — watch file changes and recompile automatically
+- [x] `rune watch schema.ss` — watch file changes and recompile automatically (v0.117.0)
 - [ ] `rune diff --live schema.ss mysql://host/db` — compare `.ss` file against a live database
 - [ ] Schema drift detection — compare expected vs actual database state
 
@@ -220,6 +220,11 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.118.0 (2026-08-05)
+
+- **Expanded diagnostic test coverage** — 7 new tests for `DiagnosticCollector`: `formatTerminal` output (content + empty), `hadOom` accessor, `record` alias, JSON escaping of special characters, and LSP 0-based line number conversion.
+- **ROADMAP sync** — Marked `rune watch` as done in Phase 4 (shipped in v0.117.0). Updated summary counts (60/81 done).
 
 ### v0.117.0 (2026-08-05)
 
@@ -814,8 +819,8 @@ Ongoing improvements pursued alongside feature work.
 | 1: Core Solidification | ✅ Complete | 9/9 | 0 |
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
-| 4: Incremental & Live Workflows | 🟡 Partial | 7/10 | 3 |
+| 4: Incremental & Live Workflows | 🟡 Partial | 8/10 | 2 |
 | 5: Developer Experience | 🟡 Partial | 7/12 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 10/12 | 2 |
-| **Total** | | **59/81** | **22** |
+| **Total** | | **60/81** | **21** |

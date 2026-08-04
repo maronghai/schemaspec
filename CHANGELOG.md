@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.118.0] - 2026-08-05
+
+### Changed
+- **Expanded diagnostic test coverage** — 7 new unit tests for `DiagnosticCollector`: `formatTerminal` output verification, empty output, `hadOom` accessor, `record` alias, JSON escaping of special characters, and LSP 0-based line number conversion.
+- **ROADMAP sync** — Marked `rune watch` as done in Phase 4. Updated summary counts (60/81 done).
+
 ## [0.106.0] - 2026-08-04
 
 ### Fixed

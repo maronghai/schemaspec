@@ -165,3 +165,87 @@ test "DiagnosticCollector: formatJson empty" {
 
     try testing.expectEqualStrings("[\n]", json);
 }
+
+test "DiagnosticCollector: formatTerminal produces output" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
+    dc.push(.{ .severity = .@"error", .line_no = 10, .col = 5, .message = "syntax error" });
+    dc.push(.{ .severity = .warning, .line_no = 20, .message = "unused variable" });
+
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try dc.formatTerminal(&aw.writer);
+    try aw.writer.flush();
+    const output = try aw.toOwnedSlice();
+    defer testing.allocator.free(output);
+
+    try testing.expect(std.mem.indexOf(u8, output, "error: syntax error") != null);
+    try testing.expect(std.mem.indexOf(u8, output, "warning: unused variable") != null);
+    try testing.expect(std.mem.indexOf(u8, output, "1 error(s), 1 warning(s)") != null);
+}
+
+test "DiagnosticCollector: formatTerminal empty" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
+
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try dc.formatTerminal(&aw.writer);
+    try aw.writer.flush();
+    const output = try aw.toOwnedSlice();
+    defer testing.allocator.free(output);
+
+    try testing.expectEqual(@as(usize, 0), output.len);
+}
+
+test "DiagnosticCollector: hadOom returns false initially" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
+    try testing.expect(!dc.hadOom());
+}
+
+test "DiagnosticCollector: record alias works like push" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
+    dc.record(.{ .severity = .@"error", .line_no = 1, .message = "via record" });
+    try testing.expect(dc.hasErrors());
+    try testing.expectEqual(@as(usize, 1), dc.errorCount());
+}
+
+test "DiagnosticCollector: formatJson message with special chars" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
+    dc.push(.{ .severity = .@"error", .line_no = 1, .message = "unexpected token" });
+
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try dc.formatJson(&aw.writer);
+    try aw.writer.flush();
+    const json = try aw.toOwnedSlice();
+    defer testing.allocator.free(json);
+
+    try testing.expect(std.mem.indexOf(u8, json, "\"message\":\"unexpected token\"") != null);
+}
+
+test "DiagnosticCollector: formatLsp zero-indexed line numbers" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    var dc = try diag.DiagnosticCollector.init(arena.allocator());
+    dc.push(.{ .severity = .@"error", .line_no = 1, .col = 3, .message = "first line" });
+
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    defer aw.deinit();
+    try dc.formatLsp(&aw.writer);
+    try aw.writer.flush();
+    const lsp = try aw.toOwnedSlice();
+    defer testing.allocator.free(lsp);
+
+    // LSP uses 0-based line numbers
+    try testing.expect(std.mem.indexOf(u8, lsp, "\"line\": 0") != null);
+    try testing.expect(std.mem.indexOf(u8, lsp, "\"character\": 2") != null);
+}
