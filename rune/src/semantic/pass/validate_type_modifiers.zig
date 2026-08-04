@@ -1,7 +1,6 @@
 const std = @import("std");
 const ast = @import("../../types/ast.zig");
 const diag = @import("../diagnostic.zig");
-const type_map = @import("../../types/type_map.zig");
 const ast_visitor = @import("../../ast_visitor.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const Field = ast.Field;
@@ -16,7 +15,7 @@ fn visitFieldCheckModifiers(ctx: *ModifierValidationCtx, field: *const Field, _:
     for (field.modifiers) |mod| {
         switch (mod.kind) {
             .auto_inc_pk, .auto_inc => {
-                if (!type_map.isNumericSymType(field.type_info) and !type_map.isDatetimeSymType(field.type_info)) {
+                if (!field.type_info.isNumeric() and !field.type_info.isDatetime()) {
                     const mod_name = if (mod.kind == .auto_inc_pk) "auto_increment_primary_key" else "auto_increment";
                     ctx.diagnostics.push(.{
                         .severity = .warning,
@@ -28,7 +27,7 @@ fn visitFieldCheckModifiers(ctx: *ModifierValidationCtx, field: *const Field, _:
             .primary_key => {},
             .nullable => {},
             .unsigned => {
-                if (!type_map.isNumericSymType(field.type_info)) {
+                if (!field.type_info.isNumeric()) {
                     ctx.diagnostics.push(.{
                         .severity = .warning,
                         .line_no = mod.line_no,

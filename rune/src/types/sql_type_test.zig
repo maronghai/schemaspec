@@ -1,6 +1,7 @@
 const std = @import("std");
 const st = @import("sql_type.zig");
 const SqlType = st.SqlType;
+const reverse_map = @import("../reverse/map.zig");
 
 const testing = std.testing;
 
@@ -226,4 +227,49 @@ test "SqlType toJsonSchema: blob → base64 string" {
     const result = try aw.toOwnedSlice();
     defer testing.allocator.free(result);
     try testing.expectEqualStrings("{\"type\":\"string\",\"contentEncoding\":\"base64\"}", result);
+}
+
+// ─── Forward/Reverse Consistency Test ──────────────────────────
+// Verifies that REVERSE_MAP canonical entries (sql_type != null)
+// agree with SqlType.toSql() for the base type in all dialects.
+// When adding a new type, update BOTH SqlType.toSql() and REVERSE_MAP.
+
+fn forwardNameAlloc(dialect: @import("../dialect/enum.zig").Dialect, sql_type: SqlType) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(testing.allocator);
+    try sql_type.toSql(dialect, &aw.writer);
+    return try aw.toOwnedSlice();
+}
+
+fn expectForwardMatchesReverse(dialect: @import("../dialect/enum.zig").Dialect, forward_sql: []const u8, rev_entry: reverse_map.ReverseMapping) !void {
+    const rev_sql = switch (dialect) {
+        .mysql => rev_entry.types.mysql,
+        .pg => rev_entry.types.pg,
+        .sqlite => rev_entry.types.sqlite,
+        .mssql => rev_entry.types.mssql,
+        .oracle => rev_entry.types.oracle,
+        .db2 => rev_entry.types.db2,
+    };
+    try testing.expectEqualStrings(rev_sql, forward_sql);
+}
+
+test "consistency: REVERSE_MAP canonical entries match SqlType.toSql" {
+    for (reverse_map.REVERSE_MAP) |entry| {
+        if (entry.sql_type) |sql_type| {
+            switch (sql_type) {
+                .varchar, .decimal, .enum_values, .raw_sql, .passthrough => continue,
+                else => {},
+            }
+            const mysql = try forwardNameAlloc(.mysql, sql_type);
+            defer testing.allocator.free(mysql);
+            try expectForwardMatchesReverse(.mysql, mysql, entry);
+
+            const pg = try forwardNameAlloc(.pg, sql_type);
+            defer testing.allocator.free(pg);
+            try expectForwardMatchesReverse(.pg, pg, entry);
+
+            const sqlite = try forwardNameAlloc(.sqlite, sql_type);
+            defer testing.allocator.free(sqlite);
+            try expectForwardMatchesReverse(.sqlite, sqlite, entry);
+        }
+    }
 }

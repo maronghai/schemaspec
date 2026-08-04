@@ -1,7 +1,7 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
-const type_map = @import("../types/type_map.zig");
+const type_registry = @import("../types/type_registry.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
 const dialect_enum = @import("../dialect/enum.zig");
@@ -79,7 +79,7 @@ pub const TypeResolver = struct {
     fn resolveColumnInner(alloc: std.mem.Allocator, field: Field, dialect: Dialect, custom_types: []const ast_mod.CustomType, depth: u8) !TypedColumn {
         // Check custom types first (multi-char names)
         if (field.type_info == .simple and field.type_info.simple.len > 1) {
-            if (type_map.lookupCustomType(custom_types, field.type_info.simple, dialect)) |ct_info| {
+            if (type_registry.lookupCustomType(custom_types, field.type_info.simple, dialect)) |ct_info| {
                 // Detect circular custom type references (e.g., ~A B + ~B A).
                 if (depth >= MAX_CUSTOM_TYPE_DEPTH) {
                     return error.CircularCustomType;
@@ -103,7 +103,7 @@ pub const TypeResolver = struct {
         // Classify modifiers into boolean flags
         const flags = classifyModifiers(field);
 
-        const is_dt = type_map.isDatetimeSymType(field.type_info);
+        const is_dt = field.type_info.isDatetime();
         const is_enum = field.type_info == .enum_type;
         const enum_vals = if (is_enum) field.type_info.enum_type else &[_][]const u8{};
 
@@ -159,7 +159,7 @@ pub fn classifyModifiers(field: Field) ModifierFlags {
     for (field.modifiers) |mod| {
         switch (mod.kind) {
             .auto_inc_pk => {
-                if (type_map.isDatetimeSymType(field.type_info)) {
+                if (field.type_info.isDatetime()) {
                     flags.on_update_ts = true;
                     flags.has_timestamp_mod = true;
                 } else {
@@ -168,7 +168,7 @@ pub fn classifyModifiers(field: Field) ModifierFlags {
                 }
             },
             .auto_inc => {
-                if (type_map.isDatetimeSymType(field.type_info)) {
+                if (field.type_info.isDatetime()) {
                     flags.has_timestamp_mod = true;
                 } else {
                     flags.ai = true;

@@ -11,7 +11,7 @@ const typed_ast = @import("../types/typed_ast.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const pipeline_forward = @import("../pipeline/forward.zig");
 const io_mod = @import("../io.zig");
-const cli = @import("../cli.zig");
+const cli = @import("../cli/types.zig");
 const utils = @import("../utils.zig");
 
 // ─── Diff/Migrate Pipeline ────────────────────────────────────

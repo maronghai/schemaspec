@@ -1,4 +1,5 @@
 const std = @import("std");
+const ast_mod = @import("../types/ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
@@ -8,10 +9,10 @@ const Dialect = dialect_enum.Dialect;
 //
 // Production code uses lookupSqlTypeDirect() which returns SqlType variants.
 // lookupSqlType() is a convenience wrapper that takes an allocator.
+// lookupCustomType() resolves custom type definitions with dialect overrides.
 //
 // The actual per-dialect mapping lives in each DialectBackend.lookupSym.
-// This module is now a thin delegation layer — adding a new SS type only
-// requires adding one entry to the relevant backend's lookupSym function.
+// This module is the single entry point for all SS symbol → type resolution.
 
 /// Look up SqlType variant directly for a SS symbol in a given dialect.
 /// Delegates to DialectBackend.lookupSym (the vtable).
@@ -32,4 +33,29 @@ pub fn lookupSqlType(sym: []const u8, dialect: Dialect, alloc: std.mem.Allocator
 /// Check if a SS symbol is a known core type.
 pub fn isCoreType(sym: []const u8) bool {
     return lookupSqlTypeDirect(sym, .mysql) != null;
+}
+
+// ─── Custom Type Lookup ──────────────────────────────────────
+
+/// Look up a custom type by name in the schema's custom_types list.
+/// Returns the resolved TypeInfo for the given dialect, checking dialect-specific
+/// overrides first, then falling back to the base type.
+pub fn lookupCustomType(
+    custom_types: []const ast_mod.CustomType,
+    type_name: []const u8,
+    dialect: Dialect,
+) ?ast_mod.TypeInfo {
+    for (custom_types) |ct| {
+        if (std.mem.eql(u8, ct.name, type_name)) {
+            // Check dialect-specific overrides first
+            for (ct.dialect_overrides) |ov| {
+                if (ov.dialect == dialect) {
+                    return ov.type_info;
+                }
+            }
+            // Fall back to base type
+            return ct.base;
+        }
+    }
+    return null;
 }

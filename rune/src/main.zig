@@ -39,8 +39,11 @@ pub fn main(init: std.process.Init) !void {
     // Load project config (rune.toml) and apply defaults
     var final_parsed = parsed;
     const config_path = parsed.config_path orelse "rune.toml";
-    const cfg = config_mod.loadConfig(init.io, alloc, config_path) catch blk: {
-        break :blk config_mod.Config{};
+    const cfg = config_mod.loadConfig(init.io, alloc, config_path) catch |err| e: {
+        // FileNotFound is handled inside loadConfig; any error here means
+        // the file exists but is malformed — warn so the user knows.
+        std.debug.print("warning: failed to load {s}: {s}, using defaults\n", .{ config_path, @errorName(err) });
+        break :e config_mod.Config{};
     };
     // Validate config values
     config_mod.validateConfig(cfg) catch |err| {

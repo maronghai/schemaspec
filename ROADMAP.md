@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.113.0 (2026-08-04) — 22,500+ lines production Zig, 930+ tests, 26 test suites.
+**Current version**: 0.114.0 (2026-08-05) — 22,800+ lines production Zig, 1014+ tests, 26 test suites.
 
 ---
 
@@ -219,6 +219,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.114.0 (2026-08-05)
+
+- **Fixed stdin dialect config drop** — `handleCompileRequest` now passes all `CompileConfig` fields (dialect, trace, stats, check, quiet, stream, run_semantic) when reading from stdin. Previously, only `verbose_passes` and `json_errors` were forwarded, causing stdin input to silently default to MySQL dialect.
+- **Fixed pipeline layering violations** — `pipeline/diff.zig`, `pipeline/reverse.zig`, and `diff/format/text.zig` now import `cli/types.zig` directly instead of the `cli.zig` barrel. Eliminates unnecessary coupling to the CLI parsing layer.
+- **Consolidated type helper modules** — Merged `types/type_map.zig` (47 lines) into `types/type_registry.zig`. Removed `isNumericSymType`/`isDatetimeSymType` wrapper functions — callers now use `TypeInfo.isNumeric()`/`TypeInfo.isDatetime()` directly. Moved `lookupCustomType` to `type_registry.zig` as the single entry point for all SS symbol → type resolution.
+- **Config error visibility** — Malformed `rune.toml` files now produce a warning message instead of being silently ignored. `FileNotFound` still falls back to defaults silently (expected behavior).
+- **Reverse JSON refactor** — Extracted `writeJsonStringField`, `writeJsonStringArray`, and `writeJsonBoolField` helpers from `generateReverseJson`. Replaces ~40 lines of duplicated JSON field writing with reusable 3-5 line helper calls. Consistent indentation and comma handling.
 
 ### v0.113.0 (2026-08-04)
 

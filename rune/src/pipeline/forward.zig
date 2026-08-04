@@ -248,7 +248,18 @@ pub fn handleCompileRequest(
     const pipeline = if (cfg.input) |path|
         try compileFileWithPaths(io, alloc, path, cfg.import_paths, cfg.json_errors)
     else
-        try compilePipeline(alloc, try io_mod.readStdin(io, alloc), .{ .verbose_passes = cfg.verbose_passes, .json_errors = cfg.json_errors, .io = io });
+        try compilePipeline(alloc, try io_mod.readStdin(io, alloc), .{
+            .verbose_passes = cfg.verbose_passes,
+            .json_errors = cfg.json_errors,
+            .io = io,
+            .dialect = cfg.dialect,
+            .trace = cfg.trace,
+            .stats = cfg.stats,
+            .check = cfg.check,
+            .quiet = cfg.quiet,
+            .stream = cfg.stream,
+            .run_semantic = cfg.run_semantic,
+        });
 
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, cfg.dialect);
 
