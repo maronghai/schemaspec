@@ -25,7 +25,6 @@ const testing = std.testing;
 const resolved_ast = @import("../../types/resolved_ast.zig");
 const test_helpers = @import("../test_helpers.zig");
 const diag_mod = @import("../diagnostic.zig");
-const symbol_table_mod = @import("../../types/symbol_table.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
 fn makeCtxWithTemplates(
@@ -35,19 +34,11 @@ fn makeCtxWithTemplates(
     templates: std.StringHashMap(*const ast.Template),
     template_refs: std.StringHashMap(void),
 ) PassContext {
-    var st = symbol_table_mod.SymbolTable.init(alloc);
-    for (tables.items) |*t| {
-        _ = st.registerTable(t.name, t) catch {};
-    }
-    return .{
-        .alloc = alloc,
-        .tables = tables,
-        .schema = null,
+    return test_helpers.makePassCtx(alloc, tables, diagnostics, .{
         .templates = templates,
         .template_refs = template_refs,
-        .diagnostics = diagnostics,
-        .symbol_table = st,
-    };
+        .init_symbol_table = true,
+    });
 }
 
 test "validate_unused_templates: unused template emits warning" {

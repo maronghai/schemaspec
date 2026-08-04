@@ -43,22 +43,9 @@ pub fn run(ctx: *PassContext) !void {
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
 const diag_mod = @import("../diagnostic.zig");
-const symbol_table_mod = @import("../../types/symbol_table.zig");
 
 fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(resolved_ast.ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector) PassContext {
-    var st = symbol_table_mod.SymbolTable.init(alloc);
-    for (tables.items) |*t| {
-        _ = st.registerTable(t.name, t) catch {};
-    }
-    return .{
-        .alloc = alloc,
-        .tables = tables,
-        .schema = null,
-        .templates = std.StringHashMap(*const ast.Template).init(alloc),
-        .template_refs = std.StringHashMap(void).init(alloc),
-        .diagnostics = diagnostics,
-        .symbol_table = st,
-    };
+    return test_helpers.makePassCtx(alloc, tables, diagnostics, .{ .init_symbol_table = true });
 }
 
 test "validate_fk_targets: non-existent field emits error" {

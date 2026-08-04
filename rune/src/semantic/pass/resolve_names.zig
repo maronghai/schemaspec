@@ -56,13 +56,7 @@ const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
 fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector, templates: std.StringHashMap(*const ast.Template)) PassContext {
-    return .{
-        .alloc = alloc,
-        .tables = tables,
-        .schema = null,
-        .templates = templates,
-        .diagnostics = diagnostics,
-    };
+    return test_helpers.makePassCtx(alloc, tables, diagnostics, .{ .templates = templates });
 }
 
 test "resolve_names: duplicate table name emits diagnostic" {

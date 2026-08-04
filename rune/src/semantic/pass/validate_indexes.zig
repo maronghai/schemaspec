@@ -100,14 +100,6 @@ const test_helpers = @import("../test_helpers.zig");
 const diag_mod = @import("../diagnostic.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
-fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector) PassContext {
-    return .{
-        .alloc = alloc,
-        .tables = tables,
-        .schema = null,
-        .diagnostics = diagnostics,
-    };
-}
 
 test "validate_indexes: duplicate index name emits diagnostic" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
@@ -133,7 +125,7 @@ test "validate_indexes: duplicate index name emits diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
@@ -163,7 +155,7 @@ test "validate_indexes: index on non-existent column emits diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
@@ -194,7 +186,7 @@ test "validate_indexes: valid index produces no diagnostics" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
@@ -224,7 +216,7 @@ test "validate_indexes: semantically identical indexes emit warning" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     var found_semantic_dup = false;
@@ -260,7 +252,7 @@ test "validate_indexes: index on misspelled column suggests correction" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);

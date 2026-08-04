@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.108.0 (2026-08-04) — 36,500+ lines production Zig, 984+ tests, 26 test suites.
+**Current version**: 0.109.0 (2026-08-04) — 35,500+ lines production Zig, 984+ tests, 26 test suites.
 
 ---
 
@@ -219,6 +219,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.109.0 (2026-08-04)
+
+- **Removed dead `validate_schema.zig`** — Deleted 453-line file whose functionality was split into focused passes (`validate_duplicates`, `validate_circular_fk`, `validate_fk_targets`, `validate_unused_templates`) in v0.107.0. The file was not imported in `DEFAULT_PASSES` or any production code — only compiled via `tests.zig` inline test discovery.
+- **Removed dead `DiffFormatter` registry** — Removed ~60 lines of unused `DiffFormatter` struct, `FORMATTERS` array, `getFormatter()`, `getFormatterForEnum()`, and adapter functions from `diff/format.zig`. The pipeline calls format functions directly from sub-modules; the unified registry was never used.
+- **Consolidated semantic pass test helpers** — Enhanced `test_helpers.makePassCtx` with `init_symbol_table` and `template_refs` options. Updated 8 semantic pass test files (`validate.zig`, `validate_indexes.zig`, `validate_type_modifiers.zig`, `autofk.zig`, `validate_duplicates.zig`, `validate_circular_fk.zig`, `validate_fk_targets.zig`, `validate_unused_templates.zig`, `resolve_names.zig`) to delegate to the shared helper, eliminating ~120 lines of duplicated `makeCtx`/`makeCtxWithTemplates` implementations.
+- **Documentation sync** — Updated `pass_manager.zig` comments to reference `validate_unused_templates` instead of the deleted `validate_schema`.
 
 ### v0.108.0 (2026-08-04)
 

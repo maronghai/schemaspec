@@ -64,9 +64,13 @@ pub fn makeTestColumn(name: []const u8, sql_type: sql_type_mod.SqlType) typed_as
 
 // ─── PassContext Test Helpers ─────────────────────────────────
 
+const symbol_table_mod = @import("../types/symbol_table.zig");
+
 pub const PassContextOptions = struct {
     schema: ?ast_mod.Schema = null,
     templates: ?std.StringHashMap(*const ast_mod.Template) = null,
+    template_refs: ?std.StringHashMap(void) = null,
+    init_symbol_table: bool = false,
 };
 
 /// Shared test helper: create a PassContext for semantic pass tests.
@@ -76,13 +80,20 @@ pub fn makePassCtx(
     diagnostics: *diag_mod.DiagnosticCollector,
     opts: PassContextOptions,
 ) PassContext {
+    const st: symbol_table_mod.SymbolTable = if (opts.init_symbol_table) blk: {
+        var sym = symbol_table_mod.SymbolTable.init(alloc);
+        for (tables.items) |*t| {
+            _ = sym.registerTable(t.name, t) catch {};
+        }
+        break :blk sym;
+    } else undefined;
     return .{
         .alloc = alloc,
         .tables = tables,
         .schema = opts.schema,
         .templates = opts.templates orelse std.StringHashMap(*const ast_mod.Template).init(alloc),
-        .template_refs = .{},
+        .template_refs = if (opts.template_refs) |tr| tr else undefined,
         .diagnostics = diagnostics,
-        .symbol_table = .{},
+        .symbol_table = st,
     };
 }

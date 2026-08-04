@@ -1,24 +1,7 @@
-const std = @import("std");
-const diff_types = @import("../diff/types.zig");
-const dialect_mod = @import("../dialect/dialect.zig");
-const utils = @import("../utils.zig");
-const cli = @import("../cli.zig");
-const SchemaDiff = diff_types.SchemaDiff;
-const TableDiff = diff_types.TableDiff;
-const Dialect = @import("../dialect/enum.zig").Dialect;
-
-const optionalStrEq = utils.optionalStrEq;
-const jsonEscapeString = utils.jsonEscapeString;
-
 // ─── Diff Formatter ──────────────────────────────────────────
 //
-// Renders SchemaDiff as human-readable text for `rune diff`.
-// Separated from diff.zig to allow alternative output formats
-// (JSON, machine-readable) without modifying the diff engine.
-//
+// Re-exports format sub-modules for backward compatibility.
 // Implementations are split into sub-modules by output format.
-// This file re-exports the public API for backward compatibility
-// and provides a unified DiffFormatter registry for runtime dispatch.
 
 const text_fmt = @import("format/text.zig");
 const json_fmt = @import("format/json.zig");
@@ -43,66 +26,3 @@ pub const formatDiffMarkdown = markdown_fmt.formatDiffMarkdown;
 // Re-export shared format helpers
 pub const format_common = @import("format_common.zig");
 pub const formatTypeInfo = format_common.formatTypeInfo;
-
-// ─── Unified Formatter Interface ──────────────────────────────
-
-/// Runtime function signature for formatting a diff.
-pub const FormatFn = *const fn (alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, writer: anytype) anyerror!void;
-
-/// A registered diff formatter.
-pub const DiffFormatter = struct {
-    name: []const u8,
-    format_fn: FormatFn,
-};
-
-/// Registry of all available diff formatters.
-pub const FORMATTERS = [_]DiffFormatter{
-    .{ .name = "text", .format_fn = formatText },
-    .{ .name = "json", .format_fn = formatJson },
-    .{ .name = "sarif", .format_fn = formatSarif },
-    .{ .name = "markdown", .format_fn = formatMarkdown },
-};
-
-/// Look up a formatter by name. Returns null if not found.
-pub fn getFormatter(name: []const u8) ?DiffFormatter {
-    for (FORMATTERS) |f| {
-        if (std.mem.eql(u8, f.name, name)) return f;
-    }
-    return null;
-}
-
-// ─── Adapter Functions ────────────────────────────────────────
-// These wrap the existing per-format functions into the common FormatFn signature.
-
-fn formatText(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, writer: anytype) !void {
-    const text = try formatDiff(alloc, d, dialect, .auto, null);
-    try writer.writeAll(text);
-}
-
-fn formatJson(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, writer: anytype) !void {
-    _ = dialect;
-    const text = try formatDiffJson(alloc, d);
-    try writer.writeAll(text);
-}
-
-fn formatSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, writer: anytype) !void {
-    const text = try formatDiffSarif(alloc, d, dialect);
-    try writer.writeAll(text);
-}
-
-fn formatMarkdown(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, writer: anytype) !void {
-    const text = try formatDiffMarkdown(alloc, d, dialect);
-    try writer.writeAll(text);
-}
-
-// ─── Format Lookup by Enum ────────────────────────────────────
-
-/// Look up a formatter by DiffFormat enum value.
-pub fn getFormatterForEnum(fmt: cli.DiffFormat) DiffFormatter {
-    return switch (fmt) {
-        .text => FORMATTERS[0],
-        .json => FORMATTERS[1],
-        .sarif => FORMATTERS[2],
-        .markdown => FORMATTERS[3],
-    };
-}

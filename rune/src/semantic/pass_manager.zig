@@ -16,7 +16,7 @@ pub const PassContext = struct {
     schema: ?ast_mod.Schema,
     templates: std.StringHashMap(*const Template) = undefined,
     /// Set of template names referenced by tables (template_ref) or other templates (parents).
-    /// Populated by the analyzer before passes run. Used by validate_schema for unused template detection.
+    /// Populated by the analyzer before passes run. Used by validate_unused_templates for unused template detection.
     template_refs: std.StringHashMap(void) = undefined,
     diagnostics: *diag.DiagnosticCollector = undefined,
     symbol_table: symbol_table_mod.SymbolTable = undefined,
@@ -51,7 +51,7 @@ pub const DEFAULT_PASSES = [_]SemanticPass{
     .{ .name = "validate", .run = @import("pass/validate.zig").run, .depends_on = &.{ "autofk", "suffix_inference" }, .access = .{ .reads_tables = true } },
     .{ .name = "validate_type_modifiers", .run = @import("pass/validate_type_modifiers.zig").run, .depends_on = &.{"suffix_inference"}, .access = .{ .reads_tables = true } },
     .{ .name = "validate_indexes", .run = @import("pass/validate_indexes.zig").run, .depends_on = &.{"autofk"}, .access = .{ .reads_tables = true } },
-    // Split from validate_schema (was 453 lines) into focused passes:
+    // Validation passes (originally a single validate_schema.zig, split in v0.107.0):
     .{ .name = "validate_duplicates", .run = @import("pass/validate_duplicates.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
     .{ .name = "validate_circular_fk", .run = @import("pass/validate_circular_fk.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
     .{ .name = "validate_fk_targets", .run = @import("pass/validate_fk_targets.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },

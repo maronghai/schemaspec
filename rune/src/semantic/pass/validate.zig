@@ -79,14 +79,6 @@ const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
 const diag_mod = @import("../diagnostic.zig");
 
-fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector) PassContext {
-    return .{
-        .alloc = alloc,
-        .tables = tables,
-        .schema = null,
-        .diagnostics = diagnostics,
-    };
-}
 
 test "validate: duplicate field name emits diagnostic" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
@@ -108,7 +100,7 @@ test "validate: duplicate field name emits diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
@@ -136,7 +128,7 @@ test "validate: valid table produces no diagnostics" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
@@ -170,7 +162,7 @@ test "validate: FK to non-existent table emits diagnostic" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
@@ -219,7 +211,7 @@ test "validate: FK to misspelled table suggests correction" {
     });
 
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
-    var ctx = makeCtx(alloc, &tables, &diagnostics);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{});
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
