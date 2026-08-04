@@ -29,6 +29,7 @@ pub const MigrationGraph = struct {
         while (iter.next()) |entry| {
             entry.value_ptr.tables.deinit();
             entry.value_ptr.depends_on.deinit(self.alloc);
+            self.alloc.free(entry.key_ptr.*);
         }
         self.migrations.deinit();
         self.order.deinit(self.alloc);
@@ -75,11 +76,12 @@ pub fn extractTables(alloc: std.mem.Allocator, content: []const u8) !std.StringH
 /// Build dependency graph from migration files in a directory
 pub fn buildGraph(io: std.Io, alloc: std.mem.Allocator, dir_path: []const u8) !MigrationGraph {
     var graph = try MigrationGraph.init(alloc);
+    errdefer graph.deinit();
 
     var dir = std.Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true }) catch |err| {
         const msg = try std.fmt.allocPrint(alloc, "error: cannot open directory '{s}': {}\n", .{ dir_path, err });
         try io_mod.writeOutput(io, msg, null, false);
-        return graph;
+        return error.MigrationDirectoryError;
     };
     defer dir.close(io);
 

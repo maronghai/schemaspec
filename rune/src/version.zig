@@ -1,7 +1,9 @@
 const std = @import("std");
+const build_options = @import("build_options");
 
 /// Rune version constant. Single source of truth for all modules.
-pub const VERSION = "0.109.0";
+/// Injected from build.zig.zon at compile time via build_options.
+pub const VERSION = build_options.VERSION;
 
 /// Print version to stderr.
 pub fn printVersion() void {

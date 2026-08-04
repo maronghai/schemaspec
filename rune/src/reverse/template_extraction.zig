@@ -5,6 +5,20 @@ const sp = @import("../parser/sql_parser.zig");
 // Extracted from reverse_codegen.zig for single-responsibility.
 // Finds common field patterns across tables and extracts them as templates.
 
+/// Maximum number of templates to extract: tables/3.
+/// Rationale: more than ~33% templates leads to over-fragmentation where
+/// most tables inherit from multiple templates, reducing readability.
+const MAX_TEMPLATE_RATIO = 3;
+
+/// Minimum new fields required per template candidate.
+/// Rationale: templates with only 1 new field provide little value —
+/// the inheritance overhead isn't justified for a single shared field.
+const MIN_NEW_FIELDS = 2;
+
+/// Minimum contiguous field window size for template matching.
+/// Rationale: templates with fewer than 2 fields are too narrow to be useful.
+const MIN_WINDOW_SIZE = 2;
+
 pub const TemplateCandidate = struct {
     name: []const u8,
     fields: []const sp.SqlColumn,
@@ -26,7 +40,7 @@ pub fn findTemplates(alloc: std.mem.Allocator, schema: sp.SqlSchema) ![]Template
     // Find templates greedily, each must introduce at least one new field.
     // Max templates = max(1, tables/3) — heuristic to prevent excessive template extraction.
     var template_idx: usize = 0;
-    const max_templates = @max(1, schema.tables.len / 3);
+    const max_templates = @max(1, schema.tables.len / MAX_TEMPLATE_RATIO);
     while (template_idx < max_templates) {
         const best = findBestWithNewFields(alloc, covered_fields.items, schema, max_cols) orelse break;
         template_idx += 1;
@@ -133,8 +147,8 @@ fn findBestWithNewFields(alloc: std.mem.Allocator, covered: []const []const u8, 
     var best_score: f64 = 0.0;
 
     var L = max_cols;
-    while (L >= 2) : (L -= 1) {
-        if (best != null and L < 3) break;
+    while (L >= MIN_WINDOW_SIZE) : (L -= 1) {
+        if (best != null and L < MIN_WINDOW_SIZE + 1) break;
 
         for (schema.tables) |table| {
             if (table.columns.len < L) continue;
@@ -154,7 +168,7 @@ fn findBestWithNewFields(alloc: std.mem.Allocator, covered: []const []const u8, 
                     }
                     if (found_new) new_count += 1;
                 }
-                if (new_count < 2) continue;
+                if (new_count < MIN_NEW_FIELDS) continue;
 
                 // Find matching tables
                 var matching = std.ArrayList(usize).initCapacity(alloc, 8) catch continue;

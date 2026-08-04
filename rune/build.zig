@@ -1,14 +1,32 @@
 const std = @import("std");
 
+/// Parse version from build.zig.zon at comptime — single source of truth.
+const zon_content = @embedFile("build.zig.zon");
+const VERSION = blk: {
+    const marker = ".version = \"";
+    if (std.mem.indexOf(u8, zon_content, marker)) |start| {
+        const after = zon_content[start + marker.len ..];
+        if (std.mem.indexOf(u8, after, "\"")) |end| {
+            break :blk after[0..end];
+        }
+    }
+    break :blk "0.0.0";
+};
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+
+    // Inject version from build.zig.zon at compile time
+    const options = b.addOptions();
+    options.addOption([]const u8, "VERSION", VERSION);
 
     const mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
+    mod.addOptions("build_options", options);
 
     const exe = b.addExecutable(.{
         .name = "rune",
@@ -44,6 +62,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    colocated_mod.addOptions("build_options", options);
     const colocated_tests = b.addTest(.{
         .root_module = colocated_mod,
     });

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.109.0 (2026-08-04) — 35,500+ lines production Zig, 984+ tests, 26 test suites.
+**Current version**: 0.110.0 (2026-08-04) — 36,000+ lines production Zig, 984+ tests, 26 test suites.
 
 ---
 
@@ -219,6 +219,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.110.0 (2026-08-04)
+
+- **Fixed memory leak in migration graph** — `MigrationGraph.deinit()` now frees `StringHashMap` key strings allocated via `alloc.dupe`. Added `errdefer graph.deinit()` in `buildGraph` to prevent leaks on error paths.
+- **Deduplicated streaming interleaving** — Extracted `InterleaveIterator` struct in `codegen/streaming.zig` with `next()`/`currentTable()`/`currentView()`/`currentComment()` methods. `formatStreamingResult` now uses the shared iterator instead of a duplicated merge loop.
+- **Improved error handling in migration graph** — `buildGraph` now returns `error.MigrationDirectoryError` on directory-open failure instead of silently returning an empty graph.
+- **Documented template extraction heuristics** — Added named constants `MAX_TEMPLATE_RATIO` (3), `MIN_NEW_FIELDS` (2), `MIN_WINDOW_SIZE` (2) in `reverse/template_extraction.zig` with doc comments explaining the rationale for each threshold.
+- **Build-time version injection** — `build.zig` now parses version from `build.zig.zon` at comptime via `@embedFile` and injects it via `build_options`. `version.zig` uses `build_options.VERSION` instead of a hardcoded string. Version is now a true single source of truth in `build.zig.zon`.
 
 ### v0.109.0 (2026-08-04)
 
