@@ -70,6 +70,16 @@ pub fn build(b: *std.Build) void {
     run_colocated_tests.step.dependOn(b.getInstallStep());
     test_step.dependOn(&run_colocated_tests.step);
 
+    // ─── Golden Tests ────────────────────────────────────────────
+    // Run all shell-based golden test suites via a single step.
+    const golden_step = b.step("golden-tests", "Run all golden test suites (requires rune binary)");
+    const run_golden = b.addRunArtifact(exe);
+    run_golden.step.dependOn(b.getInstallStep());
+    // The golden tests are shell scripts in tests/ — run them via bash
+    const run_golden_sh = b.addSystemCommand(&.{ "bash", "-c", "cd .. && for t in rune/tests/test_*.sh; do echo \"Running $t...\"; bash \"$t\" || exit 1; done" });
+    run_golden_sh.step.dependOn(b.getInstallStep());
+    golden_step.dependOn(&run_golden_sh.step);
+
     // ─── Benchmark ────────────────────────────────────────────────
     const bench_exe = b.addExecutable(.{
         .name = "bench",

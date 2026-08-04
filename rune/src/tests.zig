@@ -18,6 +18,8 @@ comptime {
     _ = @import("codegen/indexes_test.zig");
     _ = @import("codegen/interleave.zig");
     _ = @import("codegen/streaming_test.zig");
+    _ = @import("codegen/parallel.zig");
+    _ = @import("golden_test.zig");
     // dialect
     _ = @import("dialect/dialect_test.zig");
     _ = @import("dialect/common_test.zig");
@@ -41,6 +43,7 @@ comptime {
     _ = @import("diff/types_test.zig");
     _ = @import("diff/rename_test.zig");
     _ = @import("diff/invert.zig");
+    _ = @import("diff/plan.zig");
     _ = @import("diff/format/text_test.zig");
     _ = @import("diff/format/sarif_test.zig");
     _ = @import("diff/format/json_test.zig");

@@ -10,7 +10,7 @@ pub const DiffFormat = enum { text, json, sarif, markdown };
 pub const StatsFormat = enum { text, json };
 
 pub const Command = union(enum) {
-    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false },
+    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     stats: struct { input: ?[]const u8, format: StatsFormat = .text },
@@ -109,5 +109,5 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--dialect",        "--target",      "--format",      "--validate-only", "--strict", "--json-errors",
     "--verbose-passes", "--import-path", "--trace",       "--rollback",      "--output", "--list",
     "--name",           "--dir",         "--incremental", "--color",         "--init",   "--summary",
-    "--config",         "--template",    "--graph",       "--stream",      "--interval",
+    "--config",         "--template",    "--graph",       "--stream",      "--interval",    "--parallel",
 };

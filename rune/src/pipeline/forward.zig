@@ -63,6 +63,8 @@ pub const CompileConfig = struct {
     import_paths: []const []const u8 = &.{},
     /// Use streaming compilation mode (emit each table's SQL independently).
     stream: bool = false,
+    /// Use parallel streaming compilation (compile independent tables concurrently).
+    parallel: bool = false,
     /// Enable ANSI color output for diagnostics.
     color: bool = false,
     /// I/O handle for file reading (required for import resolution).
@@ -266,7 +268,11 @@ pub fn handleCompileRequest(
 
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, cfg.dialect);
 
-    const output = if (cfg.stream and cfg.format == .sql) blk: {
+    const output = if (cfg.stream and cfg.parallel and cfg.format == .sql) blk: {
+        const parallel_mod = @import("../codegen/parallel.zig");
+        const result = try parallel_mod.compileParallel(alloc, cfg.dialect, typed, .{});
+        break :blk try @import("../codegen/streaming.zig").formatStreamingResult(alloc, &result, cfg.dialect);
+    } else if (cfg.stream and cfg.format == .sql) blk: {
         const streaming = @import("../codegen/streaming.zig");
         var pool = codegen.BufferPool.init(alloc);
         defer pool.deinit();

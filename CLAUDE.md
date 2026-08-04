@@ -103,15 +103,16 @@ rune/src/
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig,    # SQL code generation
-               streaming.zig                             # streaming compilation
+               streaming.zig, parallel.zig                # streaming + parallel compilation
   dialect/     dialect.zig, enum.zig, mysql.zig,          # dialect backends (8 files)
                pg.zig, sqlite.zig, mssql.zig, oracle.zig,
                common.zig, sqlite_hints.zig
   reverse/     codegen.zig, column.zig, map.zig,          # reverse engineering (9 files)
                map_data.zig, fk.zig, check.zig,
                dialect_detect.zig, template_extraction.zig
-  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (23 files)
+  diff/        engine.zig, types.zig, fields.zig,         # diff/migrate (24 files)
                fks.zig, indexes.zig, semantic.zig, migrate.zig, rename.zig
+               plan.zig,                                  # Migration Plan IR
                format.zig, format_common.zig,            # format re-export + shared helpers
                format/text.zig, format/json.zig,         # format sub-modules
                format/sarif.zig, format/markdown.zig
@@ -182,6 +183,10 @@ rune/src/
 
 - **ORM Default Formatter** (`generators/common.zig`): `OrmTarget` enum + `getOrmFormatter()` factory returns pre-configured `DefaultFormatter` for each ORM (drizzle, knex, sqlalchemy, typeorm). Shared callbacks (`formatStringSingleQuoted`, `jsBoolTrue`/`jsBoolFalse`/`jsNull`) eliminate ~60 lines of duplicated callback functions across 4 ORM generators.
 
+- **Migration Plan IR** (`diff/plan.zig`): Explicit intermediate representation between `SchemaDiff` and SQL generation. `MigrationPlan` struct contains `operations: []Operation` where each `Operation` is a tagged union (`drop_table`, `create_table`, `alter_table`, `drop_view`, `create_view`, `modify_view`). `planFromDiff()` converts diffs to plans, `invertPlan()` transforms plans for rollback. The existing `generateFromDiff` and `generateRollback` functions delegate through the plan layer, producing identical output while enabling future dry-run inspection and plan-level validation.
+
+- **Parallel Table Compilation** (`codegen/parallel.zig`): Dependency analysis and concurrent compilation for independent tables. `analyzeDependencies()` builds a `DepGraph` from FK references, `topoSort()` produces a valid compilation order, and `compileParallel()` generates SQL in topological order. Falls back to sequential for schemas with <10 tables or fully-dependent tables. CLI flag: `--parallel` (used with `--stream`).
+
 ### Module Roles
 
 | Directory | Module | Role |
@@ -201,6 +206,8 @@ rune/src/
 | `codegen/` | `codegen.zig` | TypedAst → SQL DDL text, orchestrates column/index/constraint emission |
 | | `columns.zig` | Column definition rendering |
 | | `indexes.zig` | Inline and standalone index emission |
+| | `streaming.zig` | Streaming compilation (emit each table independently) |
+| | `parallel.zig` | Parallel table compilation (dependency analysis + concurrent codegen) |
 | `dialect/` | `dialect.zig` | DialectBackend vtable + getBackend() + ReverseResult |
 | | `enum.zig` | Dialect enum (mysql, pg, sqlite, mssql, oracle) |
 | | `mysql.zig`, `pg.zig`, `sqlite.zig`, `mssql.zig`, `oracle.zig`, `db2.zig` | Per-dialect backend implementations |
@@ -214,6 +221,7 @@ rune/src/
 | | `template_extraction.zig` | Template extraction from SQL |
 | `diff/` | `engine.zig` | Table-level diff engine |
 | | `types.zig` | SchemaDiff, TableDiff, FieldDiff data structures |
+| | `plan.zig` | Migration Plan IR — intermediate representation between diff and SQL |
 | | `fields.zig` | Field-level diffing + rename detection |
 | | `fks.zig` | FK diffing — two-pass matching |
 | | `indexes.zig` | Index diffing |
@@ -263,7 +271,7 @@ rune/src/
 ### Testing
 
 - **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 80 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
-- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 23 scripts: `test.sh` (MySQL, 85), `test_postgres.sh` (PG, 86), `test_sqlite.sh` (SQLite, 26), `test_mssql.sh` (MSSQL, 26), `test_oracle.sh` (Oracle, 103), `test_db2.sh` (Db2, 103), `test_migrate.sh` (Migration, 34), `test_migrate_status.sh` (Migrate Status, 7), `test_diff.sh` (Diff, 12), `test_reverse.sh` (Reverse, 21), `test_error_recovery.sh` (Error Recovery, 12), `test_json_schema.sh` (JSON Schema, 3), `test_openapi.sh` (OpenAPI, 3), `test_graphql.sh` (GraphQL, 4), `test_roundtrip.sh` (Round-trip, 112, 5 dialects), `test_property_roundtrip.sh` (Property-based roundtrip, 30+ iterations), `test_imports.sh` (Imports, 6), `test_stdin.sh` (Stdin, 4), `test_bench.sh` (Benchmark regression), `test_reverse_confidence.sh` (Reverse Confidence, 3), `test_init.sh` (Init & Completions, 12), `test_color.sh` (Color output), `test_coverage.sh` (Full suite runner). Run a single test by filter: `bash tests/test.sh 01`
+- **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 25 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
 ## Conventions

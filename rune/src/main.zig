@@ -191,6 +191,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .json_errors = parsed.json_errors,
                 .import_paths = parsed.import_paths,
                 .stream = cmd.stream,
+                .parallel = cmd.parallel,
                 .color = parsed.color.shouldUseColor(io),
             });
         },

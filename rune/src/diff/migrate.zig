@@ -31,27 +31,83 @@ pub fn generateFromDiff(
     new_resolved: resolved_ast.ResolvedAst,
     dialect: Dialect,
 ) ![]const u8 {
+    const plan_mod = @import("plan.zig");
+    const plan = try plan_mod.planFromDiff(alloc, d);
+    defer alloc.free(plan.operations);
+    return generateFromPlan(alloc, plan, new_typed, new_resolved, dialect);
+}
+
+/// Generate forward migration SQL from a MigrationPlan.
+pub fn generateFromPlan(
+    alloc: std.mem.Allocator,
+    plan: @import("plan.zig").MigrationPlan,
+    new_typed: typed_ast.TypedAst,
+    new_resolved: resolved_ast.ResolvedAst,
+    dialect: Dialect,
+) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    try w.writeAll("-- Migration: schema diff\n");
-    try dialect_enum.writeMigrationHeader(w, "migrate");
+    try w.writeAll("-- ");
+    try w.writeAll(plan.header.comment);
+    try w.writeAll("\n");
+    try dialect_enum.writeMigrationHeader(w, plan.header.command);
     try w.writeAll("BEGIN;\n\n");
 
     var has_operations = false;
-
     const backend = dialect_mod.getBackend(dialect);
-    try emitDroppedTables(w, backend, d.dropped_tables);
-    if (d.dropped_tables.len > 0) has_operations = true;
 
-    try emitViewDiffs(w, backend, d.view_diffs, new_typed);
-    if (d.view_diffs.len > 0) has_operations = true;
+    for (plan.operations) |op| {
+        switch (op) {
+            .drop_table => |dt| {
+                try w.writeAll("DROP TABLE IF EXISTS ");
+                try backend.quoteIdent(w, dt.name);
+                try w.writeAll(";\n\n");
+                has_operations = true;
+            },
+            .create_table => |ct| {
+                var cg = codegen.Codegen.init(alloc, dialect);
+                has_operations = true;
+                try emitSingleTable(alloc, w, &cg, new_resolved, ct.name, dialect);
+            },
+            .alter_table => |at| {
+                var table_has_ops = false;
+                var sub_needs_comma = false;
+                var cg = codegen.Codegen.init(alloc, dialect);
 
-    var cg = codegen.Codegen.init(alloc, dialect);
-    try emitTableDiffs(alloc, w, d.table_diffs, new_resolved, dialect, &cg, &has_operations);
+                try emitAlterTableOps(alloc, w, backend, at, &cg, dialect, new_resolved, &table_has_ops, &sub_needs_comma);
+                if (table_has_ops) {
+                    has_operations = true;
+                    try w.writeAll(";\n");
+                }
+            },
+            .drop_view => |dv| {
+                try w.writeAll("DROP VIEW IF EXISTS ");
+                try backend.quoteIdent(w, dv.name);
+                try w.writeAll(";\n\n");
+                has_operations = true;
+            },
+            .create_view => |cv| {
+                if (emit.findTypedView(new_typed, cv.name)) |view| {
+                    try backend.emitCreateView(w, view.name, view.query);
+                    try w.writeAll("\n");
+                    has_operations = true;
+                }
+            },
+            .modify_view => |mv| {
+                try w.writeAll("DROP VIEW IF EXISTS ");
+                try backend.quoteIdent(w, mv.name);
+                try w.writeAll(";\n\n");
+                if (emit.findTypedView(new_typed, mv.name)) |view| {
+                    try backend.emitCreateView(w, view.name, view.query);
+                    try w.writeAll("\n");
+                    has_operations = true;
+                }
+            },
+        }
+    }
 
     try w.writeAll("COMMIT;\n");
-
     try w.flush();
     return try aw.toOwnedSlice();
 }
@@ -67,140 +123,54 @@ pub fn generateRollback(
     old_resolved: resolved_ast.ResolvedAst,
     dialect: Dialect,
 ) ![]const u8 {
-    const invert = @import("invert.zig");
-
-    var aw = std.Io.Writer.Allocating.init(alloc);
-    const w = &aw.writer;
-
-    try w.writeAll("-- Rollback: undo migration\n");
-    try dialect_enum.writeMigrationHeader(w, "migrate --rollback");
-    try w.writeAll("BEGIN;\n\n");
-
-    var has_operations = false;
-    const backend = dialect_mod.getBackend(dialect);
-
-    // Invert the diff: extracts field/index/FK inversion logic
-    var inv = try invert.invertDiff(alloc, d);
-    defer inv.deinit(alloc);
-
-    // 1. Drop tables that were CREATED in forward migration
-    if (inv.drop_created.len > 0) {
-        try emitDroppedTables(w, backend, inv.drop_created);
-        has_operations = true;
-    }
-
-    // 2. Re-CREATE tables that were DROPPED in forward migration
-    try emitRollbackDroppedTables(alloc, w, inv.dropped_tables, old_resolved, dialect, &has_operations);
-
-    // 3. Reverse view diffs (create→drop, drop→create, modify stays)
-    for (inv.view_diffs) |vd| {
-        switch (vd.action) {
-            .create => {
-                try w.writeAll("DROP VIEW IF EXISTS ");
-                try backend.quoteIdent(w, vd.name);
-                try w.writeAll(";\n\n");
-                has_operations = true;
-            },
-            .drop => {
-                if (emit.findTypedView(old_typed, vd.name)) |view| {
-                    try backend.emitCreateView(w, view.name, view.query);
-                    try w.writeAll("\n");
-                    has_operations = true;
-                }
-            },
-            .modify => {
-                try w.writeAll("DROP VIEW IF EXISTS ");
-                try backend.quoteIdent(w, vd.name);
-                try w.writeAll(";\n\n");
-                if (emit.findTypedView(old_typed, vd.name)) |view| {
-                    try backend.emitCreateView(w, view.name, view.query);
-                    try w.writeAll("\n");
-                }
-                has_operations = true;
-            },
+    const plan_mod = @import("plan.zig");
+    const plan = try plan_mod.planFromDiff(alloc, d);
+    defer alloc.free(plan.operations);
+    const inv = try plan_mod.invertPlan(alloc, plan);
+    defer {
+        for (inv.operations) |op| {
+            switch (op) {
+                .alter_table => |at| {
+                    alloc.free(at.field_diffs);
+                    alloc.free(at.index_diffs);
+                    alloc.free(at.fk_diffs);
+                },
+                else => {},
+            }
         }
+        alloc.free(inv.operations);
     }
-
-    // 4. Emit inverted table ALTER diffs
-    if (inv.inverted_tables.len > 0) {
-        var cg = codegen.Codegen.init(alloc, dialect);
-        try emitTableDiffs(alloc, w, inv.inverted_tables, old_resolved, dialect, &cg, &has_operations);
-    }
-
-    try w.writeAll("COMMIT;\n");
-
-    try w.flush();
-    return try aw.toOwnedSlice();
+    return generateFromPlan(alloc, inv, old_typed, old_resolved, dialect);
 }
 
 // ─── Shared Emission Functions ──────────────────────────────────
 
-fn emitDroppedTables(w: anytype, backend: dialect_mod.DialectBackend, dropped: []const []const u8) !void {
-    for (dropped) |tname| {
-        try w.writeAll("DROP TABLE IF EXISTS ");
-        try backend.quoteIdent(w, tname);
-        try w.writeAll(";\n\n");
-    }
-}
-
-fn emitViewDiffs(w: anytype, backend: dialect_mod.DialectBackend, view_diffs: []const diff_mod.ViewDiff, typed: typed_ast.TypedAst) !void {
-    for (view_diffs) |vd| {
-        switch (vd.action) {
-            .drop => {
-                try w.writeAll("DROP VIEW IF EXISTS ");
-                try backend.quoteIdent(w, vd.name);
-                try w.writeAll(";\n\n");
-            },
-            .create, .modify => {
-                if (vd.action == .modify) {
-                    try w.writeAll("DROP VIEW IF EXISTS ");
-                    try backend.quoteIdent(w, vd.name);
-                    try w.writeAll(";\n\n");
-                }
-                if (emit.findTypedView(typed, vd.name)) |view| {
-                    try backend.emitCreateView(w, view.name, view.query);
-                    try w.writeAll("\n");
-                }
-            },
-        }
-    }
-}
-
-fn emitTableDiffs(
+/// Emit ALTER TABLE operations from a plan's AlterTable operation.
+/// Bridges the plan IR to the existing field/index/FK emission helpers.
+fn emitAlterTableOps(
     alloc: std.mem.Allocator,
     w: anytype,
-    table_diffs: []const diff_mod.TableDiff,
-    resolved: resolved_ast.ResolvedAst,
-    dialect: Dialect,
+    backend: dialect_mod.DialectBackend,
+    at: @import("plan.zig").MigrationPlan.AlterTable,
     cg: ?*codegen.Codegen,
-    has_operations: *bool,
+    dialect: Dialect,
+    resolved: resolved_ast.ResolvedAst,
+    table_has_ops: *bool,
+    sub_needs_comma: *bool,
 ) !void {
-    const backend = dialect_mod.getBackend(dialect);
-
-    for (table_diffs) |td| {
-        switch (td.action) {
-            .create => {
-                if (cg) |c| {
-                    has_operations.* = true;
-                    try emitSingleTable(alloc, w, c, resolved, td.name, dialect);
-                }
-            },
-            .alter => {
-                var table_has_ops = false;
-                var sub_needs_comma = false;
-
-                try emitFieldDiffs(alloc, w, backend, td, cg, dialect, resolved, &table_has_ops, &sub_needs_comma);
-                try emitIndexDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
-                try emitMetadataDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
-                try emitFkDiffs(w, backend, td, &table_has_ops, &sub_needs_comma);
-
-                if (table_has_ops) {
-                    has_operations.* = true;
-                    try w.writeAll(";\n");
-                }
-            },
-        }
-    }
+    // Bridge to existing helpers by constructing a temporary TableDiff
+    const td = diff_mod.TableDiff{
+        .name = at.name,
+        .action = .alter,
+        .field_diffs = at.field_diffs,
+        .index_diffs = at.index_diffs,
+        .fk_diffs = at.fk_diffs,
+        .metadata_diff = at.metadata_diff,
+    };
+    try emitFieldDiffs(alloc, w, backend, td, cg, dialect, resolved, table_has_ops, sub_needs_comma);
+    try emitIndexDiffs(w, backend, td, table_has_ops, sub_needs_comma);
+    try emitMetadataDiffs(w, backend, td, table_has_ops, sub_needs_comma);
+    try emitFkDiffs(w, backend, td, table_has_ops, sub_needs_comma);
 }
 
 fn emitFieldDiffs(
@@ -437,19 +407,3 @@ fn emitFkDiffs(
     }
 }
 
-// ─── Rollback-specific helpers ────────────────────────────────
-
-fn emitRollbackDroppedTables(
-    alloc: std.mem.Allocator,
-    w: anytype,
-    dropped: []const []const u8,
-    old_resolved: resolved_ast.ResolvedAst,
-    dialect: Dialect,
-    has_operations: *bool,
-) !void {
-    var cg = codegen.Codegen.init(alloc, dialect);
-    for (dropped) |tname| {
-        has_operations.* = true;
-        try emitSingleTable(alloc, w, &cg, old_resolved, tname, dialect);
-    }
-}

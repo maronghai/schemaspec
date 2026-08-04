@@ -135,6 +135,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var want_validate_only = false;
     var want_stream = false;
+    var want_parallel = false;
     while (i < raw_args.len) : (i += 1) {
         if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
             want_version = true;
@@ -194,6 +195,8 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             want_summary = true;
         } else if (std.mem.eql(u8, raw_args[i], "--stream")) {
             want_stream = true;
+        } else if (std.mem.eql(u8, raw_args[i], "--parallel")) {
+            want_parallel = true;
         } else if (std.mem.eql(u8, raw_args[i], "--config")) {
             if (i + 1 < raw_args.len) {
                 config_path = raw_args[i + 1];
@@ -271,6 +274,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
                 .check = want_check,
                 .verbose_passes = want_verbose_passes,
                 .stream = want_stream,
+                .parallel = want_parallel,
             } },
             .quiet = want_quiet,
             .strict = want_strict,

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.119.0 (2026-08-05) — 23,000+ lines production Zig, 1014+ tests, 26 test suites.
+**Current version**: 0.120.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
 
 ---
 
@@ -194,7 +194,7 @@ Ongoing improvements pursued alongside feature work.
 ### Performance
 
 - [x] Streaming compilation — output SQL as soon as each table is resolved (v0.102.0)
-- [ ] Parallel table compilation — compile independent tables concurrently
+- [x] Parallel table compilation — compile independent tables concurrently (v0.120.0)
 - [ ] Memory-mapped file I/O — for large schema files (>10MB)
 - [x] Benchmark CI gate — enforce no regressions beyond 10% (v0.82.0)
 - [x] Benchmark dialect parameterization — `rune bench --dialect <d>` supports all 6 dialects (v0.74.0)
@@ -220,6 +220,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.120.0 (2026-08-05)
+
+- **Migration Plan IR** — New `diff/plan.zig` module introduces an explicit intermediate representation (`MigrationPlan`) between `SchemaDiff` and SQL generation. `planFromDiff()` converts diffs to plans, `invertPlan()` transforms plans for rollback, and `generateFromPlan()` renders plans to SQL. The existing `generateFromDiff` and `generateRollback` functions now delegate through the plan layer, producing identical output while enabling future dry-run inspection and plan-level validation.
+- **Parallel table compilation** — New `codegen/parallel.zig` module analyzes table FK dependencies and compiles independent tables concurrently. `analyzeDependencies()` builds a dependency graph, `topoSort()` orders tables, and `compileParallel()` generates SQL in dependency order. Falls back to sequential for schemas with <10 tables or fully-dependent tables. CLI flag: `--parallel` (used with `--stream`).
+- **Golden test utilities** — New `golden_test.zig` module provides `stripVersion()` and `compareOutput()` functions for version-resilient golden test comparison. Handles both SQL version comments and JSON version fields.
+- **`--parallel` CLI flag** — New flag for parallel streaming compilation. `rune schema.ss --stream --parallel` enables concurrent table compilation.
+- **`zig build golden-tests`** — New build step that runs all 25 shell-based golden test suites.
 
 ### v0.119.0 (2026-08-05)
 
@@ -828,5 +836,5 @@ Ongoing improvements pursued alongside feature work.
 | 4: Incremental & Live Workflows | 🟡 Partial | 8/10 | 2 |
 | 5: Developer Experience | 🟡 Partial | 7/12 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
-| Architecture Targets | 🟡 Ongoing | 10/12 | 2 |
-| **Total** | | **60/81** | **21** |
+| Architecture Targets | 🟡 Ongoing | 11/12 | 1 |
+| **Total** | | **61/81** | **20** |
