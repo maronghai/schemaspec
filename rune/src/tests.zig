@@ -90,6 +90,7 @@ comptime {
     _ = @import("types/type_resolver_test.zig");
     _ = @import("types/type_registry_test.zig");
     _ = @import("types/sql_type_test.zig");
+    _ = @import("types/symbol_table_test.zig");
     // generators
     _ = @import("generator_test.zig");
     _ = @import("generators/common_test.zig");

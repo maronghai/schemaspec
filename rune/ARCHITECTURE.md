@@ -38,13 +38,12 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
                              └──────────┘
 ```
 
-**Leaf modules** (zero internal dependencies): `ast.zig`, `dialect_enum.zig`, `diagnostic.zig`, `color.zig`
+**Leaf modules** (zero internal dependencies): `ast.zig`, `dialect/enum.zig`, `diagnostic.zig`, `color.zig`
 
 **Key modules**:
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
-- `type_map.zig`: Helper functions (`lookupCustomType`, `isNumericSymType`, `isDatetimeSymType`). No longer contains rendering logic.
-- `type_registry.zig`: SS symbol → `SqlType` direct mapping (`lookupSqlTypeDirect`) and reverse lookup. 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
-- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (51 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
+- `type_registry.zig`: SS symbol → `SqlType` mapping (`lookupCustomType`, `lookupSqlTypeDirect`), reverse lookup, and symbol classification helpers (`isNumericSymType`, `isDatetimeSymType`). 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
+- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (52+ entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
 ### Extracted Sub-Modules
 
@@ -102,8 +101,10 @@ Input (.ss text)
     Output: []ResolvedTable (templates applied to each table)
     │
     ▼
-[4] Semantic Analyzer (analyzer.zig, 421 lines + pass_manager.zig + 8 pass implementations)
-    Pass manager: validate_template_types, resolve_names, autofk, suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_schema
+[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 11 pass implementations)
+    Pass manager: validate_template_types, resolve_names, autofk, suffix_inference, validate,
+    validate_type_modifiers, validate_indexes, validate_duplicates, validate_circular_fk,
+    validate_fk_targets, validate_unused_templates
     Output: ResolvedAst (templates resolved + passes applied)
     │
     ▼
@@ -252,45 +253,29 @@ DialectBackend = struct {
 
 PG and SQLite share 7 method implementations (via `common.zig`: `emitIndex`, `emitInlineIndex`, `emitStandaloneIndex`, `emitInlineColumnStandaloneIndex`, `emitAlterDropColumn`, `emitAlterDropIndex`, `emitAlterRenameColumn`). `emitCheckExpr` is a shared standalone function (all dialects use identical CHECK syntax). `emitForeignKey` is shared via `dialect/common.zig:emitForeignKeyShared` (takes `quoteIdent` function pointer).
 
-## DialectCapability Flags
-
-Each dialect backend declares feature flags via the `capability` field:
-
-| Capability | MySQL | PostgreSQL | SQLite | MSSQL | Oracle | Db2 | Description |
-|-----------|-------|-----------|--------|-------|--------|-----|-------------|
-| `auto_increment` | ✓ | | | | | | AUTO_INCREMENT keyword |
-| `unsigned` | ✓ | | | | | | UNSIGNED integer modifier |
-| `create_database` | ✓ | ✓ | | | | | CREATE DATABASE statement |
-| `enum_type` | ✓ | | | | | | Native ENUM type |
-| `inline_comments` | ✓ | | | | | | Inline column comments |
-| `standalone_comments` | | ✓ | | | ✓ | ✓ | COMMENT ON statements |
-| `schemas` | | ✓ | | ✓ | ✓ | ✓ | Schema-qualified names |
-| `sequences` | | ✓ | | ✓ | ✓ | | Sequence objects |
-| `tablespace` | ✓ | | | | | | TABLESPACE clauses |
-| `batch_separators` | | | | ✓ | | | GO batch separators |
-| `generated_columns` | | ✓ | ✓ | ✓ | ✓ | ✓ | GENERATED ALWAYS AS columns |
-| `alter_drop_column` | ✓ | ✓ | | ✓ | ✓ | ✓ | ALTER TABLE ... DROP COLUMN |
-
-Adding a new dialect = set the appropriate capability flags in the backend struct. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names.
-
 ## Semantic Pass Manager
 
 ```zig
-SemanticPass = struct { name: []const u8, run: fn(*PassContext) !void, depends_on: []const []const u8 };
-DEFAULT_PASSES = [_]SemanticPass{ validate_template_types, resolve_names, autofk, suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_schema };
+SemanticPass = struct { name: []const u8, run: fn(*PassContext) !void, depends_on: []const []const u8, access: PassAccess };
+DEFAULT_PASSES = [_]SemanticPass{
+    validate_template_types, resolve_names, autofk, suffix_inference,
+    validate, validate_type_modifiers, validate_indexes,
+    validate_duplicates, validate_circular_fk, validate_fk_targets, validate_unused_templates,
+};
 ```
 
 New passes can be added by:
 1. Writing a function with signature `fn(*PassContext) !void`
-2. Adding a `SemanticPass` entry to `DEFAULT_PASSES`
+2. Adding a `SemanticPass` entry to `DEFAULT_PASSES` with `depends_on` and `access` declarations
 
-### Schema-Level Validation (validate_schema pass)
+### Validation Passes (split from `validate_schema` in v0.107.0)
 
-The `validate_schema` pass runs after all table-level passes and performs global consistency checks:
+The original monolithic `validate_schema` pass was split into 4 focused passes for single-responsibility:
 
-- **Circular FK detection**: DFS traversal of the FK dependency graph. Detects A→B→C→A cycles and reports them as warnings (non-blocking).
-- **FK target field existence**: Validates that all FK referenced fields exist in the target table. Reports errors (blocking).
-- **Self-referencing FK field count**: Validates that self-referencing FKs have matching local/referenced field counts. Reports errors (blocking).
+- **validate_duplicates**: Detects duplicate table names across the schema.
+- **validate_circular_fk**: DFS traversal of the FK dependency graph. Detects A→B→C→A cycles and reports them as warnings (non-blocking). Also validates self-referencing FK field counts.
+- **validate_fk_targets**: Validates that all FK referenced fields exist in the target table. Reports errors (blocking).
+- **validate_unused_templates**: Warns about template definitions that are not referenced by any table or other template.
 
 ## Template Extraction Algorithm (Reverse Pipeline)
 
@@ -337,27 +322,24 @@ Rune uses a three-layer type mapping system:
 
 - **`reverse_map.zig` (REVERSE_MAP)**: ~59 entries covering all SQL type variants → SS symbols across 6 dialects (MySQL, PG, SQLite, MSSQL, Oracle, Db2). Used by `reverseLookup()` and `reverseLookupSqlite()`. Includes core entries (for SQLite lossy affinity) plus MySQL/PG variant types, Oracle-specific types (`VARCHAR2(N)`, `NUMBER(P,S)`), Db2-specific types (`DECIMAL(P,S)`), and PostgreSQL-specific passthrough types (xml, cidr, macaddr). Case-insensitive parameterized type matching via `matchPrefix` helper.
 
-- **`type_map.zig`**: Helper functions (`lookupCustomType`, `isNumericSymType`, `isDatetimeSymType`). No longer contains rendering logic.
-
 ## Key Design Decisions
 
 1. **TypedAst IR layer**: Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 2. **TypeResolver namespace**: Stateless functions (`TypeResolver.resolve`, `TypeResolver.resolveColumn`) that take `Allocator` directly. No struct instantiation — eliminates `init` boilerplate and per-loop allocation overhead in migrate.zig.
-2. **DialectBackend vtable**: 26 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field cover all dialect differences. Adding a new dialect requires ~300 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect/common.zig:emitForeignKeyShared`.
-3. **DialectCapability flags**: 12 boolean feature flags per dialect backend. Callers check `backend.capability.auto_increment` instead of `switch(dialect)` — zero coupling to specific dialect names. MySQL/PostgreSQL/SQLite/MSSQL/Oracle/Db2 dialects done.
+3. **DialectBackend vtable**: 26 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`) cover all dialect differences. Adding a new dialect requires ~300 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect/common.zig:emitForeignKeyShared`.
 4. **CompileConfig struct**: Replaces 13 positional parameters in `handleCompileRequest`. All fields have named defaults; callers specify only what they need. Improves readability and reduces parameter-ordering bugs.
-3. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
-4. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).
-5. **AST-level diff**: Semantic comparison, not text diff. Detects renames by signature matching. Dialect-aware type equivalence (`diff/semantic.zig`) provides two levels: `typeInfoEquiv` for AST-level TypeInfo comparison and `semanticEquiv` for SQL string-level comparison via reverse lookup. Canonical SS symbol mapping ensures different symbols resolving to the same SQL type are equivalent (e.g., `N4` ↔ `4` in MySQL), but distinct types like `n` (int) vs `N` (bigint) are NOT equivalent.
-6. **Arena allocation**: All modules take `std.mem.Allocator`. Arena-style usage for command-lifetime memory.
-7. **God function decomposition**: Large functions (>100 lines) are split into focused sub-functions. `migrate.zig:generateFromDiff` (258→7 sub-fns), `codegen.zig:generateTypedTable` (135→5 sub-fns), `reverse_codegen.zig:generateInner` (215→4 sub-fns).
-8. **Pipeline-CLI separation**: `pipeline_forward.zig` has no dependency on `cli.zig`. Output format dispatch (SQL vs JSON Schema) is the caller's responsibility.
-9. **Template/Semantic separation**: Template resolution (inheritance, slot merging) is independent of semantic passes (autofk, suffix_inference, validation). Each can be modified without affecting the other.
-10. **Custom type system**: Users can define named type aliases via `~` directives in the schema block. Custom types support dialect-specific overrides and are resolved during type resolution (not parsing).
-11. **SQLite roundtrip preservation**: `-- @sym col_name type` metadata comments preserve original SS types through lossy SQLite type affinity. Forward compiler emits comments; reverse compiler parses them for exact type restoration.
-12. **Unified ReverseResult**: `dialect.zig` defines the single `ReverseResult` struct (`sym`, `omit`, `score`). Both `reverse/map.zig` and `reverse/column.zig` re-export it — zero type duplication across the reverse pipeline.
-13. **Generator Registry**: `generator.zig` defines a `Generator` struct (name, description, generate fn ptr) and a `REGISTRY` array. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. Shared helper `generators/common.zig` provides `DefaultFormatter` + `OrmTarget` enum + `getOrmFormatter()` factory for ORM generators (drizzle, knex, typeorm, sqlalchemy) to eliminate duplicated default-value formatting, plus `parseRange`, `parseComparison`, `parseInList`, `writeJsonValue`, and `findFkRefTable` shared by json-schema and openapi generators. Shared test helpers `generators/common_test.zig` provides `makeTestTable`, `makeTestTableWithFks`, `makeTestTableWithIndexes`, `makeTestAst`, `makeTestAstWithName`, `makeTestColumn`, `makeTestColumnWithFlags` for all generator test files. Current generators: `json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`.
-14. **View UNION support**: Views support set operations (UNION, UNION ALL, INTERSECT, EXCEPT). The tokenizer keeps the entire query as a single token. The parser (`parse_table.zig`) detects set operation keywords at the top level (outside quotes) and splits into `query` + `union_op` + `second_query`. The codegen recombines the parts. The diff engine compares views using `viewQueriesEql()` which checks query, union_op, and second_query.
+5. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
+6. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).
+7. **AST-level diff**: Semantic comparison, not text diff. Detects renames by signature matching. Dialect-aware type equivalence (`diff/semantic.zig`) provides two levels: `typeInfoEquiv` for AST-level TypeInfo comparison and `semanticEquiv` for SQL string-level comparison via reverse lookup. Canonical SS symbol mapping ensures different symbols resolving to the same SQL type are equivalent (e.g., `N4` ↔ `4` in MySQL), but distinct types like `n` (int) vs `N` (bigint) are NOT equivalent.
+8. **Arena allocation**: All modules take `std.mem.Allocator`. Arena-style usage for command-lifetime memory.
+9. **God function decomposition**: Large functions (>100 lines) are split into focused sub-functions. `migrate.zig:generateFromDiff` (258→7 sub-fns), `codegen.zig:generateTypedTable` (135→5 sub-fns), `reverse_codegen.zig:generateInner` (215→4 sub-fns).
+10. **Pipeline-CLI separation**: `pipeline/forward.zig` has no dependency on `cli.zig`. Output format dispatch (SQL vs JSON Schema) is the caller's responsibility.
+11. **Template/Semantic separation**: Template resolution (inheritance, slot merging) is independent of semantic passes (autofk, suffix_inference, validation). Each can be modified without affecting the other.
+12. **Custom type system**: Users can define named type aliases via `~` directives in the schema block. Custom types support dialect-specific overrides and are resolved during type resolution (not parsing).
+13. **SQLite roundtrip preservation**: `-- @sym col_name type` metadata comments preserve original SS types through lossy SQLite type affinity. Forward compiler emits comments; reverse compiler parses them for exact type restoration.
+14. **Unified ReverseResult**: `dialect.zig` defines the single `ReverseResult` struct (`sym`, `omit`, `score`). Both `reverse/map.zig` and `reverse/column.zig` re-export it — zero type duplication across the reverse pipeline.
+15. **Generator Registry**: `generator.zig` defines a `Generator` struct (name, description, generate fn ptr) and a `REGISTRY` array. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. Shared helper `generators/common.zig` provides `DefaultFormatter` + `OrmTarget` enum + `getOrmFormatter()` factory for ORM generators (drizzle, knex, typeorm, sqlalchemy) to eliminate duplicated default-value formatting, plus `parseRange`, `parseComparison`, `parseInList`, `writeJsonValue`, and `findFkRefTable` shared by json-schema and openapi generators. Shared test helpers `generators/common_test.zig` provides `makeTestTable`, `makeTestTableWithFks`, `makeTestTableWithIndexes`, `makeTestAst`, `makeTestAstWithName`, `makeTestColumn`, `makeTestColumnWithFlags` for all generator test files. Current generators: `json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`.
+16. **View UNION support**: Views support set operations (UNION, UNION ALL, INTERSECT, EXCEPT). The tokenizer keeps the entire query as a single token. The parser (`parse_table.zig`) detects set operation keywords at the top level (outside quotes) and splits into `query` + `union_op` + `second_query`. The codegen recombines the parts. The diff engine compares views using `viewQueriesEql()` which checks query, union_op, and second_query.
 
 ## Custom Type System
 
@@ -395,7 +377,7 @@ No code changes needed — users define types in `.ss` files. For built-in suppo
 
 ## Adding a New SQL Dialect
 
-1. Add variant to `Dialect` enum in `dialect_enum.zig`
+1. Add variant to `Dialect` enum in `dialect/enum.zig`
 2. Create `DialectBackend` instance in `dialect/<name>.zig` (~300 lines, self-contained type mapping)
 3. Register in `getBackend()` switch in `dialect.zig`
 4. Add comptime validation in `dialect.zig`
@@ -442,7 +424,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 63 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~630+ | Core logic + pipeline + colocated |
+| Unit tests | 81 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~926+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 87 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |

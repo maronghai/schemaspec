@@ -11,6 +11,7 @@ cd rune && zig build                              # Build
 ./zig-out/bin/rune schema.ss -d sqlite            # Compile to SQLite
 ./zig-out/bin/rune schema.ss -d mssql             # Compile to MSSQL
 ./zig-out/bin/rune schema.ss -d oracle            # Compile to Oracle
+./zig-out/bin/rune schema.ss -d db2               # Compile to Db2
 ./zig-out/bin/rune migrate old.ss new.ss          # Generate migration SQL
 ./zig-out/bin/rune reverse schema.sql             # Reverse SQL to .ss
 ./zig-out/bin/rune reverse schema.sql --format json  # Reverse SQL to JSON
@@ -31,7 +32,7 @@ cd rune && zig build                              # Build
 | `migrate` | `rune migrate <old.ss> <new.ss>` | Generate ALTER TABLE migration SQL |
 | `reverse` | `rune reverse [input.sql]` | Reverse SQL DDL to `.ss` schema (supports `--format json`) |
 | `docs` | `rune docs [input.ss]` | Generate Markdown documentation |
-| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`) |
+| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`) |
 
 ## Flags Reference
 
@@ -39,7 +40,7 @@ cd rune && zig build                              # Build
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `-d`, `--dialect` | | Target SQL dialect: `mysql` (default), `pg`, `sqlite`, `mssql`, `oracle` |
+| `-d`, `--dialect` | | Target SQL dialect: `mysql` (default), `pg`, `sqlite`, `mssql`, `oracle`, `db2` |
 | `--target` | | Output format: `sql` (default), `json-schema` |
 | `-o` | | Write output to file instead of stdout |
 | `-v`, `--version` | | Print version and exit |

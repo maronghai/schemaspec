@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.114.0 (2026-08-05) — 22,800+ lines production Zig, 1014+ tests, 26 test suites.
+**Current version**: 0.115.0 (2026-08-05) — 22,800+ lines production Zig, 1014+ tests, 26 test suites.
 
 ---
 
@@ -219,6 +219,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.115.0 (2026-08-05)
+
+- **Documentation sync** — Updated ARCHITECTURE.md to match current codebase: removed stale `DialectCapability` section (removed in v0.91.0), updated semantic pass list (8 → 11 passes), fixed `validate_schema` → 4 focused passes (v0.107.0 split), fixed `dialect_enum.zig` → `dialect/enum.zig`, removed stale `type_map.zig` reference (merged in v0.114.0), fixed duplicate numbering in Key Design Decisions, updated test file count (80 → 81), added `symbol-index` generator to list.
+- **New unit tests** — `types/symbol_table_test.zig` (10 tests): registerTable, registerTemplate, cross-type conflicts, lookupTable, lookupField, contains. Registered in `tests.zig`.
+- **README.md updates** — Added `db2` to dialect flag reference and Quick Start examples. Added `graphql` and `symbol-index` to generator list.
+- **CLAUDE.md sync** — Updated colocated test file count (80 → 81).
 
 ### v0.114.0 (2026-08-05)
 
