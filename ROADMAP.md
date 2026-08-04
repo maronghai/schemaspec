@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.120.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
+**Current version**: 0.121.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.121.0 (2026-08-05)
+
+- **Shared `writeColorized` helper** — New `diff/format_common.writeColorized` eliminates ~30 duplicated `if (use_color) { write(color); ...; write(RESET) } else { ... }` blocks across `diff/format/text.zig`. `writeDiffTo` reduced from 342 to ~170 lines.
+- **Shared `DiffStats` + `formatSummaryStats`** — Extracted `DiffStats` struct and summary line formatter into `diff/format_common.zig`. Both `formatDiff` and `formatDiffSummary` in `text.zig` now delegate to the shared helper, eliminating ~50 lines of duplicated summary logic. `markdown.zig` also uses shared `DiffStats` instead of re-implementing the same counting loop.
+- **SARIF boilerplate reduction** — Extracted `writeSarifResult` helper in `diff/format/sarif.zig`, reducing per-result JSON structure duplication.
 
 ### v0.120.0 (2026-08-05)
 

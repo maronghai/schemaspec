@@ -7,6 +7,7 @@ const SchemaDiff = diff_types.SchemaDiff;
 const Dialect = @import("../../dialect/enum.zig").Dialect;
 
 const optionalStrEq = utils.optionalStrEq;
+const DiffStats = format_common.DiffStats;
 
 fn quoteChar(dialect: Dialect) u8 {
     return dialect_mod.getBackend(dialect).quoteChar;
@@ -24,44 +25,13 @@ pub fn formatDiffMarkdown(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dial
     try w.writeAll("## Schema Diff\n\n");
 
     // Summary table
-    var total_add: usize = 0;
-    var total_drop: usize = 0;
-    var total_modify: usize = 0;
-
-    for (d.dropped_tables) |_| total_drop += 1;
-    for (d.table_diffs) |td| {
-        switch (td.action) {
-            .create => total_add += 1,
-            .alter => {},
-        }
-        for (td.field_diffs) |fd| {
-            switch (fd.action) {
-                .add => total_add += 1,
-                .drop => total_drop += 1,
-                .modify, .rename => total_modify += 1,
-            }
-        }
-        for (td.index_diffs) |idx| {
-            switch (idx.action) {
-                .add => total_add += 1,
-                .drop => total_drop += 1,
-                .modify => total_modify += 1,
-            }
-        }
-        for (td.fk_diffs) |fk| {
-            switch (fk.action) {
-                .add => total_add += 1,
-                .drop => total_drop += 1,
-                .modify => total_modify += 1,
-            }
-        }
-    }
+    const stats = DiffStats.compute(d);
 
     try w.writeAll("| Metric | Count |\n");
     try w.writeAll("|--------|-------|\n");
-    try w.print("| Tables added | {d} |\n", .{total_add});
-    try w.print("| Tables dropped | {d} |\n", .{total_drop});
-    try w.print("| Modifications | {d} |\n", .{total_modify});
+    try w.print("| Tables added | {d} |\n", .{stats.added_tables + stats.added_fields});
+    try w.print("| Tables dropped | {d} |\n", .{stats.dropped_tables + stats.dropped_fields});
+    try w.print("| Modifications | {d} |\n", .{stats.modified_tables});
     try w.writeAll("\n");
 
     // Detailed changes per table
