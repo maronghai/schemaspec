@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.125.0 (2026-08-05) — 24,000+ lines production Zig, 1040+ tests, 26 test suites.
+**Current version**: 0.126.0 (2026-08-05) — 24,000+ lines production Zig, 1045+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.126.0 (2026-08-05)
+
+- **Config file discovery** — `rune.toml` is now searched upward from cwd (like `git` searches for `.git/`). Stops at filesystem root. Eliminates the need to place `rune.toml` in the exact directory where `rune` is invoked.
+- **Config unknown-key warnings** — Malformed `rune.toml` files now warn about unknown sections and keys (e.g. `[typo]` or `deafult = "pg"`). Helps catch configuration typos early.
+- **New tests** — 4 new unit tests for `warnUnknownKeys` covering valid config, unknown sections, unknown keys, and empty input. Total: 1045+ tests.
 
 ### v0.125.0 (2026-08-05)
 

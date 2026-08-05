@@ -37,19 +37,23 @@ pub fn main(init: std.process.Init) !void {
     };
 
     // Load project config (rune.toml) and apply defaults
+    // When no explicit --config flag, search upward from cwd (like git searches for .git/).
     var final_parsed = parsed;
-    const config_path = parsed.config_path orelse "rune.toml";
-    const cfg = config_mod.loadConfig(init.io, alloc, config_path) catch |err| e: {
-        // FileNotFound is handled inside loadConfig; any error here means
-        // the file exists but is malformed — warn so the user knows.
-        std.debug.print("warning: failed to load {s}: {s}, using defaults\n", .{ config_path, @errorName(err) });
-        break :e config_mod.Config{};
-    };
+    const cfg = if (parsed.config_path) |path|
+        config_mod.loadConfigWithWarnings(init.io, alloc, path) catch |err| e: {
+            std.debug.print("warning: failed to load {s}: {s}, using defaults\n", .{ path, @errorName(err) });
+            break :e config_mod.Config{};
+        }
+    else
+        config_mod.loadConfigWithDiscoveryAndWarnings(init.io, alloc) catch |err| e: {
+            std.debug.print("warning: failed to load config: {s}, using defaults\n", .{@errorName(err)});
+            break :e config_mod.Config{};
+        };
     // Validate config values
     config_mod.validateConfig(cfg) catch |err| {
         switch (err) {
-            error.InvalidDialect => std.debug.print("error: invalid dialect '{s}' in {s}\n", .{ cfg.dialect.?, config_path }),
-            error.InvalidColor => std.debug.print("error: invalid color '{s}' in {s}. Expected: auto, always, never\n", .{ cfg.color.?, config_path }),
+            error.InvalidDialect => std.debug.print("error: invalid dialect '{s}' in config\n", .{cfg.dialect.?}),
+            error.InvalidColor => std.debug.print("error: invalid color '{s}' in config. Expected: auto, always, never\n", .{cfg.color.?}),
         }
         std.process.exit(1);
     };

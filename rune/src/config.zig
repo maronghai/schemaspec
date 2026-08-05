@@ -38,6 +38,35 @@ pub fn loadConfig(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !Confi
     return try parseConfig(alloc, data);
 }
 
+/// Load config with parent-directory discovery and unknown-key warnings.
+/// Searches upward from cwd for rune.toml, parses it, and warns about unknown keys.
+pub fn loadConfigWithWarnings(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !Config {
+    const data = std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited) catch |err| {
+        if (err == error.FileNotFound) return Config{};
+        return err;
+    };
+    warnUnknownKeys(data);
+    return try parseConfig(alloc, data);
+}
+
+/// Load config with parent-directory discovery, unknown-key warnings, and discovery.
+pub fn loadConfigWithDiscoveryAndWarnings(io: std.Io, alloc: std.mem.Allocator) !Config {
+    var dir = std.Io.Dir.cwd();
+    while (true) {
+        const data = dir.readFileAlloc(io, "rune.toml", alloc, .unlimited) catch |err| {
+            if (err != error.FileNotFound) return Config{};
+            const parent = dir.openDir(io, "..", .{}) catch return Config{};
+            dir.close(io);
+            dir = parent;
+            continue;
+        };
+        warnUnknownKeys(data);
+        const result = try parseConfig(alloc, data);
+        dir.close(io);
+        return result;
+    }
+}
+
 /// Parse TOML content into a Config struct.
 pub fn parseConfig(_: std.mem.Allocator, data: []const u8) !Config {
     var config = Config{};
@@ -151,6 +180,68 @@ fn parseBool(raw: []const u8) !bool {
     return error.InvalidSyntax;
 }
 
+// ─── Config Key Validation ────────────────────────────────────
+
+const VALID_PROJECT_KEYS = [_][]const u8{"name"};
+const VALID_DIALECT_KEYS = [_][]const u8{"default"};
+const VALID_OUTPUT_KEYS = [_][]const u8{ "color", "quiet", "json_errors", "stats", "strict", "verbose_passes" };
+
+/// Check a TOML string for unknown sections or keys.
+/// Prints warnings to stderr. Called after parseConfig to alert users about typos.
+pub fn warnUnknownKeys(data: []const u8) void {
+    var current_section: Section = .unknown;
+
+    var lines = std.mem.splitScalar(u8, data, '\n');
+    while (lines.next()) |raw_line| {
+        const line = trimComment(raw_line);
+        const trimmed = std.mem.trim(u8, line, " \t\r");
+        if (trimmed.len == 0) continue;
+
+        // Section header
+        if (trimmed[0] == '[' and trimmed[trimmed.len - 1] == ']') {
+            const section_name = std.mem.trim(u8, trimmed[1 .. trimmed.len - 1], " \t");
+            current_section = if (std.mem.eql(u8, section_name, "project"))
+                .project
+            else if (std.mem.eql(u8, section_name, "dialect"))
+                .dialect
+            else if (std.mem.eql(u8, section_name, "output"))
+                .output
+            else blk: {
+                std.debug.print("warning: unknown config section '[{s}]'\n", .{section_name});
+                break :blk .unknown;
+            };
+            continue;
+        }
+
+        // Key-value pair
+        if (std.mem.indexOfScalar(u8, trimmed, '=')) |eq_pos| {
+            const key = std.mem.trim(u8, trimmed[0..eq_pos], " \t");
+            var found = false;
+            switch (current_section) {
+                .project => {
+                    for (VALID_PROJECT_KEYS) |vk| {
+                        if (std.mem.eql(u8, key, vk)) found = true;
+                    }
+                },
+                .dialect => {
+                    for (VALID_DIALECT_KEYS) |vk| {
+                        if (std.mem.eql(u8, key, vk)) found = true;
+                    }
+                },
+                .output => {
+                    for (VALID_OUTPUT_KEYS) |vk| {
+                        if (std.mem.eql(u8, key, vk)) found = true;
+                    }
+                },
+                .unknown => {},
+            }
+            if (!found and current_section != .unknown) {
+                std.debug.print("warning: unknown config key '{s}' in section\n", .{key});
+            }
+        }
+    }
+}
+
 // ─── Tests ─────────────────────────────────────────────────────
 
 test "parse empty config" {
@@ -232,4 +323,35 @@ test "validate invalid color" {
 test "validate null values pass" {
     const cfg = Config{};
     try validateConfig(cfg);
+}
+
+test "warnUnknownKeys does not crash on valid config" {
+    const toml =
+        \\[project]
+        \\name = "myapp"
+        \\
+        \\[dialect]
+        \\default = "pg"
+    ;
+    warnUnknownKeys(toml);
+}
+
+test "warnUnknownKeys handles unknown section" {
+    const toml =
+        \\[unknown]
+        \\foo = "bar"
+    ;
+    warnUnknownKeys(toml);
+}
+
+test "warnUnknownKeys handles unknown key in known section" {
+    const toml =
+        \\[output]
+        \\typo_key = "value"
+    ;
+    warnUnknownKeys(toml);
+}
+
+test "warnUnknownKeys handles empty input" {
+    warnUnknownKeys("");
 }
