@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.128.0 (2026-08-05) — 24,000+ lines production Zig, 1046+ tests, 26 test suites.
+**Current version**: 0.129.0 (2026-08-05) — 25,000+ lines production Zig, 1048+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.129.0 (2026-08-05)
+
+- **Fixed watch mode parallel compilation bug** — `rune watch --parallel` now correctly forwards the `stream` and `parallel` flags to the compilation pipeline. Previously, the parallel code path was unreachable from watch mode because the flags were not forwarded to `CompileConfig`.
+- **Level-by-level parallel grouping** — `codegen/parallel.zig` now assigns tables to dependency levels (level 0 = no deps, level 1 = depends only on level-0, etc.) instead of a binary independent/dependent split. This enables more parallelism: tables at the same dependency level can compile concurrently, even when they are part of a larger dependency chain.
+- **CLI parser decomposition** — Split 627-line `cli/parse.zig` into focused modules: `parse_compile.zig` (diff/migrate/reverse/generate/validate/check/stats parsers) and `parse_utils.zig` (docs/format/init/completions/hooks/watch parsers). `parse.zig` is now a thin barrel with shared flag parsers and the main `parseArgs` entry point.
+- **New tests** — 4 new `findGroups` unit tests covering 3-level chains, diamond patterns, and mixed independent/dependent tables. Total: 1048 tests.
 
 ### v0.128.0 (2026-08-05)
 

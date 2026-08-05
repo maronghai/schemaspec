@@ -50,6 +50,8 @@ fn compileOnce(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) bool {
         .stats = cfg.stats,
         .quiet = cfg.quiet,
         .json_errors = cfg.json_errors,
+        .stream = cfg.parallel,
+        .parallel = cfg.parallel,
     }) catch |err| {
         if (!cfg.quiet) {
             std.debug.print("error: compilation failed: {s}\n", .{@errorName(err)});

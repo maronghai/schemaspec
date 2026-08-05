@@ -12,9 +12,14 @@ const GlobalFlags = types.GlobalFlags;
 const COMMAND_REGISTRY = types.COMMAND_REGISTRY;
 const KNOWN_FLAGS = types.KNOWN_FLAGS;
 
+// ─── Re-exports from sub-modules ────────────────────────────────
+
+pub const parse_compile = @import("parse_compile.zig");
+pub const parse_utils = @import("parse_utils.zig");
+
 // ─── Shared Flag Parsers ───────────────────────────────────────
 
-fn parseRollbackFlag(args: []const []const u8, start: usize) bool {
+pub fn parseRollbackFlag(args: []const []const u8, start: usize) bool {
     var j: usize = start;
     while (j < args.len) : (j += 1) {
         if (std.mem.eql(u8, args[j], "--rollback")) {
@@ -24,7 +29,7 @@ fn parseRollbackFlag(args: []const []const u8, start: usize) bool {
     return false;
 }
 
-fn parseOutputFlag(args: []const []const u8, start: usize) ?[]const u8 {
+pub fn parseOutputFlag(args: []const []const u8, start: usize) ?[]const u8 {
     var j: usize = start;
     while (j < args.len) : (j += 1) {
         if ((std.mem.eql(u8, args[j], "-o") or std.mem.eql(u8, args[j], "--output")) and j + 1 < args.len) {
@@ -36,7 +41,7 @@ fn parseOutputFlag(args: []const []const u8, start: usize) ?[]const u8 {
     return null;
 }
 
-fn parseTraceFlag(args: []const []const u8, start: usize) bool {
+pub fn parseTraceFlag(args: []const []const u8, start: usize) bool {
     var j: usize = start;
     while (j < args.len) : (j += 1) {
         if (std.mem.eql(u8, args[j], "-t") or std.mem.eql(u8, args[j], "--trace")) {
@@ -46,7 +51,7 @@ fn parseTraceFlag(args: []const []const u8, start: usize) bool {
     return false;
 }
 
-fn hasHelpFlag(args: []const []const u8) bool {
+pub fn hasHelpFlag(args: []const []const u8) bool {
     for (args) |arg| {
         if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) return true;
     }
@@ -80,7 +85,7 @@ pub fn suggestSimilarFlag(unknown: []const u8) ?[]const u8 {
     return best_name;
 }
 
-fn isKnownLongFlag(flag: []const u8) bool {
+pub fn isKnownLongFlag(flag: []const u8) bool {
     inline for (KNOWN_FLAGS) |k| {
         if (std.mem.eql(u8, flag, k)) return true;
     }
@@ -94,7 +99,7 @@ fn isKnownCommand(name: []const u8) bool {
     return false;
 }
 
-fn isValidGeneratorName(name: []const u8) bool {
+pub fn isValidGeneratorName(name: []const u8) bool {
     const generator = @import("../generator.zig");
     for (generator.REGISTRY) |gen| {
         if (std.mem.eql(u8, gen.name, name)) return true;
@@ -294,19 +299,19 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     const SubcommandParser = *const fn ([]const []const u8, dialect_enum.Dialect, Target, GlobalFlags) anyerror!ParsedArgs;
     const parsers = [_]struct { name: []const u8, parse: SubcommandParser }{
-        .{ .name = "diff", .parse = parseDiffArgs },
-        .{ .name = "migrate", .parse = parseMigrateArgs },
-        .{ .name = "reverse", .parse = parseReverseArgs },
-        .{ .name = "generate", .parse = parseGenerateArgs },
-        .{ .name = "validate", .parse = parseValidateArgs },
-        .{ .name = "check", .parse = parseCheckArgs },
-        .{ .name = "stats", .parse = parseStatsArgs },
-        .{ .name = "docs", .parse = parseDocsArgs },
-        .{ .name = "format", .parse = parseFormatArgs },
-        .{ .name = "init", .parse = parseInitArgs },
-        .{ .name = "completions", .parse = parseCompletionsArgs },
-        .{ .name = "hooks", .parse = parseHooksArgs },
-        .{ .name = "watch", .parse = parseWatchArgs },
+        .{ .name = "diff", .parse = parse_compile.parseDiffArgs },
+        .{ .name = "migrate", .parse = parse_compile.parseMigrateArgs },
+        .{ .name = "reverse", .parse = parse_compile.parseReverseArgs },
+        .{ .name = "generate", .parse = parse_compile.parseGenerateArgs },
+        .{ .name = "validate", .parse = parse_compile.parseValidateArgs },
+        .{ .name = "check", .parse = parse_compile.parseCheckArgs },
+        .{ .name = "stats", .parse = parse_compile.parseStatsArgs },
+        .{ .name = "docs", .parse = parse_utils.parseDocsArgs },
+        .{ .name = "format", .parse = parse_utils.parseFormatArgs },
+        .{ .name = "init", .parse = parse_utils.parseInitArgs },
+        .{ .name = "completions", .parse = parse_utils.parseCompletionsArgs },
+        .{ .name = "hooks", .parse = parse_utils.parseHooksArgs },
+        .{ .name = "watch", .parse = parse_utils.parseWatchArgs },
     };
     for (parsers) |entry| {
         if (std.mem.eql(u8, sub, entry.name)) {
@@ -341,287 +346,5 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .color = want_color,
         .init_flag = want_init,
         .config_path = config_path,
-    };
-}
-
-// ─── Subcommand Parsers ──────────────────────────────────────
-
-fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = opts.dialect_was_explicit,
-        .target = target,
-        .command = cmd,
-        .quiet = opts.quiet,
-        .strict = opts.strict,
-        .json_errors = opts.json_errors,
-        .import_paths = opts.import_paths,
-        .color = opts.color,
-        .config_path = opts.config_path,
-    };
-}
-
-fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags, cmd: Command) anyerror!ParsedArgs {
-    const input = if (fargs.len > 1) fargs[1] else null;
-    const final_cmd: Command = switch (cmd) {
-        .validate => |c| .{ .validate = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes } },
-        .check => |c| .{ .check = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes } },
-        .stats => |c| .{ .stats = .{ .input = input orelse c.input, .format = c.format } },
-        else => cmd,
-    };
-    return parseSimpleSubcommand(dialect, target, final_cmd, opts);
-}
-
-fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
-    if (fargs.len < 3) return error.DiffMissingArgs;
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = opts.dialect_was_explicit,
-        .target = target,
-        .command = .{ .diff = .{
-            .old = fargs[1],
-            .new = fargs[2],
-            .trace = parseTraceFlag(fargs, 3),
-            .stats = opts.stats,
-            .format = opts.format,
-            .check = opts.check,
-            .summary = opts.summary,
-        } },
-        .quiet = opts.quiet,
-        .strict = opts.strict,
-        .json_errors = opts.json_errors,
-        .import_paths = opts.import_paths,
-        .color = opts.color,
-        .config_path = opts.config_path,
-    };
-}
-
-fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
-    if (fargs.len >= 2 and std.mem.eql(u8, fargs[1], "status")) {
-        var status_dir: ?[]const u8 = null;
-        var j: usize = 2;
-        while (j < fargs.len) : (j += 1) {
-            if (std.mem.eql(u8, fargs[j], "--dir") and j + 1 < fargs.len) {
-                status_dir = fargs[j + 1];
-                j += 1;
-            }
-        }
-        return .{
-            .dialect = dialect,
-            .dialect_was_explicit = opts.dialect_was_explicit,
-            .target = target,
-            .command = .{ .migrate_status = .{ .dir = status_dir, .json_errors = opts.json_errors } },
-            .quiet = opts.quiet,
-            .strict = opts.strict,
-            .json_errors = opts.json_errors,
-            .import_paths = opts.import_paths,
-            .color = opts.color,
-            .config_path = opts.config_path,
-        };
-    }
-    if (fargs.len < 3) return error.MigrateMissingArgs;
-    var name: ?[]const u8 = null;
-    var dir: ?[]const u8 = null;
-    var incremental = false;
-    var graph = false;
-    var j: usize = 3;
-    while (j < fargs.len) : (j += 1) {
-        if (std.mem.eql(u8, fargs[j], "--name") and j + 1 < fargs.len) {
-            name = fargs[j + 1];
-            j += 1;
-        } else if (std.mem.eql(u8, fargs[j], "--dir") and j + 1 < fargs.len) {
-            dir = fargs[j + 1];
-            j += 1;
-        } else if (std.mem.eql(u8, fargs[j], "--incremental")) {
-            incremental = true;
-        } else if (std.mem.eql(u8, fargs[j], "--graph")) {
-            graph = true;
-        }
-    }
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = opts.dialect_was_explicit,
-        .target = target,
-        .command = .{ .migrate = .{
-            .old = fargs[1],
-            .new = fargs[2],
-            .output = parseOutputFlag(fargs, 3),
-            .trace = parseTraceFlag(fargs, 3),
-            .rollback = parseRollbackFlag(fargs, 3),
-            .stats = opts.stats,
-            .dry_run = opts.dry_run,
-            .format = opts.format,
-            .check = opts.check,
-            .name = name,
-            .dir = dir,
-            .incremental = incremental,
-            .summary = opts.summary,
-            .graph = graph,
-        } },
-        .quiet = opts.quiet,
-        .strict = opts.strict,
-        .json_errors = opts.json_errors,
-        .import_paths = opts.import_paths,
-        .color = opts.color,
-        .config_path = opts.config_path,
-    };
-}
-
-fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
-    var with_templates = false;
-    var input: ?[]const u8 = null;
-    var j: usize = 1;
-    while (j < fargs.len) : (j += 1) {
-        if (std.mem.eql(u8, fargs[j], "-T") or std.mem.eql(u8, fargs[j], "--template")) {
-            with_templates = true;
-        } else if (input == null) {
-            input = fargs[j];
-        }
-    }
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = opts.dialect_was_explicit,
-        .target = target,
-        .command = .{ .reverse = .{
-            .input = input,
-            .output = parseOutputFlag(fargs, 1),
-            .with_templates = with_templates,
-            .trace = parseTraceFlag(fargs, 1),
-            .stats = opts.stats,
-            .validate_only = opts.validate_only,
-            .format = opts.format,
-        } },
-        .quiet = opts.quiet,
-        .strict = opts.strict,
-        .json_errors = opts.json_errors,
-        .import_paths = opts.import_paths,
-        .color = opts.color,
-        .config_path = opts.config_path,
-    };
-}
-
-fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
-    var want_list = false;
-    var generator: ?[]const u8 = null;
-    var input: ?[]const u8 = null;
-    var j: usize = 1;
-    while (j < fargs.len) : (j += 1) {
-        if (std.mem.eql(u8, fargs[j], "--list") or std.mem.eql(u8, fargs[j], "-l")) {
-            want_list = true;
-        } else if (generator == null) {
-            generator = fargs[j];
-        } else if (input == null) {
-            input = fargs[j];
-        }
-    }
-    if (generator) |gen_name| {
-        if (gen_name.len > 0 and !isValidGeneratorName(gen_name)) {
-            return error.UnknownGenerator;
-        }
-    }
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = opts.dialect_was_explicit,
-        .target = target,
-        .command = .{ .generate = .{
-            .generator = generator orelse "",
-            .input = input,
-            .output = parseOutputFlag(fargs, 1),
-            .list = want_list,
-        } },
-        .quiet = opts.quiet,
-        .strict = opts.strict,
-        .json_errors = opts.json_errors,
-        .import_paths = opts.import_paths,
-        .color = opts.color,
-        .config_path = opts.config_path,
-    };
-}
-
-fn parseValidateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .validate = .{ .input = null, .stats = opts.stats, .verbose_passes = opts.verbose_passes } });
-}
-
-fn parseCheckArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .check = .{ .input = null, .stats = opts.stats, .verbose_passes = opts.verbose_passes } });
-}
-
-fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const input = if (fargs.len > 1) fargs[1] else null;
-    const stats_format: StatsFormat = if (opts.format == .json)
-        .json
-    else if (opts.format == .markdown)
-        .markdown
-    else
-        .text;
-    return parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format } }, opts);
-}
-
-fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const input = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, opts);
-}
-
-fn parseFormatArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const input = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = parseOutputFlag(fargs, 1) } }, opts);
-}
-
-fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const name = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .init = .{ .name = name, .output = parseOutputFlag(fargs, 1) } }, opts);
-}
-
-fn parseCompletionsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const shell = if (fargs.len > 1) fargs[1] else "bash";
-    return parseSimpleSubcommand(dialect, target, .{ .completions = .{ .shell = shell } }, opts);
-}
-
-fn parseHooksArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const hook_type = if (fargs.len > 1) fargs[1] else "pre-commit";
-    return parseSimpleSubcommand(dialect, target, .{ .hooks = .{ .hook_type = hook_type } }, opts);
-}
-
-fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    if (fargs.len < 2) return error.MissingArgs;
-    var interval_ms: u64 = 1000;
-    var parallel = false;
-    var trace = false;
-    var stats = false;
-    var json_errors = false;
-    var j: usize = 2;
-    while (j < fargs.len) : (j += 1) {
-        if (std.mem.eql(u8, fargs[j], "--interval") and j + 1 < fargs.len) {
-            interval_ms = std.fmt.parseInt(u64, fargs[j + 1], 10) catch 1000;
-            j += 1;
-        } else if (std.mem.eql(u8, fargs[j], "--parallel")) {
-            parallel = true;
-        } else if (std.mem.eql(u8, fargs[j], "--trace") or std.mem.eql(u8, fargs[j], "-t")) {
-            trace = true;
-        } else if (std.mem.eql(u8, fargs[j], "--stats") or std.mem.eql(u8, fargs[j], "-s")) {
-            stats = true;
-        } else if (std.mem.eql(u8, fargs[j], "--json-errors")) {
-            json_errors = true;
-        }
-    }
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = opts.dialect_was_explicit,
-        .target = target,
-        .command = .{ .watch = .{
-            .input = fargs[1],
-            .interval_ms = interval_ms,
-            .output = parseOutputFlag(fargs, 2),
-            .parallel = parallel,
-            .trace = trace,
-            .stats = stats,
-            .json_errors = json_errors,
-        } },
-        .quiet = opts.quiet,
-        .strict = opts.strict,
-        .json_errors = json_errors or opts.json_errors,
-        .import_paths = opts.import_paths,
-        .color = opts.color,
-        .config_path = opts.config_path,
     };
 }
