@@ -46,7 +46,7 @@ pub fn loadConfigWithWarnings(io: std.Io, alloc: std.mem.Allocator, path: []cons
         if (err == error.FileNotFound) return Config{};
         return err;
     };
-    warnUnknownKeys(data);
+    warnUnknownKeys(data, true);
     return try parseConfig(alloc, data);
 }
 
@@ -61,7 +61,7 @@ pub fn loadConfigWithDiscoveryAndWarnings(io: std.Io, alloc: std.mem.Allocator) 
             dir = parent;
             continue;
         };
-        warnUnknownKeys(data);
+        warnUnknownKeys(data, true);
         const result = try parseConfig(alloc, data);
         dir.close(io);
         return result;
@@ -185,8 +185,9 @@ const VALID_DIALECT_KEYS = [_][]const u8{"default"};
 const VALID_OUTPUT_KEYS = [_][]const u8{ "color", "quiet", "json_errors", "stats", "strict", "verbose_passes" };
 
 /// Check a TOML string for unknown sections or keys.
-/// Prints warnings to stderr. Called after parseConfig to alert users about typos.
-pub fn warnUnknownKeys(data: []const u8) void {
+/// Prints warnings to stderr when emit_warnings is true.
+/// Called after parseConfig to alert users about typos.
+pub fn warnUnknownKeys(data: []const u8, emit_warnings: bool) void {
     var current_section: Section = .unknown;
 
     var lines = std.mem.splitScalar(u8, data, '\n');
@@ -205,7 +206,7 @@ pub fn warnUnknownKeys(data: []const u8) void {
             else if (std.mem.eql(u8, section_name, "output"))
                 .output
             else blk: {
-                std.debug.print("warning: unknown config section '[{s}]'\n", .{section_name});
+                if (emit_warnings) std.debug.print("warning: unknown config section '[{s}]'\n", .{section_name});
                 break :blk .unknown;
             };
             continue;
@@ -234,7 +235,7 @@ pub fn warnUnknownKeys(data: []const u8) void {
                 .unknown => {},
             }
             if (!found and current_section != .unknown) {
-                std.debug.print("warning: unknown config key '{s}' in section\n", .{key});
+                if (emit_warnings) std.debug.print("warning: unknown config key '{s}' in section\n", .{key});
             }
         }
     }
@@ -331,7 +332,7 @@ test "warnUnknownKeys does not crash on valid config" {
         \\[dialect]
         \\default = "pg"
     ;
-    warnUnknownKeys(toml);
+    warnUnknownKeys(toml, false);
 }
 
 test "warnUnknownKeys handles unknown section" {
@@ -339,7 +340,7 @@ test "warnUnknownKeys handles unknown section" {
         \\[unknown]
         \\foo = "bar"
     ;
-    warnUnknownKeys(toml);
+    warnUnknownKeys(toml, false);
 }
 
 test "warnUnknownKeys handles unknown key in known section" {
@@ -347,9 +348,9 @@ test "warnUnknownKeys handles unknown key in known section" {
         \\[output]
         \\typo_key = "value"
     ;
-    warnUnknownKeys(toml);
+    warnUnknownKeys(toml, false);
 }
 
 test "warnUnknownKeys handles empty input" {
-    warnUnknownKeys("");
+    warnUnknownKeys("", false);
 }
