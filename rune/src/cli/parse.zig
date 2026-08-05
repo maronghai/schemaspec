@@ -548,7 +548,12 @@ fn parseCheckArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
 
 fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    const stats_format: StatsFormat = if (opts.format == .json) .json else .text;
+    const stats_format: StatsFormat = if (opts.format == .json)
+        .json
+    else if (opts.format == .markdown)
+        .markdown
+    else
+        .text;
     return parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format } }, opts);
 }
 

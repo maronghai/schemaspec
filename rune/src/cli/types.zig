@@ -7,7 +7,7 @@ pub const Target = enum { sql, json_schema };
 
 pub const DiffFormat = enum { text, json, sarif, markdown };
 
-pub const StatsFormat = enum { text, json };
+pub const StatsFormat = enum { text, json, markdown };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },

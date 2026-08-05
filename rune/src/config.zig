@@ -1,4 +1,5 @@
 const std = @import("std");
+const dialect_enum = @import("dialect/enum.zig");
 
 // ─── Minimal TOML Parser ─────────────────────────────────────
 // Handles: [section] headers, key = "string", key = true/false, key = integer.
@@ -142,11 +143,8 @@ pub fn validateConfig(cfg: Config) ConfigError!void {
 }
 
 fn isValidDialect(s: []const u8) bool {
-    const valid = [_][]const u8{ "mysql", "pg", "postgres", "sqlite", "mssql", "oracle", "db2" };
-    for (valid) |v| {
-        if (std.mem.eql(u8, s, v)) return true;
-    }
-    return false;
+    _ = dialect_enum.parseDialect(s) catch return false;
+    return true;
 }
 
 fn isValidColor(s: []const u8) bool {

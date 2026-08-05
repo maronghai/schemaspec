@@ -126,7 +126,7 @@ fn parseBenchArgs(minimal_args: anytype) !BenchArgs {
         } else if (std.mem.eql(u8, arg, "--dialect") or std.mem.eql(u8, arg, "-d")) {
             if (arg_it.next()) |d| {
                 args.dialect = dialect_enum.parseDialect(d) catch {
-                    std.debug.print("error: unknown dialect '{s}'. Expected: mysql, pg, sqlite, mssql, oracle, db2\n", .{d});
+                    std.debug.print("error: unknown dialect '{s}'. Expected: " ++ dialect_enum.VALID_NAMES_CSV ++ "\n", .{d});
                     return error.UnknownDialect;
                 };
             } else {
@@ -147,7 +147,7 @@ fn printUsage() void {
     std.debug.print("  --check     Check for regressions vs baseline (>10% = exit 1)\n", .{});
     std.debug.print("  --diff      Show per-stage comparison with baseline\n", .{});
     std.debug.print("  --list      Show available benchmark stages\n", .{});
-    std.debug.print("  --dialect   SQL dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
+    std.debug.print("  --dialect   SQL dialect: mysql (default), " ++ dialect_enum.VALID_NAMES_CSV ++ "\n", .{});
 }
 
 fn listStages() void {

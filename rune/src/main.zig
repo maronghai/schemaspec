@@ -8,6 +8,7 @@ const version = @import("version.zig");
 const generator = @import("generator.zig");
 const completions = @import("completions.zig");
 const config_mod = @import("config.zig");
+const dialect_enum = @import("dialect/enum.zig");
 
 // ─── Entry Point ───────────────────────────────────────────────
 
@@ -212,7 +213,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .stats => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return forward.handleStats(io, alloc, file_data, cmd.format == .json);
+            return forward.handleStats(io, alloc, file_data, cmd.format);
         },
         .diff => |cmd| {
             return diff_pipe.handleDiff(io, alloc, .{
@@ -341,8 +342,8 @@ fn getInputPath2(command: cli.Command) ?[]const u8 {
 /// Map CLI argument errors to human-readable messages.
 fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
     return switch (err) {
-        error.UnknownDialect => "unknown dialect, expected one of: mysql, pg, postgres, sqlite, mssql, oracle, db2",
-        error.MissingDialectValue => "--dialect requires a value, expected one of: mysql, pg, postgres, sqlite, mssql, oracle, db2",
+        error.UnknownDialect => "unknown dialect, expected one of: " ++ dialect_enum.VALID_NAMES_CSV,
+        error.MissingDialectValue => "--dialect requires a value, expected one of: " ++ dialect_enum.VALID_NAMES_CSV,
         error.UnknownTarget => "unknown target, expected one of: sql, json-schema",
         error.MissingTargetValue => "--target requires a value, expected one of: sql, json-schema",
         error.UnknownFormat => "unknown format, expected one of: text, json, sarif, markdown",

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.127.0 (2026-08-05) — 24,000+ lines production Zig, 1044+ tests, 26 test suites.
+**Current version**: 0.128.0 (2026-08-05) — 24,000+ lines production Zig, 1046+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.128.0 (2026-08-05)
+
+- **Unified dialect name registry** — Single source of truth for all dialect name strings in `dialect/enum.zig`. Added `DialectNameEntry` struct, `ALL_NAMES` comptime array (primary names + aliases), and `VALID_NAMES_CSV` comptime string. Eliminates hardcoded dialect name duplication across 5 files (`main.zig`, `bench.zig`, `config.zig`, `cli/help.zig`, `completions.zig`). Adding a new dialect now requires updating only `dialect/enum.zig`.
+- **`rune stats --format markdown`** — New markdown table output format for schema statistics. `rune stats schema.ss --format markdown` produces a clean markdown table suitable for PR descriptions and documentation. Format wired through CLI parser, stats command handler, and `stats.zig` formatter.
+- **`config.zig` dialect validation unified** — `isValidDialect` now delegates to `dialect_enum.parseDialect` instead of maintaining a separate hardcoded list. Config validation now accepts all aliases (e.g. `sq`, `ora`, `idb2`) consistently with CLI parsing.
+- **New tests** — 2 new unit tests for `formatStatsMarkdown` (zero values, populated values). Total: 1046 tests.
 
 ### v0.127.0 (2026-08-05)
 

@@ -12,6 +12,7 @@ const io_mod = @import("../io.zig");
 const json_schema = @import("../generators/json_schema.zig");
 const import_res = @import("import_resolver.zig");
 const stats_mod = @import("stats.zig");
+const StatsFormat = @import("../cli/types.zig").StatsFormat;
 
 // ─── Forward Pipeline: .ss → SQL ─────────────────────────────
 // No dependency on cli.zig — output format dispatch is the caller's responsibility.
@@ -359,14 +360,21 @@ pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
 }
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.
-pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, json_output: bool) !void {
+pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, format: StatsFormat) !void {
     const result = try compilePipeline(alloc, file_data, .{});
     const s = computeStats(result.resolved);
-    if (json_output) {
-        const json = try stats_mod.formatStatsJson(alloc, s);
-        try io_mod.writeOutput(io, json, null, false);
-    } else {
-        printStats(s);
+    switch (format) {
+        .json => {
+            const json = try stats_mod.formatStatsJson(alloc, s);
+            try io_mod.writeOutput(io, json, null, false);
+        },
+        .markdown => {
+            const md = try stats_mod.formatStatsMarkdown(alloc, s);
+            try io_mod.writeOutput(io, md, null, false);
+        },
+        .text => {
+            printStats(s);
+        },
     }
 }
 

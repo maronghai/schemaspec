@@ -122,3 +122,40 @@ pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
         stats.custom_types,
     });
 }
+
+/// Format stats as a Markdown table.
+pub fn formatStatsMarkdown(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
+    return std.fmt.allocPrint(alloc,
+        \\## Schema Statistics
+        \\
+        \\| Metric | Count |
+        \\|--------|-------|
+        \\| Tables | {d} |
+        \\| Fields | {d} |
+        \\| Non-null fields | {d} |
+        \\| Numeric fields | {d} |
+        \\| String fields | {d} |
+        \\| Datetime fields | {d} |
+        \\| Boolean fields | {d} |
+        \\| Other fields | {d} |
+        \\| Views | {d} |
+        \\| Foreign keys | {d} |
+        \\| Indexes | {d} |
+        \\| Check constraints | {d} |
+        \\| Custom types | {d} |
+    , .{
+        stats.tables,
+        stats.fields,
+        stats.not_null_fields,
+        stats.numeric_fields,
+        stats.string_fields,
+        stats.datetime_fields,
+        stats.boolean_fields,
+        stats.other_fields,
+        stats.views,
+        stats.foreign_keys,
+        stats.indexes,
+        stats.check_constraints,
+        stats.custom_types,
+    });
+}

@@ -7,15 +7,52 @@ const version = @import("../version.zig");
 
 pub const Dialect = enum { mysql, pg, sqlite, mssql, oracle, db2 };
 
+/// Maps a dialect name string to its Dialect enum variant.
+pub const DialectNameEntry = struct { name: []const u8, dialect: Dialect };
+
+/// All accepted dialect name strings (primary names + aliases).
+/// Single source of truth — callers derive CSV/space-separated lists from this.
+pub const ALL_NAMES: []const DialectNameEntry = &[_]DialectNameEntry{
+    .{ .name = "mysql", .dialect = .mysql },
+    .{ .name = "pg", .dialect = .pg },
+    .{ .name = "postgres", .dialect = .pg },
+    .{ .name = "sqlite", .dialect = .sqlite },
+    .{ .name = "sq", .dialect = .sqlite },
+    .{ .name = "mssql", .dialect = .mssql },
+    .{ .name = "sqlserver", .dialect = .mssql },
+    .{ .name = "oracle", .dialect = .oracle },
+    .{ .name = "ora", .dialect = .oracle },
+    .{ .name = "db2", .dialect = .db2 },
+    .{ .name = "idb2", .dialect = .db2 },
+};
+
+/// Comptime CSV string of primary dialect names for error messages.
+pub const VALID_NAMES_CSV = blk: {
+    var buf: []const u8 = "";
+    for (ALL_NAMES, 0..) |entry, i| {
+        // Only include primary names (first occurrence of each dialect)
+        const is_primary = for (ALL_NAMES[0..i]) |prev| {
+            if (prev.dialect == entry.dialect) break false;
+        } else true;
+        if (is_primary) {
+            if (buf.len > 0) buf = buf ++ ", ";
+            buf = buf ++ entry.name;
+        }
+    }
+    break :blk buf;
+};
+
+/// Check if a string is a valid dialect name (primary or alias).
+pub fn isValidDialectName(s: []const u8) bool {
+    return parseDialect(s) catch null != null;
+}
+
 /// Parse a dialect name string into the Dialect enum.
 /// Supports primary names and common aliases.
 pub fn parseDialect(s: []const u8) !Dialect {
-    if (std.mem.eql(u8, s, "mysql")) return .mysql;
-    if (std.mem.eql(u8, s, "pg") or std.mem.eql(u8, s, "postgres")) return .pg;
-    if (std.mem.eql(u8, s, "sqlite") or std.mem.eql(u8, s, "sq")) return .sqlite;
-    if (std.mem.eql(u8, s, "mssql") or std.mem.eql(u8, s, "sqlserver")) return .mssql;
-    if (std.mem.eql(u8, s, "oracle") or std.mem.eql(u8, s, "ora")) return .oracle;
-    if (std.mem.eql(u8, s, "db2") or std.mem.eql(u8, s, "idb2")) return .db2;
+    for (ALL_NAMES) |entry| {
+        if (std.mem.eql(u8, s, entry.name)) return entry.dialect;
+    }
     return error.UnknownDialect;
 }
 

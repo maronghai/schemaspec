@@ -134,3 +134,59 @@ test "formatStatsJson: populated values" {
         \\{"tables":3,"fields":20,"not_null":12,"numeric":8,"string":10,"datetime":1,"boolean":1,"other":0,"views":1,"foreign_keys":2,"indexes":4,"check_constraints":3,"custom_types":1}
     , json);
 }
+
+// ─── formatStatsMarkdown Tests ────────────────────────────────
+
+test "formatStatsMarkdown: zero values" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const s = stats_mod.Stats{
+        .tables = 0,
+        .fields = 0,
+        .views = 0,
+        .not_null_fields = 0,
+        .numeric_fields = 0,
+        .string_fields = 0,
+        .datetime_fields = 0,
+        .boolean_fields = 0,
+        .other_fields = 0,
+        .foreign_keys = 0,
+        .indexes = 0,
+        .check_constraints = 0,
+        .custom_types = 0,
+    };
+    const md = try stats_mod.formatStatsMarkdown(alloc, s);
+    try testing.expect(md.len > 0);
+    try testing.expect(std.mem.indexOf(u8, md, "| Tables | 0 |") != null);
+    try testing.expect(std.mem.indexOf(u8, md, "## Schema Statistics") != null);
+}
+
+test "formatStatsMarkdown: populated values" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const s = stats_mod.Stats{
+        .tables = 5,
+        .fields = 42,
+        .views = 2,
+        .not_null_fields = 38,
+        .numeric_fields = 15,
+        .string_fields = 18,
+        .datetime_fields = 4,
+        .boolean_fields = 3,
+        .other_fields = 2,
+        .foreign_keys = 8,
+        .indexes = 6,
+        .check_constraints = 3,
+        .custom_types = 1,
+    };
+    const md = try stats_mod.formatStatsMarkdown(alloc, s);
+    try testing.expect(md.len > 0);
+    try testing.expect(std.mem.indexOf(u8, md, "| Tables | 5 |") != null);
+    try testing.expect(std.mem.indexOf(u8, md, "| Fields | 42 |") != null);
+    try testing.expect(std.mem.indexOf(u8, md, "| Foreign keys | 8 |") != null);
+    try testing.expect(std.mem.indexOf(u8, md, "| Custom types | 1 |") != null);
+}
