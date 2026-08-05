@@ -396,6 +396,7 @@ fn parseFileTimed(alloc: std.mem.Allocator, file_data: []const u8, times: *Stage
     // Tokenize
     var sw_start = std.Io.Clock.Timestamp.now(io, .awake);
     var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
+    defer lines.deinit(alloc);
     var line_it = std.mem.splitScalar(u8, file_data, '\n');
     while (line_it.next()) |line| {
         try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));
@@ -443,6 +444,7 @@ fn runPipelineTimed(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8,
 /// Shared pipeline initialization: tokenize → parse (no timing). Returns the parsed AST.
 fn parseFile(alloc: std.mem.Allocator, file_data: []const u8) !ast_mod.Ast {
     var lines = try std.ArrayList([]const u8).initCapacity(alloc, 256);
+    defer lines.deinit(alloc);
     var line_it = std.mem.splitScalar(u8, file_data, '\n');
     while (line_it.next()) |line| {
         try lines.append(alloc, std.mem.trimEnd(u8, line, "\r"));

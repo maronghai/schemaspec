@@ -48,8 +48,11 @@ const INITIAL_VIEW_DIFF_CAPACITY = 4;
 /// Compare two ResolvedAsts and produce a SchemaDiff describing all differences.
 pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc: std.mem.Allocator) !SchemaDiff {
     var table_diffs = try std.ArrayList(TableDiff).initCapacity(alloc, INITIAL_TABLE_DIFF_CAPACITY);
+    errdefer table_diffs.deinit(alloc);
     var dropped_tables = try std.ArrayList([]const u8).initCapacity(alloc, INITIAL_DROPPED_TABLES_CAPACITY);
+    errdefer dropped_tables.deinit(alloc);
     var view_diffs = try std.ArrayList(ViewDiff).initCapacity(alloc, INITIAL_VIEW_DIFF_CAPACITY);
+    errdefer view_diffs.deinit(alloc);
 
     // Build name→table maps
     var old_map = std.StringHashMap(usize).init(alloc);

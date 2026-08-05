@@ -185,7 +185,7 @@ rune/src/
 
 - **Migration Plan IR** (`diff/plan.zig`): Explicit intermediate representation between `SchemaDiff` and SQL generation. `MigrationPlan` struct contains `operations: []Operation` where each `Operation` is a tagged union (`drop_table`, `create_table`, `alter_table`, `drop_view`, `create_view`, `modify_view`). `planFromDiff()` converts diffs to plans, `invertPlan()` transforms plans for rollback. The existing `generateFromDiff` and `generateRollback` functions delegate through the plan layer, producing identical output while enabling future dry-run inspection and plan-level validation.
 
-- **Parallel Table Compilation** (`codegen/parallel.zig`): Dependency analysis and concurrent compilation for independent tables. `analyzeDependencies()` builds a `DepGraph` from FK references, `topoSort()` produces a valid compilation order, and `compileParallel()` generates SQL in topological order. Falls back to sequential for schemas with <10 tables or fully-dependent tables. CLI flag: `--parallel` (used with `--stream`).
+- **Parallel Table Compilation** (`codegen/parallel.zig`): Dependency analysis and concurrent compilation for independent tables using `std.Thread`. `analyzeDependencies()` builds a `DepGraph` from FK references, `topoSort()` produces a valid compilation order, and `compileParallel()` generates SQL in topological order with threaded compilation for independent table groups. Each thread uses its own arena allocator for thread safety. Falls back to sequential for schemas with <10 tables or fully-dependent tables. CLI flag: `--parallel` (used with `--stream`).
 
 ### Module Roles
 

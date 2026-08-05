@@ -16,6 +16,7 @@ const INITIAL_INDEX_DIFF_CAPACITY = 4;
 
 pub fn diffIndexes(alloc: std.mem.Allocator, old_idxs: []const IndexDecl, new_idxs: []const IndexDecl, field_diffs: []const FieldDiff) ![]const IndexDiff {
     var diffs = try std.ArrayList(IndexDiff).initCapacity(alloc, INITIAL_INDEX_DIFF_CAPACITY);
+    errdefer diffs.deinit(alloc);
 
     var old_matched = try std.ArrayList(bool).initCapacity(alloc, old_idxs.len);
     defer old_matched.deinit(alloc);

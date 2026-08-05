@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.121.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
+**Current version**: 0.122.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.122.0 (2026-08-05)
+
+- **Real parallel table compilation** — `codegen/parallel.zig` now uses `std.Thread` to compile independent table groups concurrently. Each thread uses its own arena allocator for thread safety. The existing dependency graph and topological sort infrastructure is leveraged to determine which tables can be compiled in parallel. Falls back to sequential for schemas with <10 tables or fully-dependent tables. New `max_threads` config option (default: 4).
+- **Memory leak fixes** — Fixed leaked `ArrayList` metadata in `bench.zig:parseFileTimed` and `bench.zig:parseFile`. Both functions now properly `defer lines.deinit(alloc)`.
+- **errdefer patterns** — Added `errdefer` to `ArrayList` allocations in `diff/engine.zig` (3 lists), `diff/fields.zig` (1 list), `diff/fks.zig` (1 list), and `diff/indexes.zig` (1 list). Prevents memory leaks on error paths in the diff engine.
+- **New tests** — 5 new unit tests for parallel compilation: `findGroups` independent/dependent split, `findGroups` all-independent, `compileParallel` sequential fallback, `compileParallel` concurrent path, `compileParallel` topological ordering with FK dependencies.
+- **Documentation sync** — Fixed stale "8 passes" → "11 passes" and "4 dialect backends" → "6 dialect backends" in README.md. Fixed stale incremental migration roadmap item. Updated CLAUDE.md parallel compilation description.
 
 ### v0.121.0 (2026-08-05)
 

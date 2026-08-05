@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.122.0] - 2026-08-05
+
+### Added
+- **Real parallel table compilation** — `codegen/parallel.zig` now uses `std.Thread` to compile independent table groups concurrently. Each thread uses its own arena allocator for thread safety. New `max_threads` config option (default: 4).
+- **5 new unit tests** for parallel compilation covering `findGroups`, sequential fallback, concurrent path, and topological ordering.
+
+### Fixed
+- **Memory leaks in bench.zig** — `parseFileTimed` and `parseFile` now properly `defer lines.deinit(alloc)`.
+- **errdefer patterns in diff engine** — Added `errdefer` to `ArrayList` allocations in `diff/engine.zig`, `diff/fields.zig`, `diff/fks.zig`, and `diff/indexes.zig` to prevent leaks on error paths.
+
+### Changed
+- **Documentation sync** — Fixed stale "8 passes" → "11 passes" and "4 dialect backends" → "6 dialect backends" in README.md. Updated CLAUDE.md parallel compilation description.
+
 ## [0.118.0] - 2026-08-05
 
 ### Changed

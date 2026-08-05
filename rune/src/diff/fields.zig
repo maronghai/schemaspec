@@ -53,6 +53,7 @@ pub fn diffFields(
     }
 
     var diffs = try std.ArrayList(FieldDiff).initCapacity(alloc, INITIAL_FIELD_DIFF_CAPACITY);
+    errdefer diffs.deinit(alloc);
     var dropped_names = try std.ArrayList([]const u8).initCapacity(alloc, INITIAL_DROPPED_NAMES_CAPACITY);
     defer dropped_names.deinit(alloc);
     var added_fields = try std.ArrayList(Field).initCapacity(alloc, INITIAL_ADDED_FIELDS_CAPACITY);

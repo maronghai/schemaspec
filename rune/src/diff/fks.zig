@@ -15,6 +15,7 @@ const INITIAL_FK_DIFF_CAPACITY = 4;
 
 pub fn diffFks(alloc: std.mem.Allocator, old_fks: []const FkDecl, new_fks: []const FkDecl, field_diffs: []const FieldDiff) ![]const FkDiff {
     var diffs = try std.ArrayList(FkDiff).initCapacity(alloc, INITIAL_FK_DIFF_CAPACITY);
+    errdefer diffs.deinit(alloc);
 
     var old_matched = try std.ArrayList(bool).initCapacity(alloc, old_fks.len);
     defer old_matched.deinit(alloc);
