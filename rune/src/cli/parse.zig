@@ -581,6 +581,9 @@ fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
     if (fargs.len < 2) return error.MissingArgs;
     var interval_ms: u64 = 1000;
     var parallel = false;
+    var trace = false;
+    var stats = false;
+    var json_errors = false;
     var j: usize = 2;
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--interval") and j + 1 < fargs.len) {
@@ -588,6 +591,12 @@ fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
             j += 1;
         } else if (std.mem.eql(u8, fargs[j], "--parallel")) {
             parallel = true;
+        } else if (std.mem.eql(u8, fargs[j], "--trace") or std.mem.eql(u8, fargs[j], "-t")) {
+            trace = true;
+        } else if (std.mem.eql(u8, fargs[j], "--stats") or std.mem.eql(u8, fargs[j], "-s")) {
+            stats = true;
+        } else if (std.mem.eql(u8, fargs[j], "--json-errors")) {
+            json_errors = true;
         }
     }
     return .{
@@ -599,10 +608,13 @@ fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
             .interval_ms = interval_ms,
             .output = parseOutputFlag(fargs, 2),
             .parallel = parallel,
+            .trace = trace,
+            .stats = stats,
+            .json_errors = json_errors,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,
-        .json_errors = opts.json_errors,
+        .json_errors = json_errors or opts.json_errors,
         .import_paths = opts.import_paths,
         .color = opts.color,
         .config_path = opts.config_path,

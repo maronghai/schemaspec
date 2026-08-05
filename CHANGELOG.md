@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.127.0] - 2026-08-05
+
+### Added
+- **Watch command feature parity** — `rune watch` now supports `--trace`, `--stats`, `--json-errors`, and `--parallel` flags. All compilation options are now consistent between `rune <file>` and `rune watch <file>`.
+- **Watch subcommand help** — `rune watch --help` now displays all available options.
+- **Shell completions expansion** — Added `--parallel`, `--interval`, `--stream`, `--summary`, `--config`, `--name`, `--dir`, `--incremental`, `--graph` flags to Bash, Fish, and PowerShell completions. Added `symbol-index` generator to all 4 shell completion scripts. Zsh completions now offer watch-specific flag completions.
+
+### Fixed
+- **Build dependency fix** — Removed unnecessary `b.getInstallStep()` dependency from test targets in `build.zig`. Unit tests no longer require the rune binary to be installed first, eliminating Windows file locking conflicts during test runs.
+
 ## [0.122.0] - 2026-08-05
 
 ### Added

@@ -84,6 +84,8 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune generate --list                  # List available generators
 ./rune/zig-out/bin/rune watch schema.ss                   # Watch file and recompile on change
 ./rune/zig-out/bin/rune watch schema.ss --interval 500    # Watch with 500ms polling interval
+./rune/zig-out/bin/rune watch schema.ss --parallel        # Watch with parallel compilation
+./rune/zig-out/bin/rune watch schema.ss -s                # Watch with compilation stats
 ```
 
 ## Architecture

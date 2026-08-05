@@ -300,6 +300,9 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .target = resolveOutputFormat(parsed.target),
                 .output_path = cmd.output,
                 .quiet = parsed.quiet,
+                .trace = cmd.trace,
+                .stats = cmd.stats,
+                .json_errors = cmd.json_errors,
                 .parallel = cmd.parallel,
             });
         },

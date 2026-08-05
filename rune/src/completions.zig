@@ -142,7 +142,7 @@ pub const COMPLETIONS_BASH =
     \\    commands="init validate check stats diff migrate reverse docs format generate completions hooks watch"
     \\
     \\    if [[ ${cur} == -* ]]; then
-    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init" -- ${cur}) )
+    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --config --name --dir --incremental --graph" -- ${cur}) )
     \\        return 0
     \\    fi
     \\
@@ -154,7 +154,7 @@ pub const COMPLETIONS_BASH =
     \\    case "${COMP_WORDS[1]}" in
     \\        generate)
     \\            if [[ ${COMP_CWORD} -eq 2 ]]; then
-    \\                COMPREPLY=( $(compgen -W "json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql" -- ${cur}) )
+    \\                COMPREPLY=( $(compgen -W "json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql symbol-index" -- ${cur}) )
     \\            elif [[ ${COMP_CWORD} -eq 3 ]]; then
     \\                COMPREPLY=( $(compgen -f -X '!*.ss' -- ${cur}) )
     \\            fi
@@ -226,7 +226,7 @@ pub const COMPLETIONS_ZSH =
     \\                    case $state in
     \\                        generator)
     \\                            local -a gens
-    \\                            gens=(json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql)
+    \\                            gens=(json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql symbol-index)
     \\                            _describe 'generator' gens
     \\                            ;;
     \\                    esac
@@ -244,7 +244,16 @@ pub const COMPLETIONS_ZSH =
     \\                    _arguments '1:file:_files -g "*.sql"'
     \\                    ;;
     \\                *)
-    \\                    _files -g '*.ss'
+    \\                    _arguments \
+    \\                        '1:file:_files -g "*.ss"' \
+    \\                        '--interval[Polling interval in ms]' \
+    \\                        '--parallel[Parallel streaming compilation]' \
+    \\                        '*/-t[Print compilation trace]' \
+    \\                        '*/-s[Print compilation stats]' \
+    \\                        '--json-errors[Emit diagnostics in JSON]' \
+    \\                        '*/-d[Target SQL dialect]:dialect:(mysql pg postgres sqlite mssql oracle db2)' \
+    \\                        '--target[Output format]:target:(sql json-schema)' \
+    \\                        '*/-o[Output file path]:file:_files'
     \\                    ;;
     \\            esac
     \\            ;;
@@ -291,9 +300,18 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -l format -r -d 'Output format' -xa 'text json sarif markdown'
     \\complete -c rune -l color -r -d 'Color output' -xa 'auto always never'
     \\complete -c rune -l init -d 'Create starter schema (same as init subcommand)'
+    \\complete -c rune -l parallel -d 'Parallel streaming compilation'
+    \\complete -c rune -l interval -r -d 'Watch polling interval in ms'
+    \\complete -c rune -l stream -d 'Streaming compilation'
+    \\complete -c rune -l summary -d 'Show summary only'
+    \\complete -c rune -l config -r -d 'Path to config file'
+    \\complete -c rune -l name -r -d 'Migration label'
+    \\complete -c rune -l dir -r -d 'Migration output directory'
+    \\complete -c rune -l incremental -d 'Incremental migration'
+    \\complete -c rune -l graph -d 'Show migration dependency graph'
     \\
     \\# generate subcommand
-    \\complete -c rune -n '__fish_seen_subcommand_from generate' -a 'json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql' -d 'Generator'
+    \\complete -c rune -n '__fish_seen_subcommand_from generate' -a 'json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql symbol-index' -d 'Generator'
     \\complete -c rune -n '__fish_seen_subcommand_from generate' -F -r
     \\
     \\# completions subcommand
@@ -344,6 +362,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('knex', 'knex', 'ParameterValue', 'Knex.js migration')
     \\        [System.Management.Automation.CompletionResult]::new('openapi', 'openapi', 'ParameterValue', 'OpenAPI 3.1 spec')
     \\        [System.Management.Automation.CompletionResult]::new('graphql', 'graphql', 'ParameterValue', 'GraphQL types')
+    \\        [System.Management.Automation.CompletionResult]::new('symbol-index', 'symbol-index', 'ParameterValue', 'JSON symbol index')
     \\    )
     \\
     \\    $shells = @(
@@ -353,7 +372,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('powershell', 'powershell', 'ParameterValue', 'PowerShell')
     \\    )
     \\
-    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '-h', '-v', '-d', '-t', '-s', '-q')
+    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--config', '--name', '--dir', '--incremental', '--graph', '-h', '-v', '-d', '-t', '-s', '-q')
     \\
     \\    $cursorToken = $commandAst.CommandElements[-1].Value
     \\    $tokens = $commandAst.CommandElements | ForEach-Object { $_.Value }

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.126.0 (2026-08-05) — 24,000+ lines production Zig, 1045+ tests, 26 test suites.
+**Current version**: 0.127.0 (2026-08-05) — 24,000+ lines production Zig, 1044+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.127.0 (2026-08-05)
+
+- **Watch command feature parity** — `rune watch` now supports `--trace`, `--stats`, `--json-errors`, and `--parallel` flags. Previously only `--interval` and `--parallel` were available. All compilation options are now consistent between `rune <file>` and `rune watch <file>`.
+- **Watch subcommand help** — `rune watch --help` now displays all available options including `--trace`, `--stats`, `--json-errors`, `--parallel`, `--interval`, `--dialect`, `--target`, and `--output`.
+- **Shell completions expansion** — Added `--parallel`, `--interval`, `--stream`, `--summary`, `--config`, `--name`, `--dir`, `--incremental`, `--graph` flags to Bash, Fish, and PowerShell completions. Added `symbol-index` generator to all 4 shell completion scripts. Zsh completions now offer watch-specific flag completions.
+- **Build dependency fix** — Removed unnecessary `b.getInstallStep()` dependency from test targets in `build.zig`. Unit tests no longer require the rune binary to be installed first, eliminating Windows file locking conflicts during test runs.
 
 ### v0.126.0 (2026-08-05)
 

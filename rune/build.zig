@@ -51,7 +51,6 @@ pub fn build(b: *std.Build) void {
     });
 
     const run_unit_tests = b.addRunArtifact(unit_tests);
-    run_unit_tests.step.dependOn(b.getInstallStep());
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
@@ -67,7 +66,6 @@ pub fn build(b: *std.Build) void {
         .root_module = colocated_mod,
     });
     const run_colocated_tests = b.addRunArtifact(colocated_tests);
-    run_colocated_tests.step.dependOn(b.getInstallStep());
     test_step.dependOn(&run_colocated_tests.step);
 
     // ─── Golden Tests ────────────────────────────────────────────

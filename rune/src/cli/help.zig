@@ -115,14 +115,20 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
             } else if (std.mem.eql(u8, subcommand, "watch")) {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  --interval      Polling interval in milliseconds (default: 1000)\n", .{});
+                std.debug.print("  --parallel      Parallel streaming compilation\n", .{});
                 std.debug.print("  -d, --dialect   Target SQL dialect\n", .{});
                 std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
                 std.debug.print("  -o, --output    Output file path\n", .{});
+                std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
+                std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
+                std.debug.print("  --json-errors   Output diagnostics as JSON\n", .{});
                 std.debug.print("\nExamples:\n", .{});
                 std.debug.print("  rune watch schema.ss                  # Watch with default 1s interval\n", .{});
                 std.debug.print("  rune watch schema.ss --interval 500   # Watch with 500ms interval\n", .{});
                 std.debug.print("  rune watch schema.ss -d pg            # Watch and compile to PostgreSQL\n", .{});
                 std.debug.print("  rune watch schema.ss -o out.sql       # Watch and write to file\n", .{});
+                std.debug.print("  rune watch schema.ss --parallel       # Watch with parallel compilation\n", .{});
+                std.debug.print("  rune watch schema.ss -s               # Watch with compilation stats\n", .{});
                 std.debug.print("\nPress Ctrl+C to stop watching.\n", .{});
             } else {
                 std.debug.print("\nGlobal options also apply: -d/--dialect, -s/--stats, -q/--quiet, -h/--help\n", .{});
