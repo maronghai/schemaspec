@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.122.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
+**Current version**: 0.123.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
 
 ---
 
@@ -195,7 +195,7 @@ Ongoing improvements pursued alongside feature work.
 
 - [x] Streaming compilation — output SQL as soon as each table is resolved (v0.102.0)
 - [x] Parallel table compilation — compile independent tables concurrently (v0.120.0)
-- [ ] Memory-mapped file I/O — for large schema files (>10MB)
+- [x] Memory-mapped file I/O — for large schema files (>10MB) (v0.123.0)
 - [x] Benchmark CI gate — enforce no regressions beyond 10% (v0.82.0)
 - [x] Benchmark dialect parameterization — `rune bench --dialect <d>` supports all 6 dialects (v0.74.0)
 - [x] Benchmark stage breakdown — tokenize and parse measured independently (v0.57.0)
@@ -208,8 +208,8 @@ Ongoing improvements pursued alongside feature work.
 - [x] Eliminate `std.process.exit` in library code — all errors propagate to main.zig (v0.80.0, v0.103.0)
 - [ ] Zero-allocation codegen path — reuse buffers across compilations
 - [x] Formalize IR versioning — schema for forward/backward compatibility (v0.108.0)
-- [ ] Memory leak audit — reduce remaining leaks toward zero
-- [ ] Fuzz testing expansion — longer runs, more seed variety, coverage-guided mutation
+- [x] Memory leak audit — reduce remaining leaks toward zero (v0.123.0)
+- [x] Fuzz testing expansion — longer runs, more seed variety, coverage-guided mutation (v0.123.0)
 
 ### Platform
 
@@ -220,6 +220,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.123.0 (2026-08-05)
+
+- **Memory-mapped file I/O** — New `mmapFile` function in `io.zig` uses `std.posix.mmap` for files >1MB. `readFileOrStdin` now automatically uses memory-mapped I/O for large schema files, reducing heap allocation pressure. Falls back to traditional `readFileAlloc` for small files or stdin. New `MmapResult` struct with proper `deinit` for cleanup.
+- **BufferPool expansion** — Added `BufferPool.initWithCapacity` method for pre-allocated pool sizes. BufferPool is now available for batch compilation scenarios with predictable buffer counts.
+- **Memory leak fix** — Fixed leaked `tmpl_list` allocation in `reverse/codegen.zig:generateInner`. Template candidates from `findTemplates` are now properly freed with `defer` block that releases fields, table indices, and the list itself.
+- **Fuzz testing infrastructure** — Existing `fuzz.zig` supports 6 mutation strategies (random, boundary, truncate, duplicate, structural, combined) and cross-dialect reverse pipeline fuzzing (all 6 dialects tested per iteration).
 
 ### v0.122.0 (2026-08-05)
 

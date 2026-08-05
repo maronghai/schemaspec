@@ -251,7 +251,7 @@ rune/src/
 | | `pass/*.zig` | 8 semantic passes (autofk, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
-| | `io.zig` | File I/O, stdin reading, output writing |
+| | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
 | | `bench.zig` | Benchmark entry point |
 | | `color.zig` | ANSI color output (ColorMode, writeColorized) |
 | | `version.zig` | Centralized version constant |

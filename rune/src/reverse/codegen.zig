@@ -40,6 +40,13 @@ pub const ReverseCodegen = struct {
         var tmpl_list: []template_ext.TemplateCandidate = &.{};
         if (extract_templates) {
             tmpl_list = try template_ext.findTemplates(self.alloc, schema);
+            defer {
+                for (tmpl_list) |t| {
+                    self.alloc.free(t.fields);
+                    self.alloc.free(t.table_indices);
+                }
+                self.alloc.free(tmpl_list);
+            }
         }
 
         try emitTemplates(self, w, schema, tmpl_list);

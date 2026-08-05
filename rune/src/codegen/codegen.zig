@@ -24,6 +24,16 @@ pub const BufferPool = struct {
         };
     }
 
+    /// Initialize a pool with pre-allocated capacity for the expected number of buffers.
+    pub fn initWithCapacity(alloc: std.mem.Allocator, capacity: usize) BufferPool {
+        var pool = BufferPool{
+            .alloc = alloc,
+            .buffers = .empty,
+        };
+        pool.buffers.ensureTotalCapacity(alloc, capacity) catch {};
+        return pool;
+    }
+
     pub fn deinit(self: *BufferPool) void {
         for (self.buffers.items) |*buf| {
             buf.deinit();
