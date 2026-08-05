@@ -44,29 +44,33 @@ pub const StreamingResult = struct {
 pub const StreamingCodegen = struct {
     alloc: std.mem.Allocator,
     dialect: codegen.Dialect,
-    cg: codegen.Codegen,
+    cg: *codegen.Codegen,
     pool: ?*codegen.BufferPool = null,
 
-    pub fn init(alloc: std.mem.Allocator, dialect: codegen.Dialect) StreamingCodegen {
+    pub fn init(alloc: std.mem.Allocator, dialect: codegen.Dialect) !StreamingCodegen {
+        const cg = try alloc.create(codegen.Codegen);
+        cg.* = codegen.Codegen.init(alloc, dialect);
         return .{
             .alloc = alloc,
             .dialect = dialect,
-            .cg = codegen.Codegen.init(alloc, dialect),
+            .cg = cg,
         };
     }
 
-    pub fn initWithPool(alloc: std.mem.Allocator, dialect: codegen.Dialect, pool: *codegen.BufferPool) StreamingCodegen {
+    pub fn initWithPool(alloc: std.mem.Allocator, dialect: codegen.Dialect, pool: *codegen.BufferPool) !StreamingCodegen {
+        const cg = try alloc.create(codegen.Codegen);
+        cg.* = codegen.Codegen.init(alloc, dialect);
         return .{
             .alloc = alloc,
             .dialect = dialect,
-            .cg = codegen.Codegen.init(alloc, dialect),
+            .cg = cg,
             .pool = pool,
         };
     }
 
     /// Generate SQL for a single table and return it.
     /// This allows incremental processing of large schemas.
-    pub fn generateTable(self: StreamingCodegen, table: typed_ast_mod.TypedTable) ![]const u8 {
+    pub fn generateTable(self: *StreamingCodegen, table: typed_ast_mod.TypedTable) ![]const u8 {
         if (self.pool) |pool| {
             var aw = try pool.acquire();
             try self.cg.generateTypedTable(&aw.writer, table);
@@ -82,7 +86,7 @@ pub const StreamingCodegen = struct {
     }
 
     /// Generate SQL for a single view and return it.
-    pub fn generateView(self: StreamingCodegen, view: typed_ast_mod.TypedView) ![]const u8 {
+    pub fn generateView(self: *StreamingCodegen, view: typed_ast_mod.TypedView) ![]const u8 {
         if (self.pool) |pool| {
             var aw = try pool.acquire();
             try self.cg.generateTypedView(&aw.writer, view);
@@ -99,7 +103,7 @@ pub const StreamingCodegen = struct {
 
     /// Generate complete SQL with streaming output.
     /// Each table, view, and comment is returned separately, enabling incremental processing.
-    pub fn generateStreaming(self: StreamingCodegen, typed: typed_ast_mod.TypedAst) !StreamingResult {
+    pub fn generateStreaming(self: *StreamingCodegen, typed: typed_ast_mod.TypedAst) !StreamingResult {
         var total_size: usize = 0;
         var tables = try std.ArrayList(StreamingResult.TableOutput).initCapacity(self.alloc, typed.tables.len);
         var views = try std.ArrayList(StreamingResult.ViewOutput).initCapacity(self.alloc, typed.views.len);

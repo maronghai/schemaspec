@@ -119,12 +119,12 @@ rune/src/
                emit.zig, migrate_helpers.zig, migrate_json.zig,
                migrate_graph.zig                         # migration dependency graph
   types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (9 files)
-               sql_type.zig, type_map.zig, type_registry.zig,
+               sql_type.zig, type_registry.zig,
                type_resolver.zig, symbol_table.zig,
                reverse_map.zig                            # shared REVERSE_MAP data
   semantic/    analyzer.zig, pass_manager.zig,            # semantic analysis (6 files)
                trace.zig, diagnostic.zig, template.zig,
-               test_helpers.zig, pass/*.zig               # 8 pass implementations
+               test_helpers.zig, pass/*.zig               # 11 pass implementations
 ```
 
 ### Three Pipelines
@@ -141,9 +141,7 @@ rune/src/
 
 - **Generator Registry** (`generator.zig`): `Generator` struct (name, description, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`.
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 33 function pointers (26 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field (`DialectCapability`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
-
-- **DialectCapability** (`dialect/dialect.zig`): Feature flags struct with 12 boolean fields (`auto_increment`, `unsigned`, `create_database`, `enum_type`, `inline_comments`, `standalone_comments`, `schemas`, `sequences`, `tablespace`, `batch_separators`, `generated_columns`, `alter_drop_column`). Each dialect backend declares its capabilities at compile time, enabling callers to check dialect features without switch statements. MySQL/PostgreSQL/SQLite/MSSQL/Oracle/Db2 dialects done.
+- **DialectBackend vtable** (`dialect/dialect.zig`): 33 function pointers (26 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)`.
 
@@ -157,7 +155,7 @@ rune/src/
 
 - **Table-Driven Subcommand Dispatch** (`cli.zig`): Subcommand routing uses a comptime `parsers` array of `{name, parse_fn}` entries. Adding a new subcommand = add an entry to `COMMAND_REGISTRY` + add a `parseXxxArgs` function + add an entry to the `parsers` table.
 
-- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (8 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
+- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (11 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
 
 - **ResolvedAst IR** (`types/resolved_ast.zig`): `ResolvedTable` + `ResolvedAst` — output of template resolution + semantic passes. Separated from `types/ast.zig` (parser output) for clean IR boundary. Re-exported from `ast.zig` for backward compatibility.
 
@@ -238,7 +236,6 @@ rune/src/
 | | `resolved_ast.zig` | ResolvedTable + ResolvedAst (semantic output) |
 | | `typed_ast.zig` | TypedAst IR + ColumnFlags bitflags |
 | | `sql_type.zig` | Self-contained SqlType union with toSql()/toJsonSchema() |
-| | `type_map.zig` | Helper functions (lookupCustomType, isNumericSymType) |
 | | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
 | | `type_resolver.zig` | TypeResolver namespace — ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
@@ -270,7 +267,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 80 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 81 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 25 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

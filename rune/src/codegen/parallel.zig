@@ -240,7 +240,7 @@ pub fn compileParallel(
     config: ParallelConfig,
 ) !streaming.StreamingResult {
     if (typed.tables.len < config.min_tables) {
-        var sc = streaming.StreamingCodegen.init(alloc, dialect);
+        var sc = try streaming.StreamingCodegen.init(alloc, dialect);
         return sc.generateStreaming(typed);
     }
 
@@ -249,7 +249,7 @@ pub fn compileParallel(
 
     // If all tables are dependent, fall back to sequential
     if (graph.groups.len <= 1) {
-        var sc = streaming.StreamingCodegen.init(alloc, dialect);
+        var sc = try streaming.StreamingCodegen.init(alloc, dialect);
         return sc.generateStreaming(typed);
     }
 
@@ -402,7 +402,7 @@ pub fn compileParallel(
     }
 
     for (typed.views) |view| {
-        var sc = streaming.StreamingCodegen.init(alloc, dialect);
+        var sc = try streaming.StreamingCodegen.init(alloc, dialect);
         const sql = try sc.generateView(view);
         views.appendAssumeCapacity(.{
             .name = view.name,

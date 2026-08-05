@@ -75,6 +75,20 @@ pub fn main(init: std.process.Init) !void {
 
 // ─── Error Handling ────────────────────────────────────────────
 
+fn printAvailableGenerators() void {
+    std.debug.print("Available generators:\n", .{});
+    for (generator.REGISTRY) |gen| {
+        std.debug.print("  {s}\n", .{gen.name});
+    }
+}
+
+fn resolveOutputFormat(target: cli.Target) forward.OutputFormat {
+    return switch (target) {
+        .sql => .sql,
+        .json_schema => .json_schema,
+    };
+}
+
 fn handleParseError(err: anyerror, arg_list: []const []const u8) noreturn {
     if (err == error.OutOfMemory) {
         std.debug.print("error: out of memory\n", .{});
@@ -94,10 +108,7 @@ fn handleParseError(err: anyerror, arg_list: []const []const u8) noreturn {
             std.debug.print("  {s}\n", .{cmd.name});
         }
     } else if (err == error.UnknownGenerator) {
-        std.debug.print("error: unknown generator. Available generators:\n", .{});
-        for (generator.REGISTRY) |gen| {
-            std.debug.print("  {s}\n", .{gen.name});
-        }
+        printAvailableGenerators();
     } else {
         const cli_err: cli.ArgError = @errorCast(err);
         std.debug.print("error: {s}\n", .{cliArgErrorMessage(cli_err)});
@@ -115,10 +126,7 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             std.process.exit(1);
         },
         error.UnknownGenerator => {
-            std.debug.print("error: unknown generator. Available generators:\n", .{});
-            for (generator.REGISTRY) |gen| {
-                std.debug.print("  {s}\n", .{gen.name});
-            }
+            printAvailableGenerators();
             std.process.exit(1);
         },
         error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
@@ -173,17 +181,12 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             else
                 null;
 
-            const format: forward.OutputFormat = switch (parsed.target) {
-                .sql => .sql,
-                .json_schema => .json_schema,
-            };
-
             return forward.handleCompileRequest(io, alloc, .{
                 .input = input_path,
                 .output_path = cmd.output,
                 .trace = cmd.trace,
                 .dialect = parsed.dialect,
-                .format = format,
+                .format = resolveOutputFormat(parsed.target),
                 .stats = cmd.stats,
                 .check = cmd.check,
                 .quiet = parsed.quiet,
@@ -286,15 +289,11 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .watch => |cmd| {
             const watch_mod = @import("watch.zig");
-            const format: forward.OutputFormat = switch (parsed.target) {
-                .sql => .sql,
-                .json_schema => .json_schema,
-            };
             return watch_mod.watch(io, alloc, .{
                 .input = cmd.input,
                 .interval_ms = cmd.interval_ms,
                 .dialect = parsed.dialect,
-                .target = format,
+                .target = resolveOutputFormat(parsed.target),
                 .output_path = cmd.output,
                 .quiet = parsed.quiet,
             });

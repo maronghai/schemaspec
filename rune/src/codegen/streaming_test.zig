@@ -41,7 +41,7 @@ test "streaming: single table MySQL" {
         .sql_comments = &.{},
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
 
     try testing.expectEqual(@as(usize, 1), result.table_count);
@@ -74,7 +74,7 @@ test "streaming: multi-table output order preserved" {
         .sql_comments = &.{},
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
 
     try testing.expectEqual(@as(usize, 2), result.table_count);
@@ -102,7 +102,7 @@ test "streaming: formatStreamingResult includes header" {
         .sql_comments = &.{},
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
     const sql = try streaming.formatStreamingResult(alloc, &result, .mysql);
 
@@ -124,7 +124,7 @@ test "streaming: empty schema produces header only" {
         .sql_comments = &.{},
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
 
     try testing.expectEqual(@as(usize, 0), result.table_count);
@@ -162,7 +162,7 @@ test "streaming: views included in output" {
         .sql_comments = &.{},
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
 
     try testing.expectEqual(@as(usize, 1), result.table_count);
@@ -198,7 +198,7 @@ test "streaming: comments included in output" {
         .sql_comments = comments,
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
 
     try testing.expectEqual(@as(usize, 1), result.comments.len);
@@ -239,7 +239,7 @@ test "streaming: formatStreamingResult interleaves views and comments" {
         .sql_comments = comments,
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
     const sql = try streaming.formatStreamingResult(alloc, &result, .mysql);
 
@@ -270,7 +270,7 @@ test "streaming: PostgreSQL dialect uses SERIAL" {
         .sql_comments = &.{},
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .pg);
+    var sc = try streaming.StreamingCodegen.init(alloc, .pg);
     const result = try sc.generateStreaming(typed);
 
     try testing.expectEqual(@as(usize, 1), result.tables.len);
@@ -300,7 +300,7 @@ test "streaming: many columns preserves all in output" {
         .sql_comments = &.{},
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
 
     try testing.expectEqual(@as(usize, 1), result.tables.len);
@@ -332,7 +332,7 @@ test "streaming: table with FK and index" {
         .sql_comments = &.{},
     };
 
-    var sc = streaming.StreamingCodegen.init(alloc, .mysql);
+    var sc = try streaming.StreamingCodegen.init(alloc, .mysql);
     const result = try sc.generateStreaming(typed);
 
     try testing.expectEqual(@as(usize, 1), result.tables.len);

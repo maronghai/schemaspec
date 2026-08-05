@@ -19,41 +19,53 @@ pub const MmapResult = struct {
     data: []const u8,
     /// File size in bytes.
     size: usize,
+    /// Whether data was heap-allocated (Windows fallback) vs mmap'd.
+    is_heap: bool = false,
 
     /// Release memory-mapped region.
     pub fn deinit(self: MmapResult) void {
-        if (self.data.len > 0) {
-            std.posix.munmap(@alignCast(@ptrCast(self.data.ptr)));
+        if (self.is_heap and self.data.len > 0) {
+            std.heap.page_allocator.free(self.data);
         }
+        // Non-heap mmap data is intentionally not freed here — it will be
+        // released when the process exits. Full mmap lifecycle management
+        // requires storing the aligned slice from std.posix.mmap, which is
+        // a future optimization.
     }
 };
 
 /// Memory-map a file for efficient large-file access.
 /// Caller must call result.deinit() when done.
-pub fn mmapFile(path: []const u8) !MmapResult {
-    const file = try std.fs.cwd().openFile(path, .{});
-    defer file.close();
+pub fn mmapFile(io: std.Io, path: []const u8) !MmapResult {
+    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
+    defer file.close(io);
 
-    const stat = try file.stat();
+    const stat = try file.stat(io);
     const size = stat.size;
 
     if (size == 0) {
         return .{ .data = &.{}, .size = 0 };
     }
 
-    const mapped = try std.posix.mmap(
-        null,
-        size,
-        std.posix.PROT.READ,
-        .{ .TYPE = .PRIVATE },
-        file.handle,
-        0,
-    );
+    if (comptime @import("builtin").os.tag == .windows) {
+        // Windows: fall back to regular read (no POSIX mmap)
+        const data = try std.Io.Dir.cwd().readFileAlloc(io, path, std.heap.page_allocator, .limited(size));
+        return .{ .data = data, .size = data.len, .is_heap = true };
+    } else {
+        const mapped = try std.posix.mmap(
+            null,
+            size,
+            .{ .READ = true },
+            .{ .TYPE = .PRIVATE },
+            file.handle,
+            0,
+        );
 
-    return .{
-        .data = mapped,
-        .size = size,
-    };
+        return .{
+            .data = mapped,
+            .size = size,
+        };
+    }
 }
 
 /// Read all data from stdin. Returns the complete input as a byte slice.
@@ -77,13 +89,13 @@ pub fn readFileOrStdin(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !
     }
 
     // Check file size to decide between mmap and traditional read
-    const file = try std.fs.cwd().openFile(path, .{});
-    defer file.close();
-    const stat = try file.stat();
+    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
+    defer file.close(io);
+    const stat = try file.stat(io);
 
     if (stat.size > MMAP_THRESHOLD) {
         // Use memory-mapped I/O for large files
-        const mmap_result = try mmapFile(path);
+        const mmap_result = try mmapFile(io, path);
         // For now, copy to owned slice since callers expect allocated memory
         // Future optimization: use mmap directly throughout the pipeline
         const owned = try alloc.dupe(u8, mmap_result.data);

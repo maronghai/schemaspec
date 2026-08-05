@@ -272,7 +272,7 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -n __fish_use_subcommand -a generate -d 'Generate output in specified format'
     \\complete -c rune -n __fish_use_subcommand -a completions -d 'Generate shell completions'
     \\complete -c rune -n __fish_use_subcommand -a hooks -d 'Generate git hooks'
-\\complete -c rune -n __fish_use_subcommand -a watch -d 'Watch file and recompile on change'
+    \\complete -c rune -n __fish_use_subcommand -a watch -d 'Watch file and recompile on change'
     \\
     \\# Global flags
     \\complete -c rune -l help -s h -d 'Show help'

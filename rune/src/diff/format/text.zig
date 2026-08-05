@@ -19,6 +19,14 @@ fn quoteChar(dialect: Dialect) u8 {
 
 const formatTypeInfo = format_common.formatTypeInfo;
 
+/// Emit the `-- ALTER TABLE` header if not already emitted for this table.
+fn emitAlterTableHeader(w: anytype, name: []const u8, q: u8, use_color: bool, has_changes: *bool) !void {
+    if (!has_changes.*) {
+        try writeColorized(w, color_mod.BLUE ++ color_mod.BOLD, use_color, "-- ALTER TABLE {c}{s}{c}\n", .{ q, name, q });
+        has_changes.* = true;
+    }
+}
+
 /// Core diff formatting logic — writes to any std.io.Writer with optional ANSI color support.
 pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
     for (d.dropped_tables) |tname| {
@@ -60,10 +68,7 @@ pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
         // alter
         var table_has_changes = false;
         for (td.field_diffs) |fd| {
-            if (!table_has_changes) {
-                try writeColorized(w, color_mod.BLUE ++ color_mod.BOLD, use_color, "-- ALTER TABLE {c}{s}{c}\n", .{ q, td.name, q });
-                table_has_changes = true;
-            }
+            try emitAlterTableHeader(w, td.name, q, use_color, &table_has_changes);
             switch (fd.action) {
                 .add => {
                     try writeColorized(w, color_mod.GREEN, use_color, "  + {s} (add)\n", .{fd.name});
@@ -99,10 +104,7 @@ pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
         // Metadata diffs (comment, engine)
         if (td.metadata_diff) |md| {
             if (!optionalStrEq(md.old_comment, md.new_comment)) {
-                if (!table_has_changes) {
-                    try writeColorized(w, color_mod.BLUE ++ color_mod.BOLD, use_color, "-- ALTER TABLE {c}{s}{c}\n", .{ q, td.name, q });
-                    table_has_changes = true;
-                }
+                try emitAlterTableHeader(w, td.name, q, use_color, &table_has_changes);
                 if (md.old_comment) |oc| {
                     if (md.new_comment) |nc| {
                         try writeColorized(w, color_mod.YELLOW, use_color, "  ~ comment: '{s}' → '{s}'\n", .{ oc, nc });
@@ -114,10 +116,7 @@ pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
                 }
             }
             if (!optionalStrEq(md.old_engine, md.new_engine)) {
-                if (!table_has_changes) {
-                    try writeColorized(w, color_mod.BLUE ++ color_mod.BOLD, use_color, "-- ALTER TABLE {c}{s}{c}\n", .{ q, td.name, q });
-                    table_has_changes = true;
-                }
+                try emitAlterTableHeader(w, td.name, q, use_color, &table_has_changes);
                 if (md.old_engine) |oe| {
                     if (md.new_engine) |ne| {
                         try writeColorized(w, color_mod.YELLOW, use_color, "  ~ engine: '{s}' → '{s}'\n", .{ oe, ne });
@@ -130,10 +129,7 @@ pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
             }
         }
         for (td.index_diffs) |idx| {
-            if (!table_has_changes) {
-                try writeColorized(w, color_mod.BLUE ++ color_mod.BOLD, use_color, "-- ALTER TABLE {c}{s}{c}\n", .{ q, td.name, q });
-                table_has_changes = true;
-            }
+            try emitAlterTableHeader(w, td.name, q, use_color, &table_has_changes);
             const color = switch (idx.action) {
                 .add => color_mod.GREEN,
                 .drop => color_mod.RED,
@@ -147,10 +143,7 @@ pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
             try writeColorized(w, color, use_color, "  {s} @{s} ({s} index)\n", .{ label, idx.name, @tagName(idx.action) });
         }
         for (td.fk_diffs) |fk| {
-            if (!table_has_changes) {
-                try writeColorized(w, color_mod.BLUE ++ color_mod.BOLD, use_color, "-- ALTER TABLE {c}{s}{c}\n", .{ q, td.name, q });
-                table_has_changes = true;
-            }
+            try emitAlterTableHeader(w, td.name, q, use_color, &table_has_changes);
             switch (fk.action) {
                 .add => {
                     if (fk.new_fk) |nfk| {

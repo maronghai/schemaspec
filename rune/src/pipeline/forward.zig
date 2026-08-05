@@ -276,7 +276,7 @@ pub fn handleCompileRequest(
         const streaming = @import("../codegen/streaming.zig");
         var pool = codegen.BufferPool.init(alloc);
         defer pool.deinit();
-        var sc = streaming.StreamingCodegen.initWithPool(alloc, cfg.dialect, &pool);
+        var sc = try streaming.StreamingCodegen.initWithPool(alloc, cfg.dialect, &pool);
         const result = try sc.generateStreaming(typed);
         break :blk try streaming.formatStreamingResult(alloc, &result, cfg.dialect);
     } else switch (cfg.format) {

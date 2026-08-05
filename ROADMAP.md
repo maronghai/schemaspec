@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.123.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
+**Current version**: 0.124.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.124.0 (2026-08-05)
+
+- **Codegen by-pointer refactor** — All `Codegen` methods now take `*Codegen` (mutable pointer) instead of `Codegen` (by value). Eliminates unnecessary copies of the 30+ function pointer `DialectBackend` vtable on every method call. `StreamingCodegen` now stores `cg: *codegen.Codegen` (heap-allocated) for consistent pointer semantics.
+- **Diff format helper extraction** — Extracted `emitAlterTableHeader` helper in `diff/format/text.zig`, eliminating 5 repetitions of the `-- ALTER TABLE` header emission pattern. Reduces `writeDiffTo` from 173 to ~160 lines.
+- **Main dispatch deduplication** — Extracted `printAvailableGenerators()` and `resolveOutputFormat()` helpers in `main.zig`, eliminating duplicated generator listing (2 occurrences) and format mapping (2 occurrences).
+- **Zig 0.16 API fixes** — Fixed `io.zig` to use `std.Io.Dir.cwd()` instead of removed `std.fs.cwd()`. Added `io` parameter to `mmapFile`, `file.stat()`, and `file.close()` calls. Added Windows fallback for `mmapFile` (uses `readFileAlloc` instead of `std.posix.mmap`).
+- **Documentation sync** — Updated CLAUDE.md: semantic passes 8→11, colocated test files 80→81, removed stale `DialectCapability` paragraph, removed `type_map.zig` from source layout.
 
 ### v0.123.0 (2026-08-05)
 

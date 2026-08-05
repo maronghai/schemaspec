@@ -125,7 +125,7 @@ pub const Codegen = struct {
 
     /// Emit a full CREATE TABLE statement for one table to the given writer.
     /// Used by both forward codegen (generateFromTypedAst) and migration generation.
-    pub fn generateTypedTable(self: Codegen, w: *Writer, table: typed_ast_mod.TypedTable) !void {
+    pub fn generateTypedTable(self: *Codegen, w: *Writer, table: typed_ast_mod.TypedTable) !void {
         try w.writeAll("CREATE TABLE ");
         try self.backend.quoteIdent(w, table.name);
         try w.writeAll(" (\n");
@@ -147,7 +147,7 @@ pub const Codegen = struct {
         try indexes_mod.emitInlineColumnStandaloneIndexes(self.backend, w, table);
     }
 
-    fn emitColumnDefs(self: Codegen, w: *Writer, table: typed_ast_mod.TypedTable, needs_comma: *bool) !void {
+    fn emitColumnDefs(self: *Codegen, w: *Writer, table: typed_ast_mod.TypedTable, needs_comma: *bool) !void {
         for (table.columns) |col| {
             if (needs_comma.*) try w.writeAll(",\n");
             needs_comma.* = true;
@@ -156,7 +156,7 @@ pub const Codegen = struct {
         }
     }
 
-    fn emitConstraints(self: Codegen, w: *Writer, table: typed_ast_mod.TypedTable, needs_comma: *bool) !void {
+    fn emitConstraints(self: *Codegen, w: *Writer, table: typed_ast_mod.TypedTable, needs_comma: *bool) !void {
         for (table.fks) |fk| {
             if (needs_comma.*) try w.writeAll(",\n");
             needs_comma.* = true;
@@ -165,7 +165,7 @@ pub const Codegen = struct {
         }
     }
 
-    fn emitTableMetadata(self: Codegen, w: *Writer, table: typed_ast_mod.TypedTable) !void {
+    fn emitTableMetadata(self: *Codegen, w: *Writer, table: typed_ast_mod.TypedTable) !void {
         if (table.comment) |c| {
             try self.backend.emitTableComment(w, table.name, c);
         }
@@ -182,7 +182,7 @@ pub const Codegen = struct {
     }
 
     /// Emit a CREATE VIEW statement.
-    pub fn generateTypedView(self: Codegen, w: *Writer, view: typed_ast_mod.TypedView) !void {
+    pub fn generateTypedView(self: *Codegen, w: *Writer, view: typed_ast_mod.TypedView) !void {
         // Build the full query, combining UNION/INTERSECT/EXCEPT parts
         if (view.union_op) |op| {
             const second = view.second_query orelse "";
@@ -208,11 +208,11 @@ pub const Codegen = struct {
 
     /// Render a single column definition (shared by CREATE TABLE and ALTER TABLE paths).
     /// When skip_name is true, the column name is not emitted (used by PG ALTER COLUMN TYPE).
-    pub fn emitColumnDef(self: Codegen, w: *Writer, col: typed_ast_mod.TypedColumn) !void {
+    pub fn emitColumnDef(self: *Codegen, w: *Writer, col: typed_ast_mod.TypedColumn) !void {
         return columns_mod.emitColumnDef(self.backend, w, col);
     }
 
-    pub fn emitColumnDefEx(self: Codegen, w: *Writer, col: typed_ast_mod.TypedColumn, skip_name: bool) !void {
+    pub fn emitColumnDefEx(self: *Codegen, w: *Writer, col: typed_ast_mod.TypedColumn, skip_name: bool) !void {
         return columns_mod.emitColumnDefEx(self.backend, w, col, skip_name);
     }
 };
