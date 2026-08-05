@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.124.0 (2026-08-05) — 24,000+ lines production Zig, 1032+ tests, 26 test suites.
+**Current version**: 0.125.0 (2026-08-05) — 24,000+ lines production Zig, 1040+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.125.0 (2026-08-05)
+
+- **Watch mode busy-wait fix** — Replaced spin-loop with `std.Io.Clock.Duration.sleep()` for efficient file polling. CPU usage drops from ~100% to ~0% during watch mode.
+- **Watch mode parallel flag** — `rune watch` now supports `--parallel` for parallel streaming compilation during watch.
+- **New semantic pass: validate_index_names** — Detects cross-table index name collisions that may cause issues in databases requiring globally unique index names (e.g. PostgreSQL). 3 unit tests.
+- **Version drift fix** — Synced VERSION file (0.124.0) with build.zig.zon (was 0.123.0). Both now report 0.125.0.
+- **Documentation sync** — Fixed README.md: vtable count "26+6" → "25+7", removed stale `canRunConcurrently()` reference, fixed VARBARCHAR typo → VARBINARY. Updated CLAUDE.md: semantic passes 11→12, colocated test files 81→82.
+- **Test count**: 1040 (was 1037)
 
 ### v0.124.0 (2026-08-05)
 

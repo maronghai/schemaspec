@@ -24,7 +24,7 @@ pub const Command = union(enum) {
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },
-    watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null },
+    watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null, parallel: bool = false },
     version,
     help: struct { subcommand: ?[]const u8 = null },
 };

@@ -87,6 +87,7 @@ comptime {
     _ = @import("semantic/pass/validate_circular_fk.zig");
     _ = @import("semantic/pass/validate_fk_targets.zig");
     _ = @import("semantic/pass/validate_unused_templates.zig");
+    _ = @import("semantic/pass/validate_index_names.zig");
     // types
     _ = @import("types/ast_test.zig");
     _ = @import("types/ir_version.zig");

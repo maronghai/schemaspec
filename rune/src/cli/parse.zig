@@ -580,11 +580,14 @@ fn parseHooksArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
 fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     if (fargs.len < 2) return error.MissingArgs;
     var interval_ms: u64 = 1000;
+    var parallel = false;
     var j: usize = 2;
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--interval") and j + 1 < fargs.len) {
             interval_ms = std.fmt.parseInt(u64, fargs[j + 1], 10) catch 1000;
             j += 1;
+        } else if (std.mem.eql(u8, fargs[j], "--parallel")) {
+            parallel = true;
         }
     }
     return .{
@@ -595,6 +598,7 @@ fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, targ
             .input = fargs[1],
             .interval_ms = interval_ms,
             .output = parseOutputFlag(fargs, 2),
+            .parallel = parallel,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,

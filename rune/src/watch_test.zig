@@ -39,3 +39,11 @@ test "WatchConfig with dialect" {
     };
     try testing.expectEqual(.pg, cfg.dialect);
 }
+
+test "WatchConfig with parallel" {
+    const cfg = watch.WatchConfig{
+        .input = "test.ss",
+        .parallel = true,
+    };
+    try testing.expectEqual(true, cfg.parallel);
+}

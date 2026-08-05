@@ -296,6 +296,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .target = resolveOutputFormat(parsed.target),
                 .output_path = cmd.output,
                 .quiet = parsed.quiet,
+                .parallel = cmd.parallel,
             });
         },
     }

@@ -27,6 +27,8 @@ pub const WatchConfig = struct {
     stats: bool = false,
     /// JSON error output.
     json_errors: bool = false,
+    /// Use parallel streaming compilation (compile independent tables concurrently).
+    parallel: bool = false,
 };
 
 /// Hash file content for change detection.
@@ -83,15 +85,12 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
 
     // Poll loop
     while (true) {
-        // Sleep using the Io clock — non-blocking, efficient
-        const deadline = std.Io.Clock.Timestamp.now(io, .awake);
-        const target_ns = cfg.interval_ms * std.time.ns_per_ms;
-        while (true) {
-            const now = std.Io.Clock.Timestamp.now(io, .awake);
-            const elapsed_ns = now.raw.nanoseconds - deadline.raw.nanoseconds;
-            if (elapsed_ns >= target_ns) break;
-            std.Thread.yield() catch {};
-        }
+        // Sleep for the configured interval — efficient, no CPU waste
+        const dur = std.Io.Clock.Duration{
+            .raw = .{ .nanoseconds = @intCast(cfg.interval_ms * std.time.ns_per_ms) },
+            .clock = .awake,
+        };
+        dur.sleep(io) catch {};
 
         const current_hash = hashFileContent(io, cfg.input);
         if (current_hash == null) {
