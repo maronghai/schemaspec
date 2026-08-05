@@ -1,12 +1,13 @@
 const std = @import("std");
 const completions = @import("completions.zig");
+const init_mod = @import("cli/init.zig");
 
 test "STARTER_SCHEMA is non-empty" {
-    try std.testing.expect(completions.STARTER_SCHEMA.len > 0);
+    try std.testing.expect(init_mod.STARTER_SCHEMA.len > 0);
 }
 
 test "STARTER_SCHEMA contains expected table definitions" {
-    const schema = completions.STARTER_SCHEMA;
+    const schema = init_mod.STARTER_SCHEMA;
     // Should define users, posts, comments tables
     try std.testing.expect(std.mem.indexOf(u8, schema, "# users") != null);
     try std.testing.expect(std.mem.indexOf(u8, schema, "# posts") != null);
@@ -14,11 +15,11 @@ test "STARTER_SCHEMA contains expected table definitions" {
 }
 
 test "STARTER_SCHEMA contains schema declaration" {
-    try std.testing.expect(std.mem.indexOf(u8, completions.STARTER_SCHEMA, "$ mydb") != null);
+    try std.testing.expect(std.mem.indexOf(u8, init_mod.STARTER_SCHEMA, "$ mydb") != null);
 }
 
 test "STARTER_SCHEMA contains field types" {
-    const schema = completions.STARTER_SCHEMA;
+    const schema = init_mod.STARTER_SCHEMA;
     // Should use SS type symbols
     try std.testing.expect(std.mem.indexOf(u8, schema, "n++") != null); // auto-increment
     try std.testing.expect(std.mem.indexOf(u8, schema, "s128") != null);

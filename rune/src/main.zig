@@ -7,6 +7,8 @@ const io_mod = @import("io.zig");
 const version = @import("version.zig");
 const generator = @import("generator.zig");
 const completions = @import("completions.zig");
+const init_mod = @import("cli/init.zig");
+const hooks_mod = @import("cli/hooks.zig");
 const config_mod = @import("config.zig");
 const dialect_enum = @import("dialect/enum.zig");
 
@@ -164,7 +166,7 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
 fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void {
     // Handle --init flag (invokes init without explicit subcommand)
     if (parsed.init_flag) {
-        return completions.handleInit(io, alloc, null, null, parsed.dialect);
+        return init_mod.handleInit(io, alloc, null, null, parsed.dialect);
     }
 
     switch (parsed.command) {
@@ -278,7 +280,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return forward.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
         },
         .init => |cmd| {
-            return completions.handleInit(io, alloc, cmd.name, cmd.output, parsed.dialect);
+            return init_mod.handleInit(io, alloc, cmd.name, cmd.output, parsed.dialect);
         },
         .format_cmd => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
@@ -290,7 +292,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return completions.handleCompletions(io, alloc, cmd.shell);
         },
         .hooks => |cmd| {
-            return completions.handleHooks(io, alloc, cmd.hook_type);
+            return hooks_mod.handleHooks(io, alloc, cmd.hook_type);
         },
         .watch => |cmd| {
             const watch_mod = @import("watch.zig");

@@ -11,7 +11,7 @@ const typed_ast = @import("../types/typed_ast.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const pipeline_forward = @import("../pipeline/forward.zig");
 const io_mod = @import("../io.zig");
-const cli = @import("../cli/types.zig");
+const enums = @import("../types/enums.zig");
 const utils = @import("../utils.zig");
 
 // ─── Diff/Migrate Pipeline ────────────────────────────────────
@@ -21,12 +21,12 @@ pub const DiffConfig = struct {
     old_path: []const u8,
     new_path: []const u8,
     dialect: codegen.Dialect = .mysql,
-    format: cli.DiffFormat = .text,
+    format: enums.DiffFormat = .text,
     output_path: ?[]const u8 = null,
     trace: bool = false,
     stats: bool = false,
     check: bool = false,
-    color: cli.ColorMode = .auto,
+    color: enums.ColorMode = .auto,
     summary: bool = false,
 };
 
@@ -35,7 +35,7 @@ pub const MigrateConfig = struct {
     old_path: []const u8,
     new_path: []const u8,
     dialect: codegen.Dialect = .mysql,
-    format: cli.DiffFormat = .text,
+    format: enums.DiffFormat = .text,
     output_path: ?[]const u8 = null,
     trace: bool = false,
     stats: bool = false,
@@ -46,7 +46,7 @@ pub const MigrateConfig = struct {
     dir: ?[]const u8 = null,
     incremental: bool = false,
     summary: bool = false,
-    color: cli.ColorMode = .auto,
+    color: enums.ColorMode = .auto,
     graph: bool = false,
 };
 

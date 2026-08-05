@@ -95,17 +95,18 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ```
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig, completions.zig, color.zig, config.zig  # CLI + glue
+  cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
   bench.zig, ast_visitor.zig, formatter.zig, version.zig          # standalone modules
   generator.zig                                                   # generator registry (pluggable)
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
-  tests.zig                                                       # colocated test index (80 files)
+  tests.zig                                                       # colocated test index (81 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, reverse.zig, diff.zig,       # pipeline orchestration
                stats.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig,    # SQL code generation
-               streaming.zig, parallel.zig                # streaming + parallel compilation
+               streaming.zig, parallel.zig, deps.zig    # streaming, parallel compilation, dependency analysis
   dialect/     dialect.zig, enum.zig, mysql.zig,          # dialect backends (8 files)
                pg.zig, sqlite.zig, mssql.zig, oracle.zig,
                common.zig, sqlite_hints.zig
@@ -120,7 +121,7 @@ rune/src/
                format/sarif.zig, format/markdown.zig
                emit.zig, migrate_helpers.zig, migrate_json.zig,
                migrate_graph.zig                         # migration dependency graph
-  types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (9 files)
+  types/       ast.zig, resolved_ast.zig, typed_ast.zig,  # type system (10 files)
                sql_type.zig, type_registry.zig,
                type_resolver.zig, symbol_table.zig,
                reverse_map.zig                            # shared REVERSE_MAP data
@@ -247,7 +248,7 @@ rune/src/
 | | `trace.zig` | Shared AST trace formatting |
 | | `diagnostic.zig` | Multi-error diagnostic collector (printAll, formatJson, formatLsp, formatTerminal) |
 | | `template.zig` | Template inheritance resolution |
-| | `pass/*.zig` | 8 semantic passes (autofk, suffix_inference, validate, etc.) |
+| | `pass/*.zig` | 12 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
@@ -269,7 +270,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 82 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 81 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 25 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

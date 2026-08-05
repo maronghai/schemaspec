@@ -5,7 +5,7 @@ const reverse_codegen = @import("../reverse/codegen.zig");
 const dialect_detect = @import("../reverse/dialect_detect.zig");
 const codegen = @import("../codegen/codegen.zig");
 const io_mod = @import("../io.zig");
-const cli = @import("../cli/types.zig");
+const DiffFormat = @import("../types/enums.zig").DiffFormat;
 
 // ─── Reverse Pipeline: SQL → .ss ─────────────────────────────
 
@@ -14,7 +14,7 @@ pub const ReverseConfig = struct {
     input_name: []const u8 = "<stdin>",
     output_path: ?[]const u8 = null,
     dialect: codegen.Dialect = .mysql,
-    format: cli.DiffFormat = .text,
+    format: DiffFormat = .text,
     with_templates: bool = false,
     trace: bool = false,
     stats: bool = false,

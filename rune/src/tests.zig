@@ -19,6 +19,7 @@ comptime {
     _ = @import("codegen/interleave.zig");
     _ = @import("codegen/streaming_test.zig");
     _ = @import("codegen/parallel.zig");
+    _ = @import("codegen/deps.zig");
     _ = @import("golden_test.zig");
     // dialect
     _ = @import("dialect/dialect_test.zig");
@@ -52,6 +53,8 @@ comptime {
     _ = @import("formatter_test.zig");
     // io
     _ = @import("io_test.zig");
+    // watch
+    _ = @import("watch_test.zig");
     // json_schema
     _ = @import("generators/json_schema_test.zig");
     // parser
@@ -88,6 +91,13 @@ comptime {
     _ = @import("semantic/pass/validate_fk_targets.zig");
     _ = @import("semantic/pass/validate_unused_templates.zig");
     _ = @import("semantic/pass/validate_index_names.zig");
+    _ = @import("semantic/pass/autofk.zig");
+    _ = @import("semantic/pass/resolve_names.zig");
+    _ = @import("semantic/pass/suffix_inference.zig");
+    _ = @import("semantic/pass/validate.zig");
+    _ = @import("semantic/pass/validate_indexes.zig");
+    _ = @import("semantic/pass/validate_type_modifiers.zig");
+    _ = @import("semantic/pass/validate_template_types.zig");
     // types
     _ = @import("types/ast_test.zig");
     _ = @import("types/ir_version.zig");

@@ -1,65 +1,8 @@
 const std = @import("std");
 const io_mod = @import("io.zig");
-const dialect_enum = @import("dialect/enum.zig");
 
-// ─── Shell Completions & Init ──────────────────────────────────
-// Extracted from main.zig for single-responsibility.
-// Contains the starter schema template and shell completion scripts.
-
-// ─── `rune init` ──────────────────────────────────────────────
-
-pub const STARTER_SCHEMA =
-    \\; Starter schema — edit this file to define your database
-    \\
-    \\; ── Schema ─────────────────────────────────────────────
-    \\
-    \\$ mydb
-    \\
-    \\; ── Tables ─────────────────────────────────────────────
-    \\
-    \\; Users table
-    \\# users
-    \\id       n++
-    \\email    s128
-    \\name     s64
-    \\role     e(editor,viewer) =viewer
-    \\@ email
-    \\
-    \\; Posts table
-    \\# posts
-    \\id         n++
-    \\title      s256
-    \\body       S
-    \\author_id  n              ; FK → users.id (auto-inferred from _id suffix)
-    \\status     e(draft,published,archived) =draft
-    \\@ author_id
-    \\@ status
-    \\
-    \\; Comments table
-    \\# comments
-    \\id        n++
-    \\post_id   n               ; FK → posts.id
-    \\author_id n                ; FK → users.id
-    \\body      S
-    \\@ post_id
-    \\
-;
-
-pub fn handleInit(io: std.Io, alloc: std.mem.Allocator, name: ?[]const u8, output: ?[]const u8, dialect: dialect_enum.Dialect) !void {
-    const filename = name orelse "schema";
-    const out_path = output orelse blk: {
-        const path = try std.fmt.allocPrint(alloc, "{s}.ss", .{filename});
-        break :blk path;
-    };
-    // Prepend dialect hint comment for the user
-    const dialect_name = @tagName(dialect);
-    const schema_with_hint = try std.fmt.allocPrint(alloc, "; Target dialect: {s}\n{s}", .{ dialect_name, STARTER_SCHEMA });
-    try io_mod.writeOutput(io, schema_with_hint, out_path, false);
-    std.debug.print("Created {s} (dialect: {s})\n", .{ out_path, dialect_name });
-    std.debug.print("Edit this file, then run: rune {s} -d {s}\n", .{ out_path, dialect_name });
-}
-
-// ─── `rune completions` ───────────────────────────────────────
+// ─── Shell Completions ────────────────────────────────────────
+// Shell completion scripts for bash, zsh, fish, and powershell.
 
 pub fn handleCompletions(io: std.Io, _: std.mem.Allocator, shell: []const u8) !void {
     if (std.mem.eql(u8, shell, "bash")) {
@@ -74,61 +17,6 @@ pub fn handleCompletions(io: std.Io, _: std.mem.Allocator, shell: []const u8) !v
         return error.UnknownShell;
     }
 }
-
-// ─── `rune hooks` ────────────────────────────────────────────
-
-pub fn handleHooks(io: std.Io, _: std.mem.Allocator, hook_type: []const u8) !void {
-    if (std.mem.eql(u8, hook_type, "pre-commit")) {
-        try io_mod.writeOutput(io, HOOK_PRECOMMIT, null, false);
-    } else {
-        return error.UnknownHookType;
-    }
-}
-
-pub const HOOK_PRECOMMIT =
-    \\#!/usr/bin/env bash
-    \\# Pre-commit hook for Rune schema validation
-    \\# Install: rune hooks pre-commit > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit
-    \\
-    \\set -euo pipefail
-    \\
-    \\# Find rune binary — prefer local build, then PATH
-    \\RUNE=""
-    \\if [ -x "./rune/zig-out/bin/rune" ]; then
-    \\    RUNE="./rune/zig-out/bin/rune"
-    \\elif command -v rune >/dev/null 2>&1; then
-    \\    RUNE="rune"
-    \\else
-    \\    echo "warning: rune not found, skipping schema validation"
-    \\    exit 0
-    \\fi
-    \\
-    \\# Get staged .ss files
-    \\SS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.ss$' || true)
-    \\
-    \\if [ -z "$SS_FILES" ]; then
-    \\    exit 0
-    \\fi
-    \\
-    \\echo "Validating $(echo "$SS_FILES" | wc -l | tr -d ' ') schema file(s)..."
-    \\
-    \\FAILED=0
-    \\for f in $SS_FILES; do
-    \\    if ! $RUNE validate "$f" 2>&1; then
-    \\        FAILED=1
-    \\    fi
-    \\done
-    \\
-    \\if [ "$FAILED" -ne 0 ]; then
-    \\    echo ""
-    \\    echo "Schema validation failed. Fix errors before committing."
-    \\    echo "To skip this check: git commit --no-verify"
-    \\    exit 1
-    \\fi
-    \\
-    \\echo "All schemas valid."
-    \\
-;
 
 pub const COMPLETIONS_BASH =
     \\# Bash completions for rune

@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.129.0 (2026-08-05) — 25,000+ lines production Zig, 1048+ tests, 26 test suites.
+**Current version**: 0.130.0 (2026-08-05) — 25,000+ lines production Zig, 1052+ tests, 26 test suites.
 
 ---
 

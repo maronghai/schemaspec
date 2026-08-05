@@ -3,7 +3,7 @@ const diff_types = @import("../../diff/types.zig");
 const dialect_mod = @import("../../dialect/dialect.zig");
 const utils = @import("../../utils.zig");
 const format_common = @import("../../diff/format_common.zig");
-const cli = @import("../../cli/types.zig");
+const ColorMode = @import("../../types/enums.zig").ColorMode;
 const color_mod = @import("../../color.zig");
 const SchemaDiff = diff_types.SchemaDiff;
 const Dialect = @import("../../dialect/enum.zig").Dialect;
@@ -165,7 +165,7 @@ pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
     }
 }
 
-pub fn formatDiff(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, color_mode: cli.ColorMode, io: std.Io) ![]const u8 {
+pub fn formatDiff(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, color_mode: ColorMode, io: std.Io) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
     const q = quoteChar(dialect);
@@ -186,7 +186,7 @@ pub fn formatDiff(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect, col
 
 /// Format only the summary line for `rune diff --summary`.
 /// Outputs: "N tables changed (X added, Y dropped, Z modified)"
-pub fn formatDiffSummary(alloc: std.mem.Allocator, d: SchemaDiff, color_mode: cli.ColorMode, io: std.Io) ![]const u8 {
+pub fn formatDiffSummary(alloc: std.mem.Allocator, d: SchemaDiff, color_mode: ColorMode, io: std.Io) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
     const use_color = color_mode.shouldUseColor(io);

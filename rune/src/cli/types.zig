@@ -1,13 +1,13 @@
 const dialect_enum = @import("../dialect/enum.zig");
+const enums = @import("../types/enums.zig");
 const color_mod = @import("../color.zig");
 
 // ─── Command Types ─────────────────────────────────────────────
 
-pub const Target = enum { sql, json_schema };
-
-pub const DiffFormat = enum { text, json, sarif, markdown };
-
-pub const StatsFormat = enum { text, json, markdown };
+pub const Target = enums.Target;
+pub const DiffFormat = enums.DiffFormat;
+pub const StatsFormat = enums.StatsFormat;
+pub const ColorMode = enums.ColorMode;
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
@@ -42,8 +42,6 @@ pub const ParsedArgs = struct {
     init_flag: bool = false,
     config_path: ?[]const u8 = null,
 };
-
-pub const ColorMode = color_mod.ColorMode;
 
 pub const ArgError = error{
     UnknownDialect,

@@ -12,7 +12,7 @@ const io_mod = @import("../io.zig");
 const json_schema = @import("../generators/json_schema.zig");
 const import_res = @import("import_resolver.zig");
 const stats_mod = @import("stats.zig");
-const StatsFormat = @import("../cli/types.zig").StatsFormat;
+const StatsFormat = @import("../types/enums.zig").StatsFormat;
 
 // ─── Forward Pipeline: .ss → SQL ─────────────────────────────
 // No dependency on cli.zig — output format dispatch is the caller's responsibility.
