@@ -55,21 +55,28 @@ pub fn loadConfigWithWarnings(io: std.Io, alloc: std.mem.Allocator, path: []cons
 /// Stops at filesystem root or after 128 levels (safety bound).
 pub fn loadConfigWithDiscoveryAndWarnings(io: std.Io, alloc: std.mem.Allocator) !Config {
     var dir = std.Io.Dir.cwd();
+    var owned = false; // only close dirs we opened, not the PEB CWD handle
     var depth: u8 = 0;
     while (depth < 128) : (depth += 1) {
         const data = dir.readFileAlloc(io, "rune.toml", alloc, .unlimited) catch |err| {
-            if (err != error.FileNotFound) return Config{};
-            const parent = dir.openDir(io, "..", .{}) catch return Config{};
-            dir.close(io);
+            if (err != error.FileNotFound) {
+                if (owned) dir.close(io);
+                return Config{};
+            }
+            const parent = dir.openDir(io, "..", .{}) catch {
+                if (owned) dir.close(io);
+                return Config{};
+            };
+            if (owned) dir.close(io);
             dir = parent;
+            owned = true;
             continue;
         };
+        if (owned) dir.close(io);
         warnUnknownKeys(data, true);
-        const result = try parseConfig(alloc, data);
-        dir.close(io);
-        return result;
+        return try parseConfig(alloc, data);
     }
-    dir.close(io);
+    if (owned) dir.close(io);
     return Config{};
 }
 
