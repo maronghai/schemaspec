@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.132.0 (2026-08-06) — 25,000+ lines production Zig, 1058+ tests, 26 test suites.
+**Current version**: 0.133.0 (2026-08-06) — 25,000+ lines production Zig, 1066+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,11 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.133.0 (2026-08-06)
+
+- **FK type compatibility validation** — New semantic pass `validate_fk_types` (13th pass) warns when FK field types don't match the referenced PK/unique field types. Catches common schema bugs like integer FKs referencing string PKs at compile time. Emits notes for cross-category mismatches (e.g. integer→string) and warnings for same-category but different types.
+- **New unit tests** — 8 tests in `semantic/pass/validate_fk_types.zig` covering: same-type match, string match, string→integer mismatch, integer→string mismatch, same-category (numeric→numeric), inline FK mismatch, multiple FKs with mixed compatibility, FK to non-existent table. Total: 1066 tests.
 
 ### v0.132.0 (2026-08-06)
 

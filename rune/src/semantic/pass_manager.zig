@@ -56,6 +56,8 @@ pub const DEFAULT_PASSES = [_]SemanticPass{
     .{ .name = "validate_circular_fk", .run = @import("pass/validate_circular_fk.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
     .{ .name = "validate_fk_targets", .run = @import("pass/validate_fk_targets.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
     .{ .name = "validate_unused_templates", .run = @import("pass/validate_unused_templates.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
+    // FK field type compatibility (v0.133.0):
+    .{ .name = "validate_fk_types", .run = @import("pass/validate_fk_types.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
     // Cross-table index name collision detection (v0.125.0):
     .{ .name = "validate_index_names", .run = @import("pass/validate_index_names.zig").run, .depends_on = &.{"validate"}, .access = .{ .reads_tables = true } },
 };

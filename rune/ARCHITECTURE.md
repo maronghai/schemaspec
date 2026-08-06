@@ -101,10 +101,10 @@ Input (.ss text)
     Output: []ResolvedTable (templates applied to each table)
     │
     ▼
-[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 11 pass implementations)
+[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 13 pass implementations)
     Pass manager: validate_template_types, resolve_names, autofk, suffix_inference, validate,
     validate_type_modifiers, validate_indexes, validate_duplicates, validate_circular_fk,
-    validate_fk_targets, validate_unused_templates
+    validate_fk_targets, validate_unused_templates, validate_fk_types, validate_index_names
     Output: ResolvedAst (templates resolved + passes applied)
     │
     ▼
@@ -261,6 +261,7 @@ DEFAULT_PASSES = [_]SemanticPass{
     validate_template_types, resolve_names, autofk, suffix_inference,
     validate, validate_type_modifiers, validate_indexes,
     validate_duplicates, validate_circular_fk, validate_fk_targets, validate_unused_templates,
+    validate_fk_types, validate_index_names,
 };
 ```
 

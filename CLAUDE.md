@@ -128,7 +128,7 @@ rune/src/
                reverse_map.zig                            # shared REVERSE_MAP data
   semantic/    analyzer.zig, pass_manager.zig,            # semantic analysis (6 files)
                trace.zig, diagnostic.zig, template.zig,
-               test_helpers.zig, pass/*.zig               # 12 pass implementations
+               test_helpers.zig, pass/*.zig               # 13 pass implementations
 ```
 
 ### Three Pipelines
@@ -249,7 +249,7 @@ rune/src/
 | | `trace.zig` | Shared AST trace formatting |
 | | `diagnostic.zig` | Multi-error diagnostic collector (printAll, formatJson, formatLsp, formatTerminal) |
 | | `template.zig` | Template inheritance resolution |
-| | `pass/*.zig` | 12 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
+| | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
@@ -271,7 +271,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 81 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 82 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 25 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
