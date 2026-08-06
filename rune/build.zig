@@ -79,13 +79,15 @@ pub fn build(b: *std.Build) void {
     golden_step.dependOn(&run_golden_sh.step);
 
     // ─── Benchmark ────────────────────────────────────────────────
+    const bench_mod = b.createModule(.{
+        .root_source_file = b.path("src/bench.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    bench_mod.addOptions("build_options", options);
     const bench_exe = b.addExecutable(.{
         .name = "bench",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("src/bench.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
+        .root_module = bench_mod,
     });
 
     const run_bench = b.addRunArtifact(bench_exe);

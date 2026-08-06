@@ -94,13 +94,19 @@ pub fn main(init: std.process.Init) !void {
             };
             printDiff(avg, baseline);
         },
+        .list => {
+            std.debug.print("Pipeline stages benchmarked:\n", .{});
+            inline for (STAGE_NAMES) |name| {
+                std.debug.print("  {s}\n", .{name});
+            }
+        },
     }
 }
 
 const BenchArgs = struct {
     file_path: []const u8 = "bench/small.ss",
-    iterations: usize = 50,
-    warmup: usize = 3,
+    iterations: usize = 200,
+    warmup: usize = 10,
     mode: enum { run, save, check, diff, list } = .run,
     dialect: dialect_enum.Dialect = .mysql,
     help: bool = false,
