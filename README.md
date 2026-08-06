@@ -513,8 +513,8 @@ rune watch schema.ss -d pg              # Watch and compile to PostgreSQL
 rune watch schema.ss -o out.sql         # Watch and write to file
 rune watch schema.ss -s                 # Watch with compilation stats
 
-# Lint schema for quality issues
-rune lint schema.ss                     # Check for missing PK, naming, FK indexes, timestamps
+# Lint schema for quality issues (13 rules)
+rune lint schema.ss                     # Check for PK, naming, FK indexes, timestamps, duplicates, circular FK
 rune lint schema.ss --json-errors       # Lint as JSON (machine-readable)
 rune lint schema.ss --strict            # Exit 1 if any warnings (CI/CD)
 ```

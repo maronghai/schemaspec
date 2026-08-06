@@ -16,6 +16,7 @@ const Dialect = dialect_enum.Dialect;
 pub const Generator = struct {
     name: []const u8,
     description: []const u8,
+    extension: []const u8,
     generate: *const fn (alloc: std.mem.Allocator, typed: typed_ast.TypedAst, dialect: Dialect) anyerror![]const u8,
 };
 
@@ -24,56 +25,67 @@ pub const REGISTRY = [_]Generator{
     .{
         .name = "json-schema",
         .description = "JSON Schema (draft-07) from .ss schema",
+        .extension = ".json",
         .generate = @import("generators/json_schema.zig").generate,
     },
     .{
         .name = "sql-ddl",
         .description = "SQL DDL (CREATE TABLE) for the selected dialect",
+        .extension = ".sql",
         .generate = @import("generators/sql_ddl.zig").generate,
     },
     .{
         .name = "prisma",
         .description = "Prisma schema from .ss schema",
+        .extension = ".prisma",
         .generate = @import("generators/prisma.zig").generate,
     },
     .{
         .name = "docs",
         .description = "Markdown documentation from .ss schema",
+        .extension = ".md",
         .generate = @import("generators/docs.zig").generate,
     },
     .{
         .name = "drizzle",
         .description = "Drizzle ORM TypeScript schema from .ss schema",
+        .extension = ".ts",
         .generate = @import("generators/drizzle.zig").generate,
     },
     .{
         .name = "typeorm",
         .description = "TypeORM entity classes from .ss schema",
+        .extension = ".ts",
         .generate = @import("generators/typeorm.zig").generate,
     },
     .{
         .name = "sqlalchemy",
         .description = "SQLAlchemy ORM models from .ss schema",
+        .extension = ".py",
         .generate = @import("generators/sqlalchemy.zig").generate,
     },
     .{
         .name = "knex",
         .description = "Knex.js migration files from .ss schema",
+        .extension = ".js",
         .generate = @import("generators/knex.zig").generate,
     },
     .{
         .name = "openapi",
         .description = "OpenAPI 3.1 spec from .ss schema",
+        .extension = ".yaml",
         .generate = @import("generators/openapi.zig").generate,
     },
     .{
         .name = "graphql",
         .description = "GraphQL type definitions from .ss schema",
+        .extension = ".graphql",
         .generate = @import("generators/graphql.zig").generate,
     },
     .{
         .name = "symbol-index",
         .description = "JSON symbol index for IDE integration",
+        .extension = ".json",
         .generate = @import("generators/symbol_index.zig").generate,
     },
 };

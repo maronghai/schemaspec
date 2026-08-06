@@ -495,8 +495,8 @@ pub fn generateFromSchemaBatch(
 
             // Determine output path
             const file_out = if (output_path) |base_path| blk: {
-                // Write to <base_path>/<generator_name>.out
-                break :blk try std.fmt.allocPrint(alloc, "{s}/{s}.out", .{ base_path, gen_name });
+                // Write to <base_path>/<generator_name><extension>
+                break :blk try std.fmt.allocPrint(alloc, "{s}/{s}{s}", .{ base_path, gen_name, gen.extension });
             } else null;
 
             if (file_out) |path| {

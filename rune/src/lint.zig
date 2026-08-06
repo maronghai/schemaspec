@@ -28,6 +28,7 @@ pub const LintConfig = struct {
     check_orphan_type: bool = true,
     check_index_unused: bool = true,
     check_circular_fk: bool = true,
+    check_duplicate_index: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
 };
@@ -102,6 +103,11 @@ pub fn lintSchema(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !
     }
     if (cfg.check_circular_fk) {
         try lintCircularFk(alloc, &results, ast);
+    }
+    if (cfg.check_duplicate_index) {
+        for (ast.tables) |table| {
+            try lintDuplicateIndex(alloc, &results, table);
+        }
     }
 
     return results;
@@ -449,6 +455,40 @@ fn detectCircularFkDfs(
     _ = path.pop();
 }
 
+// ─── Lint: Duplicate Index ─────────────────────────────────────
+// Warns when a table has multiple indexes with the same columns and type.
+// Duplicate indexes waste storage and slow down writes.
+
+fn lintDuplicateIndex(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    if (table.indexes.len < 2) return;
+
+    // Compare each pair of indexes for structural equality
+    var i: usize = 0;
+    while (i < table.indexes.len) : (i += 1) {
+        var j: usize = i + 1;
+        while (j < table.indexes.len) : (j += 1) {
+            if (indexesEqual(table.indexes[i], table.indexes[j])) {
+                const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates index '{s}' (same columns and type)", .{ table.indexes[j].name, table.indexes[i].name });
+                try results.append(alloc, .{
+                    .rule = "duplicate-index",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
+fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
+    if (a.kind != b.kind) return false;
+    if (a.fields.len != b.fields.len) return false;
+    for (a.fields, 0..) |field_a, idx| {
+        if (!std.mem.eql(u8, field_a, b.fields[idx])) return false;
+    }
+    return true;
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 fn isSnakeCase(name: []const u8) bool {
@@ -571,6 +611,7 @@ pub fn formatLintSarif(alloc: std.mem.Allocator, results: []const LintResult, ve
         .{ .id = "fk-cascade", .name = "fk-cascade", .desc = "FK has no explicit ON DELETE/ON UPDATE actions", .level = "note" },
         .{ .id = "orphan-type", .name = "orphan-type", .desc = "Custom type is defined but never used", .level = "note" },
         .{ .id = "index-unused", .name = "index-unused", .desc = "Standalone index may be unnecessary", .level = "note" },
+        .{ .id = "duplicate-index", .name = "duplicate-index", .desc = "Multiple indexes with same columns and type", .level = "warning" },
     };
 
     for (rules, 0..) |rule, i| {

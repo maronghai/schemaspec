@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.140.0 (2026-08-06) — 25,000+ lines production Zig, 1130+ tests, 26 test suites.
+**Current version**: 0.141.0 (2026-08-06) — 25,000+ lines production Zig, 1140+ tests, 26 test suites.
 
 ---
 
@@ -158,7 +158,7 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 - [x] Unknown flag suggestions — edit-distance-based "Did you mean?" for mistyped flags (v0.101.0)
 - [x] `rune stats --format json` — JSON output for schema statistics (v0.101.0)
 - [x] `rune watch` — watch file changes and recompile automatically (v0.117.0)
-- [x] `rune lint` — lint schema for quality issues: missing PK, naming conventions, FK indexes, timestamps, wide tables, enum case, field count, FK cascade, nullable PK, orphan types (v0.136.0, v0.137.0, v0.138.0)
+- [x] `rune lint` — lint schema for quality issues: missing PK, naming conventions, FK indexes, timestamps, wide tables, enum case, field count, FK cascade, nullable PK, orphan types, unused indexes, circular FKs, duplicate indexes (13 rules) (v0.136.0, v0.137.0, v0.138.0, v0.139.0, v0.141.0)
 
 ---
 
@@ -221,6 +221,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.141.0 (2026-08-06)
+
+- **Smart generator output extensions** — Batch generation (`rune generate schema.ss --generators prisma,drizzle`) now uses native file extensions (`.prisma`, `.ts`, `.py`, etc.) instead of generic `.out` suffix. The `Generator` struct now includes an `extension` field, enabling each generator to declare its output format.
+- **Duplicate index lint rule** — New `duplicate-index` lint rule detects multiple indexes with the same columns and type on a table. Duplicate indexes waste storage and slow down writes. Severity: warning.
+- **Watch mode event logging** — `rune watch` now logs change detection events with a counter (`[1] Change detected...`, `[1] OK`/`[1] FAILED`), making it easier to track recompilation activity.
+- **Lint help text update** — `rune lint --help` now documents all 13 lint rules (was 12). Added `index-unused`, `circular-fk`, and `duplicate-index` to help text.
+- **New tests**: 5 new unit tests in `generator_test.zig` (extension field validation) and `lint_test.zig` (duplicate index detection). Total: ~1140 tests.
 
 ### v0.140.0 (2026-08-06)
 

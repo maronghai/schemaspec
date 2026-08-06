@@ -80,12 +80,16 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
     if (!cfg.quiet) {
         std.debug.print("Initial compilation...\n", .{});
     }
-    _ = compileOnce(io, alloc, cfg);
+    const initial_ok = compileOnce(io, alloc, cfg);
     if (!cfg.quiet) {
-        std.debug.print("\n", .{});
+        if (initial_ok)
+            std.debug.print("OK\n\n", .{})
+        else
+            std.debug.print("FAILED\n\n", .{});
     }
 
     // Poll loop
+    var change_count: u64 = 0;
     while (true) {
         // Sleep for the configured interval — efficient, no CPU waste
         const dur = std.Io.Clock.Duration{
@@ -104,12 +108,16 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
 
         if (current_hash != last_hash) {
             last_hash = current_hash;
+            change_count += 1;
             if (!cfg.quiet) {
-                std.debug.print("Change detected, recompiling...\n", .{});
+                std.debug.print("[{d}] Change detected in {s}, recompiling...\n", .{ change_count, cfg.input });
             }
-            _ = compileOnce(io, alloc, cfg);
+            const ok = compileOnce(io, alloc, cfg);
             if (!cfg.quiet) {
-                std.debug.print("\n", .{});
+                if (ok)
+                    std.debug.print("[{d}] OK\n\n", .{change_count})
+                else
+                    std.debug.print("[{d}] FAILED\n\n", .{change_count});
             }
         }
     }

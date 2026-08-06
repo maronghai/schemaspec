@@ -861,3 +861,72 @@ fn makeTestTableWithFks(alloc: std.mem.Allocator, name: []const u8, fields: []co
         .line_no = 1,
     };
 }
+
+// ─── Duplicate Index Tests ─────────────────────────────────────
+
+test "lint: duplicate index detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Two indexes on the same columns with the same kind
+    const idx1 = makeIndex("idx_name", .regular, &.{"name"});
+    const idx2 = makeIndex("idx_name_2", .regular, &.{"name"});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{ idx1, idx2 });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "duplicate-index")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: no duplicate index passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Two indexes on different columns — not duplicates
+    const idx1 = makeIndex("idx_name", .regular, &.{"name"});
+    const idx2 = makeIndex("idx_email", .regular, &.{"email"});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+        makeSimpleField("email"),
+    }, &.{ idx1, idx2 });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "duplicate-index")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: different index kinds are not duplicates" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Same columns but different kinds (regular vs unique) — not duplicates
+    const idx1 = makeIndex("idx_name", .regular, &.{"name"});
+    const idx2 = makeIndex("uniq_name", .unique, &.{"name"});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{ idx1, idx2 });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "duplicate-index")) {
+            try testing.expect(false);
+        }
+    }
+}

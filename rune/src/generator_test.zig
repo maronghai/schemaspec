@@ -38,3 +38,24 @@ test "generator names are unique" {
         }
     }
 }
+
+test "all generators have non-empty extensions" {
+    for (REGISTRY) |gen| {
+        try std.testing.expect(gen.extension.len > 0);
+        try std.testing.expect(gen.extension[0] == '.');
+    }
+}
+
+test "generator extensions are correct" {
+    try std.testing.expectEqualStrings(".json", generator.get("json-schema").?.extension);
+    try std.testing.expectEqualStrings(".sql", generator.get("sql-ddl").?.extension);
+    try std.testing.expectEqualStrings(".prisma", generator.get("prisma").?.extension);
+    try std.testing.expectEqualStrings(".md", generator.get("docs").?.extension);
+    try std.testing.expectEqualStrings(".ts", generator.get("drizzle").?.extension);
+    try std.testing.expectEqualStrings(".ts", generator.get("typeorm").?.extension);
+    try std.testing.expectEqualStrings(".py", generator.get("sqlalchemy").?.extension);
+    try std.testing.expectEqualStrings(".js", generator.get("knex").?.extension);
+    try std.testing.expectEqualStrings(".yaml", generator.get("openapi").?.extension);
+    try std.testing.expectEqualStrings(".graphql", generator.get("graphql").?.extension);
+    try std.testing.expectEqualStrings(".json", generator.get("symbol-index").?.extension);
+}
