@@ -256,7 +256,7 @@ rune/src/
 | | `template.zig` | Template inheritance resolution |
 | | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
-| | `lint.zig` | Schema quality linting (missing PK, naming, FK indexes, timestamps) |
+| | `lint.zig` | Schema quality linting (missing PK, naming, FK indexes, timestamps, wide table, enum case, low count, FK cascade, nullable PK, orphan types) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
 | | `bench.zig` | Benchmark entry point |

@@ -23,6 +23,9 @@ pub const LintConfig = struct {
     check_wide_table: bool = true,
     check_enum_case: bool = true,
     check_count: bool = true,
+    check_fk_cascade: bool = true,
+    check_nullable_pk: bool = true,
+    check_orphan_type: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
 };
@@ -79,10 +82,17 @@ pub fn lintSchema(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !
         if (cfg.check_timestamps) try lintNoTimestamps(alloc, &results, table);
         if (cfg.check_wide_table) try lintWideTable(alloc, &results, table, cfg.wide_table_max);
         if (cfg.check_count) try lintCount(alloc, &results, table, cfg.count_min);
+        if (cfg.check_fk_cascade) try lintNoFkCascade(alloc, &results, table);
+        if (cfg.check_nullable_pk) try lintNullablePk(alloc, &results, table);
     }
     if (cfg.check_enum_case) {
         for (ast.custom_types) |ct| {
             try lintEnumCase(alloc, &results, ct);
+        }
+    }
+    if (cfg.check_orphan_type) {
+        for (ast.custom_types) |ct| {
+            try lintOrphanType(alloc, &results, ast, ct);
         }
     }
 
@@ -231,6 +241,83 @@ fn lintCount(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), tabl
     }
 }
 
+// ─── Lint: FK Cascade ─────────────────────────────────────────
+// Warns when FK fields lack explicit ON DELETE/ON UPDATE actions.
+// Production schemas need explicit cascade rules to avoid data integrity issues.
+
+fn lintNoFkCascade(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    for (table.fields) |field| {
+        if (field.fk) |fk| {
+            var has_delete = false;
+            var has_update = false;
+            for (fk.actions) |action| {
+                if (action.trigger == .on_delete) has_delete = true;
+                if (action.trigger == .on_update) has_update = true;
+            }
+            if (!has_delete or !has_update) {
+                const msg = if (!has_delete and !has_update)
+                    try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON DELETE/ON UPDATE actions", .{field.name})
+                else if (!has_delete)
+                    try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON DELETE action", .{field.name})
+                else
+                    try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON UPDATE action", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "fk-cascade",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
+
+// ─── Lint: Nullable PK ────────────────────────────────────────
+// Warns when PK fields have nullable modifier.
+// Primary keys must be NOT NULL for data integrity.
+
+fn lintNullablePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    for (table.fields) |field| {
+        var is_pk = false;
+        var is_nullable = false;
+        for (field.modifiers) |mod| {
+            if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) is_pk = true;
+            if (mod.kind == .nullable) is_nullable = true;
+        }
+        if (is_pk and is_nullable) {
+            const msg = try std.fmt.allocPrint(alloc, "primary key column '{s}' should not be nullable", .{field.name});
+            try results.append(alloc, .{
+                .rule = "nullable-pk",
+                .table = table.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
+
+// ─── Lint: Orphan Type ────────────────────────────────────────
+// Warns when custom type definitions aren't used by any table field.
+// Dead type definitions clutter the schema and confuse readers.
+
+fn lintOrphanType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, ct: ast_mod.CustomType) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            switch (field.type_info) {
+                .simple => |s| if (std.mem.eql(u8, s, ct.name)) return,
+                else => {},
+            }
+        }
+    }
+    const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' is defined but never used by any table", .{ct.name});
+    try results.append(alloc, .{
+        .rule = "orphan-type",
+        .table = ct.name,
+        .message = msg,
+        .severity = .info,
+    });
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 fn hasPrimaryKey(table: ResolvedTable) bool {
@@ -356,10 +443,13 @@ pub fn formatLintSarif(results: []const LintResult, version_str: []const u8, fil
         .{ .id = "no-pk", .name = "no-primary-key", .desc = "Table has no primary key", .level = "error" },
         .{ .id = "wide-table", .name = "wide-table", .desc = "Table has too many fields", .level = "warning" },
         .{ .id = "no-index-fk", .name = "no-index-fk", .desc = "Foreign key column has no index", .level = "warning" },
+        .{ .id = "nullable-pk", .name = "nullable-pk", .desc = "Primary key column is nullable", .level = "warning" },
         .{ .id = "naming", .name = "naming-conventions", .desc = "Identifier does not follow snake_case", .level = "note" },
         .{ .id = "no-timestamps", .name = "no-timestamps", .desc = "Table has no audit timestamps", .level = "note" },
         .{ .id = "enum-case", .name = "enum-case", .desc = "Custom type should use UPPER_CASE naming", .level = "note" },
         .{ .id = "count", .name = "low-field-count", .desc = "Table has very few non-PK fields", .level = "note" },
+        .{ .id = "fk-cascade", .name = "fk-cascade", .desc = "FK has no explicit ON DELETE/ON UPDATE actions", .level = "note" },
+        .{ .id = "orphan-type", .name = "orphan-type", .desc = "Custom type is defined but never used", .level = "note" },
     };
 
     for (rules, 0..) |rule, i| {
@@ -554,6 +644,9 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
         cfg.check_wide_table = false;
         cfg.check_enum_case = false;
         cfg.check_count = false;
+        cfg.check_fk_cascade = false;
+        cfg.check_nullable_pk = false;
+        cfg.check_orphan_type = false;
         for (enabled) |rule| {
             if (std.mem.eql(u8, rule, "no-pk")) cfg.check_pk = true;
             if (std.mem.eql(u8, rule, "naming")) cfg.check_naming = true;
@@ -562,6 +655,9 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             if (std.mem.eql(u8, rule, "wide-table")) cfg.check_wide_table = true;
             if (std.mem.eql(u8, rule, "enum-case")) cfg.check_enum_case = true;
             if (std.mem.eql(u8, rule, "count")) cfg.check_count = true;
+            if (std.mem.eql(u8, rule, "fk-cascade")) cfg.check_fk_cascade = true;
+            if (std.mem.eql(u8, rule, "nullable-pk")) cfg.check_nullable_pk = true;
+            if (std.mem.eql(u8, rule, "orphan-type")) cfg.check_orphan_type = true;
         }
     }
 
@@ -575,6 +671,9 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             if (std.mem.eql(u8, rule, "wide-table")) cfg.check_wide_table = false;
             if (std.mem.eql(u8, rule, "enum-case")) cfg.check_enum_case = false;
             if (std.mem.eql(u8, rule, "count")) cfg.check_count = false;
+            if (std.mem.eql(u8, rule, "fk-cascade")) cfg.check_fk_cascade = false;
+            if (std.mem.eql(u8, rule, "nullable-pk")) cfg.check_nullable_pk = false;
+            if (std.mem.eql(u8, rule, "orphan-type")) cfg.check_orphan_type = false;
         }
     }
 

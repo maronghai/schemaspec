@@ -557,3 +557,165 @@ test "lint: parse rules file" {
     try testing.expectEqual(@as(usize, 40), rules.thresholds.wide_table_max.?);
     try testing.expectEqual(@as(usize, 3), rules.thresholds.count_min.?);
 }
+
+// ─── FK Cascade Tests ────────────────────────────────────────
+
+fn makeFkFieldWithActions(name: []const u8, actions: []const ast_mod.FkAction) ast_mod.Field {
+    return makeField(name, .{ .simple = "n" }, &.{}, .{
+        .fields = &.{name},
+        .ref_table = "other",
+        .ref_fields = &.{"id"},
+        .actions = actions,
+        .line_no = 1,
+    });
+}
+
+test "lint: FK without cascade actions detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "orders", &.{
+        makePkField("id"),
+        makeFkField("user_id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-cascade")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: FK with both cascade actions passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const actions = [_]ast_mod.FkAction{
+        .{ .trigger = .on_delete, .action = .cascade },
+        .{ .trigger = .on_update, .action = .cascade },
+    };
+    const table = try makeTestTable(alloc, "orders", &.{
+        makePkField("id"),
+        makeFkFieldWithActions("user_id", &actions),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-cascade")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: FK with only ON DELETE detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const actions = [_]ast_mod.FkAction{
+        .{ .trigger = .on_delete, .action = .cascade },
+    };
+    const table = try makeTestTable(alloc, "orders", &.{
+        makePkField("id"),
+        makeFkFieldWithActions("user_id", &actions),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-cascade") and std.mem.indexOf(u8, r.message, "ON UPDATE") != null) found = true;
+    }
+    try testing.expect(found);
+}
+
+// ─── Nullable PK Tests ───────────────────────────────────────
+
+test "lint: nullable PK detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makeField("id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 }, .{ .kind = .nullable, .line_no = 1 } }, null),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "nullable-pk")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: non-nullable PK passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "nullable-pk")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Orphan Type Tests ───────────────────────────────────────
+
+test "lint: orphan type detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Custom type defined but not used by any table field
+    const ct = makeCustomType("STATUS_TYPE");
+    const cts = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAstWithCustomTypes(tables, cts);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "orphan-type")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: used type passes orphan check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Custom type IS used by a table field
+    const ct = makeCustomType("status");
+    const cts = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("status", .{ .simple = "status" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAstWithCustomTypes(tables, cts);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "orphan-type")) {
+            try testing.expect(false);
+        }
+    }
+}

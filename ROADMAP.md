@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.137.0 (2026-08-06) — 25,000+ lines production Zig, 1111+ tests, 26 test suites.
+**Current version**: 0.138.0 (2026-08-06) — 25,000+ lines production Zig, 1120+ tests, 26 test suites.
 
 ---
 
@@ -158,7 +158,7 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 - [x] Unknown flag suggestions — edit-distance-based "Did you mean?" for mistyped flags (v0.101.0)
 - [x] `rune stats --format json` — JSON output for schema statistics (v0.101.0)
 - [x] `rune watch` — watch file changes and recompile automatically (v0.117.0)
-- [x] `rune lint` — lint schema for quality issues: missing PK, naming conventions, FK indexes, timestamps, wide tables, enum case, field count (v0.136.0, v0.137.0)
+- [x] `rune lint` — lint schema for quality issues: missing PK, naming conventions, FK indexes, timestamps, wide tables, enum case, field count, FK cascade, nullable PK, orphan types (v0.136.0, v0.137.0, v0.138.0)
 
 ---
 
@@ -221,6 +221,13 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.138.0 (2026-08-06)
+
+- **Expanded lint rules** — 3 new lint rules: `fk-cascade` (warns when FK columns lack explicit ON DELETE/ON UPDATE actions), `nullable-pk` (warns when PK columns have nullable modifier), `orphan-type` (warns when custom type definitions are unused by any table). Total: 10 lint rules.
+- **Lint help text** — `rune lint --help` now documents all 10 lint rules with descriptions. Added `--format` and `--rules` flag documentation. Added diff-aware lint example.
+- **SARIF rule expansion** — `rune lint --format sarif` now includes all 10 lint rules in the SARIF rule definitions for CI/CD integration.
+- **New tests**: 9 new unit tests in `lint_test.zig` covering: FK without cascade detection, FK with both actions passes, FK with only ON DELETE detected, nullable PK detected, non-nullable PK passes, orphan type detected, used type passes orphan check. Total: ~1120 tests.
 
 ### v0.137.0 (2026-08-06)
 

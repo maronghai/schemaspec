@@ -2,10 +2,10 @@
   "file": "bench/small.ss",
   "dialect": "mysql",
   "stages": {
-    "tokenize": 0.21,
+    "tokenize": 0.22,
     "parse": 0.17,
-    "semantic": 0.40,
-    "type_resolve": 0.08,
+    "semantic": 0.42,
+    "type_resolve": 0.07,
     "codegen": 0.09
   }
 }
