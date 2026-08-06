@@ -48,6 +48,7 @@ pub fn printUsage() void {
     std.debug.print("  rune diff old.ss new.ss --format json # Diff as JSON\n", .{});
     std.debug.print("  rune diff schema.ss --from-sql live.sql # Drift detection against SQL dump\n", .{});
     std.debug.print("  rune diff schema.ss --from-sql live.sql --check # CI drift gate\n", .{});
+    std.debug.print("  rune diff schema.ss --from-sql - # Read SQL from stdin (pipe from mysqldump/pg_dump)\n", .{});
     std.debug.print("  rune migrate old.ss new.ss -o m.sql  # Generate migration SQL\n", .{});
     std.debug.print("  rune migrate old.ss new.ss --rollback # Generate rollback SQL\n", .{});
     std.debug.print("  rune migrate old.ss new.ss --graph    # Show migration dependency graph\n", .{});

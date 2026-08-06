@@ -8,6 +8,6 @@ pub const Target = enum { sql, json_schema };
 
 pub const DiffFormat = enum { text, json, sarif, markdown };
 
-pub const StatsFormat = enum { text, json, markdown };
+pub const StatsFormat = enum { text, json, markdown, summary };
 
 pub const ColorMode = color_mod.ColorMode;

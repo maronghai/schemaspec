@@ -123,6 +123,14 @@ pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
     });
 }
 
+/// Format stats as a compact one-line summary.
+pub fn formatSummary(stats: Stats) ![]const u8 {
+    return std.fmt.allocPrint(std.heap.page_allocator,
+        "{d} table(s), {d} field(s), {d} view(s), {d} FK(s), {d} index(es), {d} check(s), {d} type(s)",
+        .{ stats.tables, stats.fields, stats.views, stats.foreign_keys, stats.indexes, stats.check_constraints, stats.custom_types },
+    );
+}
+
 /// Format stats as a Markdown table.
 pub fn formatStatsMarkdown(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
     return std.fmt.allocPrint(alloc,

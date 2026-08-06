@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.138.0 (2026-08-06) — 25,000+ lines production Zig, 1120+ tests, 26 test suites.
+**Current version**: 0.139.0 (2026-08-06) — 25,000+ lines production Zig, 1130+ tests, 26 test suites.
 
 ---
 
@@ -116,7 +116,7 @@ Move from batch compilation to interactive, incremental usage. **In progress** �
 ### Live Schema Monitoring
 
 - [x] `rune watch schema.ss` — watch file changes and recompile automatically (v0.117.0)
-- [ ] `rune diff --live schema.ss mysql://host/db` — compare `.ss` file against a live database
+- [x] `rune diff --live schema.ss mysql://host/db` — compare `.ss` file against a live database via stdin pipe (v0.139.0)
 - [x] Schema drift detection — `rune diff schema.ss --from-sql live.sql` compare expected vs SQL dump (v0.134.0)
 
 ### CI/CD Integration
@@ -221,6 +221,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.139.0 (2026-08-06)
+
+- **Live database diff via stdin** — `rune diff schema.ss --from-sql -` reads SQL from stdin, enabling direct comparison against live databases via pipe: `mysqldump --no-data mydb | rune diff schema.ss --from-sql -`. Phase 4 complete.
+- **In-memory diff pipeline** — Eliminated temp file creation in `--from-sql` path. SQL text is now reverse-engineered and compiled in-memory via new `compileSqlToAst` pipeline function. Faster and no disk artifacts.
+- **`rune stats --summary`** — Compact one-line stats output: `3 table(s), 24 field(s), 4 view(s), 6 FK(s), 8 index(es), 0 check(s), 0 type(s)`. Useful for quick schema overview.
+- **2 new lint rules** — `index-unused` (warns when standalone index doesn't correspond to FK, unique, or PK constraint), `circular-fk` (warns when FK chains form circular references like A→B→A). Total: 12 lint rules.
+- **SARIF rule expansion** — `rune lint --format sarif` now includes all 12 lint rules.
+- **New tests**: 6 new unit tests in `lint_test.zig` covering: unused index detected, FK-covered index passes, unique index passes, circular FK detected, no circular FK passes. Total: ~1126 tests.
 
 ### v0.138.0 (2026-08-06)
 
@@ -952,8 +961,8 @@ Ongoing improvements pursued alongside feature work.
 | 1: Core Solidification | ✅ Complete | 9/9 | 0 |
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
-| 4: Incremental & Live Workflows | 🟡 Partial | 9/10 | 1 |
+| 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | 🟡 Partial | 8/13 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 11/12 | 1 |
-| **Total** | | **63/82** | **19** |
+| **Total** | | **64/82** | **18** |

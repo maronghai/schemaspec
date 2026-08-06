@@ -719,3 +719,145 @@ test "lint: used type passes orphan check" {
         }
     }
 }
+
+// ─── Index Unused Tests ───────────────────────────────────────
+
+test "lint: unused index detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Index on a column that is not an FK field
+    const idx = makeIndex("idx_name", .regular, &.{"name"});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{idx});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-unused")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: FK-covered index passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Index on an FK column — should NOT trigger index-unused
+    const idx = makeIndex("idx_user_id", .regular, &.{"user_id"});
+    const table = try makeTestTable(alloc, "orders", &.{
+        makePkField("id"),
+        makeFkField("user_id"),
+    }, &.{idx});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-unused")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: unique index passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Unique index — always useful, never triggers index-unused
+    const idx = makeIndex("idx_email", .unique, &.{"email"});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("email"),
+    }, &.{idx});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-unused")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Circular FK Tests ────────────────────────────────────────
+
+test "lint: circular FK detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // A -> B -> A circular chain
+    const table_a = try makeTestTableWithFks(alloc, "a", &.{
+        makePkField("id"),
+        makeFkFieldTo("b_id", "b", "id"),
+    });
+    const table_b = try makeTestTableWithFks(alloc, "b", &.{
+        makePkField("id"),
+        makeFkFieldTo("a_id", "a", "id"),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{ table_a, table_b });
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "circular-fk")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: no circular FK passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // A -> B -> C (no cycle)
+    const table_a = try makeTestTableWithFks(alloc, "a", &.{
+        makePkField("id"),
+        makeFkFieldTo("b_id", "b", "id"),
+    });
+    const table_b = try makeTestTableWithFks(alloc, "b", &.{
+        makePkField("id"),
+        makeFkFieldTo("c_id", "c", "id"),
+    });
+    const table_c = try makeTestTableWithFks(alloc, "c", &.{
+        makePkField("id"),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{ table_a, table_b, table_c });
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "circular-fk")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Helper for FK tables ─────────────────────────────────────
+
+fn makeFkFieldTo(name: []const u8, ref_table: []const u8, ref_field: []const u8) ast_mod.Field {
+    return makeField(name, .{ .simple = "n" }, &.{}, .{
+        .fields = &.{name},
+        .ref_table = ref_table,
+        .ref_fields = &.{ref_field},
+        .actions = &.{},
+        .line_no = 1,
+    });
+}
+
+fn makeTestTableWithFks(alloc: std.mem.Allocator, name: []const u8, fields: []const ast_mod.Field) !ResolvedTable {
+    return .{
+        .name = name,
+        .comment = null,
+        .engine = null,
+        .fields = try alloc.dupe(ast_mod.Field, fields),
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    };
+}

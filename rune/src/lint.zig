@@ -26,6 +26,8 @@ pub const LintConfig = struct {
     check_fk_cascade: bool = true,
     check_nullable_pk: bool = true,
     check_orphan_type: bool = true,
+    check_index_unused: bool = true,
+    check_circular_fk: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
 };
@@ -94,6 +96,14 @@ pub fn lintSchema(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !
         for (ast.custom_types) |ct| {
             try lintOrphanType(alloc, &results, ast, ct);
         }
+    }
+    if (cfg.check_index_unused) {
+        for (ast.tables) |table| {
+            try lintIndexUnused(alloc, &results, table);
+        }
+    }
+    if (cfg.check_circular_fk) {
+        try lintCircularFk(alloc, &results, ast);
     }
 
     return results;
@@ -318,6 +328,128 @@ fn lintOrphanType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult),
     });
 }
 
+// ─── Lint: Index Unused ────────────────────────────────────────
+// Warns when a standalone index doesn't correspond to any FK field,
+// primary key, or unique constraint. Such indexes may be unnecessary overhead.
+
+fn lintIndexUnused(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    // Collect FK field names for this table
+    var fk_fields = std.StringHashMap(void).init(alloc);
+    defer fk_fields.deinit();
+    for (table.fields) |field| {
+        if (field.fk != null) {
+            try fk_fields.put(field.name, {});
+        }
+    }
+    for (table.indexes) |idx| {
+        // Skip primary key and unique indexes — those are always useful
+        if (idx.kind == .primary_key or idx.kind == .unique) continue;
+        // Check if this index covers any FK fields
+        var covers_fk = false;
+        for (idx.fields) |idx_field| {
+            if (fk_fields.contains(idx_field)) {
+                covers_fk = true;
+                break;
+            }
+        }
+        if (!covers_fk) {
+            const msg = try std.fmt.allocPrint(alloc, "index '{s}' on [{s}] may be unused (no FK or unique constraint)", .{ idx.name, idx.fields[0] });
+            try results.append(alloc, .{
+                .rule = "index-unused",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+// ─── Lint: Circular FK ─────────────────────────────────────────
+// Warns when foreign key chains form circular references (e.g. A→B→C→A).
+// Circular FKs can cause insertion deadlocks and migration issues.
+
+fn lintCircularFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst) !void {
+    // Build adjacency list: table_name → list of FK target table names
+    var graph = std.StringHashMap(std.ArrayList([]const u8)).init(alloc);
+    defer {
+        var iter = graph.iterator();
+        while (iter.next()) |entry| {
+            entry.value_ptr.deinit(alloc);
+        }
+        graph.deinit();
+    }
+
+    for (ast.tables) |table| {
+        var targets = try std.ArrayList([]const u8).initCapacity(alloc, 4);
+        for (table.fields) |field| {
+            if (field.fk) |fk| {
+                try targets.append(alloc, fk.ref_table);
+            }
+        }
+        try graph.put(table.name, targets);
+    }
+
+    // DFS cycle detection
+    var visited = std.StringHashMap(void).init(alloc);
+    defer visited.deinit();
+    var path = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+    defer path.deinit(alloc);
+
+    for (ast.tables) |table| {
+        if (!visited.contains(table.name)) {
+            try detectCircularFkDfs(alloc, &visited, &path, &graph, table.name, results);
+        }
+    }
+}
+
+fn detectCircularFkDfs(
+    alloc: std.mem.Allocator,
+    visited: *std.StringHashMap(void),
+    path: *std.ArrayList([]const u8),
+    graph: *std.StringHashMap(std.ArrayList([]const u8)),
+    current: []const u8,
+    results: *std.ArrayList(LintResult),
+) !void {
+    try visited.put(current, {});
+    try path.append(alloc, current);
+
+    if (graph.get(current)) |targets| {
+        for (targets.items) |target| {
+            // Check if target is in current path (cycle detected)
+            for (path.items) |path_node| {
+                if (std.mem.eql(u8, path_node, target)) {
+                    // Build cycle description
+                    var cycle_desc = try std.ArrayList(u8).initCapacity(alloc, 128);
+                    defer cycle_desc.deinit(alloc);
+                    var in_cycle = false;
+                    for (path.items) |pn| {
+                        if (std.mem.eql(u8, pn, target)) in_cycle = true;
+                        if (in_cycle) {
+                            if (cycle_desc.items.len > 0) try cycle_desc.appendSlice(alloc, " -> ");
+                            try cycle_desc.appendSlice(alloc, pn);
+                        }
+                    }
+                    try cycle_desc.appendSlice(alloc, " -> ");
+                    try cycle_desc.appendSlice(alloc, target);
+                    const msg = try std.fmt.allocPrint(alloc, "circular FK chain detected: {s}", .{cycle_desc.items});
+                    try results.append(alloc, .{
+                        .rule = "circular-fk",
+                        .table = current,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    return;
+                }
+            }
+            if (!visited.contains(target)) {
+                try detectCircularFkDfs(alloc, visited, path, graph, target, results);
+            }
+        }
+    }
+
+    _ = path.pop();
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 fn hasPrimaryKey(table: ResolvedTable) bool {
@@ -444,12 +576,14 @@ pub fn formatLintSarif(results: []const LintResult, version_str: []const u8, fil
         .{ .id = "wide-table", .name = "wide-table", .desc = "Table has too many fields", .level = "warning" },
         .{ .id = "no-index-fk", .name = "no-index-fk", .desc = "Foreign key column has no index", .level = "warning" },
         .{ .id = "nullable-pk", .name = "nullable-pk", .desc = "Primary key column is nullable", .level = "warning" },
+        .{ .id = "circular-fk", .name = "circular-fk", .desc = "Foreign key chain forms a circular reference", .level = "warning" },
         .{ .id = "naming", .name = "naming-conventions", .desc = "Identifier does not follow snake_case", .level = "note" },
         .{ .id = "no-timestamps", .name = "no-timestamps", .desc = "Table has no audit timestamps", .level = "note" },
         .{ .id = "enum-case", .name = "enum-case", .desc = "Custom type should use UPPER_CASE naming", .level = "note" },
         .{ .id = "count", .name = "low-field-count", .desc = "Table has very few non-PK fields", .level = "note" },
         .{ .id = "fk-cascade", .name = "fk-cascade", .desc = "FK has no explicit ON DELETE/ON UPDATE actions", .level = "note" },
         .{ .id = "orphan-type", .name = "orphan-type", .desc = "Custom type is defined but never used", .level = "note" },
+        .{ .id = "index-unused", .name = "index-unused", .desc = "Standalone index may be unnecessary", .level = "note" },
     };
 
     for (rules, 0..) |rule, i| {
@@ -647,6 +781,8 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
         cfg.check_fk_cascade = false;
         cfg.check_nullable_pk = false;
         cfg.check_orphan_type = false;
+        cfg.check_index_unused = false;
+        cfg.check_circular_fk = false;
         for (enabled) |rule| {
             if (std.mem.eql(u8, rule, "no-pk")) cfg.check_pk = true;
             if (std.mem.eql(u8, rule, "naming")) cfg.check_naming = true;
@@ -658,6 +794,8 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             if (std.mem.eql(u8, rule, "fk-cascade")) cfg.check_fk_cascade = true;
             if (std.mem.eql(u8, rule, "nullable-pk")) cfg.check_nullable_pk = true;
             if (std.mem.eql(u8, rule, "orphan-type")) cfg.check_orphan_type = true;
+            if (std.mem.eql(u8, rule, "index-unused")) cfg.check_index_unused = true;
+            if (std.mem.eql(u8, rule, "circular-fk")) cfg.check_circular_fk = true;
         }
     }
 
@@ -674,6 +812,8 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             if (std.mem.eql(u8, rule, "fk-cascade")) cfg.check_fk_cascade = false;
             if (std.mem.eql(u8, rule, "nullable-pk")) cfg.check_nullable_pk = false;
             if (std.mem.eql(u8, rule, "orphan-type")) cfg.check_orphan_type = false;
+            if (std.mem.eql(u8, rule, "index-unused")) cfg.check_index_unused = false;
+            if (std.mem.eql(u8, rule, "circular-fk")) cfg.check_circular_fk = false;
         }
     }
 

@@ -246,7 +246,9 @@ pub fn parseCheckArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
 
 pub fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    const stats_format: StatsFormat = if (opts.format == .json)
+    const stats_format: StatsFormat = if (opts.summary)
+        .summary
+    else if (opts.format == .json)
         .json
     else if (opts.format == .markdown)
         .markdown
