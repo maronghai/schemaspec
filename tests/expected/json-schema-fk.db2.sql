@@ -8,8 +8,6 @@ CREATE TABLE "order" (
   INDEX "idx_status" ("status")
 );
 COMMENT ON TABLE "order" IS '订单表';
-CREATE INDEX "idx_order_user_id" ON "order" ("user_id");
-CREATE INDEX "idx_order_status" ON "order" ("status");
 
 CREATE TABLE "user" (
   "id" INTEGER NOT NULL PRIMARY KEY GENERATED ALWAYS AS IDENTITY,

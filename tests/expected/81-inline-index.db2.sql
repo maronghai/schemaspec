@@ -7,4 +7,3 @@ CREATE TABLE "user" (
   INDEX "idx_name" ("name"),
   UNIQUE INDEX "uk_email" ("email")
 );
-CREATE INDEX "idx_user_name" ON "user" ("name");

@@ -51,9 +51,12 @@ pub fn loadConfigWithWarnings(io: std.Io, alloc: std.mem.Allocator, path: []cons
 }
 
 /// Load config with parent-directory discovery, unknown-key warnings, and discovery.
+/// Searches upward from cwd for rune.toml (like git searches for .git/).
+/// Stops at filesystem root or after 128 levels (safety bound).
 pub fn loadConfigWithDiscoveryAndWarnings(io: std.Io, alloc: std.mem.Allocator) !Config {
     var dir = std.Io.Dir.cwd();
-    while (true) {
+    var depth: u8 = 0;
+    while (depth < 128) : (depth += 1) {
         const data = dir.readFileAlloc(io, "rune.toml", alloc, .unlimited) catch |err| {
             if (err != error.FileNotFound) return Config{};
             const parent = dir.openDir(io, "..", .{}) catch return Config{};
@@ -66,6 +69,8 @@ pub fn loadConfigWithDiscoveryAndWarnings(io: std.Io, alloc: std.mem.Allocator) 
         dir.close(io);
         return result;
     }
+    dir.close(io);
+    return Config{};
 }
 
 /// Parse TOML content into a Config struct.

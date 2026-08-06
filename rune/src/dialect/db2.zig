@@ -78,8 +78,8 @@ fn db2EmitInlineColumnComment(w: *Writer, comment: []const u8) anyerror!void {
     if (tr.len > 0) try w.print(" /* {s} */", .{tr});
 }
 
-fn db2EmitInlineColumnStandaloneIndex(w: *Writer, table_name: []const u8, col_name: []const u8) anyerror!void {
-    try common.emitStandaloneCreateIndexWithQuote(w, table_name, col_name, '"', '"');
+fn db2EmitInlineColumnStandaloneIndex(_: *Writer, _: []const u8, _: []const u8) anyerror!void {
+    // Db2 handles inline indexes via db2EmitInlineIndex — no standalone needed
 }
 
 // ─── ALTER TABLE Methods ─────────────────────────────────────
