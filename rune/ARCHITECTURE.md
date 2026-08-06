@@ -445,3 +445,38 @@ zig build bench -- bench/large.ss 5         # large schema
 | Reverse confidence | `tests/test_reverse_confidence.sh` | 4 | Reverse confidence scores |
 | Init & completions | `tests/test_init.sh` | 12 | Init & completions |
 | **Total** | | **~753+** | |
+
+## Platform Support
+
+Rune supports multiple platforms via Zig's cross-compilation:
+
+| Platform | Target Triple | Status | Notes |
+|----------|--------------|--------|-------|
+| Linux x86_64 | `x86_64-linux` | ✅ Primary | Full test coverage |
+| Linux ARM64 | `aarch64-linux` | ✅ CI | Cross-compiled, golden tests via QEMU |
+| macOS x86_64 | `x86_64-macos` | ✅ Release | Cross-compiled |
+| macOS ARM64 | `aarch64-macos` | ✅ Release | Cross-compiled |
+| Windows x86_64 | `x86_64-windows` | ✅ CI | Unit tests + build validation |
+| WASM (WASI) | `wasm32-wasi` | ✅ Library | WASM library for browser/Deno usage |
+
+### WASM Architecture
+
+WASM builds use a separate entry point (`src/wasm.zig`) instead of `src/main.zig`. The WASM module exports C-compatible functions:
+
+- `rune_compile(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — compile schema to SQL
+- `rune_version() → ?[*:0]const u8` — get version string
+- `rune_reset() → void` — free all allocated memory
+
+Key WASM adaptations:
+- `io.zig`: mmap falls back to heap allocation (same as Windows)
+- `codegen/parallel.zig`: sequential compilation fallback (no threads on WASM)
+- `build.zig`: automatically selects `wasm.zig` entry point for wasm32 targets
+
+JavaScript wrapper (`wasm/rune.js`) provides `compile()` and `version()` APIs for Deno and browser environments.
+
+### Build Commands
+
+```bash
+zig build -Dtarget=wasm32-wasi              # Build WASM library
+zig build -Dtarget=wasm32-wasi -Doptimize=ReleaseSafe  # Release WASM
+```

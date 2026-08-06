@@ -89,6 +89,22 @@ jobs:
       - name: Stats JSON tests
         run: bash tests/test_stats_json.sh
 
+  test-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: step-security/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Build
+        run: cd rune && zig build -Doptimize=ReleaseSafe
+
+      - name: Unit tests
+        run: cd rune && zig build test
+
   test-arm64:
     runs-on: ubuntu-latest
     steps:

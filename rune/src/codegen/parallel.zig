@@ -73,6 +73,12 @@ pub fn compileParallel(
         return sc.generateStreaming(typed);
     }
 
+    // WASM: no threads available — fall back to sequential streaming
+    if (comptime @import("builtin").os.tag == .wasi) {
+        var sc = try streaming.StreamingCodegen.init(alloc, dialect);
+        return sc.generateStreaming(typed);
+    }
+
     const graph = try analyzeDependencies(alloc, typed.tables);
     defer graph.deinit(alloc);
 

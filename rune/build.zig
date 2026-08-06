@@ -21,17 +21,29 @@ pub fn build(b: *std.Build) void {
     const options = b.addOptions();
     options.addOption([]const u8, "VERSION", VERSION);
 
+    // Choose entry point based on target: wasm32 uses wasm.zig (library), others use main.zig (CLI)
+    const root_source = if (target.result.cpu.arch == .wasm32)
+        b.path("src/wasm.zig")
+    else
+        b.path("src/main.zig");
+
     const mod = b.createModule(.{
-        .root_source_file = b.path("src/main.zig"),
+        .root_source_file = root_source,
         .target = target,
         .optimize = optimize,
     });
     mod.addOptions("build_options", options);
 
-    const exe = b.addExecutable(.{
-        .name = "rune",
-        .root_module = mod,
-    });
+    const exe = if (target.result.cpu.arch == .wasm32)
+        b.addLibrary(.{
+            .name = "rune",
+            .root_module = mod,
+        })
+    else
+        b.addExecutable(.{
+            .name = "rune",
+            .root_module = mod,
+        });
 
     b.installArtifact(exe);
 
@@ -116,4 +128,12 @@ pub fn build(b: *std.Build) void {
 
     const fuzz_step = b.step("fuzz", "Run fuzzing (fuzz <target> <corpus_dir>)");
     fuzz_step.dependOn(&run_fuzz.step);
+
+    // ─── WASM Library Build ──────────────────────────────────────
+    // Build a WASM library for browser/Deno usage:
+    //   zig build -Dtarget=wasm32-wasi
+    // The WASM entry point (src/wasm.zig) exports:
+    //   rune_compile(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8
+    //   rune_version() → ?[*:0]const u8
+    //   rune_reset() → void
 }

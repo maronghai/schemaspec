@@ -4,6 +4,17 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.143.0] - 2026-08-06
+
+### Added
+- **WASM cross-compilation** — New `wasm32-wasi` build target. New `src/wasm.zig` entry point exports `rune_compile`, `rune_version`, `rune_reset` for browser/Deno usage. `wasm/rune.js` JavaScript wrapper provides `compile()` and `version()` APIs.
+- **Windows CI** — New `test-windows` job runs unit tests and build validation on `windows-latest`.
+- **ARM64 CI enhancement** — ARM64 test job now also runs PostgreSQL golden tests.
+- **Release WASM builds** — Release workflow now includes `wasm32-wasi` target and packages as `rune-wasm32-wasi.tar.gz`.
+
+### Changed
+- **Conditional parallel compilation** — `codegen/parallel.zig` gracefully falls back to sequential streaming on WASM (no threads). `io.zig` mmap falls back to heap allocation on WASM (same as Windows).
+
 ## [0.105.0] - 2026-08-04
 
 ### Added

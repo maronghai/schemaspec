@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.142.0 (2026-08-06) — 26,600+ lines production Zig, 1140+ tests, 26 test suites.
+**Current version**: 0.143.0 (2026-08-06) — 26,600+ lines production Zig, 1140+ tests, 26 test suites.
 
 ---
 
@@ -214,13 +214,21 @@ Ongoing improvements pursued alongside feature work.
 
 ### Platform
 
-- [ ] Cross-compile to WASM — enable browser and Deno usage
-- [ ] Windows native builds — test and document MSVC/MinGW paths
-- [ ] ARM64 CI — test on Apple Silicon and ARM Linux
+- [x] Cross-compile to WASM — enable browser and Deno usage (v0.143.0)
+- [x] Windows native builds — test and document MSVC/MinGW paths (v0.143.0)
+- [x] ARM64 CI — test on Apple Silicon and ARM Linux (v0.143.0)
 
 ---
 
 ## Release History
+
+### v0.143.0 (2026-08-06)
+
+- **WASM cross-compilation** — New `wasm32-wasi` build target enables compiling Rune to WebAssembly for browser and Deno usage. New `src/wasm.zig` entry point exports `rune_compile`, `rune_version`, and `rune_reset` functions. `io.zig` mmap falls back to heap allocation on WASM. `build.zig` automatically selects the WASM entry point for wasm32 targets. New `wasm/rune.js` JavaScript wrapper provides `compile()` and `version()` APIs for Deno and browser environments.
+- **Conditional parallel compilation** — `codegen/parallel.zig` now gracefully falls back to sequential streaming compilation on WASM targets where threads are unavailable. The WASM guard ensures `std.Thread.spawn` is never compiled on wasm32.
+- **Windows CI** — New `test-windows` job in CI workflow runs unit tests and build validation on `windows-latest`. Ensures Windows compatibility is continuously tested.
+- **ARM64 CI enhancement** — ARM64 test job now also runs PostgreSQL golden tests. Cross-compile validation for `aarch64-linux` continues.
+- **Release workflow WASM support** — Release builds now include `wasm32-wasi` target. WASM binary is packaged as `rune-wasm32-wasi.tar.gz`.
 
 ### v0.142.0 (2026-08-06)
 
@@ -991,5 +999,5 @@ Ongoing improvements pursued alongside feature work.
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | 🟡 Partial | 8/13 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
-| Architecture Targets | 🟡 Ongoing | 11/12 | 1 |
-| **Total** | | **64/82** | **18** |
+| Architecture Targets | 🟡 Ongoing | 14/14 | 0 |
+| **Total** | | **67/82** | **15** |

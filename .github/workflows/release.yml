@@ -33,6 +33,9 @@ jobs:
       - name: Build windows-x86_64
         run: cd rune && zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-windows
 
+      - name: Build wasm32-wasi
+        run: cd rune && zig build -Doptimize=ReleaseSafe -Dtarget=wasm32-wasi
+
       - name: Package binaries
         run: |
           cd rune/zig-out/bin
@@ -41,6 +44,7 @@ jobs:
           tar czf ../../../rune-macos-x86_64.tar.gz rune
           tar czf ../../../rune-macos-aarch64.tar.gz rune
           7z a ../../../rune-windows-x86_64.zip rune.exe
+          tar czf ../../../rune-wasm32-wasi.tar.gz rune.wasm
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
@@ -52,3 +56,4 @@ jobs:
             rune-macos-x86_64.tar.gz
             rune-macos-aarch64.tar.gz
             rune-windows-x86_64.zip
+            rune-wasm32-wasi.tar.gz

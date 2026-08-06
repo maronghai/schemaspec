@@ -17,6 +17,7 @@ cd rune && zig build bench                    # Benchmark (per-stage pipeline ti
 cd rune && zig build bench -- --save           # Save current timing as baseline
 cd rune && zig build bench -- --check          # Check for regressions vs baseline (>10% = exit 1)
 cd rune && zig build bench -- --dialect pg     # Benchmark PostgreSQL dialect
+cd rune && zig build -Dtarget=wasm32-wasi     # Build WASM library (browser/Deno)
 ```
 
 ### Golden File Tests (shell-based, compare compiler output against .sql golden files)
@@ -101,6 +102,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ```
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig, completions.zig, color.zig, config.zig  # CLI + glue
+  wasm.zig                                                   # WASM library entry point (wasm32-wasi)
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
   bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules
   generator.zig                                                   # generator registry (pluggable)
@@ -256,6 +258,7 @@ rune/src/
 | | `template.zig` | Template inheritance resolution |
 | | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
+| | `wasm.zig` | WASM library entry point (exports rune_compile, rune_version, rune_reset) |
 | | `lint.zig` | Schema quality linting (missing PK, naming, FK indexes, timestamps, wide table, enum case, low count, FK cascade, nullable PK, orphan types, unused index, circular FK, duplicate index — 13 rules) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
