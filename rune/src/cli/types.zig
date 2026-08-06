@@ -9,6 +9,8 @@ pub const DiffFormat = enums.DiffFormat;
 pub const StatsFormat = enums.StatsFormat;
 pub const ColorMode = enums.ColorMode;
 
+pub const LintFormat = enum { text, json, sarif };
+
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
@@ -24,7 +26,7 @@ pub const Command = union(enum) {
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },
-    lint: struct { input: ?[]const u8 = null, json_errors: bool = false, strict: bool = false },
+    lint: struct { input: ?[]const u8 = null, input2: ?[]const u8 = null, json_errors: bool = false, strict: bool = false, format: LintFormat = .text, rules: ?[]const u8 = null },
     watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null, parallel: bool = false, trace: bool = false, stats: bool = false, json_errors: bool = false },
     version,
     help: struct { subcommand: ?[]const u8 = null },

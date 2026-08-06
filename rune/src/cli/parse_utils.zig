@@ -53,11 +53,44 @@ pub fn parseHooksArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
 }
 
 pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const input = if (fargs.len > 1) fargs[1] else null;
+    var input: ?[]const u8 = null;
+    var input2: ?[]const u8 = null;
+    var json_errors = opts.json_errors;
+    var strict = opts.strict;
+    var format: types.LintFormat = .text;
+    var rules: ?[]const u8 = null;
+    var positional_count: usize = 0;
+    var j: usize = 1;
+    while (j < fargs.len) : (j += 1) {
+        if (std.mem.eql(u8, fargs[j], "--json-errors")) {
+            json_errors = true;
+        } else if (std.mem.eql(u8, fargs[j], "--strict")) {
+            strict = true;
+        } else if (std.mem.eql(u8, fargs[j], "--format") and j + 1 < fargs.len) {
+            j += 1;
+            if (std.mem.eql(u8, fargs[j], "sarif")) {
+                format = .sarif;
+            } else if (std.mem.eql(u8, fargs[j], "json")) {
+                format = .json;
+            } else {
+                format = .text;
+            }
+        } else if (std.mem.eql(u8, fargs[j], "--rules") and j + 1 < fargs.len) {
+            j += 1;
+            rules = fargs[j];
+        } else if (fargs[j][0] != '-') {
+            positional_count += 1;
+            if (positional_count == 1) input = fargs[j];
+            if (positional_count == 2) input2 = fargs[j];
+        }
+    }
     return parseSimpleSubcommand(dialect, target, .{ .lint = .{
         .input = input,
-        .json_errors = opts.json_errors,
-        .strict = opts.strict,
+        .input2 = input2,
+        .json_errors = json_errors,
+        .strict = strict,
+        .format = format,
+        .rules = rules,
     } }, opts);
 }
 

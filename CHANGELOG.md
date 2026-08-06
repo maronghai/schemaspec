@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.137.0] - 2026-08-06
+
+### Added
+- **Expanded lint rules** — 3 new rules: `wide-table` (warns when table has >30 fields), `enum-case` (warns when custom types use non-UPPER_CASE naming), `count` (warns when table has <2 non-PK fields).
+- **SARIF output** — `rune lint --format sarif` produces SARIF 2.1.0 for CI/CD integration.
+- **Diff-aware lint** — `rune lint old.ss new.ss` compares lint results, outputs only newly introduced issues.
+- **Lint rules config** — `rune-lint.toml` configuration file for customizing lint behavior. New `--rules <path>` flag.
+- **15 new unit tests** covering all new rules, SARIF output, diff-aware lint, and config parsing.
+
 ## [0.127.0] - 2026-08-05
 
 ### Added

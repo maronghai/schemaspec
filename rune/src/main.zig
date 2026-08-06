@@ -330,6 +330,17 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .lint => |cmd| {
             const lint_mod = @import("lint.zig");
+            // Load lint rules config if --rules specified
+            var lint_cfg = lint_mod.LintConfig{};
+            if (cmd.rules) |rules_path| {
+                if (std.Io.Dir.cwd().readFileAlloc(io, rules_path, alloc, .unlimited)) |rules_data| {
+                    const rules_cfg = try lint_mod.parseLintRules(alloc, rules_data);
+                    lint_cfg = lint_mod.applyLintRules(lint_cfg, rules_cfg);
+                } else |err| {
+                    std.debug.print("warning: failed to load rules file {s}: {s}\n", .{ rules_path, @errorName(err) });
+                }
+            }
+            // Compile first schema
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             const pipeline = forward.compilePipeline(alloc, file_data, .{
                 .io = io,
@@ -339,18 +350,63 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 std.debug.print("error: failed to compile schema: {s}\n", .{@errorName(err)});
                 std.process.exit(1);
             };
-            const results = try lint_mod.lintSchema(alloc, pipeline.resolved, .{});
-            const use_color = parsed.color.shouldUseColor(io);
-            if (cmd.json_errors) {
-                const json = try lint_mod.formatLintJson(results.items);
-                try io_mod.writeOutput(io, json, null, parsed.quiet);
+            const results = try lint_mod.lintSchema(alloc, pipeline.resolved, lint_cfg);
+            // Diff-aware lint: if second file provided, compare results
+            if (cmd.input2) |input2_path| {
+                const file_data2 = try io_mod.readFileOrStdin(io, alloc, input2_path);
+                const pipeline2 = forward.compilePipeline(alloc, file_data2, .{
+                    .io = io,
+                    .dialect = parsed.dialect,
+                    .json_errors = false,
+                }) catch |err| {
+                    std.debug.print("error: failed to compile schema: {s}\n", .{@errorName(err)});
+                    std.process.exit(1);
+                };
+                const results2 = try lint_mod.lintSchema(alloc, pipeline2.resolved, lint_cfg);
+                const diff = try lint_mod.lintDiff(results.items, results2.items, alloc);
+                const use_color = parsed.color.shouldUseColor(io);
+                if (cmd.format == .sarif) {
+                    const sarif = try lint_mod.formatLintSarif(diff.added, version.VERSION, cmd.input2);
+                    try io_mod.writeOutput(io, sarif, null, parsed.quiet);
+                } else if (cmd.json_errors or cmd.format == .json) {
+                    const json = try lint_mod.formatLintJson(diff.added);
+                    try io_mod.writeOutput(io, json, null, parsed.quiet);
+                } else {
+                    const text = try lint_mod.formatLintResults(diff.added, use_color);
+                    try io_mod.writeOutput(io, text, null, parsed.quiet);
+                }
             } else {
-                const text = try lint_mod.formatLintResults(results.items, use_color);
-                try io_mod.writeOutput(io, text, null, parsed.quiet);
+                const use_color = parsed.color.shouldUseColor(io);
+                if (cmd.format == .sarif) {
+                    const sarif = try lint_mod.formatLintSarif(results.items, version.VERSION, cmd.input);
+                    try io_mod.writeOutput(io, sarif, null, parsed.quiet);
+                } else if (cmd.json_errors or cmd.format == .json) {
+                    const json = try lint_mod.formatLintJson(results.items);
+                    try io_mod.writeOutput(io, json, null, parsed.quiet);
+                } else {
+                    const text = try lint_mod.formatLintResults(results.items, use_color);
+                    try io_mod.writeOutput(io, text, null, parsed.quiet);
+                }
             }
             if (cmd.strict) {
-                for (results.items) |r| {
-                    if (r.severity == .warning) std.process.exit(1);
+                if (cmd.input2) |input2_path| {
+                    const file_data2_s = try io_mod.readFileOrStdin(io, alloc, input2_path);
+                    const pipeline2_s = forward.compilePipeline(alloc, file_data2_s, .{
+                        .io = io,
+                        .dialect = parsed.dialect,
+                        .json_errors = false,
+                    }) catch null;
+                    if (pipeline2_s) |p2| {
+                        const results2_s = try lint_mod.lintSchema(alloc, p2.resolved, lint_cfg);
+                        const diff_s = try lint_mod.lintDiff(results.items, results2_s.items, alloc);
+                        for (diff_s.added) |r| {
+                            if (r.severity == .warning) std.process.exit(1);
+                        }
+                    }
+                } else {
+                    for (results.items) |r| {
+                        if (r.severity == .warning) std.process.exit(1);
+                    }
                 }
             }
         },

@@ -2,6 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 const lint_mod = @import("lint.zig");
 const lintSchema = lint_mod.lintSchema;
+const lintDiff = lint_mod.lintDiff;
 const LintConfig = lint_mod.LintConfig;
 const ResolvedAst = @import("types/resolved_ast.zig").ResolvedAst;
 const ResolvedTable = @import("types/resolved_ast.zig").ResolvedTable;
@@ -65,6 +66,30 @@ fn makeAst(tables: []const ResolvedTable) ResolvedAst {
         .views = &.{},
         .sql_comments = &.{},
     };
+}
+
+fn makeAstWithCustomTypes(tables: []const ResolvedTable, custom_types: []const ast_mod.CustomType) ResolvedAst {
+    return .{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = custom_types,
+        .tables = tables,
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+}
+
+fn makeCustomType(name: []const u8) ast_mod.CustomType {
+    return .{
+        .name = name,
+        .base = .{ .simple = name },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+}
+
+fn makeSimpleField(name: []const u8) ast_mod.Field {
+    return makeField(name, .{ .simple = "s" }, &.{}, null);
 }
 
 // ─── Tests ────────────────────────────────────────────────────
@@ -267,4 +292,268 @@ test "lint: JSON output format" {
     const json = try lint_mod.formatLintJson(results.items);
     try testing.expect(std.mem.indexOf(u8, json, "\"issues\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"no-pk\"") != null);
+}
+
+// ─── Wide Table Tests ─────────────────────────────────────────
+
+test "lint: wide table detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Create a table with 35 fields (exceeds default threshold of 30)
+    var fields: [35]ast_mod.Field = undefined;
+    for (0..35) |i| {
+        var buf: [16]u8 = undefined;
+        const name = std.fmt.bufPrint(&buf, "col_{d}", .{i}) catch "col";
+        fields[i] = makeSimpleField(name);
+    }
+    const table = try makeTestTable(alloc, "wide_table", &fields, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "wide-table")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: narrow table passes wide check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "wide-table")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Enum Case Tests ──────────────────────────────────────────
+
+test "lint: non-UPPER_CASE custom type detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = makeCustomType("statusType");
+    const cts = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = makeAstWithCustomTypes(&.{}, cts);
+    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "enum-case")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: UPPER_CASE custom type passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = makeCustomType("STATUS_TYPE");
+    const cts = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = makeAstWithCustomTypes(&.{}, cts);
+    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "enum-case")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Count Tests ──────────────────────────────────────────────
+
+test "lint: low field count detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Table with only PK + 0 non-PK fields
+    const table = try makeTestTable(alloc, "empty_table", &.{
+        makePkField("id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "count")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: sufficient field count passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+        makeSimpleField("email"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "count")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── SARIF Output Tests ───────────────────────────────────────
+
+test "lint: SARIF output format" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "logs", &.{
+        makeField("msg", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    const sarif = try lint_mod.formatLintSarif(results.items, "0.137.0", "test.ss");
+    try testing.expect(std.mem.indexOf(u8, sarif, "\"version\":\"2.1.0\"") != null);
+    try testing.expect(std.mem.indexOf(u8, sarif, "\"tool\"") != null);
+    try testing.expect(std.mem.indexOf(u8, sarif, "\"results\"") != null);
+    try testing.expect(std.mem.indexOf(u8, sarif, "\"no-pk\"") != null);
+}
+
+test "lint: SARIF empty results" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+        makeField("created_at", .{ .simple = "d" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    const sarif = try lint_mod.formatLintSarif(results.items, "0.137.0", null);
+    try testing.expect(std.mem.indexOf(u8, sarif, "\"results\":[]") != null);
+}
+
+// ─── Diff-Aware Lint Tests ────────────────────────────────────
+
+test "lint: diff detects new issues" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Old: clean schema with PK
+    const old_table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+        makeField("created_at", .{ .simple = "d" }, &.{}, null),
+    }, &.{});
+    const old_tables = try alloc.dupe(ResolvedTable, &.{old_table});
+    const old_ast = makeAst(old_tables);
+    const old_results = try lintSchema(alloc, old_ast, .{});
+
+    // New: same table but with added FK without index
+    const new_table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+        makeField("created_at", .{ .simple = "d" }, &.{}, null),
+        makeFkField("org_id"),
+    }, &.{});
+    const new_tables = try alloc.dupe(ResolvedTable, &.{new_table});
+    const new_ast = makeAst(new_tables);
+    const new_results = try lintSchema(alloc, new_ast, .{});
+
+    const diff = try lintDiff(old_results.items, new_results.items, alloc);
+    var found_new = false;
+    for (diff.added) |r| {
+        if (std.mem.eql(u8, r.rule, "no-index-fk")) found_new = true;
+    }
+    try testing.expect(found_new);
+}
+
+test "lint: diff no new issues" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const schema = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+        makeField("created_at", .{ .simple = "d" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{schema});
+    const ast1 = makeAst(tables);
+    const ast2 = makeAst(tables);
+    const r1 = try lintSchema(alloc, ast1, .{});
+    const r2 = try lintSchema(alloc, ast2, .{});
+
+    const diff = try lintDiff(r1.items, r2.items, alloc);
+    try testing.expectEqual(@as(usize, 0), diff.added.len);
+}
+
+// ─── Lint Config Tests ────────────────────────────────────────
+
+test "lint: config toggles new rules" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "logs", &.{
+        makeField("msg", .{ .simple = "s" }, &.{}, null),
+        makeField("userId", .{ .simple = "n" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+
+    // Only wide-table check (should find nothing — table is narrow)
+    const wide_only = try lintSchema(alloc, test_ast, .{
+        .check_pk = false,
+        .check_naming = false,
+        .check_fk_index = false,
+        .check_timestamps = false,
+        .check_enum_case = false,
+        .check_count = false,
+    });
+    try testing.expectEqual(@as(usize, 0), wide_only.items.len);
+}
+
+test "lint: parse rules file" {
+    const rules_data =
+        \\[lint]
+        \\enabled = ["no-pk", "naming"]
+        \\disabled = ["no-timestamps"]
+        \\
+        \\[lint.severity]
+        \\no-pk = "error"
+        \\
+        \\[lint.thresholds]
+        \\wide_table_max = 40
+        \\count_min = 3
+    ;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const rules = try lint_mod.parseLintRules(alloc, rules_data);
+    try testing.expect(rules.enabled != null);
+    try testing.expectEqual(@as(usize, 2), rules.enabled.?.len);
+    try testing.expect(rules.disabled != null);
+    try testing.expectEqual(@as(usize, 1), rules.disabled.?.len);
+    try testing.expectEqual(@as(usize, 40), rules.thresholds.wide_table_max.?);
+    try testing.expectEqual(@as(usize, 3), rules.thresholds.count_min.?);
 }

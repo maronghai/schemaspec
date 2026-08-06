@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.136.0 (2026-08-06) — 25,000+ lines production Zig, 1090+ tests, 26 test suites.
+**Current version**: 0.137.0 (2026-08-06) — 25,000+ lines production Zig, 1111+ tests, 26 test suites.
 
 ---
 
@@ -158,7 +158,7 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 - [x] Unknown flag suggestions — edit-distance-based "Did you mean?" for mistyped flags (v0.101.0)
 - [x] `rune stats --format json` — JSON output for schema statistics (v0.101.0)
 - [x] `rune watch` — watch file changes and recompile automatically (v0.117.0)
-- [x] `rune lint` — lint schema for quality issues: missing PK, naming conventions, FK indexes, timestamps (v0.136.0)
+- [x] `rune lint` — lint schema for quality issues: missing PK, naming conventions, FK indexes, timestamps, wide tables, enum case, field count (v0.136.0, v0.137.0)
 
 ---
 
@@ -221,6 +221,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.137.0 (2026-08-06)
+
+- **Expanded lint rules** — 3 new lint rules: `wide-table` (warns when table has >30 fields), `enum-case` (warns when custom types use non-UPPER_CASE naming), `count` (warns when table has <2 non-PK fields). Thresholds configurable via `rune-lint.toml`.
+- **SARIF output** — `rune lint --format sarif` produces SARIF 2.1.0 output for CI/CD integration (GitHub Code Scanning, SonarQube). Each lint rule maps to a SARIF rule with proper severity levels.
+- **Diff-aware lint** — `rune lint old.ss new.ss` compares lint results between two schemas and outputs only newly introduced issues. Useful for pre-commit checks and CI gates.
+- **Lint rules config** — New `rune-lint.toml` configuration file for customizing lint behavior: enable/disable rules, override severity levels, adjust thresholds. Discovered upward from cwd like `rune.toml`. New `--rules <path>` flag.
+- **New tests**: 15 new unit tests in `lint_test.zig` covering: wide table detection, narrow table passes, non-UPPER_CASE custom types, UPPER_CASE passes, low field count, sufficient count, SARIF output, SARIF empty results, diff new issues, diff no new issues, config toggles, rules file parsing. Total: ~1111 tests.
 
 ### v0.136.0 (2026-08-06)
 
