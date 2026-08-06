@@ -46,6 +46,8 @@ pub fn printUsage() void {
     std.debug.print("  rune --check schema.ss               # Validate without output\n", .{});
     std.debug.print("  rune diff old.ss new.ss              # Show schema differences\n", .{});
     std.debug.print("  rune diff old.ss new.ss --format json # Diff as JSON\n", .{});
+    std.debug.print("  rune diff schema.ss --from-sql live.sql # Drift detection against SQL dump\n", .{});
+    std.debug.print("  rune diff schema.ss --from-sql live.sql --check # CI drift gate\n", .{});
     std.debug.print("  rune migrate old.ss new.ss -o m.sql  # Generate migration SQL\n", .{});
     std.debug.print("  rune migrate old.ss new.ss --rollback # Generate rollback SQL\n", .{});
     std.debug.print("  rune migrate old.ss new.ss --graph    # Show migration dependency graph\n", .{});
@@ -77,6 +79,10 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
                 std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
                 std.debug.print("  --check         Exit 1 if there are differences\n", .{});
+                if (std.mem.eql(u8, subcommand, "diff")) {
+                    std.debug.print("  --from-sql      Compare against a SQL dump file instead of a .ss file\n", .{});
+                    std.debug.print("  --summary       Show summary only (no full diff)\n", .{});
+                }
                 if (std.mem.eql(u8, subcommand, "migrate")) {
                     std.debug.print("  --rollback      Generate rollback SQL instead\n", .{});
                     std.debug.print("  --dry-run       Show SQL without writing to file\n", .{});

@@ -30,7 +30,7 @@ pub const COMPLETIONS_BASH =
     \\    commands="init validate check stats diff migrate reverse docs format generate completions hooks watch"
     \\
     \\    if [[ ${cur} == -* ]]; then
-    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --config --name --dir --incremental --graph" -- ${cur}) )
+    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --config --name --dir --incremental --graph --from-sql" -- ${cur}) )
     \\        return 0
     \\    fi
     \\
@@ -197,6 +197,7 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -l dir -r -d 'Migration output directory'
     \\complete -c rune -l incremental -d 'Incremental migration'
     \\complete -c rune -l graph -d 'Show migration dependency graph'
+    \\complete -c rune -l from-sql -r -d 'Compare against SQL dump file'
     \\
     \\# generate subcommand
     \\complete -c rune -n '__fish_seen_subcommand_from generate' -a 'json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql symbol-index' -d 'Generator'
@@ -260,7 +261,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('powershell', 'powershell', 'ParameterValue', 'PowerShell')
     \\    )
     \\
-    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--config', '--name', '--dir', '--incremental', '--graph', '-h', '-v', '-d', '-t', '-s', '-q')
+    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--config', '--name', '--dir', '--incremental', '--graph', '--from-sql', '-h', '-v', '-d', '-t', '-s', '-q')
     \\
     \\    $cursorToken = $commandAst.CommandElements[-1].Value
     \\    $tokens = $commandAst.CommandElements | ForEach-Object { $_.Value }

@@ -14,7 +14,7 @@ pub const Command = union(enum) {
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool },
     stats: struct { input: ?[]const u8, format: StatsFormat = .text },
-    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false },
+    diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false, from_sql: ?[]const u8 = null },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false, graph: bool = false },
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
@@ -109,4 +109,5 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--name",           "--dir",         "--incremental", "--color",         "--init",     "--summary",
     "--config",         "--template",    "--graph",       "--stream",        "--interval", "--parallel",
     "--generators",
+    "--from-sql",
 };

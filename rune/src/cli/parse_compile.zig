@@ -42,6 +42,14 @@ fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
 
 pub fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
     if (fargs.len < 3) return error.DiffMissingArgs;
+    var from_sql: ?[]const u8 = null;
+    var j: usize = 3;
+    while (j < fargs.len) : (j += 1) {
+        if (std.mem.eql(u8, fargs[j], "--from-sql") and j + 1 < fargs.len) {
+            from_sql = fargs[j + 1];
+            j += 1;
+        }
+    }
     return .{
         .dialect = dialect,
         .dialect_was_explicit = opts.dialect_was_explicit,
@@ -54,6 +62,7 @@ pub fn parseDiffArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
             .format = opts.format,
             .check = opts.check,
             .summary = opts.summary,
+            .from_sql = from_sql,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,

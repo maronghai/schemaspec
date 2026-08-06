@@ -80,6 +80,8 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune diff old.ss new.ss --format sarif # SARIF diff output
 ./rune/zig-out/bin/rune diff old.ss new.ss --check       # CI gate (exit 1 if differences)
 ./rune/zig-out/bin/rune diff old.ss new.ss --summary     # Summary only (N changed, X added, Y dropped, Z modified)
+./rune/zig-out/bin/rune diff schema.ss --from-sql live.sql # Drift detection against SQL dump
+./rune/zig-out/bin/rune diff schema.ss --from-sql live.sql --check # CI drift gate
 ./rune/zig-out/bin/rune generate json-schema schema.ss   # Generate JSON Schema
 ./rune/zig-out/bin/rune generate --list                  # List available generators
 ./rune/zig-out/bin/rune generate schema.ss --generators prisma,drizzle,openapi  # Batch generation

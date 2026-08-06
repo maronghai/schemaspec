@@ -13,6 +13,9 @@ const pipeline_forward = @import("../pipeline/forward.zig");
 const io_mod = @import("../io.zig");
 const enums = @import("../types/enums.zig");
 const utils = @import("../utils.zig");
+const sql_parser = @import("../parser/sql_parser.zig");
+const reverse_codegen = @import("../reverse/codegen.zig");
+const dialect_detect = @import("../reverse/dialect_detect.zig");
 
 // ─── Diff/Migrate Pipeline ────────────────────────────────────
 
@@ -28,6 +31,9 @@ pub const DiffConfig = struct {
     check: bool = false,
     color: enums.ColorMode = .auto,
     summary: bool = false,
+    /// When set, compare old_path against this SQL file instead of new_path.
+    /// Reverse-engineers the SQL file to .ss internally, then diffs.
+    from_sql: ?[]const u8 = null,
 };
 
 /// Configuration for `rune migrate` — replaces 10 positional parameters.
@@ -64,11 +70,58 @@ fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_p
     return .{ .old_ast = old_ast, .new_ast = new_ast, .schema_diff = schema_diff };
 }
 
+/// Compile a .ss schema and diff it against a SQL dump file.
+/// Reverse-engineers the SQL file to .ss internally, then compiles and diffs.
+fn prepareDiffFromSql(io: std.Io, alloc: std.mem.Allocator, ss_path: []const u8, sql_path: []const u8, dialect: codegen.Dialect) !DiffResult {
+    // 1. Compile the .ss file → old_resolved
+    const old_ast = try pipeline_forward.compileToAst(io, alloc, ss_path);
+
+    // 2. Read the SQL file
+    const sql_data = try io_mod.readFileOrStdin(io, alloc, sql_path);
+
+    // 3. Auto-detect dialect from SQL content
+    const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect.detectSqlDialect(sql_data) else dialect;
+
+    // 4. Parse SQL → SqlSchema
+    var sp_parser = try sql_parser.SqlParser.init(alloc, sql_data, sql_dialect);
+    const parse_result = sp_parser.parse() catch |err| {
+        const lc = sp_parser.lineColAt(sp_parser.pos);
+        std.debug.print("error: SQL parse error at line {d}, col {d}: {s}\n", .{ lc.line, lc.col, @errorName(err) });
+        return error.SqlParseError;
+    };
+
+    // 5. Reverse-engineer SqlSchema → .ss text
+    var rcg = reverse_codegen.ReverseCodegen.init(alloc, sql_dialect);
+    const ss_text = try rcg.generate(parse_result.schema);
+
+    // 6. Write .ss text to a temporary file and compile it
+    const tmp_path = try std.fmt.allocPrint(alloc, "{s}.tmp.ss", .{sql_path});
+    std.Io.Dir.cwd().writeFile(io, .{
+        .sub_path = tmp_path,
+        .data = ss_text,
+    }) catch |err| {
+        std.debug.print("error: cannot create temporary file: {}\n", .{err});
+        return error.FileWriteError;
+    };
+    defer std.Io.Dir.cwd().deleteFile(io, tmp_path) catch {};
+
+    // 7. Compile the temporary .ss file → new_resolved
+    const new_ast = try pipeline_forward.compileToAst(io, alloc, tmp_path);
+
+    // 8. Diff old_resolved vs new_resolved
+    const schema_diff = try diff.diff(old_ast, new_ast, alloc);
+    return .{ .old_ast = old_ast, .new_ast = new_ast, .schema_diff = schema_diff };
+}
+
 /// Handle `rune diff`: output schema differences between two .ss files.
 /// Supports text, JSON, and SARIF output formats via DiffConfig.format.
 /// With summary=true, outputs only the summary line without full diff.
+/// With from_sql set, compares old_path against a SQL dump file instead of new_path.
 pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
-    const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path);
+    const result = if (cfg.from_sql) |sql_path|
+        try prepareDiffFromSql(io, alloc, cfg.old_path, sql_path, cfg.dialect)
+    else
+        try prepareDiff(io, alloc, cfg.old_path, cfg.new_path);
     emitTraceAndStats(result, cfg.trace, cfg.stats);
 
     if (cfg.check) {

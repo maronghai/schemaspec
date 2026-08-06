@@ -117,7 +117,7 @@ Move from batch compilation to interactive, incremental usage. **In progress** �
 
 - [x] `rune watch schema.ss` — watch file changes and recompile automatically (v0.117.0)
 - [ ] `rune diff --live schema.ss mysql://host/db` — compare `.ss` file against a live database
-- [ ] Schema drift detection — compare expected vs actual database state
+- [x] Schema drift detection — `rune diff schema.ss --from-sql live.sql` compare expected vs SQL dump (v0.134.0)
 
 ### CI/CD Integration
 
@@ -220,6 +220,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.134.0 (2026-08-06)
+
+- **Schema drift detection** — New `rune diff schema.ss --from-sql live.sql` flag compares a `.ss` schema against a SQL dump file. Reverse-engineers the SQL file internally, compiles it through the forward pipeline, and diffs against the original schema. Supports all diff output formats (text, JSON, SARIF, markdown) and CI/CD gate mode (`--check`). Enables drift detection without database connectivity — perfect for CI pipelines where you dump the database schema and compare it against the expected schema.
+- **CLI help improvements** — Added `--from-sql` to diff command help with examples. Added drift detection examples to main help text.
+- **Shell completions updated** — Bash, Fish, PowerShell completions now include `--from-sql` flag.
 
 ### v0.133.0 (2026-08-06)
 
@@ -915,8 +921,8 @@ Ongoing improvements pursued alongside feature work.
 | 1: Core Solidification | ✅ Complete | 9/9 | 0 |
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
-| 4: Incremental & Live Workflows | 🟡 Partial | 8/10 | 2 |
+| 4: Incremental & Live Workflows | 🟡 Partial | 9/10 | 1 |
 | 5: Developer Experience | 🟡 Partial | 7/12 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 11/12 | 1 |
-| **Total** | | **61/81** | **20** |
+| **Total** | | **62/81** | **19** |

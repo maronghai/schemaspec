@@ -241,6 +241,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .check = cmd.check,
                 .color = parsed.color,
                 .summary = cmd.summary,
+                .from_sql = cmd.from_sql,
             });
         },
         .migrate => |cmd| {
