@@ -23,3 +23,9 @@ allowed-tools: Bash(git *), Bash(ls *), Read, Glob, Bash(rg *)
 - commit
 - commit message 是 VERSION 文件中的版本号
 - 输出：完成计划实际耗时，和预估耗时差距原因
+
+## 测试
+
+- zig build test
+- zig build bench
+- zig build bench -- --check

@@ -51,6 +51,8 @@ comptime {
     _ = @import("diff/format/markdown_test.zig");
     // formatter
     _ = @import("formatter_test.zig");
+    // lint
+    _ = @import("lint_test.zig");
     // io
     _ = @import("io_test.zig");
     // watch

@@ -118,6 +118,19 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  type            Hook type: pre-commit (default)\n", .{});
                 std.debug.print("\nInstall:\n", .{});
                 std.debug.print("  rune hooks pre-commit > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "lint")) {
+                std.debug.print("\nChecks schema for quality issues and anti-patterns:\n", .{});
+                std.debug.print("  no-pk          Table has no primary key\n", .{});
+                std.debug.print("  naming         Table/column name uses camelCase instead of snake_case\n", .{});
+                std.debug.print("  no-index-fk    Foreign key column has no index\n", .{});
+                std.debug.print("  no-timestamps  No created_at/updated_at fields\n", .{});
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  --json-errors  Output results as JSON (machine-readable)\n", .{});
+                std.debug.print("  --strict       Exit 1 if any warnings found (for CI/CD)\n", .{});
+                std.debug.print("\nExamples:\n", .{});
+                std.debug.print("  rune lint schema.ss                # Lint schema\n", .{});
+                std.debug.print("  rune lint schema.ss --json-errors  # Lint as JSON\n", .{});
+                std.debug.print("  rune lint schema.ss --strict       # Lint, exit 1 on warnings\n", .{});
             } else if (std.mem.eql(u8, subcommand, "watch")) {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  --interval      Polling interval in milliseconds (default: 1000)\n", .{});

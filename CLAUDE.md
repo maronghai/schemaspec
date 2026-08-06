@@ -89,6 +89,9 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune watch schema.ss --interval 500    # Watch with 500ms polling interval
 ./rune/zig-out/bin/rune watch schema.ss --parallel        # Watch with parallel compilation
 ./rune/zig-out/bin/rune watch schema.ss -s                # Watch with compilation stats
+./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues
+./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON
+./rune/zig-out/bin/rune lint schema.ss --strict           # Lint, exit 1 on warnings
 ```
 
 ## Architecture
@@ -99,7 +102,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig, completions.zig, color.zig, config.zig  # CLI + glue
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
-  bench.zig, ast_visitor.zig, formatter.zig, version.zig          # standalone modules
+  bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules
   generator.zig                                                   # generator registry (pluggable)
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
   tests.zig                                                       # colocated test index (81 files)
@@ -253,6 +256,7 @@ rune/src/
 | | `template.zig` | Template inheritance resolution |
 | | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
+| | `lint.zig` | Schema quality linting (missing PK, naming, FK indexes, timestamps) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
 | | `bench.zig` | Benchmark entry point |

@@ -328,6 +328,32 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         .hooks => |cmd| {
             return hooks_mod.handleHooks(io, alloc, cmd.hook_type);
         },
+        .lint => |cmd| {
+            const lint_mod = @import("lint.zig");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            const pipeline = forward.compilePipeline(alloc, file_data, .{
+                .io = io,
+                .dialect = parsed.dialect,
+                .json_errors = false,
+            }) catch |err| {
+                std.debug.print("error: failed to compile schema: {s}\n", .{@errorName(err)});
+                std.process.exit(1);
+            };
+            const results = try lint_mod.lintSchema(alloc, pipeline.resolved, .{});
+            const use_color = parsed.color.shouldUseColor(io);
+            if (cmd.json_errors) {
+                const json = try lint_mod.formatLintJson(results.items);
+                try io_mod.writeOutput(io, json, null, parsed.quiet);
+            } else {
+                const text = try lint_mod.formatLintResults(results.items, use_color);
+                try io_mod.writeOutput(io, text, null, parsed.quiet);
+            }
+            if (cmd.strict) {
+                for (results.items) |r| {
+                    if (r.severity == .warning) std.process.exit(1);
+                }
+            }
+        },
         .watch => |cmd| {
             const watch_mod = @import("watch.zig");
             return watch_mod.watch(io, alloc, .{
@@ -361,6 +387,7 @@ fn getInputPath(command: cli.Command) ?[]const u8 {
         .docs => |cmd| cmd.input,
         .format_cmd => |cmd| cmd.input,
         .generate => |cmd| cmd.input,
+        .lint => |cmd| cmd.input,
         .watch => |cmd| cmd.input,
         else => null,
     };

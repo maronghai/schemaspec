@@ -24,6 +24,7 @@ pub const Command = union(enum) {
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },
+    lint: struct { input: ?[]const u8 = null, json_errors: bool = false, strict: bool = false },
     watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null, parallel: bool = false, trace: bool = false, stats: bool = false, json_errors: bool = false },
     version,
     help: struct { subcommand: ?[]const u8 = null },
@@ -101,6 +102,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "init", .args = "[name]", .description = "Create a starter .ss schema file" },
     .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
     .{ .name = "hooks", .args = "<type>", .description = "Generate git hooks (pre-commit)" },
+    .{ .name = "lint", .args = "[input.ss]", .description = "Lint schema for quality issues (missing PK, naming, etc.)" },
     .{ .name = "watch", .args = "<input.ss> [--interval <ms>] [--parallel]", .description = "Watch file and recompile on change" },
 };
 
@@ -111,6 +113,5 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--verbose-passes", "--import-path", "--trace",       "--rollback",      "--output",   "--list",
     "--name",           "--dir",         "--incremental", "--color",         "--init",     "--summary",
     "--config",         "--template",    "--graph",       "--stream",        "--interval", "--parallel",
-    "--generators",
-    "--from-sql",
+    "--generators",     "--from-sql",
 };

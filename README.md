@@ -512,6 +512,11 @@ rune watch schema.ss --parallel         # Watch with parallel compilation
 rune watch schema.ss -d pg              # Watch and compile to PostgreSQL
 rune watch schema.ss -o out.sql         # Watch and write to file
 rune watch schema.ss -s                 # Watch with compilation stats
+
+# Lint schema for quality issues
+rune lint schema.ss                     # Check for missing PK, naming, FK indexes, timestamps
+rune lint schema.ss --json-errors       # Lint as JSON (machine-readable)
+rune lint schema.ss --strict            # Exit 1 if any warnings (CI/CD)
 ```
 
 Watch mode polls the file for changes and automatically recompiles when modifications are detected. Press Ctrl+C to stop watching.

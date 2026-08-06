@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.135.0 (2026-08-06) — 25,000+ lines production Zig, 1080+ tests, 26 test suites.
+**Current version**: 0.136.0 (2026-08-06) — 25,000+ lines production Zig, 1090+ tests, 26 test suites.
 
 ---
 
@@ -158,6 +158,7 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 - [x] Unknown flag suggestions — edit-distance-based "Did you mean?" for mistyped flags (v0.101.0)
 - [x] `rune stats --format json` — JSON output for schema statistics (v0.101.0)
 - [x] `rune watch` — watch file changes and recompile automatically (v0.117.0)
+- [x] `rune lint` — lint schema for quality issues: missing PK, naming conventions, FK indexes, timestamps (v0.136.0)
 
 ---
 
@@ -220,6 +221,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.136.0 (2026-08-06)
+
+- **`rune lint` subcommand** — New `rune lint schema.ss` command that analyzes schema for quality issues and anti-patterns. Four lint rules: `no-pk` (table has no primary key), `naming` (camelCase instead of snake_case), `no-index-fk` (FK column without index), `no-timestamps` (no created_at/updated_at). Supports `--json-errors` for machine-readable output and `--strict` for CI/CD (exit 1 on warnings). Each rule can be individually toggled via `LintConfig`. New `lint.zig` module (~150 lines) and `lint_test.zig` (~250 lines, 10 unit tests).
+- **CLI integration** — `lint` added to Command union, COMMAND_REGISTRY, parse/parse_utils, help text (with lint rules documentation), and all 4 shell completion scripts (bash, zsh, fish, powershell). Unknown flag suggestions updated for `--lint`.
+- **New tests**: 10 new unit tests in `lint_test.zig` covering: clean schema, no-pk detection, composite PK via index, camelCase naming, FK without index, FK with index, timestamps present/absent, config toggles, JSON output format. Total: ~1096 tests.
 
 ### v0.135.0 (2026-08-06)
 
@@ -931,7 +938,7 @@ Ongoing improvements pursued alongside feature work.
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
 | 4: Incremental & Live Workflows | 🟡 Partial | 9/10 | 1 |
-| 5: Developer Experience | 🟡 Partial | 7/12 | 5 |
+| 5: Developer Experience | 🟡 Partial | 8/13 | 5 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 11/12 | 1 |
-| **Total** | | **62/81** | **19** |
+| **Total** | | **63/82** | **19** |

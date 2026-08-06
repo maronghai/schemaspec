@@ -27,7 +27,7 @@ pub const COMPLETIONS_BASH =
     \\    COMPREPLY=()
     \\    cur="${COMP_WORDS[COMP_CWORD]}"
     \\    prev="${COMP_WORDS[COMP_CWORD-1]}"
-    \\    commands="init validate check stats diff migrate reverse docs format generate completions hooks watch"
+    \\    commands="init validate check stats diff migrate reverse docs format generate completions hooks lint watch"
     \\
     \\    if [[ ${cur} == -* ]]; then
     \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --config --name --dir --incremental --graph --from-sql --generators" -- ${cur}) )
@@ -59,7 +59,7 @@ pub const COMPLETIONS_BASH =
     \\        hooks)
     \\            COMPREPLY=( $(compgen -W "pre-commit" -- ${cur}) )
     \\            ;;
-    \\        validate|check|stats|docs|format|init)
+    \\        validate|check|stats|docs|format|init|lint)
     \\            COMPREPLY=( $(compgen -f -X '!*.ss' -- ${cur}) )
     \\            ;;
     \\        watch)
@@ -94,6 +94,7 @@ pub const COMPLETIONS_ZSH =
     \\        'generate:Generate output in specified format'
     \\        'completions:Generate shell completions'
     \\        'hooks:Generate git hooks'
+    \\        'lint:Lint schema for quality issues'
     \\        'watch:Watch file and recompile on change'
     \\    )
     \\
@@ -170,6 +171,7 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -n __fish_use_subcommand -a generate -d 'Generate output in specified format'
     \\complete -c rune -n __fish_use_subcommand -a completions -d 'Generate shell completions'
     \\complete -c rune -n __fish_use_subcommand -a hooks -d 'Generate git hooks'
+    \\complete -c rune -n __fish_use_subcommand -a lint -d 'Lint schema for quality issues'
     \\complete -c rune -n __fish_use_subcommand -a watch -d 'Watch file and recompile on change'
     \\
     \\# Global flags
@@ -212,7 +214,7 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -n '__fish_seen_subcommand_from hooks' -a 'pre-commit' -d 'Hook type'
     \\
     \\# File arguments
-    \\complete -c rune -n '__fish_seen_subcommand_from validate check stats docs format init watch' -F -r
+    \\complete -c rune -n '__fish_seen_subcommand_from validate check stats docs format init lint watch' -F -r
     \\complete -c rune -n '__fish_seen_subcommand_from diff migrate' -F -r
     \\complete -c rune -n '__fish_seen_subcommand_from reverse' -F -r
     \\
@@ -239,6 +241,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('generate', 'generate', 'ParameterValue', 'Generate output in specified format')
     \\        [System.Management.Automation.CompletionResult]::new('completions', 'completions', 'ParameterValue', 'Generate shell completions')
     \\        [System.Management.Automation.CompletionResult]::new('hooks', 'hooks', 'ParameterValue', 'Generate git hooks')
+    \\        [System.Management.Automation.CompletionResult]::new('lint', 'lint', 'ParameterValue', 'Lint schema for quality issues')
     \\        [System.Management.Automation.CompletionResult]::new('watch', 'watch', 'ParameterValue', 'Watch file and recompile on change')
     \\    )
     \\

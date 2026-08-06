@@ -52,6 +52,15 @@ pub fn parseHooksArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
     return parseSimpleSubcommand(dialect, target, .{ .hooks = .{ .hook_type = hook_type } }, opts);
 }
 
+pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const input = if (fargs.len > 1) fargs[1] else null;
+    return parseSimpleSubcommand(dialect, target, .{ .lint = .{
+        .input = input,
+        .json_errors = opts.json_errors,
+        .strict = opts.strict,
+    } }, opts);
+}
+
 pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     if (fargs.len < 2) return error.MissingArgs;
     var interval_ms: u64 = 1000;
