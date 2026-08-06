@@ -4,6 +4,8 @@ const import_res = @import("../pipeline/import_resolver.zig");
 const semantic = @import("../semantic/analyzer.zig");
 const diag_mod = @import("../semantic/diagnostic.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
+const TypedAst = @import("../types/typed_ast.zig").TypedAst;
+const resolved_ast = @import("../types/resolved_ast.zig");
 const codegen = @import("../codegen/codegen.zig");
 const lsp_protocol = @import("protocol.zig");
 const Diagnostic = lsp_protocol.Diagnostic;
@@ -13,9 +15,11 @@ const DiagnosticSeverity = lsp_protocol.DiagnosticSeverity;
 // Wraps the Rune compilation pipeline for LSP use.
 // Captures diagnostics from all pipeline stages and converts
 // them to LSP Diagnostic format for publishing to editors.
+// Caches the TypedAst for use by interactive LSP features.
 
 pub const CompileResult = struct {
     diagnostics: []const Diagnostic,
+    typed_ast: ?TypedAst = null,
 };
 
 /// Compile a schema text and return LSP diagnostics.
@@ -100,26 +104,35 @@ pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8
         return .{ .diagnostics = try diagnostics.toOwnedSlice(alloc) };
     };
 
-    // Stage 3: Type resolution (for additional diagnostics)
+    // Stage 3: Type resolution (for additional diagnostics + TypedAst)
+    var typed_ast: ?TypedAst = null;
     if (resolved) |r| {
-        _ = TypeResolver.resolve(alloc, r, .mysql) catch |err| {
-            diagnostics.append(alloc, .{
-                .range = .{
-                    .start = .{ .line = 0, .character = 0 },
-                    .end = .{ .line = 0, .character = 0 },
-                },
-                .severity = .error_sev,
-                .message = switch (err) {
-                    error.OutOfMemory => "Out of memory",
-                    else => "Type resolution error",
-                },
-            }) catch {};
-        };
+        typed_ast = resolveTypedAst(alloc, r, &diagnostics);
     } else |_| {
         // Semantic analysis failed — diagnostics already captured
     }
 
-    return .{ .diagnostics = diagnostics.toOwnedSlice(alloc) catch &.{} };
+    return .{
+        .diagnostics = diagnostics.toOwnedSlice(alloc) catch &.{},
+        .typed_ast = typed_ast,
+    };
+}
+
+fn resolveTypedAst(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst, diagnostics: *std.ArrayList(Diagnostic)) ?TypedAst {
+    return TypeResolver.resolve(alloc, resolved, .mysql) catch |err| {
+        diagnostics.append(alloc, .{
+            .range = .{
+                .start = .{ .line = 0, .character = 0 },
+                .end = .{ .line = 0, .character = 0 },
+            },
+            .severity = .error_sev,
+            .message = switch (err) {
+                error.OutOfMemory => "Out of memory",
+                else => "Type resolution error",
+            },
+        }) catch {};
+        return null;
+    };
 }
 
 // ─── Tests ─────────────────────────────────────────────────────

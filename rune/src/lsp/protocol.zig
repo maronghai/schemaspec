@@ -39,11 +39,155 @@ pub const TextDocumentSyncKind = enum(u32) {
     incremental = 2,
 };
 
+// ─── Document Symbols ────────────────────────────────────────
+
+pub const SymbolKind = enum(u32) {
+    file = 1,
+    module = 2,
+    namespace = 3,
+    package = 4,
+    class = 5,
+    method = 6,
+    property = 7,
+    field = 8,
+    constructor = 9,
+    enum_kind = 10,
+    interface = 11,
+    function = 12,
+    variable = 13,
+    constant = 14,
+    string = 15,
+    number = 16,
+    boolean = 17,
+    array = 18,
+    object = 19,
+    key = 20,
+    null_kind = 21,
+    enum_member = 22,
+    struct_kind = 23,
+    event = 24,
+    operator = 25,
+    type_parameter = 26,
+};
+
+pub const SymbolTag = enum(u32) {
+    deprecated = 1,
+};
+
+pub const DocumentSymbol = struct {
+    name: []const u8,
+    detail: ?[]const u8 = null,
+    kind: SymbolKind,
+    range: Range,
+    selection_range: Range,
+    children: ?[]const DocumentSymbol = null,
+    tags: ?[]const SymbolTag = null,
+};
+
+pub const DocumentSymbolParams = struct {
+    text_document: TextDocumentIdentifier,
+};
+
+pub const TextDocumentIdentifier = struct {
+    uri: []const u8,
+};
+
+// ─── Completion ──────────────────────────────────────────────
+
+pub const CompletionItemKind = enum(u32) {
+    text = 1,
+    method = 2,
+    function = 3,
+    constructor = 4,
+    field = 5,
+    variable = 6,
+    class = 7,
+    interface = 8,
+    module = 9,
+    property = 10,
+    unit = 11,
+    value = 12,
+    enum_kind = 13,
+    keyword = 14,
+    snippet = 15,
+    color = 16,
+    file = 17,
+    reference = 18,
+    folder = 19,
+    enum_member = 20,
+    constant = 21,
+    struct_kind = 22,
+    event = 23,
+    operator = 24,
+    type_parameter = 25,
+};
+
+pub const InsertTextFormat = enum(u32) {
+    plain_text = 1,
+    snippet = 2,
+};
+
+pub const CompletionItem = struct {
+    label: []const u8,
+    kind: CompletionItemKind,
+    detail: ?[]const u8 = null,
+    documentation: ?[]const u8 = null,
+    insert_text: ?[]const u8 = null,
+    insert_text_format: ?InsertTextFormat = null,
+};
+
+pub const CompletionList = struct {
+    is_incomplete: bool,
+    items: []const CompletionItem,
+};
+
+pub const CompletionParams = struct {
+    text_document: TextDocumentIdentifier,
+    position: Position,
+};
+
+// ─── Hover ───────────────────────────────────────────────────
+
+pub const MarkupKind = enum {
+    markdown,
+    plaintext,
+};
+
+pub const MarkupContent = struct {
+    kind: MarkupKind,
+    value: []const u8,
+};
+
+pub const Hover = struct {
+    contents: MarkupContent,
+    range: ?Range = null,
+};
+
+pub const HoverParams = struct {
+    text_document: TextDocumentIdentifier,
+    position: Position,
+};
+
+// ─── Go-to-Definition ────────────────────────────────────────
+
+pub const Location = struct {
+    uri: []const u8,
+    range: Range,
+};
+
+pub const DefinitionParams = struct {
+    text_document: TextDocumentIdentifier,
+    position: Position,
+};
+
+// ─── Server Capabilities (expanded) ─────────────────────────
+
 pub const ServerCapabilities = struct {
     text_document_sync: ?TextDocumentSyncKind = .full,
     hover_provider: ?bool = null,
     completion_provider: ?bool = null,
     definition_provider: ?bool = null,
+    document_symbol_provider: ?bool = null,
 };
 
 pub const InitializeResult = struct {
@@ -285,6 +429,10 @@ pub fn writeInitializeResult(w: anytype, caps: ServerCapabilities) !void {
         try w.writeAll(",\"definitionProvider\":");
         try w.writeAll(if (dp) "true" else "false");
     }
+    if (caps.document_symbol_provider) |dsp| {
+        try w.writeAll(",\"documentSymbolProvider\":");
+        try w.writeAll(if (dsp) "true" else "false");
+    }
     try w.writeAll("}");
 }
 
@@ -312,6 +460,111 @@ pub fn writePublishDiagnostics(w: anytype, params: PublishDiagnosticsParams) !vo
         try w.writeAll("}");
     }
     try w.writeAll("]}");
+}
+
+// ─── LSP Response Writers ───────────────────────────────────
+
+/// Write a DocumentSymbol as JSON.
+pub fn writeDocumentSymbol(w: anytype, sym: DocumentSymbol) !void {
+    try w.writeByte('{');
+    try writeJsonField(w, "name", sym.name);
+    if (sym.detail) |d| {
+        try w.writeByte(',');
+        try writeJsonField(w, "detail", d);
+    }
+    try w.writeByte(',');
+    try writeJsonInt(w, "kind", @intFromEnum(sym.kind));
+    try w.writeByte(',');
+    try writeRange(w, "range", sym.range);
+    try w.writeByte(',');
+    try writeRange(w, "selectionRange", sym.selection_range);
+    if (sym.children) |children| {
+        try w.writeAll(",\"children\":[");
+        for (children, 0..) |child, i| {
+            if (i > 0) try w.writeByte(',');
+            try writeDocumentSymbol(w, child);
+        }
+        try w.writeByte(']');
+    }
+    try w.writeByte('}');
+}
+
+/// Write a Range as a named JSON field.
+fn writeRange(w: anytype, key: []const u8, r: Range) !void {
+    try writeJsonString(w, key);
+    try w.writeAll(":{\"start\":{\"line\":");
+    try w.print("{d}", .{r.start.line});
+    try w.writeAll(",\"character\":");
+    try w.print("{d}", .{r.start.character});
+    try w.writeAll("},\"end\":{\"line\":");
+    try w.print("{d}", .{r.end.line});
+    try w.writeAll(",\"character\":");
+    try w.print("{d}", .{r.end.character});
+    try w.writeAll("}}");
+}
+
+/// Write a CompletionList as JSON.
+pub fn writeCompletionList(w: anytype, list: CompletionList) !void {
+    try w.writeAll("{\"isIncomplete\":");
+    try w.writeAll(if (list.is_incomplete) "true" else "false");
+    try w.writeAll(",\"items\":[");
+    for (list.items, 0..) |item, i| {
+        if (i > 0) try w.writeByte(',');
+        try writeCompletionItem(w, item);
+    }
+    try w.writeAll("]}");
+}
+
+/// Write a CompletionItem as JSON.
+pub fn writeCompletionItem(w: anytype, item: CompletionItem) !void {
+    try w.writeByte('{');
+    try writeJsonField(w, "label", item.label);
+    try w.writeByte(',');
+    try writeJsonInt(w, "kind", @intFromEnum(item.kind));
+    if (item.detail) |d| {
+        try w.writeAll(",\"detail\":");
+        try writeJsonString(w, d);
+    }
+    if (item.documentation) |doc| {
+        try w.writeAll(",\"documentation\":");
+        try writeJsonString(w, doc);
+    }
+    if (item.insert_text) |it| {
+        try w.writeAll(",\"insertText\":");
+        try writeJsonString(w, it);
+    }
+    if (item.insert_text_format) |fmt| {
+        try w.writeAll(",\"insertTextFormat\":");
+        try w.print("{d}", .{@intFromEnum(fmt)});
+    }
+    try w.writeByte('}');
+}
+
+/// Write a Hover result as JSON.
+pub fn writeHover(w: anytype, hover: Hover) !void {
+    try w.writeByte('{');
+    try w.writeAll("\"contents\":{\"kind\":");
+    try writeJsonString(w, switch (hover.contents.kind) {
+        .markdown => "markdown",
+        .plaintext => "plaintext",
+    });
+    try w.writeAll(",\"value\":");
+    try writeJsonString(w, hover.contents.value);
+    try w.writeAll("}");
+    if (hover.range) |r| {
+        try w.writeByte(',');
+        try writeRange(w, "range", r);
+    }
+    try w.writeByte('}');
+}
+
+/// Write a Location as JSON.
+pub fn writeLocation(w: anytype, loc: Location) !void {
+    try w.writeByte('{');
+    try writeJsonField(w, "uri", loc.uri);
+    try w.writeByte(',');
+    try writeRange(w, "range", loc.range);
+    try w.writeByte('}');
 }
 
 /// Generic JSON value writer.

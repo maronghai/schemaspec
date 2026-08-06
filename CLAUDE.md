@@ -107,8 +107,8 @@ rune/src/
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
   bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules
   generator.zig                                                   # generator registry (pluggable)
-  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync)
-                compile_service.zig, server.zig
+  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def)
+                compile_service.zig, server.zig, features.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
   tests.zig                                                       # colocated test index (81 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
@@ -209,8 +209,9 @@ rune/src/
 | | `stats.zig` | Schema statistics (field type classification, table/field/view/constraint counts) |
 | `lsp/` | `protocol.zig` | JSON-RPC message types and LSP protocol helpers |
 | | `documents.zig` | Document state manager (open/change/close tracking) |
-| | `compile_service.zig` | Pipeline wrapper for LSP diagnostics capture |
+| | `compile_service.zig` | Pipeline wrapper for LSP diagnostics + TypedAst capture |
 | | `server.zig` | LSP server main loop (JSON-RPC over stdio) |
+| | `features.zig` | LSP interactive features (document symbols, completion, hover, go-to-definition) |
 | `parser/` | `parser.zig` | Token-level `.ss` parser → AST, dispatches to parse_* modules |
 | | `parse_field.zig` | Field declaration parsing (type, modifiers, default, inline FK) |
 | | `parse_fk.zig`, `parse_check.zig`, `parse_index.zig` | FK/Check/Index parsing |

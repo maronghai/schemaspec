@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.144.0 (2026-08-06) — 27,200+ lines production Zig, 1160+ tests, 26 test suites.
+**Current version**: 0.145.0 (2026-08-07) — 27,500+ lines production Zig, 1140+ tests, 26 test suites.
 
 ---
 
@@ -134,12 +134,12 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 ### LSP Language Server
 
 - [x] `rune-lsp` — standalone language server binary (v0.144.0)
-- [ ] Completion — type symbols (`n`, `s32`, `m`), modifiers (`++`, `!`, `*`), keywords
+- [x] Completion — type symbols (`n`, `s32`, `m`), modifiers (`++`, `!`, `*`), keywords (v0.145.0)
 - [x] Diagnostics — real-time error/warning display (v0.144.0)
-- [ ] Go-to-definition — navigate from FK reference to target table/column
-- [ ] Hover — show SQL type equivalent for SS symbols
+- [x] Go-to-definition — navigate from FK reference to target table/column (v0.145.0)
+- [x] Hover — show SQL type equivalent for SS symbols (v0.145.0)
 - [ ] Code actions — quick fixes for common errors
-- [ ] Document symbols — outline view for tables, templates, views
+- [x] Document symbols — outline view for tables, templates, views (v0.145.0)
 
 ### Editor Integration
 
@@ -221,6 +221,16 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.145.0 (2026-08-07)
+
+- **LSP Document Symbols** — New `textDocument/documentSymbol` support provides outline view for `.ss` files. Tables map to Class symbols, columns to Field symbols, views to Event symbols, FKs to Constant symbols, and indexes to Key symbols. Nested structure shows columns/FKs/indexes as children of their parent table. New `features.zig` module (~400 lines) with `getDocumentSymbols()`.
+- **LSP Completion** — New `textDocument/completion` support with context-aware suggestions. Offers 14 keywords (`table`, `view`, `template`, `enum`, `PK`, `FK`, `UK`, `CK`, `IX`, etc.), 17 type symbols (`n`, `i`, `u`, `s`, `s64`, `m`, `f`, `d`, `dt`, `t`, `b`, `uid`, `json`, `jsonb`, `text`), 6 modifiers (`++`, `!`, `*`, `+`, `-`, `@`), and table/column names for FK references (`table.column` format).
+- **LSP Hover** — New `textDocument/hover` support shows rich markdown information at cursor position. Table hover: name, comment, column/FK/index counts, engine. Column hover: SS symbol → SQL type mapping, flags (PK, AUTO_INCREMENT, NULLABLE, UNSIGNED, UNIQUE, INDEXED, ENUM, VIRTUAL, STORED), default value, comment. FK hover: target table.column reference.
+- **LSP Go-to-Definition** — New `textDocument/definition` support navigates from FK references to target table declarations. Works for both standalone FK declarations and inline FK references on columns.
+- **CompileResult caching** — `compile_service.zig` now caches the `TypedAst` from compilation alongside diagnostics. Server stores per-document compile results for reuse by interactive features (completion, hover, go-to-definition) without recompilation.
+- **Server capability advertisement** — `handleInitialize` now advertises `hoverProvider`, `completionProvider`, `definitionProvider`, and `documentSymbolProvider` capabilities. Editors can detect and use all LSP features.
+- **New tests**: 5 new unit tests in `features.zig` (empty schema symbols, single table with FKs/indexes, completion offers keywords/types, hover shows table metadata). Total: ~1138 tests.
 
 ### v0.144.0 (2026-08-06)
 
@@ -1003,7 +1013,7 @@ Ongoing improvements pursued alongside feature work.
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
-| 5: Developer Experience | 🟡 Partial | 8/13 | 5 |
+| 5: Developer Experience | 🟡 Partial | 11/13 | 2 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 14/14 | 0 |
-| **Total** | | **67/82** | **15** |
+| **Total** | | **69/82** | **13** |

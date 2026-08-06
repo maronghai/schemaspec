@@ -2,6 +2,7 @@ const std = @import("std");
 const lsp_protocol = @import("protocol.zig");
 const compile_svc = @import("compile_service.zig");
 const doc_mod = @import("documents.zig");
+const features_mod = @import("features.zig");
 
 // ─── LSP Server ────────────────────────────────────────────────
 // JSON-RPC 2.0 server over stdio for the Language Server Protocol.
@@ -12,6 +13,7 @@ pub const Server = struct {
     arena: std.mem.Allocator,
     io: std.Io,
     documents: doc_mod.DocumentManager,
+    compile_results: std.StringHashMap(compile_svc.CompileResult),
     initialized: bool,
 
     pub fn init(arena: std.mem.Allocator, io: std.Io) Server {
@@ -19,11 +21,17 @@ pub const Server = struct {
             .arena = arena,
             .io = io,
             .documents = doc_mod.DocumentManager.init(arena),
+            .compile_results = std.StringHashMap(compile_svc.CompileResult).init(arena),
             .initialized = false,
         };
     }
 
     pub fn deinit(self: *Server) void {
+        var iter = self.compile_results.iterator();
+        while (iter.next()) |entry| {
+            self.arena.free(entry.value_ptr.*.diagnostics);
+        }
+        self.compile_results.deinit();
         self.documents.deinit();
     }
 
@@ -79,6 +87,22 @@ pub const Server = struct {
                 if (msg.params) |params| {
                     try self.handleDidSave(params);
                 }
+            } else if (std.mem.eql(u8, method, "textDocument/documentSymbol")) {
+                if (msg.params) |params| {
+                    try self.handleDocumentSymbol(stdout_file, id, params);
+                }
+            } else if (std.mem.eql(u8, method, "textDocument/completion")) {
+                if (msg.params) |params| {
+                    try self.handleCompletion(stdout_file, id, params);
+                }
+            } else if (std.mem.eql(u8, method, "textDocument/hover")) {
+                if (msg.params) |params| {
+                    try self.handleHover(stdout_file, id, params);
+                }
+            } else if (std.mem.eql(u8, method, "textDocument/definition")) {
+                if (msg.params) |params| {
+                    try self.handleDefinition(stdout_file, id, params);
+                }
             } else if (id != null) {
                 // Unknown method with id → respond with method_not_found
                 var w = stdout_file.writerStreaming(self.io, &buf);
@@ -91,20 +115,22 @@ pub const Server = struct {
 
     fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64) !void {
         const rid = id orelse return;
-        var w_buf: [1024]u8 = undefined;
-        var w = stdout_file.writerStreaming(self.io, &w_buf);
-        try w.interface.writeAll("{\"jsonrpc\":\"2.0\",\"id\":");
-        try w.interface.print("{d}", .{rid});
-        try w.interface.writeAll(",\"result\":{\"capabilities\":{\"textDocumentSync\":1}}}\n");
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        try lsp_protocol.writeInitializeResult(&body_alloc.writer, .{
+            .text_document_sync = .full,
+            .hover_provider = true,
+            .completion_provider = true,
+            .definition_provider = true,
+            .document_symbol_provider = true,
+        });
+        try self.sendResponse(stdout_file, rid, &body_alloc);
     }
 
     fn handleShutdown(self: *Server, stdout_file: anytype, id: ?i64) !void {
         const rid = id orelse return;
-        var w_buf: [1024]u8 = undefined;
-        var w = stdout_file.writerStreaming(self.io, &w_buf);
-        try w.interface.writeAll("{\"jsonrpc\":\"2.0\",\"id\":");
-        try w.interface.print("{d}", .{rid});
-        try w.interface.writeAll(",\"result\":null}\n");
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        try body_alloc.writer.writeAll("null");
+        try self.sendResponse(stdout_file, rid, &body_alloc);
     }
 
     fn handleDidOpen(self: *Server, params: std.json.Value) !void {
@@ -140,6 +166,12 @@ pub const Server = struct {
 
         self.documents.close(uri);
 
+        // Clear cached compile result
+        if (self.compile_results.fetchRemove(uri)) |kv| {
+            self.arena.free(kv.value.diagnostics);
+            self.arena.free(kv.key);
+        }
+
         // Publish empty diagnostics to clear errors
         try self.publishDiagnostics(uri, &.{});
     }
@@ -152,6 +184,120 @@ pub const Server = struct {
         try self.compileAndPublishDiagnostics(uri);
     }
 
+    // ─── Feature Handlers ────────────────────────────────────────
+
+    fn handleDocumentSymbol(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+        const rid = id orelse return;
+        const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+        const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+
+        const result = self.compile_results.get(uri);
+        const typed = if (result) |r| r.typed_ast else null;
+
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        try body_alloc.writer.writeByte('[');
+        if (typed) |t| {
+            const symbols = features_mod.getDocumentSymbols(self.arena, t);
+            for (symbols, 0..) |sym, i| {
+                if (i > 0) try body_alloc.writer.writeByte(',');
+                try lsp_protocol.writeDocumentSymbol(&body_alloc.writer, sym);
+            }
+        }
+        try body_alloc.writer.writeByte(']');
+
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+    }
+
+    fn handleCompletion(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+        const rid = id orelse return;
+        const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+        const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+        const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+        const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+        const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+
+        const result = self.compile_results.get(uri);
+        const typed = if (result) |r| r.typed_ast else null;
+
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        if (typed) |t| {
+            const list = features_mod.getCompletions(self.arena, t, .{ .line = line, .character = character });
+            try lsp_protocol.writeCompletionList(&body_alloc.writer, list);
+        } else {
+            try body_alloc.writer.writeAll("{\"isIncomplete\":false,\"items\":[]}");
+        }
+
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+    }
+
+    fn handleHover(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+        const rid = id orelse return;
+        const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+        const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+        const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+        const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+        const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+
+        const result = self.compile_results.get(uri);
+        const typed = if (result) |r| r.typed_ast else null;
+
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        if (typed) |t| {
+            if (features_mod.getHover(self.arena, t, .{ .line = line, .character = character })) |hover| {
+                try lsp_protocol.writeHover(&body_alloc.writer, hover);
+            } else {
+                try body_alloc.writer.writeAll("null");
+            }
+        } else {
+            try body_alloc.writer.writeAll("null");
+        }
+
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+    }
+
+    fn handleDefinition(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+        const rid = id orelse return;
+        const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+        const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+        const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+        const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+        const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+
+        const result = self.compile_results.get(uri);
+        const typed = if (result) |r| r.typed_ast else null;
+
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        if (typed) |t| {
+            if (features_mod.getDefinition(self.arena, t, uri, .{ .line = line, .character = character })) |loc| {
+                try lsp_protocol.writeLocation(&body_alloc.writer, loc);
+            } else {
+                try body_alloc.writer.writeAll("null");
+            }
+        } else {
+            try body_alloc.writer.writeAll("null");
+        }
+
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+    }
+
+    fn sendResponse(self: *Server, stdout_file: anytype, rid: i64, body_alloc: *std.Io.Writer.Allocating) !void {
+        const inner = try body_alloc.toOwnedSlice();
+        defer self.arena.free(inner);
+
+        // Wrap in JSON-RPC response
+        var response_alloc = std.Io.Writer.Allocating.init(self.arena);
+        try response_alloc.writer.print("{{\"jsonrpc\":\"2.0\",\"id\":{d},\"result\":", .{rid});
+        try response_alloc.writer.writeAll(inner);
+        try response_alloc.writer.writeByte('}');
+        const body = try response_alloc.toOwnedSlice();
+        defer self.arena.free(body);
+
+        var w_buf: [8192]u8 = undefined;
+        var w = stdout_file.writerStreaming(self.io, &w_buf);
+        try w.interface.print("Content-Length: {d}\r\n\r\n", .{body.len});
+        try w.interface.writeAll(body);
+    }
+
     // ─── Compilation & Diagnostics ─────────────────────────────
 
     fn compileAndPublishDiagnostics(self: *Server, uri: []const u8) !void {
@@ -160,7 +306,15 @@ pub const Server = struct {
         defer self.arena.free(path);
 
         const result = try compile_svc.compile(self.arena, doc.text, path);
-        defer self.arena.free(result.diagnostics);
+
+        // Free old diagnostics if present
+        if (self.compile_results.getEntry(uri)) |entry| {
+            self.arena.free(entry.value_ptr.*.diagnostics);
+            entry.value_ptr.* = result;
+        } else {
+            const owned_uri = try self.arena.dupe(u8, uri);
+            try self.compile_results.put(owned_uri, result);
+        }
 
         try self.publishDiagnostics(uri, result.diagnostics);
     }
