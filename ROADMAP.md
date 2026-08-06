@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.131.0 (2026-08-06) — 25,000+ lines production Zig, 1056+ tests, 26 test suites.
+**Current version**: 0.132.0 (2026-08-06) — 25,000+ lines production Zig, 1058+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.132.0 (2026-08-06)
+
+- **Batch generation** — `rune generate schema.ss --generators prisma,drizzle,openapi` runs multiple generators from a single schema compilation. The `--generators` flag accepts a comma-separated list of generator names. Each generator's output is written to a separate file when `-o` is specified, or to stdout with headers. Backward compatible: single `rune generate prisma schema.ss` still works.
+- **CLI `--generators` flag** — New flag for `rune generate` subcommand. Added to `KNOWN_FLAGS` for edit-distance suggestions. Two-pass parsing ensures `--generators` is handled before positional arguments.
+- **New tests** — 2 new CLI tests for `--generators` flag parsing (comma-separated values, values with spaces). Total: 1058 tests.
 
 ### v0.131.0 (2026-08-06)
 

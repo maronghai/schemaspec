@@ -400,6 +400,37 @@ test "parseArgs: generate --list" {
     }
 }
 
+test "parseArgs: generate --generators prisma,drizzle" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(5, .{ "rune", "generate", "schema.ss", "--generators", "prisma,drizzle" });
+    const result = try cli.parseArgs(alloc, &args);
+    switch (result.command) {
+        .generate => |cmd| {
+            try testing.expect(cmd.generators_str != null);
+            try testing.expectEqualStrings("prisma,drizzle", cmd.generators_str.?);
+            try testing.expectEqualStrings("schema.ss", cmd.input.?);
+        },
+        else => try testing.expect(false),
+    }
+}
+
+test "parseArgs: generate --generators with spaces" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(5, .{ "rune", "generate", "schema.ss", "--generators", "prisma, drizzle, openapi" });
+    const result = try cli.parseArgs(alloc, &args);
+    switch (result.command) {
+        .generate => |cmd| {
+            try testing.expect(cmd.generators_str != null);
+            try testing.expectEqualStrings("prisma, drizzle, openapi", cmd.generators_str.?);
+        },
+        else => try testing.expect(false),
+    }
+}
+
 test "parseArgs: docs command" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();

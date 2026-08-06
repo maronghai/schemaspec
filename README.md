@@ -462,9 +462,10 @@ rune generate openapi schema.ss        # → OpenAPI 3.1 spec
 rune generate graphql schema.ss        # → GraphQL type definitions
 rune generate docs schema.ss          # → Markdown documentation
 rune generate --list                  # → list available generators
+rune generate schema.ss --generators prisma,drizzle,openapi  # → Batch generation
 ```
 
-10 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, OpenAPI 3.1, GraphQL, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output.
+10 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, OpenAPI 3.1, GraphQL, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output. Batch generation runs multiple generators from a single compilation.
 
 ### Init
 

@@ -290,6 +290,10 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 return;
             }
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            // Batch generation: --generators prisma,drizzle,openapi
+            if (cmd.generators_str) |gens_str| {
+                return forward.generateFromSchemaBatch(io, alloc, file_data, gens_str, parsed.dialect, cmd.output, parsed.quiet);
+            }
             return forward.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
         },
         .init => |cmd| {

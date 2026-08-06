@@ -20,7 +20,7 @@ pub const Command = union(enum) {
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
     format_cmd: struct { input: ?[]const u8, output: ?[]const u8 },
-    generate: struct { generator: []const u8, input: ?[]const u8, output: ?[]const u8, list: bool },
+    generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool },
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },
@@ -108,4 +108,5 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--verbose-passes", "--import-path", "--trace",       "--rollback",      "--output",   "--list",
     "--name",           "--dir",         "--incremental", "--color",         "--init",     "--summary",
     "--config",         "--template",    "--graph",       "--stream",        "--interval", "--parallel",
+    "--generators",
 };

@@ -414,3 +414,75 @@ pub fn generateFromSchema(
         return error.UnknownGenerator;
     }
 }
+
+/// Batch generation: run multiple generators from a single compilation.
+/// `generators_str` is a comma-separated list of generator names (e.g. "prisma,drizzle,openapi").
+/// Each generator's output is written to a separate file: `<output_dir>/<generator_name>.<ext>`.
+/// When output_path is null, outputs are written to stdout separated by headers.
+pub fn generateFromSchemaBatch(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    file_data: []const u8,
+    generators_str: []const u8,
+    dialect: codegen.Dialect,
+    output_path: ?[]const u8,
+    quiet: bool,
+) !void {
+    const pipeline = try compilePipeline(alloc, file_data, .{});
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+
+    const generator = @import("../generator.zig");
+
+    // Split comma-separated generator names
+    var gen_names = try std.ArrayList([]const u8).initCapacity(alloc, 8);
+    defer gen_names.deinit(alloc);
+
+    var start: usize = 0;
+    for (generators_str, 0..) |ch, i| {
+        if (ch == ',' or i == generators_str.len - 1) {
+            const end = if (ch == ',') i else i + 1;
+            const name = std.mem.trim(u8, generators_str[start..end], " ");
+            if (name.len > 0) {
+                if (generator.get(name) == null) {
+                    return error.UnknownGenerator;
+                }
+                try gen_names.append(alloc, name);
+            }
+            start = i + 1;
+        }
+    }
+
+    if (gen_names.items.len == 0) {
+        return error.UnknownGenerator;
+    }
+
+    // Generate each output
+    for (gen_names.items) |gen_name| {
+        if (generator.get(gen_name)) |gen| {
+            const output_text = try gen.generate(alloc, typed, dialect);
+
+            // Determine output path
+            const file_out = if (output_path) |base_path| blk: {
+                // Write to <base_path>/<generator_name>.out
+                break :blk try std.fmt.allocPrint(alloc, "{s}/{s}.out", .{ base_path, gen_name });
+            } else null;
+
+            if (file_out) |path| {
+                // Write to file
+                try std.Io.Dir.cwd().writeFile(io, .{
+                    .sub_path = path,
+                    .data = output_text,
+                });
+                if (!quiet) {
+                    std.debug.print("Written to {s}\n", .{path});
+                }
+            } else {
+                // Write to stdout with header
+                if (!quiet) {
+                    std.debug.print("--- {s} ---\n", .{gen_name});
+                }
+                try io_mod.writeOutput(io, output_text, null, quiet);
+            }
+        }
+    }
+}

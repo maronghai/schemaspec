@@ -82,6 +82,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune diff old.ss new.ss --summary     # Summary only (N changed, X added, Y dropped, Z modified)
 ./rune/zig-out/bin/rune generate json-schema schema.ss   # Generate JSON Schema
 ./rune/zig-out/bin/rune generate --list                  # List available generators
+./rune/zig-out/bin/rune generate schema.ss --generators prisma,drizzle,openapi  # Batch generation
 ./rune/zig-out/bin/rune watch schema.ss                   # Watch file and recompile on change
 ./rune/zig-out/bin/rune watch schema.ss --interval 500    # Watch with 500ms polling interval
 ./rune/zig-out/bin/rune watch schema.ss --parallel        # Watch with parallel compilation

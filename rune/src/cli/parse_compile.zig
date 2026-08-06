@@ -170,18 +170,38 @@ pub fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
 
 pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
     var want_list = false;
-    var generator: ?[]const u8 = null;
-    var input: ?[]const u8 = null;
+    var generators_str: ?[]const u8 = null;
+
+    // First pass: scan for flags
     var j: usize = 1;
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--list") or std.mem.eql(u8, fargs[j], "-l")) {
             want_list = true;
-        } else if (generator == null) {
+        } else if (std.mem.eql(u8, fargs[j], "--generators") and j + 1 < fargs.len) {
+            j += 1;
+            generators_str = fargs[j];
+        }
+    }
+
+    // Second pass: process positional arguments
+    var generator: ?[]const u8 = null;
+    var input: ?[]const u8 = null;
+    j = 1;
+    while (j < fargs.len) : (j += 1) {
+        if (std.mem.eql(u8, fargs[j], "--list") or std.mem.eql(u8, fargs[j], "-l") or
+            std.mem.eql(u8, fargs[j], "--generators"))
+        {
+            // Skip flags and their values
+            if (std.mem.eql(u8, fargs[j], "--generators")) j += 1;
+            continue;
+        }
+        if (generator == null and generators_str == null) {
             generator = fargs[j];
         } else if (input == null) {
             input = fargs[j];
         }
     }
+
     if (generator) |gen_name| {
         if (gen_name.len > 0 and !shared.isValidGeneratorName(gen_name)) {
             return error.UnknownGenerator;
@@ -193,6 +213,7 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
         .target = target,
         .command = .{ .generate = .{
             .generator = generator orelse "",
+            .generators_str = generators_str,
             .input = input,
             .output = shared.parseOutputFlag(fargs, 1),
             .list = want_list,
