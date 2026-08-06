@@ -425,6 +425,12 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .parallel = cmd.parallel,
             });
         },
+        .lsp => {
+            const lsp_server = @import("lsp/server.zig");
+            var server = lsp_server.Server.init(alloc, io);
+            defer server.deinit();
+            return server.run();
+        },
     }
 }
 

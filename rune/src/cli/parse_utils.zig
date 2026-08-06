@@ -137,3 +137,8 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
         .config_path = opts.config_path,
     };
 }
+
+pub fn parseLspArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    _ = fargs;
+    return parseSimpleSubcommand(dialect, target, .lsp, opts);
+}

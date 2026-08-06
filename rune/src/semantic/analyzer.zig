@@ -31,6 +31,13 @@ pub const SemanticAnalyzer = struct {
     }
 
     pub fn analyze(self: *SemanticAnalyzer, tree: Ast) !ResolvedAst {
+        return self.analyzeWithCollector(tree, null);
+    }
+
+    /// Run semantic analysis with an optional external DiagnosticCollector.
+    /// When collector is provided, diagnostics are written to it instead of stderr.
+    /// The caller owns the collector and can inspect it after the call.
+    pub fn analyzeWithCollector(self: *SemanticAnalyzer, tree: Ast, external_collector: ?*diag.DiagnosticCollector) !ResolvedAst {
         const resolved_tables = try template_mod.resolveAndApply(self.alloc, tree);
 
         var tables = try std.ArrayList(ResolvedTable).initCapacity(self.alloc, resolved_tables.len);
@@ -55,15 +62,21 @@ pub const SemanticAnalyzer = struct {
 
         pm.validateDependencyOrder(self.alloc);
         pm.validatePassAccess(self.alloc);
-        var diagnostics = try diag.DiagnosticCollector.init(self.alloc);
-        diagnostics.use_color = self.use_color;
+        var owned_diagnostics = if (external_collector == null)
+            try diag.DiagnosticCollector.init(self.alloc)
+        else
+            undefined;
+        if (external_collector == null) {
+            owned_diagnostics.use_color = self.use_color;
+        }
+        var diagnostics_ptr = if (external_collector) |ec| ec else &owned_diagnostics;
         var ctx = PassContext{
             .alloc = self.alloc,
             .tables = &tables,
             .schema = tree.schema,
             .templates = tmpl_map,
             .template_refs = template_refs,
-            .diagnostics = &diagnostics,
+            .diagnostics = diagnostics_ptr,
         };
         for (DEFAULT_PASSES) |pass| {
             if (self.verbose) {
@@ -76,7 +89,7 @@ pub const SemanticAnalyzer = struct {
             // Runtime validation: passes that don't declare modifies_table_list
             // must not change the table count
             if (!pass.access.modifies_table_list and table_count_before != table_count_after) {
-                diagnostics.push(.{
+                diagnostics_ptr.push(.{
                     .severity = .@"error",
                     .line_no = 0,
                     .message = "internal error: semantic pass changed table count without declaring modifies_table_list",
@@ -88,9 +101,12 @@ pub const SemanticAnalyzer = struct {
             }
         }
 
-        diagnostics.printAll();
+        // Only print diagnostics when using the internal collector (CLI mode)
+        if (external_collector == null) {
+            owned_diagnostics.printAll();
+        }
 
-        if (diagnostics.hasErrors()) {
+        if (diagnostics_ptr.hasErrors()) {
             return error.SemanticError;
         }
 

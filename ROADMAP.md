@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.143.0 (2026-08-06) — 26,600+ lines production Zig, 1140+ tests, 26 test suites.
+**Current version**: 0.144.0 (2026-08-06) — 27,200+ lines production Zig, 1160+ tests, 26 test suites.
 
 ---
 
@@ -133,9 +133,9 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 
 ### LSP Language Server
 
-- [ ] `rune-lsp` — standalone language server binary
+- [x] `rune-lsp` — standalone language server binary (v0.144.0)
 - [ ] Completion — type symbols (`n`, `s32`, `m`), modifiers (`++`, `!`, `*`), keywords
-- [ ] Diagnostics — real-time error/warning display
+- [x] Diagnostics — real-time error/warning display (v0.144.0)
 - [ ] Go-to-definition — navigate from FK reference to target table/column
 - [ ] Hover — show SQL type equivalent for SS symbols
 - [ ] Code actions — quick fixes for common errors
@@ -221,6 +221,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.144.0 (2026-08-06)
+
+- **LSP Language Server foundation** — New `rune lsp` command starts a Language Server Protocol (LSP) server over stdio. Supports JSON-RPC 2.0 message handling, Content-Length framing, text document synchronization (didOpen/didChange/didClose/didSave), and real-time diagnostics publishing. When an editor sends a `.ss` document, the server compiles it through the full pipeline (tokenize → parse → semantic analysis → type resolution) and publishes any errors/warnings as LSP diagnostics. New modules: `lsp/protocol.zig` (JSON-RPC types and helpers), `lsp/documents.zig` (document state manager), `lsp/compile_service.zig` (pipeline wrapper with diagnostic capture), `lsp/server.zig` (main event loop).
+- **Semantic analyzer diagnostic capture** — `SemanticAnalyzer.analyzeWithCollector()` accepts an optional external `DiagnosticCollector`, enabling LSP and other consumers to capture diagnostics without modifying the core pipeline. Existing callers use `analyze()` which creates an internal collector.
+- **Shell completions** — `lsp` subcommand added to all 4 shell completion scripts (bash, zsh, fish, powershell).
 
 ### v0.143.0 (2026-08-06)
 

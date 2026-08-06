@@ -93,6 +93,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues
 ./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON
 ./rune/zig-out/bin/rune lint schema.ss --strict           # Lint, exit 1 on warnings
+./rune/zig-out/bin/rune lsp                               # Start LSP language server (stdio)
 ```
 
 ## Architecture
@@ -106,6 +107,8 @@ rune/src/
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
   bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules
   generator.zig                                                   # generator registry (pluggable)
+  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync)
+                compile_service.zig, server.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
   tests.zig                                                       # colocated test index (81 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
@@ -204,6 +207,10 @@ rune/src/
 | | `reverse.zig` | SQL → `.ss` orchestration + dialect auto-detection |
 | | `diff.zig` | Diff/migrate pipeline orchestration |
 | | `stats.zig` | Schema statistics (field type classification, table/field/view/constraint counts) |
+| `lsp/` | `protocol.zig` | JSON-RPC message types and LSP protocol helpers |
+| | `documents.zig` | Document state manager (open/change/close tracking) |
+| | `compile_service.zig` | Pipeline wrapper for LSP diagnostics capture |
+| | `server.zig` | LSP server main loop (JSON-RPC over stdio) |
 | `parser/` | `parser.zig` | Token-level `.ss` parser → AST, dispatches to parse_* modules |
 | | `parse_field.zig` | Field declaration parsing (type, modifiers, default, inline FK) |
 | | `parse_fk.zig`, `parse_check.zig`, `parse_index.zig` | FK/Check/Index parsing |

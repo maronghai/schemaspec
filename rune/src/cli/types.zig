@@ -28,6 +28,7 @@ pub const Command = union(enum) {
     hooks: struct { hook_type: []const u8 },
     lint: struct { input: ?[]const u8 = null, input2: ?[]const u8 = null, json_errors: bool = false, strict: bool = false, format: LintFormat = .text, rules: ?[]const u8 = null },
     watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null, parallel: bool = false, trace: bool = false, stats: bool = false, json_errors: bool = false },
+    lsp,
     version,
     help: struct { subcommand: ?[]const u8 = null },
 };
@@ -106,6 +107,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "hooks", .args = "<type>", .description = "Generate git hooks (pre-commit)" },
     .{ .name = "lint", .args = "[input.ss]", .description = "Lint schema for quality issues (missing PK, naming, etc.)" },
     .{ .name = "watch", .args = "<input.ss> [--interval <ms>] [--parallel]", .description = "Watch file and recompile on change" },
+    .{ .name = "lsp", .args = "", .description = "Start LSP language server (stdio)" },
 };
 
 /// Known long flags for edit-distance suggestions.
