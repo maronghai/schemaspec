@@ -523,7 +523,7 @@ Watch mode polls the file for changes and automatically recompiles when modifica
 
 ## Roadmap
 
-- [ ] LSP language server (completion, diagnostics, go-to-definition)
+- [x] LSP language server (completion, diagnostics, hover, go-to-definition, code actions, formatting)
 - [x] Oracle dialect support
 - [x] Microsoft SQL Server dialect support
 - [x] IBM Db2 dialect support

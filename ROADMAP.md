@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.145.0 (2026-08-07) — 27,500+ lines production Zig, 1140+ tests, 26 test suites.
+**Current version**: 0.146.0 (2026-08-07) — 27,500+ lines production Zig, 1147+ tests, 26 test suites.
 
 ---
 
@@ -138,7 +138,7 @@ Make Rune delightful to use day-to-day. **Partially started** — `rune init`, c
 - [x] Diagnostics — real-time error/warning display (v0.144.0)
 - [x] Go-to-definition — navigate from FK reference to target table/column (v0.145.0)
 - [x] Hover — show SQL type equivalent for SS symbols (v0.145.0)
-- [ ] Code actions — quick fixes for common errors
+- [x] Code actions — quick fixes for common errors (v0.146.0)
 - [x] Document symbols — outline view for tables, templates, views (v0.145.0)
 
 ### Editor Integration
@@ -221,6 +221,14 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.146.0 (2026-08-07)
+
+- **LSP Code Actions** — New `textDocument/codeAction` support provides quick fixes for common schema issues: missing primary key, missing table comment, naming convention violations. Server advertises `codeActionProvider` capability.
+- **LSP Dialect Configuration** — Server accepts `initializationOptions.dialect` during `initialize` handshake. Editors can configure target SQL dialect instead of defaulting to MySQL.
+- **Context-sensitive Completion** — Completion now filters suggestions based on cursor context (inside table, after FK keyword, after %, top level).
+- **LSP Document Formatting** — New `textDocument/formatting` support formats `.ss` files using the `rune fmt` engine.
+- **New tests**: 7 new unit tests. Total: ~1147 tests.
 
 ### v0.145.0 (2026-08-07)
 
@@ -1013,7 +1021,7 @@ Ongoing improvements pursued alongside feature work.
 | 2: Extended Dialect Support | ✅ Complete | 14/14 | 0 |
 | 3: ORM & API Schema Output | ✅ Complete | 13/15 | 2 (plugin system, template overrides) |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
-| 5: Developer Experience | 🟡 Partial | 11/13 | 2 |
+| 5: Developer Experience | 🟡 Partial | 12/13 | 1 |
 | 6: Ecosystem & Community | 🔲 Not started | 0/9 | 9 |
 | Architecture Targets | 🟡 Ongoing | 14/14 | 0 |
-| **Total** | | **69/82** | **13** |
+| **Total** | | **70/82** | **12** |

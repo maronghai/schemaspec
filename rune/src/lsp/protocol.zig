@@ -180,6 +180,49 @@ pub const DefinitionParams = struct {
     position: Position,
 };
 
+// ─── Code Actions ──────────────────────────────────────────
+
+pub const CodeActionKind = enum {
+    quick_fix,
+};
+
+pub const TextEdit = struct {
+    range: Range,
+    new_text: []const u8,
+};
+
+pub const WorkspaceEdit = struct {
+    changes: ?[]const TextEdit = null,
+};
+
+pub const CodeAction = struct {
+    title: []const u8,
+    kind: CodeActionKind,
+    diagnostics: ?[]const Diagnostic = null,
+    edit: ?WorkspaceEdit = null,
+};
+
+pub const CodeActionParams = struct {
+    text_document: TextDocumentIdentifier,
+    range: Range,
+    context: CodeActionContext,
+};
+
+pub const CodeActionContext = struct {
+    diagnostics: []const Diagnostic,
+};
+
+// ─── Document Formatting ──────────────────────────────────
+
+pub const DocumentFormattingParams = struct {
+    text_document: TextDocumentIdentifier,
+};
+
+pub const DocumentRangeFormattingParams = struct {
+    text_document: TextDocumentIdentifier,
+    range: Range,
+};
+
 // ─── Server Capabilities (expanded) ─────────────────────────
 
 pub const ServerCapabilities = struct {
@@ -188,6 +231,8 @@ pub const ServerCapabilities = struct {
     completion_provider: ?bool = null,
     definition_provider: ?bool = null,
     document_symbol_provider: ?bool = null,
+    code_action_provider: ?bool = null,
+    formatting_provider: ?bool = null,
 };
 
 pub const InitializeResult = struct {
@@ -433,6 +478,14 @@ pub fn writeInitializeResult(w: anytype, caps: ServerCapabilities) !void {
         try w.writeAll(",\"documentSymbolProvider\":");
         try w.writeAll(if (dsp) "true" else "false");
     }
+    if (caps.code_action_provider) |cap| {
+        try w.writeAll(",\"codeActionProvider\":");
+        try w.writeAll(if (cap) "true" else "false");
+    }
+    if (caps.formatting_provider) |fp| {
+        try w.writeAll(",\"documentFormattingProvider\":");
+        try w.writeAll(if (fp) "true" else "false");
+    }
     try w.writeAll("}");
 }
 
@@ -564,6 +617,60 @@ pub fn writeLocation(w: anytype, loc: Location) !void {
     try writeJsonField(w, "uri", loc.uri);
     try w.writeByte(',');
     try writeRange(w, "range", loc.range);
+    try w.writeByte('}');
+}
+
+/// Write a TextEdit as JSON.
+pub fn writeTextEdit(w: anytype, edit: TextEdit) !void {
+    try w.writeByte('{');
+    try writeRange(w, "range", edit.range);
+    try w.writeByte(',');
+    try writeJsonField(w, "newText", edit.new_text);
+    try w.writeByte('}');
+}
+
+/// Write a CodeAction as JSON.
+pub fn writeCodeAction(w: anytype, action: CodeAction) !void {
+    try w.writeByte('{');
+    try writeJsonField(w, "title", action.title);
+    try w.writeByte(',');
+    try writeJsonField(w, "kind", switch (action.kind) {
+        .quick_fix => "quickfix",
+    });
+    if (action.diagnostics) |diags| {
+        try w.writeAll(",\"diagnostics\":[");
+        for (diags, 0..) |diag, i| {
+            if (i > 0) try w.writeByte(',');
+            try w.writeAll("{\"range\":{\"start\":{\"line\":");
+            try w.print("{d}", .{diag.range.start.line});
+            try w.writeAll(",\"character\":");
+            try w.print("{d}", .{diag.range.start.character});
+            try w.writeAll("},\"end\":{\"line\":");
+            try w.print("{d}", .{diag.range.end.line});
+            try w.writeAll(",\"character\":");
+            try w.print("{d}", .{diag.range.end.character});
+            try w.writeAll("}},\"severity\":");
+            try w.print("{d}", .{@intFromEnum(diag.severity)});
+            try w.writeAll(",\"source\":");
+            try writeJsonString(w, diag.source);
+            try w.writeAll(",\"message\":");
+            try writeJsonString(w, diag.message);
+            try w.writeAll("}");
+        }
+        try w.writeByte(']');
+    }
+    if (action.edit) |edit| {
+        try w.writeAll(",\"edit\":{\"changes\":{");
+        if (edit.changes) |changes| {
+            for (changes, 0..) |tc, i| {
+                if (i > 0) try w.writeByte(',');
+                try w.writeAll("\"file:///\":[");
+                try writeTextEdit(w, tc);
+                try w.writeByte(']');
+            }
+        }
+        try w.writeAll("}}");
+    }
     try w.writeByte('}');
 }
 

@@ -10,6 +10,8 @@ const codegen = @import("../codegen/codegen.zig");
 const lsp_protocol = @import("protocol.zig");
 const Diagnostic = lsp_protocol.Diagnostic;
 const DiagnosticSeverity = lsp_protocol.DiagnosticSeverity;
+const dialect_enum = @import("../dialect/enum.zig");
+const Dialect = dialect_enum.Dialect;
 
 // ─── LSP Compile Service ───────────────────────────────────────
 // Wraps the Rune compilation pipeline for LSP use.
@@ -25,7 +27,7 @@ pub const CompileResult = struct {
 /// Compile a schema text and return LSP diagnostics.
 /// Runs the full pipeline: tokenize → parse → semantic → type resolve.
 /// Captures diagnostics at each stage.
-pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8) !CompileResult {
+pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8, dialect: Dialect) !CompileResult {
     _ = file_path;
     var diagnostics = try std.ArrayList(Diagnostic).initCapacity(alloc, 16);
 
@@ -107,7 +109,7 @@ pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8
     // Stage 3: Type resolution (for additional diagnostics + TypedAst)
     var typed_ast: ?TypedAst = null;
     if (resolved) |r| {
-        typed_ast = resolveTypedAst(alloc, r, &diagnostics);
+        typed_ast = resolveTypedAst(alloc, r, &diagnostics, dialect);
     } else |_| {
         // Semantic analysis failed — diagnostics already captured
     }
@@ -118,8 +120,8 @@ pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8
     };
 }
 
-fn resolveTypedAst(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst, diagnostics: *std.ArrayList(Diagnostic)) ?TypedAst {
-    return TypeResolver.resolve(alloc, resolved, .mysql) catch |err| {
+fn resolveTypedAst(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst, diagnostics: *std.ArrayList(Diagnostic), dialect: Dialect) ?TypedAst {
+    return TypeResolver.resolve(alloc, resolved, dialect) catch |err| {
         diagnostics.append(alloc, .{
             .range = .{
                 .start = .{ .line = 0, .character = 0 },
@@ -144,7 +146,7 @@ test "compile valid schema" {
         \\  id    n   ++ PK
         \\  name  s64
         \\}
-    , "test.ss");
+    , "test.ss", .mysql);
     defer std.testing.allocator.free(result.diagnostics);
 
     // Valid schema should have no errors
@@ -158,7 +160,7 @@ test "compile valid schema" {
 test "compile invalid schema" {
     const result = compile(std.testing.allocator,
         \\table { }
-    , "test.ss");
+    , "test.ss", .mysql);
     defer std.testing.allocator.free(result.diagnostics);
 
     // Invalid schema should have at least one diagnostic
@@ -166,7 +168,7 @@ test "compile invalid schema" {
 }
 
 test "compile empty schema" {
-    const result = compile(std.testing.allocator, "", "test.ss");
+    const result = compile(std.testing.allocator, "", "test.ss", .mysql);
     defer std.testing.allocator.free(result.diagnostics);
 
     // Empty schema should compile without errors
@@ -187,7 +189,7 @@ test "compile schema with foreign key" {
         \\  id      n  ++ PK
         \\  user_id n  -> users.id
         \\}
-    , "test.ss");
+    , "test.ss", .mysql);
     defer std.testing.allocator.free(result.diagnostics);
 
     // Valid schema with FK should have no errors

@@ -3,6 +3,8 @@ const lsp_protocol = @import("protocol.zig");
 const compile_svc = @import("compile_service.zig");
 const doc_mod = @import("documents.zig");
 const features_mod = @import("features.zig");
+const dialect_enum = @import("../dialect/enum.zig");
+const Dialect = dialect_enum.Dialect;
 
 // ─── LSP Server ────────────────────────────────────────────────
 // JSON-RPC 2.0 server over stdio for the Language Server Protocol.
@@ -15,6 +17,7 @@ pub const Server = struct {
     documents: doc_mod.DocumentManager,
     compile_results: std.StringHashMap(compile_svc.CompileResult),
     initialized: bool,
+    dialect: Dialect,
 
     pub fn init(arena: std.mem.Allocator, io: std.Io) Server {
         return .{
@@ -23,6 +26,7 @@ pub const Server = struct {
             .documents = doc_mod.DocumentManager.init(arena),
             .compile_results = std.StringHashMap(compile_svc.CompileResult).init(arena),
             .initialized = false,
+            .dialect = .mysql,
         };
     }
 
@@ -63,7 +67,7 @@ pub const Server = struct {
             const id = msg.id;
 
             if (std.mem.eql(u8, method, "initialize")) {
-                try self.handleInitialize(stdout_file, id);
+                try self.handleInitialize(stdout_file, id, msg.params);
             } else if (std.mem.eql(u8, method, "initialized")) {
                 self.initialized = true;
             } else if (std.mem.eql(u8, method, "shutdown")) {
@@ -103,6 +107,14 @@ pub const Server = struct {
                 if (msg.params) |params| {
                     try self.handleDefinition(stdout_file, id, params);
                 }
+            } else if (std.mem.eql(u8, method, "textDocument/codeAction")) {
+                if (msg.params) |params| {
+                    try self.handleCodeAction(stdout_file, id, params);
+                }
+            } else if (std.mem.eql(u8, method, "textDocument/formatting")) {
+                if (msg.params) |params| {
+                    try self.handleFormatting(stdout_file, id, params);
+                }
             } else if (id != null) {
                 // Unknown method with id → respond with method_not_found
                 var w = stdout_file.writerStreaming(self.io, &buf);
@@ -113,8 +125,18 @@ pub const Server = struct {
 
     // ─── Handlers ──────────────────────────────────────────────
 
-    fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64) !void {
+    fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?std.json.Value) !void {
         const rid = id orelse return;
+
+        // Read dialect from initializationOptions
+        if (params) |p| {
+            if (lsp_protocol.getObjectField(p, "initializationOptions")) |opts| {
+                if (lsp_protocol.getStringField(opts, "dialect")) |dialect_str| {
+                    self.dialect = dialect_enum.parseDialect(dialect_str) catch .mysql;
+                }
+            }
+        }
+
         var body_alloc = std.Io.Writer.Allocating.init(self.arena);
         try lsp_protocol.writeInitializeResult(&body_alloc.writer, .{
             .text_document_sync = .full,
@@ -122,6 +144,8 @@ pub const Server = struct {
             .completion_provider = true,
             .definition_provider = true,
             .document_symbol_provider = true,
+            .code_action_provider = true,
+            .formatting_provider = true,
         });
         try self.sendResponse(stdout_file, rid, &body_alloc);
     }
@@ -221,7 +245,9 @@ pub const Server = struct {
 
         var body_alloc = std.Io.Writer.Allocating.init(self.arena);
         if (typed) |t| {
-            const list = features_mod.getCompletions(self.arena, t, .{ .line = line, .character = character });
+            const doc = self.documents.get(uri);
+            const doc_text = if (doc) |d| d.text else null;
+            const list = features_mod.getCompletions(self.arena, t, .{ .line = line, .character = character }, doc_text);
             try lsp_protocol.writeCompletionList(&body_alloc.writer, list);
         } else {
             try body_alloc.writer.writeAll("{\"isIncomplete\":false,\"items\":[]}");
@@ -280,6 +306,103 @@ pub const Server = struct {
         try self.sendResponse(stdout_file, rid, &body_alloc);
     }
 
+    fn handleCodeAction(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+        const rid = id orelse return;
+        const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+        const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+        const range_val = lsp_protocol.getObjectField(params, "range") orelse return;
+        const start_val = lsp_protocol.getObjectField(range_val, "start") orelse return;
+        const end_val = lsp_protocol.getObjectField(range_val, "end") orelse return;
+        const start_line: u32 = @intCast(lsp_protocol.getIntField(start_val, "line") orelse 0);
+        const start_char: u32 = @intCast(lsp_protocol.getIntField(start_val, "character") orelse 0);
+        const end_line: u32 = @intCast(lsp_protocol.getIntField(end_val, "line") orelse 0);
+        const end_char: u32 = @intCast(lsp_protocol.getIntField(end_val, "character") orelse 0);
+
+        // Get diagnostics from context
+        var diagnostics = [_]lsp_protocol.Diagnostic{};
+        if (lsp_protocol.getObjectField(params, "context")) |ctx| {
+            if (lsp_protocol.getObjectField(ctx, "diagnostics")) |diags_val| {
+                if (diags_val == .array) {
+                    for (diags_val.array.items, 0..) |d, i| {
+                        if (i >= diagnostics.len) break;
+                        const msg = lsp_protocol.getStringField(d, "message") orelse "";
+                        const sev_val = lsp_protocol.getIntField(d, "severity") orelse 1;
+                        const range = if (lsp_protocol.getObjectField(d, "range")) |r| blk: {
+                            const s = lsp_protocol.getObjectField(r, "start") orelse break :blk lsp_protocol.Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
+                            const e = lsp_protocol.getObjectField(r, "end") orelse break :blk lsp_protocol.Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
+                            break :blk lsp_protocol.Range{
+                                .start = .{ .line = @intCast(@max(0, lsp_protocol.getIntField(s, "line") orelse 0)), .character = @intCast(@max(0, lsp_protocol.getIntField(s, "character") orelse 0)) },
+                                .end = .{ .line = @intCast(@max(0, lsp_protocol.getIntField(e, "line") orelse 0)), .character = @intCast(@max(0, lsp_protocol.getIntField(e, "character") orelse 0)) },
+                            };
+                        } else lsp_protocol.Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
+                        diagnostics[i] = .{
+                            .range = range,
+                            .severity = switch (sev_val) {
+                                1 => .error_sev,
+                                2 => .warning,
+                                3 => .information,
+                                else => .hint,
+                            },
+                            .message = msg,
+                        };
+                    }
+                }
+            }
+        }
+
+        const result = self.compile_results.get(uri);
+        const typed = if (result) |r| r.typed_ast else null;
+
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        try body_alloc.writer.writeByte('[');
+        if (typed) |t| {
+            const range = lsp_protocol.Range{
+                .start = .{ .line = start_line, .character = start_char },
+                .end = .{ .line = end_line, .character = end_char },
+            };
+            const actions = features_mod.getCodeActions(self.arena, t, &diagnostics, range);
+            for (actions, 0..) |action, i| {
+                if (i > 0) try body_alloc.writer.writeByte(',');
+                try lsp_protocol.writeCodeAction(&body_alloc.writer, action);
+            }
+        }
+        try body_alloc.writer.writeByte(']');
+
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+    }
+
+    fn handleFormatting(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+        const rid = id orelse return;
+        const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+        const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+
+        const doc = self.documents.get(uri) orelse {
+            var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+            try body_alloc.writer.writeAll("[]");
+            try self.sendResponse(stdout_file, rid, &body_alloc);
+            return;
+        };
+
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        if (features_mod.getFormatting(self.arena, doc.text)) |new_text| {
+            defer self.arena.free(new_text);
+            const line_count: u32 = @intCast(std.mem.count(u8, doc.text, "\n") + 1);
+            try body_alloc.writer.writeByte('[');
+            try lsp_protocol.writeTextEdit(&body_alloc.writer, .{
+                .range = .{
+                    .start = .{ .line = 0, .character = 0 },
+                    .end = .{ .line = line_count, .character = 0 },
+                },
+                .new_text = new_text,
+            });
+            try body_alloc.writer.writeByte(']');
+        } else {
+            try body_alloc.writer.writeAll("[]");
+        }
+
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+    }
+
     fn sendResponse(self: *Server, stdout_file: anytype, rid: i64, body_alloc: *std.Io.Writer.Allocating) !void {
         const inner = try body_alloc.toOwnedSlice();
         defer self.arena.free(inner);
@@ -305,7 +428,7 @@ pub const Server = struct {
         const path = try self.documents.uriToPath(uri);
         defer self.arena.free(path);
 
-        const result = try compile_svc.compile(self.arena, doc.text, path);
+        const result = try compile_svc.compile(self.arena, doc.text, path, self.dialect);
 
         // Free old diagnostics if present
         if (self.compile_results.getEntry(uri)) |entry| {

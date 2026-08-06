@@ -19,6 +19,11 @@ const Hover = protocol.Hover;
 const MarkupContent = protocol.MarkupContent;
 const MarkupKind = protocol.MarkupKind;
 const Location = protocol.Location;
+const CodeAction = protocol.CodeAction;
+const CodeActionKind = protocol.CodeActionKind;
+const TextEdit = protocol.TextEdit;
+const Diagnostic = protocol.Diagnostic;
+const DiagnosticSeverity = protocol.DiagnosticSeverity;
 
 // ─── LSP Features ───────────────────────────────────────────
 // Implements Document Symbols, Completion, Hover, and Go-to-Definition
@@ -205,71 +210,147 @@ const MODIFIERS = [_]struct { label: []const u8, detail: []const u8, kind: Compl
     .{ .label = "@", .detail = "Generated column", .kind = .keyword },
 };
 
-/// Generate completion items based on cursor position.
-pub fn getCompletions(alloc: std.mem.Allocator, ast: TypedAst, position: Position) CompletionList {
-    _ = position; // TODO: context-sensitive completion based on cursor position
+/// Generate completion items based on cursor position and document context.
+pub fn getCompletions(alloc: std.mem.Allocator, ast: TypedAst, position: Position, doc_text: ?[]const u8) CompletionList {
     var items = std.ArrayList(CompletionItem).initCapacity(alloc, 64) catch return .{
         .is_incomplete = false,
         .items = &.{},
     };
 
-    // Always offer keywords
-    for (KEYWORDS) |kw| {
-        items.append(alloc, .{
-            .label = kw.label,
-            .kind = kw.kind,
-            .detail = null,
-        }) catch {};
+    // Determine context from document text and cursor position
+    const context = if (doc_text) |text| detectContext(text, position) else .top_level;
+
+    switch (context) {
+        .top_level => {
+            // Offer keywords only
+            for (KEYWORDS) |kw| {
+                items.append(alloc, .{
+                    .label = kw.label,
+                    .kind = kw.kind,
+                    .detail = null,
+                }) catch {};
+            }
+        },
+        .inside_table => {
+            // Offer type symbols and modifiers
+            for (TYPE_SYMBOLS) |ts| {
+                items.append(alloc, .{
+                    .label = ts.label,
+                    .kind = ts.kind,
+                    .detail = ts.detail,
+                    .documentation = ts.detail,
+                }) catch {};
+            }
+            for (MODIFIERS) |mod| {
+                items.append(alloc, .{
+                    .label = mod.label,
+                    .kind = mod.kind,
+                    .detail = mod.detail,
+                }) catch {};
+            }
+            // Also offer table.column for FK references
+            for (ast.tables) |table| {
+                for (table.columns) |col| {
+                    var law = std.Io.Writer.Allocating.init(alloc);
+                    law.writer.print("{s}.{s}", .{ table.name, col.name }) catch continue;
+                    const label = law.toOwnedSlice() catch continue;
+                    items.append(alloc, .{
+                        .label = label,
+                        .kind = .field,
+                        .detail = formatColumnDetail(alloc, col),
+                    }) catch {};
+                }
+            }
+        },
+        .after_fk_keyword => {
+            // Offer table names and table.column for FK references
+            for (ast.tables) |table| {
+                items.append(alloc, .{
+                    .label = table.name,
+                    .kind = .class,
+                    .detail = table.comment,
+                }) catch {};
+                for (table.columns) |col| {
+                    var law = std.Io.Writer.Allocating.init(alloc);
+                    law.writer.print("{s}.{s}", .{ table.name, col.name }) catch continue;
+                    const label = law.toOwnedSlice() catch continue;
+                    items.append(alloc, .{
+                        .label = label,
+                        .kind = .field,
+                        .detail = formatColumnDetail(alloc, col),
+                    }) catch {};
+                }
+            }
+        },
+        .after_percent => {
+            // Offer table/template names
+            for (ast.tables) |table| {
+                items.append(alloc, .{
+                    .label = table.name,
+                    .kind = .class,
+                    .detail = table.comment,
+                }) catch {};
+            }
+        },
     }
-
-    // Always offer type symbols
-    for (TYPE_SYMBOLS) |ts| {
-        items.append(alloc, .{
-            .label = ts.label,
-            .kind = ts.kind,
-            .detail = ts.detail,
-            .documentation = ts.detail,
-        }) catch {};
-    }
-
-    // Always offer modifiers
-    for (MODIFIERS) |mod| {
-        items.append(alloc, .{
-            .label = mod.label,
-            .kind = mod.kind,
-            .detail = mod.detail,
-        }) catch {};
-    }
-
-    // Offer table names
-    for (ast.tables) |table| {
-        items.append(alloc, .{
-            .label = table.name,
-            .kind = .class,
-            .detail = table.comment,
-        }) catch {};
-
-        // Offer table.column for FK references
-        for (table.columns) |col| {
-            var law = std.Io.Writer.Allocating.init(alloc);
-            law.writer.print("{s}.{s}", .{ table.name, col.name }) catch continue;
-            const label = law.toOwnedSlice() catch continue;
-            items.append(alloc, .{
-                .label = label,
-                .kind = .field,
-                .detail = formatColumnDetail(alloc, col),
-            }) catch {};
-        }
-    }
-
-    // Offer template names
-    // Templates are stored as tables with a specific naming convention
-    // (they don't have SQL output, just inheritance targets)
 
     return .{
         .is_incomplete = false,
         .items = items.items,
     };
+}
+
+/// Context type for cursor position in a .ss file.
+const CompletionContext = enum {
+    top_level,
+    inside_table,
+    after_fk_keyword,
+    after_percent,
+};
+
+/// Detect the completion context from document text and cursor position.
+fn detectContext(text: []const u8, position: Position) CompletionContext {
+    // Find the line at cursor position
+    var line_start: usize = 0;
+    var current_line: u32 = 0;
+
+    for (text, 0..) |c, i| {
+        if (current_line == position.line) {
+            // Found the target line
+            const line_text = text[line_start..@min(i + 1, text.len)];
+
+            // Check for FK keyword context
+            const trimmed = std.mem.trim(u8, line_text, " \t\r\n");
+            if (trimmed.len >= 2 and std.mem.eql(u8, trimmed[trimmed.len - 2 ..], "FK")) {
+                return .after_fk_keyword;
+            }
+
+            // Check for template reference context (after %)
+            if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '%') {
+                return .after_percent;
+            }
+
+            // Check if we're inside a table body
+            // Simple heuristic: count braces
+            var brace_depth: u32 = 0;
+            for (text, 0..) |tc, ti| {
+                if (ti > i) break;
+                if (tc == '{') brace_depth += 1;
+                if (tc == '}') {
+                    if (brace_depth > 0) brace_depth -= 1;
+                }
+            }
+            if (brace_depth > 0) return .inside_table;
+
+            return .top_level;
+        }
+        if (c == '\n') {
+            line_start = i + 1;
+            current_line += 1;
+        }
+    }
+
+    return .top_level;
 }
 
 // ─── Hover ──────────────────────────────────────────────────
@@ -457,6 +538,119 @@ pub fn getDefinition(alloc: std.mem.Allocator, ast: TypedAst, uri: []const u8, p
     return null;
 }
 
+// ─── Code Actions ──────────────────────────────────────────
+
+/// Generate code actions (quick fixes) for a given range and diagnostics.
+pub fn getCodeActions(
+    alloc: std.mem.Allocator,
+    ast: TypedAst,
+    diagnostics: []const Diagnostic,
+    range: Range,
+) []CodeAction {
+    var actions = std.ArrayList(CodeAction).initCapacity(alloc, 8) catch return &.{};
+
+    for (diagnostics) |diag| {
+        // Only offer fixes for diagnostics in the selected range
+        if (diag.range.start.line < range.start.line or diag.range.end.line > range.end.line) continue;
+
+        // Missing PK suggestion
+        if (std.mem.indexOf(u8, diag.message, "no primary key") != null) {
+            // Find the table at this line
+            for (ast.tables) |table| {
+                const table_line: u32 = if (table.line_no > 0) @intCast(table.line_no - 1) else 0;
+                if (table_line == diag.range.start.line and table.columns.len > 0) {
+                    const first_col = table.columns[0];
+                    const col_line: u32 = if (first_col.line_no > 0) @intCast(first_col.line_no - 1) else table_line;
+                    // Build edit: append ++ to first column
+                    var new_text_buf = std.Io.Writer.Allocating.init(alloc);
+                    new_text_buf.writer.print("{s} ++", .{first_col.name}) catch continue;
+                    const new_text = new_text_buf.toOwnedSlice() catch continue;
+
+                    actions.append(alloc, .{
+                        .title = "Add primary key to first column",
+                        .kind = .quick_fix,
+                        .diagnostics = &.{diag},
+                        .edit = .{ .changes = &.{.{
+                            .range = makeRange(col_line, 0, col_line, @intCast(first_col.name.len)),
+                            .new_text = new_text,
+                        }} },
+                    }) catch {};
+                    break;
+                }
+            }
+        }
+
+        // Missing table comment suggestion
+        if (std.mem.indexOf(u8, diag.message, "missing table comment") != null or
+            std.mem.indexOf(u8, diag.message, "lacks a comment") != null)
+        {
+            for (ast.tables) |table| {
+                const table_line: u32 = if (table.line_no > 0) @intCast(table.line_no - 1) else 0;
+                if (table_line == diag.range.start.line) {
+                    // Find the table name end position
+                    const name_end: u32 = @intCast(table.name.len);
+                    actions.append(alloc, .{
+                        .title = "Add table comment",
+                        .kind = .quick_fix,
+                        .diagnostics = &.{diag},
+                        .edit = .{ .changes = &.{.{
+                            .range = makeRange(table_line, name_end, table_line, name_end),
+                            .new_text = " # TODO: add description",
+                        }} },
+                    }) catch {};
+                    break;
+                }
+            }
+        }
+
+        // Naming convention suggestion
+        if (std.mem.indexOf(u8, diag.message, "should be snake_case") != null) {
+            // Extract the table/column name from the diagnostic
+            if (std.mem.indexOf(u8, diag.message, "\"")) |start_q| {
+                const rest = diag.message[start_q + 1 ..];
+                if (std.mem.indexOf(u8, rest, "\"")) |end_q| {
+                    const name = rest[0..end_q];
+                    const snake = toSnakeCase(alloc, name) catch continue;
+                    actions.append(alloc, .{
+                        .title = "Rename to snake_case",
+                        .kind = .quick_fix,
+                        .diagnostics = &.{diag},
+                        .edit = .{ .changes = &.{.{
+                            .range = diag.range,
+                            .new_text = snake,
+                        }} },
+                    }) catch {};
+                }
+            }
+        }
+    }
+
+    return actions.items;
+}
+
+/// Convert camelCase or PascalCase to snake_case.
+fn toSnakeCase(alloc: std.mem.Allocator, input: []const u8) ![]const u8 {
+    var result = std.ArrayList(u8).initCapacity(alloc, input.len * 2) catch return error.OutOfMemory;
+    for (input, 0..) |c, i| {
+        if (std.ascii.isUpper(c)) {
+            if (i > 0) try result.append(alloc, '_');
+            try result.append(alloc, std.ascii.toLower(c));
+        } else {
+            try result.append(alloc, c);
+        }
+    }
+    return try result.toOwnedSlice(alloc);
+}
+
+// ─── Document Formatting ───────────────────────────────────
+
+/// Format the entire document using the Rune formatter.
+/// Returns the formatted text, or null on error.
+pub fn getFormatting(alloc: std.mem.Allocator, text: []const u8) ?[]const u8 {
+    const formatter = @import("../formatter.zig");
+    return formatter.format(alloc, text) catch null;
+}
+
 // ─── Helpers ────────────────────────────────────────────────
 
 fn makeRange(start_line: u32, start_char: u32, end_line: u32, end_char: u32) Range {
@@ -554,7 +748,7 @@ test "Completion: offers keywords and types" {
         .views = &.{},
         .sql_comments = &.{},
     };
-    const list = getCompletions(std.testing.allocator, ast, .{ .line = 0, .character = 0 });
+    const list = getCompletions(std.testing.allocator, ast, .{ .line = 0, .character = 0 }, null);
     defer {
         for (list.items) |item| {
             if (item.detail) |d| std.testing.allocator.free(d);
@@ -601,4 +795,137 @@ test "Hover: table hover" {
         try std.testing.expectEqual(MarkupKind.markdown, h.contents.kind);
         try std.testing.expect(std.mem.indexOf(u8, h.contents.value, "users") != null);
     }
+}
+
+test "CodeActions: empty diagnostics" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const actions = getCodeActions(std.testing.allocator, ast, &.{}, .{
+        .start = .{ .line = 0, .character = 0 },
+        .end = .{ .line = 10, .character = 0 },
+    });
+    try std.testing.expectEqual(@as(usize, 0), actions.len);
+}
+
+test "CodeActions: missing PK suggestion" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{
+            .{
+                .name = "users",
+                .comment = null,
+                .engine = null,
+                .columns = &.{
+                    .{
+                        .name = "id",
+                        .sql_type = .int,
+                        .flags = .{},
+                        .default = null,
+                        .check = null,
+                        .comment = null,
+                        .enum_values = &.{},
+                        .line_no = 2,
+                    },
+                },
+                .fks = &.{},
+                .indexes = &.{},
+                .line_no = 1,
+            },
+        },
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const diags = [_]Diagnostic{
+        .{
+            .range = .{
+                .start = .{ .line = 0, .character = 0 },
+                .end = .{ .line = 0, .character = 10 },
+            },
+            .severity = .warning,
+            .message = "Table 'users' has no primary key",
+        },
+    };
+    const actions = getCodeActions(std.testing.allocator, ast, &diags, .{
+        .start = .{ .line = 0, .character = 0 },
+        .end = .{ .line = 5, .character = 0 },
+    });
+    try std.testing.expect(actions.len > 0);
+}
+
+test "toSnakeCase" {
+    const result1 = try toSnakeCase(std.testing.allocator, "userName");
+    defer std.testing.allocator.free(result1);
+    try std.testing.expectEqualStrings("user_name", result1);
+
+    const result2 = try toSnakeCase(std.testing.allocator, "UserName");
+    defer std.testing.allocator.free(result2);
+    try std.testing.expectEqualStrings("user_name", result2);
+
+    const result3 = try toSnakeCase(std.testing.allocator, "already_snake");
+    defer std.testing.allocator.free(result3);
+    try std.testing.expectEqualStrings("already_snake", result3);
+}
+
+test "Completion: context-sensitive top level" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    // Top-level context: should offer keywords
+    const list = getCompletions(std.testing.allocator, ast, .{ .line = 0, .character = 0 }, "table users {\n");
+    defer {
+        for (list.items) |item| {
+            if (item.detail) |d| std.testing.allocator.free(d);
+            if (item.documentation) |doc| std.testing.allocator.free(doc);
+            if (item.insert_text) |it| std.testing.allocator.free(it);
+        }
+        std.testing.allocator.free(list.items);
+    }
+    // Should have keywords (table, view, template, enum, etc.)
+    var has_table_kw = false;
+    for (list.items) |item| {
+        if (std.mem.eql(u8, item.label, "table")) {
+            has_table_kw = true;
+            break;
+        }
+    }
+    try std.testing.expect(has_table_kw);
+}
+
+test "Completion: context-sensitive inside table" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    // Inside table context: should offer type symbols
+    const list = getCompletions(std.testing.allocator, ast, .{ .line = 1, .character = 2 }, "table users {\n  ");
+    defer {
+        for (list.items) |item| {
+            if (item.detail) |d| std.testing.allocator.free(d);
+            if (item.documentation) |doc| std.testing.allocator.free(doc);
+            if (item.insert_text) |it| std.testing.allocator.free(it);
+        }
+        std.testing.allocator.free(list.items);
+    }
+    // Should have type symbols (n, i, s, etc.)
+    var has_type = false;
+    for (list.items) |item| {
+        if (std.mem.eql(u8, item.label, "n")) {
+            has_type = true;
+            break;
+        }
+    }
+    try std.testing.expect(has_type);
 }
