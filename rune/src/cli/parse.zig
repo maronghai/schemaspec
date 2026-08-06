@@ -115,15 +115,45 @@ fn parseTarget(s: []const u8) !Target {
     return error.UnknownTarget;
 }
 
-// ─── Argument Parsing ──────────────────────────────────────────
+// ─── Global Flag Parsing ────────────────────────────────────────
+// Extracted from parseArgs to separate flag parsing from subcommand dispatch.
 
-pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !ParsedArgs {
+/// Result of parsing global flags (everything before the subcommand).
+const FlagResult = struct {
+    dialect: dialect_enum.Dialect,
+    dialect_was_explicit: bool,
+    target: Target,
+    diff_format: DiffFormat,
+    config_path: ?[]const u8,
+    import_paths: []const []const u8,
+    /// Positional args + passthrough flags (--output, -o) after global parsing.
+    filtered_args: []const []const u8,
+    // Boolean flags
+    want_version: bool,
+    want_stats: bool,
+    want_quiet: bool,
+    want_check: bool,
+    want_dry_run: bool,
+    want_strict: bool,
+    want_verbose_passes: bool,
+    want_json_errors: bool,
+    want_init: bool,
+    want_summary: bool,
+    want_validate_only: bool,
+    want_stream: bool,
+    want_parallel: bool,
+    want_color: ColorMode,
+};
+
+/// Parse global flags from raw CLI arguments.
+/// Returns the parsed flag state and positional args (filtered of global flags).
+fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !FlagResult {
     var dialect: dialect_enum.Dialect = .mysql;
     var dialect_was_explicit = false;
     var target: Target = .sql;
     var filtered = try std.ArrayList([]const u8).initCapacity(alloc, raw_args.len);
+    var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
 
-    var i: usize = 1;
     var want_version = false;
     var want_stats = false;
     var want_quiet = false;
@@ -135,12 +165,13 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     var want_color: ColorMode = .auto;
     var want_init = false;
     var want_summary = false;
-    var config_path: ?[]const u8 = null;
-    var diff_format: DiffFormat = .text;
-    var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
     var want_validate_only = false;
     var want_stream = false;
     var want_parallel = false;
+    var config_path: ?[]const u8 = null;
+    var diff_format: DiffFormat = .text;
+
+    var i: usize = 1;
     while (i < raw_args.len) : (i += 1) {
         if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
             want_version = true;
@@ -239,64 +270,103 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             try filtered.append(alloc, raw_args[i]);
         }
     }
-    const fargs = try filtered.toOwnedSlice(alloc);
-    const import_path_list = try import_paths.toOwnedSlice(alloc);
 
-    if (want_version) {
-        return .{ .dialect = dialect, .dialect_was_explicit = dialect_was_explicit, .target = target, .command = .version, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
+    return .{
+        .dialect = dialect,
+        .dialect_was_explicit = dialect_was_explicit,
+        .target = target,
+        .diff_format = diff_format,
+        .config_path = config_path,
+        .import_paths = try import_paths.toOwnedSlice(alloc),
+        .filtered_args = try filtered.toOwnedSlice(alloc),
+        .want_version = want_version,
+        .want_stats = want_stats,
+        .want_quiet = want_quiet,
+        .want_check = want_check,
+        .want_dry_run = want_dry_run,
+        .want_strict = want_strict,
+        .want_verbose_passes = want_verbose_passes,
+        .want_json_errors = want_json_errors,
+        .want_init = want_init,
+        .want_summary = want_summary,
+        .want_validate_only = want_validate_only,
+        .want_stream = want_stream,
+        .want_parallel = want_parallel,
+        .want_color = want_color,
+    };
+}
+
+/// Build a ParsedArgs from parsed flags. Used by both parseArgs and flag-only paths.
+fn buildParsedArgs(flags: FlagResult, cmd: Command) ParsedArgs {
+    return .{
+        .dialect = flags.dialect,
+        .dialect_was_explicit = flags.dialect_was_explicit,
+        .target = flags.target,
+        .command = cmd,
+        .quiet = flags.want_quiet,
+        .strict = flags.want_strict,
+        .json_errors = flags.want_json_errors,
+        .import_paths = flags.import_paths,
+        .color = flags.want_color,
+        .init_flag = flags.want_init,
+        .config_path = flags.config_path,
+    };
+}
+
+// ─── Argument Parsing ──────────────────────────────────────────
+
+pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !ParsedArgs {
+    const flags = try parseGlobalFlags(alloc, raw_args);
+    const fargs = flags.filtered_args;
+
+    // --version flag
+    if (flags.want_version) {
+        return buildParsedArgs(flags, .version);
     }
 
-    const flags = GlobalFlags{
-        .dialect_was_explicit = dialect_was_explicit,
-        .stats = want_stats,
-        .check = want_check,
-        .dry_run = want_dry_run,
-        .strict = want_strict,
-        .verbose_passes = want_verbose_passes,
-        .json_errors = want_json_errors,
-        .color = want_color,
-        .format = diff_format,
-        .validate_only = want_validate_only,
-        .quiet = want_quiet,
-        .import_paths = import_path_list,
-        .summary = want_summary,
-        .config_path = config_path,
+    // Build GlobalFlags for subcommand parsers
+    const global_flags = GlobalFlags{
+        .dialect_was_explicit = flags.dialect_was_explicit,
+        .stats = flags.want_stats,
+        .check = flags.want_check,
+        .dry_run = flags.want_dry_run,
+        .strict = flags.want_strict,
+        .verbose_passes = flags.want_verbose_passes,
+        .json_errors = flags.want_json_errors,
+        .color = flags.want_color,
+        .format = flags.diff_format,
+        .validate_only = flags.want_validate_only,
+        .quiet = flags.want_quiet,
+        .import_paths = flags.import_paths,
+        .summary = flags.want_summary,
+        .config_path = flags.config_path,
     };
 
+    // No positional args or starts with a flag: default compile or help
     if (fargs.len < 1 or (fargs.len > 0 and fargs[0][0] == '-')) {
         if (hasHelpFlag(fargs)) {
-            return .{ .dialect = dialect, .dialect_was_explicit = dialect_was_explicit, .target = target, .command = .{ .help = .{} }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
+            return buildParsedArgs(flags, .{ .help = .{} });
         }
-        return .{
-            .dialect = dialect,
-            .dialect_was_explicit = dialect_was_explicit,
-            .target = target,
-            .command = .{ .compile = .{
-                .input = null,
-                .output = parseOutputFlag(fargs, 0),
-                .trace = parseTraceFlag(fargs, 0),
-                .stats = want_stats,
-                .check = want_check,
-                .verbose_passes = want_verbose_passes,
-                .stream = want_stream,
-                .parallel = want_parallel,
-            } },
-            .quiet = want_quiet,
-            .strict = want_strict,
-            .json_errors = want_json_errors,
-            .import_paths = import_path_list,
-            .color = want_color,
-            .init_flag = want_init,
-            .config_path = config_path,
-        };
+        return buildParsedArgs(flags, .{ .compile = .{
+            .input = null,
+            .output = parseOutputFlag(fargs, 0),
+            .trace = parseTraceFlag(fargs, 0),
+            .stats = flags.want_stats,
+            .check = flags.want_check,
+            .verbose_passes = flags.want_verbose_passes,
+            .stream = flags.want_stream,
+            .parallel = flags.want_parallel,
+        } });
     }
 
     const sub = fargs[0];
 
+    // --help for subcommand
     if (hasHelpFlag(fargs)) {
-        return .{ .dialect = dialect, .dialect_was_explicit = dialect_was_explicit, .target = target, .command = .{ .help = .{ .subcommand = sub } }, .quiet = want_quiet, .strict = want_strict, .json_errors = want_json_errors, .import_paths = import_path_list, .color = want_color, .init_flag = want_init, .config_path = config_path };
+        return buildParsedArgs(flags, .{ .help = .{ .subcommand = sub } });
     }
 
+    // Subcommand dispatch
     const SubcommandParser = *const fn ([]const []const u8, dialect_enum.Dialect, Target, GlobalFlags) anyerror!ParsedArgs;
     const parsers = [_]struct { name: []const u8, parse: SubcommandParser }{
         .{ .name = "diff", .parse = parse_compile.parseDiffArgs },
@@ -315,36 +385,26 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
     };
     for (parsers) |entry| {
         if (std.mem.eql(u8, sub, entry.name)) {
-            return entry.parse(fargs, dialect, target, flags);
+            return entry.parse(fargs, flags.dialect, flags.target, global_flags);
         }
     }
 
+    // Unknown command check
     if (fargs.len > 0 and std.mem.indexOfScalar(u8, fargs[0], '.') == null) {
         if (!isKnownCommand(fargs[0]) and !std.mem.eql(u8, fargs[0], "-")) {
             return error.UnknownCommand;
         }
     }
 
+    // Default: treat first positional as input file for compile
     const input = if (fargs.len > 0) fargs[0] else null;
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = dialect_was_explicit,
-        .target = target,
-        .command = .{ .compile = .{
-            .input = input,
-            .output = parseOutputFlag(fargs, 1),
-            .trace = parseTraceFlag(fargs, 1),
-            .stats = want_stats,
-            .check = want_check,
-            .verbose_passes = want_verbose_passes,
-            .stream = want_stream,
-        } },
-        .quiet = want_quiet,
-        .strict = want_strict,
-        .json_errors = want_json_errors,
-        .import_paths = import_path_list,
-        .color = want_color,
-        .init_flag = want_init,
-        .config_path = config_path,
-    };
+    return buildParsedArgs(flags, .{ .compile = .{
+        .input = input,
+        .output = parseOutputFlag(fargs, 1),
+        .trace = parseTraceFlag(fargs, 1),
+        .stats = flags.want_stats,
+        .check = flags.want_check,
+        .verbose_passes = flags.want_verbose_passes,
+        .stream = flags.want_stream,
+    } });
 }

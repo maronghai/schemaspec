@@ -126,37 +126,54 @@ pub fn compileParallel(
             var threads = try std.ArrayList(std.Thread).initCapacity(alloc, group.len);
             defer threads.deinit(alloc);
 
+            var all_spawned = true;
             for (thread_ctxs.items) |ctx| {
-                threads.appendAssumeCapacity(try std.Thread.spawn(.{}, compileOneTableAsync, .{ctx}));
+                const t = std.Thread.spawn(.{}, compileOneTableAsync, .{ctx}) catch {
+                    all_spawned = false;
+                    break;
+                };
+                threads.appendAssumeCapacity(t);
             }
 
+            // Join all spawned threads (whether or not all succeeded)
             for (threads.items) |thread| thread.join();
 
-            // Collect results in group order, free thread arenas
-            for (results) |result_opt| {
-                if (result_opt) |result| {
-                    // Copy SQL from thread arena to main arena
-                    const sql = try alloc.dupe(u8, result.sql);
-                    tables.appendAssumeCapacity(.{
-                        .name = typed.tables[result.table_idx].name,
-                        .sql = sql,
-                        .line_no = typed.tables[result.table_idx].line_no,
-                    });
-                    total_size += sql.len;
-                    // Free thread arena (invalidates result.sql, but we already copied it)
-                    result.arena.deinit();
-                } else {
-                    // Thread compilation failed — fall back to sequential for this group
-                    for (group) |table_idx| {
-                        const sql = try compileOneTable(alloc, dialect, typed.tables[table_idx]);
+            if (all_spawned) {
+                // Collect results in group order, free thread arenas
+                for (results) |result_opt| {
+                    if (result_opt) |result| {
+                        const sql = try alloc.dupe(u8, result.sql);
                         tables.appendAssumeCapacity(.{
-                            .name = typed.tables[table_idx].name,
+                            .name = typed.tables[result.table_idx].name,
                             .sql = sql,
-                            .line_no = typed.tables[table_idx].line_no,
+                            .line_no = typed.tables[result.table_idx].line_no,
                         });
                         total_size += sql.len;
+                        result.arena.deinit();
+                    } else {
+                        // Thread compilation failed — fall back to sequential for this group
+                        for (group) |table_idx| {
+                            const sql = try compileOneTable(alloc, dialect, typed.tables[table_idx]);
+                            tables.appendAssumeCapacity(.{
+                                .name = typed.tables[table_idx].name,
+                                .sql = sql,
+                                .line_no = typed.tables[table_idx].line_no,
+                            });
+                            total_size += sql.len;
+                        }
+                        break;
                     }
-                    break;
+                }
+            } else {
+                // Spawn failure — compile all tables sequentially
+                for (group) |table_idx| {
+                    const sql = try compileOneTable(alloc, dialect, typed.tables[table_idx]);
+                    tables.appendAssumeCapacity(.{
+                        .name = typed.tables[table_idx].name,
+                        .sql = sql,
+                        .line_no = typed.tables[table_idx].line_no,
+                    });
+                    total_size += sql.len;
                 }
             }
         } else {
@@ -195,33 +212,50 @@ pub fn compileParallel(
                     var threads = try std.ArrayList(std.Thread).initCapacity(alloc, batch_len);
                     defer threads.deinit(alloc);
 
+                    var all_spawned = true;
                     for (thread_ctxs.items) |ctx| {
-                        threads.appendAssumeCapacity(try std.Thread.spawn(.{}, compileOneTableAsync, .{ctx}));
+                        const t = std.Thread.spawn(.{}, compileOneTableAsync, .{ctx}) catch {
+                            all_spawned = false;
+                            break;
+                        };
+                        threads.appendAssumeCapacity(t);
                     }
 
                     for (threads.items) |thread| thread.join();
 
-                    for (results) |result_opt| {
-                        if (result_opt) |result| {
-                            const sql = try alloc.dupe(u8, result.sql);
-                            tables.appendAssumeCapacity(.{
-                                .name = typed.tables[result.table_idx].name,
-                                .sql = sql,
-                                .line_no = typed.tables[result.table_idx].line_no,
-                            });
-                            total_size += sql.len;
-                            result.arena.deinit();
-                        } else {
-                            for (group[i..batch_end]) |table_idx| {
-                                const sql = try compileOneTable(alloc, dialect, typed.tables[table_idx]);
+                    if (all_spawned) {
+                        for (results) |result_opt| {
+                            if (result_opt) |result| {
+                                const sql = try alloc.dupe(u8, result.sql);
                                 tables.appendAssumeCapacity(.{
-                                    .name = typed.tables[table_idx].name,
+                                    .name = typed.tables[result.table_idx].name,
                                     .sql = sql,
-                                    .line_no = typed.tables[table_idx].line_no,
+                                    .line_no = typed.tables[result.table_idx].line_no,
                                 });
                                 total_size += sql.len;
+                                result.arena.deinit();
+                            } else {
+                                for (group[i..batch_end]) |table_idx| {
+                                    const sql = try compileOneTable(alloc, dialect, typed.tables[table_idx]);
+                                    tables.appendAssumeCapacity(.{
+                                        .name = typed.tables[table_idx].name,
+                                        .sql = sql,
+                                        .line_no = typed.tables[table_idx].line_no,
+                                    });
+                                    total_size += sql.len;
+                                }
+                                break;
                             }
-                            break;
+                        }
+                    } else {
+                        for (group[i..batch_end]) |table_idx| {
+                            const sql = try compileOneTable(alloc, dialect, typed.tables[table_idx]);
+                            tables.appendAssumeCapacity(.{
+                                .name = typed.tables[table_idx].name,
+                                .sql = sql,
+                                .line_no = typed.tables[table_idx].line_no,
+                            });
+                            total_size += sql.len;
                         }
                     }
                 }
@@ -398,6 +432,64 @@ test "compileParallel: dependent tables preserve topological order" {
     try testing.expectEqual(@as(usize, 5), result.table_count);
 
     // Verify topological order: users before posts, posts before comments
+    var users_idx: ?usize = null;
+    var posts_idx: ?usize = null;
+    var comments_idx: ?usize = null;
+    for (result.tables, 0..) |t, i| {
+        if (std.mem.eql(u8, t.name, "users")) users_idx = i;
+        if (std.mem.eql(u8, t.name, "posts")) posts_idx = i;
+        if (std.mem.eql(u8, t.name, "comments")) comments_idx = i;
+    }
+    try testing.expect(users_idx != null);
+    try testing.expect(posts_idx != null);
+    try testing.expect(comments_idx != null);
+    try testing.expect(users_idx.? < posts_idx.?);
+    try testing.expect(posts_idx.? < comments_idx.?);
+}
+
+test "compileParallel: fully dependent tables fall back to sequential" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Chain: users → posts → comments (all dependent, single group)
+    const users_cols = try alloc.alloc(typed_ast.TypedColumn, 1);
+    users_cols[0] = .{ .name = "id", .sql_type = .int, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 1, .flags = .{ .primary_key = true } };
+
+    const posts_cols = try alloc.alloc(typed_ast.TypedColumn, 2);
+    posts_cols[0] = .{ .name = "id", .sql_type = .int, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 1, .flags = .{ .primary_key = true } };
+    posts_cols[1] = .{ .name = "user_id", .sql_type = .int, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 2, .flags = .{} };
+
+    const posts_fks = try alloc.alloc(ast_mod.FkDecl, 1);
+    posts_fks[0] = .{ .fields = &.{"user_id"}, .ref_table = "users", .ref_fields = &.{"id"}, .actions = &.{}, .line_no = 3 };
+
+    const comments_cols = try alloc.alloc(typed_ast.TypedColumn, 2);
+    comments_cols[0] = .{ .name = "id", .sql_type = .int, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 1, .flags = .{ .primary_key = true } };
+    comments_cols[1] = .{ .name = "post_id", .sql_type = .int, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 2, .flags = .{} };
+
+    const comments_fks = try alloc.alloc(ast_mod.FkDecl, 1);
+    comments_fks[0] = .{ .fields = &.{"post_id"}, .ref_table = "posts", .ref_fields = &.{"id"}, .actions = &.{}, .line_no = 3 };
+
+    var table_list: [3]typed_ast.TypedTable = undefined;
+    table_list[0] = .{ .name = "users", .comment = null, .engine = null, .columns = users_cols, .fks = &.{}, .indexes = &.{}, .line_no = 1 };
+    table_list[1] = .{ .name = "posts", .comment = null, .engine = null, .columns = posts_cols, .fks = posts_fks, .indexes = &.{}, .line_no = 2 };
+    table_list[2] = .{ .name = "comments", .comment = null, .engine = null, .columns = comments_cols, .fks = comments_fks, .indexes = &.{}, .line_no = 3 };
+
+    const tables = try alloc.dupe(typed_ast.TypedTable, &table_list);
+    const typed = typed_ast.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = tables,
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+
+    // All 3 tables are dependent → single group → sequential fallback
+    const result = try compileParallel(alloc, .mysql, typed, .{ .min_tables = 2 });
+    try testing.expectEqual(@as(usize, 3), result.table_count);
+    try testing.expectEqual(@as(usize, 3), result.tables.len);
+
+    // Verify order preserved: users before posts, posts before comments
     var users_idx: ?usize = null;
     var posts_idx: ?usize = null;
     var comments_idx: ?usize = null;

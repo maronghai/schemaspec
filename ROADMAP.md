@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.130.0 (2026-08-05) — 25,000+ lines production Zig, 1052+ tests, 26 test suites.
+**Current version**: 0.131.0 (2026-08-06) — 25,000+ lines production Zig, 1056+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,12 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.131.0 (2026-08-06)
+
+- **Fixed thread spawn failure leak** — `codegen/parallel.zig` now safely handles partial `std.Thread.spawn` failures. Previously, if spawning failed mid-group, already-spawned threads were never joined (thread leak). Now all spawned threads are joined before falling back to sequential compilation. Applied to both the direct-parallel and batched-parallel code paths.
+- **CLI parser decomposition** — Extracted the 90-line global flag parsing chain from `parseArgs` into a dedicated `parseGlobalFlags` function with a `FlagResult` return type. Added `buildParsedArgs` helper to construct `ParsedArgs` from flags. `parseArgs` is now ~60 lines (was ~230), cleanly separated into: global flag parsing → subcommand dispatch → default command construction.
+- **New tests** — 1 new `compileParallel` unit test for fully-dependent sequential fallback (3 chained FK tables). Total: 1056 tests.
 
 ### v0.129.0 (2026-08-05)
 
