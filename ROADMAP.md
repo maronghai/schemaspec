@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.141.0 (2026-08-06) — 25,000+ lines production Zig, 1140+ tests, 26 test suites.
+**Current version**: 0.142.0 (2026-08-06) — 26,600+ lines production Zig, 1140+ tests, 26 test suites.
 
 ---
 
@@ -221,6 +221,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.142.0 (2026-08-06)
+
+- **Empty table lint rule** — New `empty-table` lint rule detects tables with zero fields, which are almost certainly mistakes or incomplete definitions. Severity: warning.
+- **Table comment lint rule** — New `table-comment` lint rule warns when tables lack a comment/documentation. Documented schemas are easier to understand and maintain. Severity: info.
+- **Enhanced docs generator** — `rune docs` now includes custom type definitions (enum values) and CHECK constraint documentation in the output. Custom types are listed in a new "Custom Types" section with their possible values.
+- **Custom types in TypedAst** — Added `custom_types` field to `TypedAst` IR, carried from `ResolvedAst` through the type resolver. Enables generators to access custom type definitions.
+- **Lint help text update** — `rune lint --help` now documents all 15 lint rules (was 13). Added `empty-table` and `table-comment` to help text.
+- **New tests**: 6 new unit tests across `lint_test.zig` (empty table detected, non-empty passes, table without comment detected, table with comment passes) and `docs_test.zig` (custom types section, CHECK constraints section). Total: ~1139 tests.
 
 ### v0.141.0 (2026-08-06)
 

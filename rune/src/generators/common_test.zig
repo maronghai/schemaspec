@@ -97,6 +97,17 @@ pub fn makeTestAstWithName(schema_name: ?[]const u8, tables: []const typed_ast.T
     };
 }
 
+pub fn makeTestAstWithCustomTypes(tables: []const typed_ast.TypedTable, custom_types: []const ast_mod.CustomType) typed_ast.TypedAst {
+    return .{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = custom_types,
+        .tables = tables,
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+}
+
 // ─── Unit Tests ──────────────────────────────────────────────
 
 test "findFkRefTable: single-field FK matches" {

@@ -43,6 +43,24 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
     }
     try w.print("- **Views:** {d}\n\n", .{typed.views.len});
 
+    // Custom Types
+    if (typed.custom_types.len > 0) {
+        try w.writeAll("## Custom Types\n\n");
+        for (typed.custom_types) |ct| {
+            try w.print("### `{s}`\n\n", .{ct.name});
+            if (ct.base == .enum_type) {
+                const vals = ct.base.enum_type;
+                if (vals.len > 0) {
+                    try w.writeAll("**Values:**\n\n");
+                    for (vals) |v| {
+                        try w.print("- `{s}`\n", .{v});
+                    }
+                    try w.writeAll("\n");
+                }
+            }
+        }
+    }
+
     // Tables
     if (typed.tables.len > 0) {
         try w.writeAll("## Tables\n\n");
@@ -172,6 +190,18 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable) !void {
                 try w.writeAll(" — unique");
             }
             try w.writeAll("\n");
+        }
+    }
+
+    // CHECK Constraints
+    var has_checks = false;
+    for (table.columns) |col| {
+        if (col.check != null) {
+            if (!has_checks) {
+                try w.writeAll("\n**CHECK Constraints:**\n\n");
+                has_checks = true;
+            }
+            try w.print("- `{s}`: `{s}`\n", .{ col.name, col.check.?.expr });
         }
     }
 

@@ -29,6 +29,8 @@ pub const LintConfig = struct {
     check_index_unused: bool = true,
     check_circular_fk: bool = true,
     check_duplicate_index: bool = true,
+    check_empty_table: bool = true,
+    check_table_comment: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
 };
@@ -107,6 +109,16 @@ pub fn lintSchema(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !
     if (cfg.check_duplicate_index) {
         for (ast.tables) |table| {
             try lintDuplicateIndex(alloc, &results, table);
+        }
+    }
+    if (cfg.check_empty_table) {
+        for (ast.tables) |table| {
+            try lintEmptyTable(alloc, &results, table);
+        }
+    }
+    if (cfg.check_table_comment) {
+        for (ast.tables) |table| {
+            try lintTableComment(alloc, &results, table);
         }
     }
 
@@ -487,6 +499,37 @@ fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
         if (!std.mem.eql(u8, field_a, b.fields[idx])) return false;
     }
     return true;
+}
+
+// ─── Lint: Empty Table ────────────────────────────────────────
+// Warns when a table has zero fields.
+// An empty table is almost certainly a mistake or incomplete definition.
+
+fn lintEmptyTable(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    if (table.fields.len == 0) {
+        try results.append(alloc, .{
+            .rule = "empty-table",
+            .table = table.name,
+            .message = "table has no fields",
+            .severity = .warning,
+        });
+    }
+}
+
+// ─── Lint: Table Comment ──────────────────────────────────────
+// Warns when a table lacks a comment/documentation.
+// Documented schemas are easier to understand and maintain.
+
+fn lintTableComment(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    if (table.comment == null or (table.comment != null and table.comment.?.len == 0)) {
+        const msg = try std.fmt.allocPrint(alloc, "table '{s}' has no comment", .{table.name});
+        try results.append(alloc, .{
+            .rule = "table-comment",
+            .table = table.name,
+            .message = msg,
+            .severity = .info,
+        });
+    }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────

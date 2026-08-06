@@ -99,11 +99,12 @@ test "lint: clean schema passes" {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const table = try makeTestTable(alloc, "users", &.{
+    var table = try makeTestTable(alloc, "users", &.{
         makePkField("id"),
         makeField("name", .{ .simple = "s" }, &.{}, null),
         makeField("created_at", .{ .simple = "d" }, &.{}, null),
     }, &.{});
+    table.comment = "User accounts";
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
     const results = try lintSchema(alloc, test_ast, .{});
@@ -269,7 +270,7 @@ test "lint: config toggles work" {
     try testing.expect(all.items.len >= 2); // no-pk + no-timestamps at minimum
 
     // Only PK check
-    const pk_only = try lintSchema(alloc, test_ast, .{ .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    const pk_only = try lintSchema(alloc, test_ast, .{ .check_naming = false, .check_fk_index = false, .check_timestamps = false, .check_empty_table = false, .check_table_comment = false });
     var pk_count: usize = 0;
     for (pk_only.items) |r| {
         if (std.mem.eql(u8, r.rule, "no-pk")) pk_count += 1;
@@ -438,11 +439,12 @@ test "lint: SARIF empty results" {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const table = try makeTestTable(alloc, "users", &.{
+    var table = try makeTestTable(alloc, "users", &.{
         makePkField("id"),
         makeSimpleField("name"),
         makeField("created_at", .{ .simple = "d" }, &.{}, null),
     }, &.{});
+    table.comment = "User accounts";
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
     const results = try lintSchema(alloc, test_ast, .{});
@@ -528,6 +530,14 @@ test "lint: config toggles new rules" {
         .check_timestamps = false,
         .check_enum_case = false,
         .check_count = false,
+        .check_fk_cascade = false,
+        .check_nullable_pk = false,
+        .check_orphan_type = false,
+        .check_index_unused = false,
+        .check_circular_fk = false,
+        .check_duplicate_index = false,
+        .check_empty_table = false,
+        .check_table_comment = false,
     });
     try testing.expectEqual(@as(usize, 0), wide_only.items.len);
 }
@@ -926,6 +936,82 @@ test "lint: different index kinds are not duplicates" {
     const results = try lintSchema(alloc, test_ast, .{});
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "duplicate-index")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: empty table detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Table with zero fields
+    const table = try makeTestTable(alloc, "empty_table", &.{}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "empty-table")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: non-empty table passes empty-table" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "empty-table")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: table without comment detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Table with no comment
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "table-comment")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: table with comment passes table-comment" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    var table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    table.comment = "User accounts table";
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "table-comment")) {
             try testing.expect(false);
         }
     }

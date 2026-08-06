@@ -43,6 +43,8 @@ pub const TypedAst = struct {
     ir_version: u32 = ir_version.CURRENT_IR_VERSION,
     schema_name: ?[]const u8,
     schema_charset: ?[]const u8,
+    /// Custom type definitions from ~ directives (carried from ResolvedAst).
+    custom_types: []const ast_mod.CustomType = &.{},
     tables: []const TypedTable,
     views: []const TypedView,
     sql_comments: []const SqlComment,

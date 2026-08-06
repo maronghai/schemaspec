@@ -134,6 +134,8 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  index-unused     Standalone index may be unnecessary\n", .{});
                 std.debug.print("  circular-fk      Foreign key chain forms a circular reference\n", .{});
                 std.debug.print("  duplicate-index  Multiple indexes with same columns and type\n", .{});
+                std.debug.print("  empty-table      Table has no fields defined\n", .{});
+                std.debug.print("  table-comment    Table lacks a comment/documentation\n", .{});
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  --json-errors  Output results as JSON (machine-readable)\n", .{});
                 std.debug.print("  --strict       Exit 1 if any warnings found (for CI/CD)\n", .{});
