@@ -79,3 +79,70 @@ test "formatDiffSarif: multiple dropped tables" {
     // Each dropped table should produce a separate result
     try testing.expect(std.mem.indexOf(u8, result, "\"ruleId\": \"schema/dropped-table\"") != null);
 }
+
+test "formatDiffSarif: view diff produces result" {
+    const alloc = testing.allocator;
+    const vd = diff_types.ViewDiff{
+        .name = "active_users",
+        .action = .create,
+    };
+    const d = SchemaDiff{
+        .dropped_tables = &.{},
+        .table_diffs = &.{},
+        .view_diffs = &.{vd},
+    };
+    const result = try sarif.formatDiffSarif(alloc, d, .mysql);
+    defer alloc.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "\"ruleId\": \"schema/view-create\"") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "active_users") != null);
+}
+
+test "formatDiffSarif: metadata comment change produces result" {
+    const alloc = testing.allocator;
+    const td = diff_types.TableDiff{
+        .name = "users",
+        .action = .alter,
+        .field_diffs = &.{},
+        .index_diffs = &.{},
+        .fk_diffs = &.{},
+        .metadata_diff = .{
+            .old_comment = "old",
+            .new_comment = "new",
+            .old_engine = null,
+            .new_engine = null,
+        },
+    };
+    const d = SchemaDiff{
+        .dropped_tables = &.{},
+        .table_diffs = &.{td},
+        .view_diffs = &.{},
+    };
+    const result = try sarif.formatDiffSarif(alloc, d, .mysql);
+    defer alloc.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "\"ruleId\": \"schema/metadata-comment\"") != null);
+}
+
+test "formatDiffSarif: no metadata result when no changes" {
+    const alloc = testing.allocator;
+    const td = diff_types.TableDiff{
+        .name = "users",
+        .action = .alter,
+        .field_diffs = &.{},
+        .index_diffs = &.{},
+        .fk_diffs = &.{},
+        .metadata_diff = .{
+            .old_comment = "same",
+            .new_comment = "same",
+            .old_engine = null,
+            .new_engine = null,
+        },
+    };
+    const d = SchemaDiff{
+        .dropped_tables = &.{},
+        .table_diffs = &.{td},
+        .view_diffs = &.{},
+    };
+    const result = try sarif.formatDiffSarif(alloc, d, .mysql);
+    defer alloc.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "metadata") == null);
+}

@@ -14,6 +14,10 @@ pub const Config = struct {
     stats: ?bool = null,
     strict: ?bool = null,
     verbose_passes: ?bool = null,
+    stream: ?bool = null,
+    parallel: ?bool = null,
+    target: ?[]const u8 = null,
+    format: ?[]const u8 = null,
 };
 
 pub const ParseError = error{InvalidSyntax};
@@ -21,6 +25,8 @@ pub const ParseError = error{InvalidSyntax};
 pub const ConfigError = error{
     InvalidDialect,
     InvalidColor,
+    InvalidTarget,
+    InvalidFormat,
 };
 
 const Section = enum {
@@ -134,6 +140,14 @@ pub fn parseConfig(_: std.mem.Allocator, data: []const u8) !Config {
                         config.strict = try parseBool(value_raw);
                     } else if (std.mem.eql(u8, key, "verbose_passes")) {
                         config.verbose_passes = try parseBool(value_raw);
+                    } else if (std.mem.eql(u8, key, "stream")) {
+                        config.stream = try parseBool(value_raw);
+                    } else if (std.mem.eql(u8, key, "parallel")) {
+                        config.parallel = try parseBool(value_raw);
+                    } else if (std.mem.eql(u8, key, "target")) {
+                        config.target = try parseString(value_raw);
+                    } else if (std.mem.eql(u8, key, "format")) {
+                        config.format = try parseString(value_raw);
                     }
                 },
                 .unknown => {},
@@ -152,6 +166,12 @@ pub fn validateConfig(cfg: Config) ConfigError!void {
     if (cfg.color) |c| {
         if (!isValidColor(c)) return error.InvalidColor;
     }
+    if (cfg.target) |t| {
+        if (!isValidTarget(t)) return error.InvalidTarget;
+    }
+    if (cfg.format) |f| {
+        if (!isValidFormat(f)) return error.InvalidFormat;
+    }
 }
 
 fn isValidDialect(s: []const u8) bool {
@@ -161,6 +181,14 @@ fn isValidDialect(s: []const u8) bool {
 
 fn isValidColor(s: []const u8) bool {
     return std.mem.eql(u8, s, "auto") or std.mem.eql(u8, s, "always") or std.mem.eql(u8, s, "never");
+}
+
+fn isValidTarget(s: []const u8) bool {
+    return std.mem.eql(u8, s, "sql") or std.mem.eql(u8, s, "json-schema") or std.mem.eql(u8, s, "json_schema");
+}
+
+fn isValidFormat(s: []const u8) bool {
+    return std.mem.eql(u8, s, "text") or std.mem.eql(u8, s, "json") or std.mem.eql(u8, s, "sarif") or std.mem.eql(u8, s, "markdown");
 }
 
 fn trimComment(line: []const u8) []const u8 {
@@ -194,7 +222,7 @@ fn parseBool(raw: []const u8) !bool {
 
 const VALID_PROJECT_KEYS = [_][]const u8{"name"};
 const VALID_DIALECT_KEYS = [_][]const u8{"default"};
-const VALID_OUTPUT_KEYS = [_][]const u8{ "color", "quiet", "json_errors", "stats", "strict", "verbose_passes" };
+const VALID_OUTPUT_KEYS = [_][]const u8{ "color", "quiet", "json_errors", "stats", "strict", "verbose_passes", "stream", "parallel", "target", "format" };
 
 /// Check a TOML string for unknown sections or keys.
 /// Prints warnings to stderr when emit_warnings is true.
@@ -365,4 +393,39 @@ test "warnUnknownKeys handles unknown key in known section" {
 
 test "warnUnknownKeys handles empty input" {
     warnUnknownKeys("", false);
+}
+
+test "parse config with new output keys" {
+    const toml =
+        \\[output]
+        \\stream = true
+        \\parallel = true
+        \\target = "json-schema"
+        \\format = "sarif"
+    ;
+    const result = try parseConfig(std.testing.allocator, toml);
+    try std.testing.expectEqual(true, result.stream.?);
+    try std.testing.expectEqual(true, result.parallel.?);
+    try std.testing.expectEqualStrings("json-schema", result.target.?);
+    try std.testing.expectEqualStrings("sarif", result.format.?);
+}
+
+test "validate valid target" {
+    const cfg = Config{ .target = "json-schema" };
+    try validateConfig(cfg);
+}
+
+test "validate invalid target" {
+    const cfg = Config{ .target = "xml" };
+    try std.testing.expectError(error.InvalidTarget, validateConfig(cfg));
+}
+
+test "validate valid format" {
+    const cfg = Config{ .format = "sarif" };
+    try validateConfig(cfg);
+}
+
+test "validate invalid format" {
+    const cfg = Config{ .format = "csv" };
+    try std.testing.expectError(error.InvalidFormat, validateConfig(cfg));
 }

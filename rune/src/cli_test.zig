@@ -693,3 +693,36 @@ test "ColorMode re-export is same type as color.ColorMode" {
     const color_mode: color_mod.ColorMode = cli_mode;
     _ = color_mode;
 }
+
+test "parseArgs: --format without value returns error" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "diff", "--format" });
+    try testing.expectError(error.MissingFormatValue, cli.parseArgs(alloc, &args));
+}
+
+test "parseArgs: --config without value returns error" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "schema.ss", "--config" });
+    try testing.expectError(error.MissingConfigValue, cli.parseArgs(alloc, &args));
+}
+
+test "parseArgs: --import-path without value returns error" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(3, .{ "rune", "schema.ss", "--import-path" });
+    try testing.expectError(error.MissingImportPathValue, cli.parseArgs(alloc, &args));
+}
+
+test "parseArgs: --format json works" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const args = makeArgs(6, .{ "rune", "diff", "old.ss", "new.ss", "--format", "json" });
+    const result = try cli.parseArgs(alloc, &args);
+    try testing.expectEqual(cli.DiffFormat.json, result.command.diff.format);
+}

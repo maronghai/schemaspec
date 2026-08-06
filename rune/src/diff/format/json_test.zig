@@ -105,3 +105,81 @@ test "formatDiffJson: view diff" {
     try testing.expect(std.mem.indexOf(u8, result, "active_users") != null);
     try testing.expect(std.mem.indexOf(u8, result, "\"view_diffs\"") != null);
 }
+
+test "formatDiffJson: metadata comment change" {
+    const td = diff_types.TableDiff{
+        .name = "users",
+        .action = .alter,
+        .field_diffs = &.{},
+        .index_diffs = &.{},
+        .fk_diffs = &.{},
+        .metadata_diff = .{
+            .old_comment = "old comment",
+            .new_comment = "new comment",
+            .old_engine = null,
+            .new_engine = null,
+        },
+    };
+    const d = SchemaDiff{
+        .dropped_tables = &.{},
+        .table_diffs = &.{td},
+        .view_diffs = &.{},
+    };
+    const result = try json.formatDiffJson(testing.allocator, d);
+    defer testing.allocator.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "\"metadata_diff\"") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "\"comment\"") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "old comment") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "new comment") != null);
+}
+
+test "formatDiffJson: metadata engine change" {
+    const td = diff_types.TableDiff{
+        .name = "logs",
+        .action = .alter,
+        .field_diffs = &.{},
+        .index_diffs = &.{},
+        .fk_diffs = &.{},
+        .metadata_diff = .{
+            .old_comment = null,
+            .new_comment = null,
+            .old_engine = "InnoDB",
+            .new_engine = "MyISAM",
+        },
+    };
+    const d = SchemaDiff{
+        .dropped_tables = &.{},
+        .table_diffs = &.{td},
+        .view_diffs = &.{},
+    };
+    const result = try json.formatDiffJson(testing.allocator, d);
+    defer testing.allocator.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "\"metadata_diff\"") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "\"engine\"") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "InnoDB") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "MyISAM") != null);
+}
+
+test "formatDiffJson: no metadata when no changes" {
+    const td = diff_types.TableDiff{
+        .name = "users",
+        .action = .alter,
+        .field_diffs = &.{},
+        .index_diffs = &.{},
+        .fk_diffs = &.{},
+        .metadata_diff = .{
+            .old_comment = "same",
+            .new_comment = "same",
+            .old_engine = null,
+            .new_engine = null,
+        },
+    };
+    const d = SchemaDiff{
+        .dropped_tables = &.{},
+        .table_diffs = &.{td},
+        .view_diffs = &.{},
+    };
+    const result = try json.formatDiffJson(testing.allocator, d);
+    defer testing.allocator.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "\"metadata_diff\"") == null);
+}

@@ -109,7 +109,7 @@ pub fn isValidGeneratorName(name: []const u8) bool {
 
 pub const parseDialect = dialect_enum.parseDialect;
 
-fn parseTarget(s: []const u8) !Target {
+pub fn parseTarget(s: []const u8) !Target {
     if (std.mem.eql(u8, s, "sql")) return .sql;
     if (std.mem.eql(u8, s, "json-schema") or std.mem.eql(u8, s, "json_schema")) return .json_schema;
     return error.UnknownTarget;
@@ -216,6 +216,8 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
                     return error.UnknownFormat;
                 }
                 i += 1;
+            } else {
+                return error.MissingFormatValue;
             }
         } else if (std.mem.eql(u8, raw_args[i], "--validate-only")) {
             want_validate_only = true;
@@ -237,6 +239,8 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             if (i + 1 < raw_args.len) {
                 config_path = raw_args[i + 1];
                 i += 1;
+            } else {
+                return error.MissingConfigValue;
             }
         } else if (std.mem.eql(u8, raw_args[i], "--color")) {
             if (i + 1 < raw_args.len) {
@@ -256,6 +260,8 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             if (i + 1 < raw_args.len) {
                 try import_paths.append(alloc, raw_args[i + 1]);
                 i += 1;
+            } else {
+                return error.MissingImportPathValue;
             }
         } else if (std.mem.eql(u8, raw_args[i], "--output") or std.mem.eql(u8, raw_args[i], "-o")) {
             try filtered.append(alloc, raw_args[i]);

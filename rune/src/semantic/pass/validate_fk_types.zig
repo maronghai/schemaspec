@@ -65,7 +65,7 @@ fn validateFk(
             (fk_field_type.isDatetime() and ref_field_type.isDatetime()) or
             (fk_field_type.isBoolean() and ref_field_type.isBoolean());
 
-        const severity: @import("../diagnostic.zig").Severity = if (same_category) .warning else .note;
+        const severity: @import("../diagnostic.zig").Severity = if (same_category) .note else .warning;
 
         ctx.diagnostics.push(.{
             .severity = severity,
@@ -169,7 +169,7 @@ test "validate_fk_types: string FK to string PK produces no diagnostic" {
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
 }
 
-test "validate_fk_types: string FK to integer PK emits diagnostic" {
+test "validate_fk_types: string FK to integer PK emits warning (cross-category)" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
@@ -198,11 +198,11 @@ test "validate_fk_types: string FK to integer PK emits diagnostic" {
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
-    const msg = diagnostics.diagnostics.items[0].message;
-    try testing.expect(std.mem.indexOf(u8, msg, "FK field 'user_id' type does not match") != null);
+    const d = diagnostics.diagnostics.items[0];
+    try testing.expectEqual(@import("../diagnostic.zig").Severity.warning, d.severity);
 }
 
-test "validate_fk_types: integer FK to string PK emits diagnostic" {
+test "validate_fk_types: integer FK to string PK emits warning (cross-category)" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
@@ -231,8 +231,41 @@ test "validate_fk_types: integer FK to string PK emits diagnostic" {
     try run(&ctx);
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
-    const msg = diagnostics.diagnostics.items[0].message;
-    try testing.expect(std.mem.indexOf(u8, msg, "FK field 'user_id' type does not match") != null);
+    const d = diagnostics.diagnostics.items[0];
+    try testing.expectEqual(@import("../diagnostic.zig").Severity.warning, d.severity);
+}
+
+test "validate_fk_types: same-category mismatch emits note" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const user_fields = try alloc.alloc(ast.Field, 1);
+    user_fields[0] = test_helpers.makeTestField("id", .{ .simple = "n" }); // integer
+
+    const order_fields = try alloc.alloc(ast.Field, 1);
+    order_fields[0] = test_helpers.makeTestField("user_id", .{ .simple = "m" }); // money (numeric but different)
+
+    const fks = try alloc.alloc(FkDecl, 1);
+    fks[0] = .{
+        .fields = try alloc.dupe([]const u8, &.{"user_id"}),
+        .ref_table = "users",
+        .ref_fields = try alloc.dupe([]const u8, &.{"id"}),
+        .actions = &.{},
+        .line_no = 3,
+    };
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
+    try tables.append(alloc, makeTable("users", user_fields, &.{}));
+    try tables.append(alloc, makeTable("orders", order_fields, fks));
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = test_helpers.makePassCtx(alloc, &tables, &diagnostics, .{ .init_symbol_table = true });
+    try run(&ctx);
+
+    try testing.expect(diagnostics.diagnostics.items.len > 0);
+    const d = diagnostics.diagnostics.items[0];
+    try testing.expectEqual(@import("../diagnostic.zig").Severity.note, d.severity);
 }
 
 test "validate_fk_types: same type FK to PK produces no diagnostic" {

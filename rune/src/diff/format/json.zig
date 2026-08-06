@@ -86,6 +86,59 @@ pub fn formatDiffJson(alloc: std.mem.Allocator, d: SchemaDiff) ![]const u8 {
         }
         try w.writeAll("]");
 
+        // metadata_diff
+        if (td.metadata_diff) |md| {
+            if (md.hasChanges()) {
+                try w.writeAll(",\n    \"metadata_diff\": {");
+                var first = true;
+                if (!utils.optionalStrEq(md.old_comment, md.new_comment)) {
+                    if (!first) try w.writeAll(",");
+                    first = false;
+                    try w.writeAll("\n      \"comment\": {");
+                    try w.writeAll("\n        \"old\": ");
+                    if (md.old_comment) |oc| {
+                        try w.writeByte('"');
+                        try jsonEscapeString(w, oc);
+                        try w.writeByte('"');
+                    } else {
+                        try w.writeAll("null");
+                    }
+                    try w.writeAll(",\n        \"new\": ");
+                    if (md.new_comment) |nc| {
+                        try w.writeByte('"');
+                        try jsonEscapeString(w, nc);
+                        try w.writeByte('"');
+                    } else {
+                        try w.writeAll("null");
+                    }
+                    try w.writeAll("\n      }");
+                }
+                if (!utils.optionalStrEq(md.old_engine, md.new_engine)) {
+                    if (!first) try w.writeAll(",");
+                    first = false;
+                    try w.writeAll("\n      \"engine\": {");
+                    try w.writeAll("\n        \"old\": ");
+                    if (md.old_engine) |oe| {
+                        try w.writeByte('"');
+                        try jsonEscapeString(w, oe);
+                        try w.writeByte('"');
+                    } else {
+                        try w.writeAll("null");
+                    }
+                    try w.writeAll(",\n        \"new\": ");
+                    if (md.new_engine) |ne| {
+                        try w.writeByte('"');
+                        try jsonEscapeString(w, ne);
+                        try w.writeByte('"');
+                    } else {
+                        try w.writeAll("null");
+                    }
+                    try w.writeAll("\n      }");
+                }
+                try w.writeAll("\n    }");
+            }
+        }
+
         try w.writeAll("\n  }");
     }
     try w.writeAll("]\n");

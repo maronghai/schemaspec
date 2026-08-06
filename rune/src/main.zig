@@ -70,6 +70,8 @@ pub fn main(init: std.process.Init) !void {
         switch (err) {
             error.InvalidDialect => std.debug.print("error: invalid dialect '{s}' in config\n", .{cfg.dialect.?}),
             error.InvalidColor => std.debug.print("error: invalid color '{s}' in config. Expected: auto, always, never\n", .{cfg.color.?}),
+            error.InvalidTarget => std.debug.print("error: invalid target '{s}' in config. Expected: sql, json-schema\n", .{cfg.target.?}),
+            error.InvalidFormat => std.debug.print("error: invalid format '{s}' in config. Expected: text, json, sarif, markdown\n", .{cfg.format.?}),
         }
         std.process.exit(1);
     };
@@ -86,6 +88,20 @@ pub fn main(init: std.process.Init) !void {
             .never
         else
             parsed.color;
+    }
+    if (cfg.target != null and !parsed.dialect_was_explicit) {
+        final_parsed.target = cli.parseTarget(cfg.target.?) catch parsed.target;
+    }
+    // Apply stream/parallel/format defaults to subcommand structs
+    if (cfg.stream != null and final_parsed.command == .compile) {
+        final_parsed.command.compile.stream = final_parsed.command.compile.stream or cfg.stream.?;
+    }
+    if (cfg.parallel != null) {
+        if (final_parsed.command == .compile) {
+            final_parsed.command.compile.parallel = final_parsed.command.compile.parallel or cfg.parallel.?;
+        } else if (final_parsed.command == .watch) {
+            final_parsed.command.watch.parallel = final_parsed.command.watch.parallel or cfg.parallel.?;
+        }
     }
 
     return dispatch(init.io, alloc, final_parsed) catch |err| {
@@ -367,6 +383,9 @@ fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
         error.UnknownTarget => "unknown target, expected one of: sql, json-schema",
         error.MissingTargetValue => "--target requires a value, expected one of: sql, json-schema",
         error.UnknownFormat => "unknown format, expected one of: text, json, sarif, markdown",
+        error.MissingFormatValue => "--format requires a value, expected one of: text, json, sarif, markdown",
+        error.MissingConfigValue => "--config requires a value (config file path)",
+        error.MissingImportPathValue => "--import-path requires a value (search path)",
         error.DiffMissingArgs => "diff requires two arguments: <old.ss> <new.ss>",
         error.MigrateMissingArgs => "migrate requires two arguments: <old.ss> <new.ss>",
         error.MissingArgs => "missing required argument. Run 'rune <command> --help' for usage.",

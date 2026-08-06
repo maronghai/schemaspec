@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.133.0 (2026-08-06) — 25,000+ lines production Zig, 1066+ tests, 26 test suites.
+**Current version**: 0.135.0 (2026-08-06) — 25,000+ lines production Zig, 1080+ tests, 26 test suites.
 
 ---
 
@@ -220,6 +220,15 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.135.0 (2026-08-06)
+
+- **Diagnostic severity consistency** — Fixed FK type mismatch severity: cross-category mismatches (e.g. string→integer) now emit `.warning` (was `.note`), same-category mismatches (e.g. bigint→int) emit `.note` (was `.warning`). Cross-table duplicate index names now emit `.warning` (was `.note`), consistent with intra-table duplicate detection. 3 new severity assertion tests.
+- **Missing flag value errors** — `--format`, `--config`, and `--import-path` now return explicit errors when used without a value (e.g. `rune diff --format` → `error: --format requires a value`). Previously these were silently ignored. 4 new tests.
+- **Diff format parity** — JSON diff output now includes `metadata_diff` field for table comment/engine changes. SARIF diff output now includes results for view diffs (`schema/view-create`, `schema/view-drop`, `schema/view-modify`) and metadata changes (`schema/metadata-comment`, `schema/metadata-engine`). 7 new tests.
+- **Shell completions fixed** — Added `--generators` flag to Bash, Zsh, Fish, and PowerShell completions. Fixed broken PowerShell fallback completion (`@( | ForEach-Object` → proper pipeline).
+- **Config file expansion** — `rune.toml` now supports `stream`, `parallel`, `target`, and `format` keys under `[output]`. Config values are applied as defaults when CLI flags aren't explicitly set. Validation added for `target` (must be `sql` or `json-schema`) and `format` (must be `text`, `json`, `sarif`, or `markdown`). 6 new tests.
+- **New tests**: 20 new unit tests across `validate_fk_types.zig`, `validate_index_names.zig`, `cli_test.zig`, `json_test.zig`, `sarif_test.zig`, and `config_test.zig`. Total: ~1086 tests.
 
 ### v0.134.0 (2026-08-06)
 

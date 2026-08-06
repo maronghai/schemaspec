@@ -26,6 +26,7 @@ pub const KNOWN_FLAGS = types.KNOWN_FLAGS;
 
 pub const parseArgs = parse.parseArgs;
 pub const parseDialect = parse.parseDialect;
+pub const parseTarget = parse.parseTarget;
 pub const findUnknownFlag = parse.findUnknownFlag;
 pub const suggestSimilarFlag = parse.suggestSimilarFlag;
 

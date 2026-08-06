@@ -51,6 +51,28 @@ pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect
         result_idx += 1;
     }
 
+    // View diffs
+    for (d.view_diffs) |vd| {
+        if (result_idx > 0) try w.writeAll(",\n");
+        try w.writeAll("      {\n");
+        try w.writeAll("        \"ruleId\": \"schema/view-");
+        try w.writeAll(@tagName(vd.action));
+        try w.writeAll("\",\n");
+        try w.writeAll("        \"level\": \"note\",\n");
+        try w.writeAll("        \"message\": {\n");
+        try w.writeAll("          \"text\": \"View ");
+        try w.writeAll(@tagName(vd.action));
+        try w.writeAll(": ");
+        try w.writeByte(q);
+        try jsonEscapeString(w, vd.name);
+        try w.writeByte(q);
+        try w.writeAll("\"\n");
+        try w.writeAll("        },\n");
+        try w.writeAll("        \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"schema.ss\"}}}]\n");
+        try w.writeAll("      }");
+        result_idx += 1;
+    }
+
     // Table diffs
     for (d.table_diffs) |td| {
         if (td.action == .create) {
@@ -144,6 +166,44 @@ pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect
             try w.writeAll("        \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"schema.ss\"}}}]\n");
             try w.writeAll("      }");
             result_idx += 1;
+        }
+
+        // Metadata diffs
+        if (td.metadata_diff) |md| {
+            if (md.hasChanges()) {
+                if (!@import("../../utils.zig").optionalStrEq(md.old_comment, md.new_comment)) {
+                    if (result_idx > 0) try w.writeAll(",\n");
+                    try w.writeAll("      {\n");
+                    try w.writeAll("        \"ruleId\": \"schema/metadata-comment\",\n");
+                    try w.writeAll("        \"level\": \"note\",\n");
+                    try w.writeAll("        \"message\": {\n");
+                    try w.writeAll("          \"text\": \"Table comment changed in ");
+                    try w.writeByte(q);
+                    try jsonEscapeString(w, td.name);
+                    try w.writeByte(q);
+                    try w.writeAll("\"\n");
+                    try w.writeAll("        },\n");
+                    try w.writeAll("        \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"schema.ss\"}}}]\n");
+                    try w.writeAll("      }");
+                    result_idx += 1;
+                }
+                if (!@import("../../utils.zig").optionalStrEq(md.old_engine, md.new_engine)) {
+                    if (result_idx > 0) try w.writeAll(",\n");
+                    try w.writeAll("      {\n");
+                    try w.writeAll("        \"ruleId\": \"schema/metadata-engine\",\n");
+                    try w.writeAll("        \"level\": \"note\",\n");
+                    try w.writeAll("        \"message\": {\n");
+                    try w.writeAll("          \"text\": \"Table engine changed in ");
+                    try w.writeByte(q);
+                    try jsonEscapeString(w, td.name);
+                    try w.writeByte(q);
+                    try w.writeAll("\"\n");
+                    try w.writeAll("        },\n");
+                    try w.writeAll("        \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"schema.ss\"}}}]\n");
+                    try w.writeAll("      }");
+                    result_idx += 1;
+                }
+            }
         }
     }
 

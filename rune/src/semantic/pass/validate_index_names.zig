@@ -18,7 +18,7 @@ pub fn run(ctx: *PassContext) !void {
                 // Skip if same table (validate_indexes handles intra-table duplicates)
                 if (std.mem.eql(u8, existing.table, table.name)) continue;
                 ctx.diagnostics.push(.{
-                    .severity = .note,
+                    .severity = .warning,
                     .line_no = idx.line_no,
                     .message = std.fmt.allocPrint(
                         ctx.alloc,
@@ -50,7 +50,7 @@ fn makeIndex(alloc: std.mem.Allocator, name: []const u8, field: []const u8, line
     };
 }
 
-test "validate_index_names: cross-table duplicate emits note" {
+test "validate_index_names: cross-table duplicate emits warning" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
