@@ -74,7 +74,7 @@ pub fn build(b: *std.Build) void {
     const run_golden = b.addRunArtifact(exe);
     run_golden.step.dependOn(b.getInstallStep());
     // The golden tests are shell scripts in tests/ — run them via bash
-    const run_golden_sh = b.addSystemCommand(&.{ "bash", "-c", "cd .. && for t in rune/tests/test_*.sh; do echo \"Running $t...\"; bash \"$t\" || exit 1; done" });
+    const run_golden_sh = b.addSystemCommand(&.{ "bash", "-c", "cd .. && for t in tests/test_*.sh; do echo \"Running $t...\"; bash \"$t\" || exit 1; done" });
     run_golden_sh.step.dependOn(b.getInstallStep());
     golden_step.dependOn(&run_golden_sh.step);
 

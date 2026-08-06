@@ -32,8 +32,6 @@ pub const LintConfig = struct {
     count_min: usize = 2,
 };
 
-pub const LintOutput = enum { text, json, sarif };
-
 // ─── Diff-aware Lint ─────────────────────────────────────────
 
 pub const LintDiffResult = struct {
@@ -353,7 +351,8 @@ fn lintIndexUnused(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult)
             }
         }
         if (!covers_fk) {
-            const msg = try std.fmt.allocPrint(alloc, "index '{s}' on [{s}] may be unused (no FK or unique constraint)", .{ idx.name, idx.fields[0] });
+            const field_name = if (idx.fields.len > 0) idx.fields[0] else "??";
+            const msg = try std.fmt.allocPrint(alloc, "index '{s}' on [{s}] may be unused (no FK or unique constraint)", .{ idx.name, field_name });
             try results.append(alloc, .{
                 .rule = "index-unused",
                 .table = table.name,
@@ -452,18 +451,6 @@ fn detectCircularFkDfs(
 
 // ─── Helpers ──────────────────────────────────────────────────
 
-fn hasPrimaryKey(table: ResolvedTable) bool {
-    for (table.fields) |field| {
-        for (field.modifiers) |mod| {
-            if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) return true;
-        }
-    }
-    for (table.indexes) |idx| {
-        if (idx.kind == .primary_key) return true;
-    }
-    return false;
-}
-
 fn isSnakeCase(name: []const u8) bool {
     for (name) |c| {
         if (std.ascii.isUpper(c)) return false;
@@ -492,8 +479,8 @@ fn fieldHasIndex(table: ResolvedTable, field_name: []const u8) bool {
 // ─── Output Formatting ────────────────────────────────────────
 
 /// Format lint results as human-readable text.
-pub fn formatLintResults(results: []const LintResult, use_color: bool) ![]u8 {
-    var aw = std.Io.Writer.Allocating.init(std.heap.page_allocator);
+pub fn formatLintResults(alloc: std.mem.Allocator, results: []const LintResult, use_color: bool) ![]u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
     defer aw.deinit();
 
     if (results.len == 0) {
@@ -521,8 +508,8 @@ pub fn formatLintResults(results: []const LintResult, use_color: bool) ![]u8 {
 }
 
 /// Format lint results as JSON (machine-readable).
-pub fn formatLintJson(results: []const LintResult) ![]u8 {
-    var aw = std.Io.Writer.Allocating.init(std.heap.page_allocator);
+pub fn formatLintJson(alloc: std.mem.Allocator, results: []const LintResult) ![]u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
     defer aw.deinit();
 
     try aw.writer.writeAll("{\"issues\":[");
@@ -562,8 +549,8 @@ pub fn formatLintJson(results: []const LintResult) ![]u8 {
 }
 
 /// Format lint results as SARIF 2.1.0 (CI/CD integration).
-pub fn formatLintSarif(results: []const LintResult, version_str: []const u8, file_path: ?[]const u8) ![]u8 {
-    var aw = std.Io.Writer.Allocating.init(std.heap.page_allocator);
+pub fn formatLintSarif(alloc: std.mem.Allocator, results: []const LintResult, version_str: []const u8, file_path: ?[]const u8) ![]u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
     defer aw.deinit();
 
     try aw.writer.writeAll("{\"$schema\":\"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json\",\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"rune\",\"version\":\"");

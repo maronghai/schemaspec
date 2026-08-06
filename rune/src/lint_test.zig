@@ -289,7 +289,7 @@ test "lint: JSON output format" {
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
     const results = try lintSchema(alloc, test_ast, .{});
-    const json = try lint_mod.formatLintJson(results.items);
+    const json = try lint_mod.formatLintJson(alloc, results.items);
     try testing.expect(std.mem.indexOf(u8, json, "\"issues\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"no-pk\"") != null);
 }
@@ -426,7 +426,7 @@ test "lint: SARIF output format" {
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
     const results = try lintSchema(alloc, test_ast, .{});
-    const sarif = try lint_mod.formatLintSarif(results.items, "0.137.0", "test.ss");
+    const sarif = try lint_mod.formatLintSarif(alloc, results.items, "0.137.0", "test.ss");
     try testing.expect(std.mem.indexOf(u8, sarif, "\"version\":\"2.1.0\"") != null);
     try testing.expect(std.mem.indexOf(u8, sarif, "\"tool\"") != null);
     try testing.expect(std.mem.indexOf(u8, sarif, "\"results\"") != null);
@@ -446,7 +446,7 @@ test "lint: SARIF empty results" {
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
     const results = try lintSchema(alloc, test_ast, .{});
-    const sarif = try lint_mod.formatLintSarif(results.items, "0.137.0", null);
+    const sarif = try lint_mod.formatLintSarif(alloc, results.items, "0.137.0", null);
     try testing.expect(std.mem.indexOf(u8, sarif, "\"results\":[]") != null);
 }
 

@@ -346,12 +346,12 @@ fn findNextSequenceNumber(io: std.Io, alloc: std.mem.Allocator, dir_path: []cons
 }
 
 /// Format a migration file name: "0001_name.sql"
-fn formatMigrationFileName(alloc: std.mem.Allocator, seq: u32, name: []const u8) ![]const u8 {
+pub fn formatMigrationFileName(alloc: std.mem.Allocator, seq: u32, name: []const u8) ![]const u8 {
     return try std.fmt.allocPrint(alloc, "{d:0>4}_{s}.sql", .{ seq, name });
 }
 
 /// Filter incremental changes: remove pure comment/metadata diffs.
-fn filterIncrementalChanges(alloc: std.mem.Allocator, sd: diff_types.SchemaDiff) !diff_types.SchemaDiff {
+pub fn filterIncrementalChanges(alloc: std.mem.Allocator, sd: diff_types.SchemaDiff) !diff_types.SchemaDiff {
     var result = sd;
     // Filter table_diffs: remove tables with only metadata (comment/engine) changes
     var filtered_tables = try std.ArrayList(diff_types.TableDiff).initCapacity(alloc, result.table_diffs.len);

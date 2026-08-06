@@ -2,7 +2,7 @@
 
 This document outlines the planned evolution of Rune toward becoming a **universal database schema interchange format**. A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.139.0 (2026-08-06) — 25,000+ lines production Zig, 1130+ tests, 26 test suites.
+**Current version**: 0.140.0 (2026-08-06) — 25,000+ lines production Zig, 1130+ tests, 26 test suites.
 
 ---
 
@@ -221,6 +221,16 @@ Ongoing improvements pursued alongside feature work.
 ---
 
 ## Release History
+
+### v0.140.0 (2026-08-06)
+
+- **Markdown diff stats bug fix** — `rune diff --format markdown` now correctly reports table and field counts separately. Previously, "Tables added" incorrectly summed field additions into the table count, producing misleading statistics (e.g. "Tables added: 6" when only 1 table with 5 new fields was added).
+- **Lint index-out-of-bounds fix** — Fixed `index-unused` lint rule crash when an index has an empty fields slice. Now gracefully handles malformed index data instead of panicking.
+- **Lint memory leak fix** — `formatLintResults`, `formatLintJson`, and `formatLintSarif` now accept an allocator parameter instead of using `page_allocator` internally. Callers manage memory properly, eliminating leaks in non-exit code paths.
+- **Dead code cleanup** — Removed unused `LintOutput` enum and `hasPrimaryKey` function from `lint.zig`.
+- **Golden tests build target fix** — `zig build golden-tests` now correctly references `tests/*.sh` at the project root instead of the non-existent `rune/tests/` directory.
+- **Pipeline diff unit tests** — 9 new unit tests in `pipeline/diff_test.zig` covering: `formatMigrationFileName` (zero-padded, large sequence, zero), `filterIncrementalChanges` (structural kept, metadata-only removed, create kept, index changes kept), and config default values.
+- **New tests**: ~9 new unit tests. Total: ~1135 tests.
 
 ### v0.139.0 (2026-08-06)
 

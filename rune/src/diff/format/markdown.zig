@@ -29,9 +29,11 @@ pub fn formatDiffMarkdown(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dial
 
     try w.writeAll("| Metric | Count |\n");
     try w.writeAll("|--------|-------|\n");
-    try w.print("| Tables added | {d} |\n", .{stats.added_tables + stats.added_fields});
-    try w.print("| Tables dropped | {d} |\n", .{stats.dropped_tables + stats.dropped_fields});
+    try w.print("| Tables added | {d} |\n", .{stats.added_tables});
+    try w.print("| Tables dropped | {d} |\n", .{stats.dropped_tables});
     try w.print("| Modifications | {d} |\n", .{stats.modified_tables});
+    try w.print("| Fields added | {d} |\n", .{stats.added_fields});
+    try w.print("| Fields dropped | {d} |\n", .{stats.dropped_fields});
     try w.writeAll("\n");
 
     // Detailed changes per table

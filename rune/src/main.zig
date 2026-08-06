@@ -366,25 +366,25 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 const diff = try lint_mod.lintDiff(results.items, results2.items, alloc);
                 const use_color = parsed.color.shouldUseColor(io);
                 if (cmd.format == .sarif) {
-                    const sarif = try lint_mod.formatLintSarif(diff.added, version.VERSION, cmd.input2);
+                    const sarif = try lint_mod.formatLintSarif(alloc, diff.added, version.VERSION, cmd.input2);
                     try io_mod.writeOutput(io, sarif, null, parsed.quiet);
                 } else if (cmd.json_errors or cmd.format == .json) {
-                    const json = try lint_mod.formatLintJson(diff.added);
+                    const json = try lint_mod.formatLintJson(alloc, diff.added);
                     try io_mod.writeOutput(io, json, null, parsed.quiet);
                 } else {
-                    const text = try lint_mod.formatLintResults(diff.added, use_color);
+                    const text = try lint_mod.formatLintResults(alloc, diff.added, use_color);
                     try io_mod.writeOutput(io, text, null, parsed.quiet);
                 }
             } else {
                 const use_color = parsed.color.shouldUseColor(io);
                 if (cmd.format == .sarif) {
-                    const sarif = try lint_mod.formatLintSarif(results.items, version.VERSION, cmd.input);
+                    const sarif = try lint_mod.formatLintSarif(alloc, results.items, version.VERSION, cmd.input);
                     try io_mod.writeOutput(io, sarif, null, parsed.quiet);
                 } else if (cmd.json_errors or cmd.format == .json) {
-                    const json = try lint_mod.formatLintJson(results.items);
+                    const json = try lint_mod.formatLintJson(alloc, results.items);
                     try io_mod.writeOutput(io, json, null, parsed.quiet);
                 } else {
-                    const text = try lint_mod.formatLintResults(results.items, use_color);
+                    const text = try lint_mod.formatLintResults(alloc, results.items, use_color);
                     try io_mod.writeOutput(io, text, null, parsed.quiet);
                 }
             }
