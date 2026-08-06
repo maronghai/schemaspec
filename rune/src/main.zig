@@ -12,9 +12,22 @@ const hooks_mod = @import("cli/hooks.zig");
 const config_mod = @import("config.zig");
 const dialect_enum = @import("dialect/enum.zig");
 
+// ─── Windows UTF-8 Console Support ──────────────────────────────
+
+extern "kernel32" fn SetConsoleOutputCP(codepage: u32) callconv(.winapi) c_int;
+extern "kernel32" fn SetConsoleCP(codepage: u32) callconv(.winapi) c_int;
+
+fn enableWindowsUtf8() void {
+    if (comptime @import("builtin").os.tag == .windows) {
+        _ = SetConsoleOutputCP(65001);
+        _ = SetConsoleCP(65001);
+    }
+}
+
 // ─── Entry Point ───────────────────────────────────────────────
 
 pub fn main(init: std.process.Init) !void {
+    enableWindowsUtf8();
     const alloc = init.arena.allocator();
 
     var args = try std.ArrayList([]const u8).initCapacity(alloc, 8);
