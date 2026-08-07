@@ -1,0 +1,11 @@
+{
+  "file": "bench/small.ss",
+  "dialect": "oracle",
+  "stages": {
+    "tokenize": 0.22,
+    "parse": 0.18,
+    "semantic": 0.45,
+    "type_resolve": 0.08,
+    "codegen": 0.08
+  }
+}

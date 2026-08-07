@@ -22,24 +22,31 @@ CREATE TABLE users (
 ```
 
 **Rune `.ss`:**
-```
-users N4 id* ^ username* email password_hash is_active? created_at updated_at
+```ss
+# users
+  id N++
+  username s50 @u
+  email s @u
+  password_hash s255
+  is_active b?
+  created_at t
+  updated_at t
 ```
 
 ### Symbol Reference
 
 | Symbol | SQL Type | Description |
 |--------|----------|-------------|
-| `N4` | BIGINT | Number with precision 4 (bigint) |
-| `n4` | INT | Number with precision 4 (integer) |
-| `S50` | VARCHAR(50) | String with length 50 |
-| `s255` | VARCHAR(255) | String with length 255 |
+| `N` | BIGINT | 64-bit integer |
+| `n` | INT | 32-bit integer |
+| `s` | VARCHAR(255) | Short string |
+| `s50` | VARCHAR(50) | Parameterized string |
 | `b` | BOOLEAN | Boolean |
-| `dt` | TIMESTAMP | DateTime |
-| `*` | NOT NULL | Required field |
-| `^` | PRIMARY KEY | Primary key |
-| `u` | UNIQUE | Unique constraint |
-| `$` | DEFAULT | Has default value |
+| `t` | DATETIME | DateTime |
+| `++` | AUTO_INCREMENT PRIMARY KEY | Auto-increment PK |
+| `!` | PRIMARY KEY | Primary key |
+| `?` | NULLABLE | Nullable field (fields are NOT NULL by default) |
+| `@u` | UNIQUE | Unique constraint |
 
 ### Migration Steps
 
@@ -90,8 +97,15 @@ model User {
 ```
 
 **Rune `.ss`:**
-```
-users N4 id* ^ username* email password_hash is_active? created_at updated_at
+```ss
+# users
+  id N++
+  username s50 @u
+  email s @u
+  password_hash s255
+  is_active b?
+  created_at t
+  updated_at t
 ```
 
 ### Migration Steps
@@ -142,8 +156,15 @@ exports.down = function(knex) {
 ```
 
 **Rune `.ss`:**
-```
-users N4 id* ^ username* email password_hash is_active? created_at updated_at
+```ss
+# users
+  id N++
+  username s50 @u
+  email s @u
+  password_hash s255
+  is_active b?
+  created_at t
+  updated_at t
 ```
 
 ### Migration Steps
@@ -186,12 +207,20 @@ Don't migrate your entire schema at once. Start with one or two tables:
 Rune templates reduce repetition. Extract common patterns:
 
 ```
-# Define a template for audit fields
-template AuditField created_at updated_at
+% audit
+  created_at t
+  updated_at t
+  ...
 
-# Use it in tables
-users N4 id* ^ username created_at updated_at
-posts N4 id* ^ title created_at updated_at
+# users
+  id N++
+  username s50 @u
+  #audit
+
+# posts
+  id N++
+  title s
+  #audit
 ```
 
 ### Validate Often

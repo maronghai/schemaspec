@@ -1,0 +1,11 @@
+{
+  "file": "bench/small.ss",
+  "dialect": "db2",
+  "stages": {
+    "tokenize": 0.23,
+    "parse": 0.17,
+    "semantic": 0.42,
+    "type_resolve": 0.08,
+    "codegen": 0.07
+  }
+}
