@@ -69,47 +69,5 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import(
 // ─── Table Definition (in $defs) ────────────────────────────────
 
 fn writeTableDef(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.TypedTable) !void {
-    try w.print("    \"{s}\": {{\n", .{table.name});
-    try w.writeAll("      \"type\": \"object\",\n");
-
-    // Description from comment
-    if (table.comment) |c| {
-        if (c.len > 0) {
-            try w.writeAll("      \"description\": \"");
-            try utils.jsonEscapeString(w, c);
-            try w.writeAll("\",\n");
-        }
-    }
-
-    // Properties
-    try w.writeAll("      \"properties\": {\n");
-    for (table.columns, 0..) |col, ci| {
-        if (ci > 0) try w.writeAll(",\n");
-        try writeColumnProp(alloc, w, col, table);
-    }
-    if (table.columns.len > 0) try w.writeAll("\n");
-    try w.writeAll("      },\n");
-
-    // Required: non-nullable columns
-    try w.writeAll("      \"required\": [");
-    var first = true;
-    for (table.columns) |col| {
-        if (!col.flags.nullable) {
-            if (!first) try w.writeAll(", ");
-            first = false;
-            try w.print("\"{s}\"", .{col.name});
-        }
-    }
-    try w.writeAll("],\n");
-
-    // Additional properties: false
-    try w.writeAll("      \"additionalProperties\": false\n");
-
-    try w.writeAll("    }");
-}
-
-// ─── Column Property ────────────────────────────────────────────
-
-fn writeColumnProp(alloc: std.mem.Allocator, w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable) !void {
-    try common.writeColumnPropJson(alloc, w, col, table, "        ", "#/$defs/");
+    try common.writeTableSchemaJson(alloc, w, table, "    ", "#/$defs/");
 }

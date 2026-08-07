@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.147.0] - 2026-08-07
+
+### Added
+- **Generator Duplication Consolidation** — Extracted shared table schema writing logic from `openapi.zig` and `json_schema.zig` into `generators/common.zig:writeTableSchemaJson()`. Eliminates ~50 lines of duplicated code and ensures consistent output across JSON Schema and OpenAPI generators.
+- **TypeORM Golden Tests** — New `tests/test_typeorm.sh` test suite with 2 golden tests covering basic table generation and FK relationships.
+- **SQLAlchemy Golden Tests** — New `tests/test_sqlalchemy.sh` test suite with 2 golden tests covering basic table generation and FK relationships.
+- **Knex Golden Tests** — New `tests/test_knex.sh` test suite with 2 golden tests covering basic table generation and FK relationships.
+- **Error Formatting Module** — New `diagnostic/format.zig` with `ErrorFormatter` struct providing standardized error message formatting: `formatError(rule, message)` → `"error[{rule}]: {message}"`.
+
+### Changed
+- **Generator Architecture** — `openapi.zig` and `json_schema.zig` now delegate table schema writing to `common.writeTableSchemaJson()`, reducing maintenance burden and ensuring feature parity.
+
 ## [0.146.0] - 2026-08-07
 
 ### Added

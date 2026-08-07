@@ -195,3 +195,61 @@ pub fn writeColumnPropJson(
         }
     }
 }
+
+// ─── Shared JSON Table Schema Writer ──────────────────────────
+
+/// Write a JSON Schema / OpenAPI table definition.
+/// Shared by `json_schema.zig` and `openapi.zig` to eliminate duplication.
+/// - `indent`: table-level indentation (e.g. "    " for json_schema, "      " for openapi)
+/// - `ref_prefix`: FK $ref path prefix (e.g. "#/$defs/" or "#/components/schemas/")
+pub fn writeTableSchemaJson(
+    alloc: std.mem.Allocator,
+    w: *std.Io.Writer,
+    table: typed_ast.TypedTable,
+    indent: []const u8,
+    ref_prefix: []const u8,
+) !void {
+    const prop_indent = try std.fmt.allocPrint(alloc, "{s}  ", .{indent});
+    defer alloc.free(prop_indent);
+
+    const col_indent = try std.fmt.allocPrint(alloc, "{s}    ", .{indent});
+    defer alloc.free(col_indent);
+
+    try w.print("{s}\"{s}\": {{\n", .{ indent, table.name });
+    try w.print("{s}  \"type\": \"object\",\n", .{indent});
+
+    // Description from comment
+    if (table.comment) |c| {
+        if (c.len > 0) {
+            try w.print("{s}  \"description\": \"", .{indent});
+            try utils.jsonEscapeString(w, c);
+            try w.writeAll("\",\n");
+        }
+    }
+
+    // Properties
+    try w.print("{s}  \"properties\": {{\n", .{indent});
+    for (table.columns, 0..) |col, ci| {
+        if (ci > 0) try w.writeAll(",\n");
+        try writeColumnPropJson(alloc, w, col, table, col_indent, ref_prefix);
+    }
+    if (table.columns.len > 0) try w.writeAll("\n");
+    try w.print("{s}  }},\n", .{indent});
+
+    // Required: non-nullable columns
+    try w.print("{s}  \"required\": [", .{indent});
+    var first = true;
+    for (table.columns) |col| {
+        if (!col.flags.nullable) {
+            if (!first) try w.writeAll(", ");
+            first = false;
+            try w.print("\"{s}\"", .{col.name});
+        }
+    }
+    try w.writeAll("],\n");
+
+    // Additional properties: false
+    try w.print("{s}  \"additionalProperties\": false\n", .{indent});
+
+    try w.print("{s}}}", .{indent});
+}
