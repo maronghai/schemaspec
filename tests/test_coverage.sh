@@ -76,6 +76,12 @@ run_suite "Validate (4 tests)" "bash tests/test_validate.sh"
 run_suite "Stats JSON (3 tests)" "bash tests/test_stats_json.sh"
 run_suite "OpenAPI (3 tests)" "bash tests/test_openapi.sh"
 run_suite "GraphQL (4 tests)" "bash tests/test_graphql.sh"
+run_suite "TypeORM (2 tests)" "bash tests/test_typeorm.sh"
+run_suite "SQLAlchemy (2 tests)" "bash tests/test_sqlalchemy.sh"
+run_suite "Knex (2 tests)" "bash tests/test_knex.sh"
+run_suite "Color (5 tests)" "bash tests/test_color.sh"
+run_suite "Lint (12 tests)" "bash tests/test_lint.sh"
+run_suite "Parallel" "bash tests/test_parallel.sh"
 
 if [ "$QUICK" = false ]; then
   echo ""

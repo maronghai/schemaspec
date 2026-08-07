@@ -143,16 +143,85 @@ fn matchNumber(t: []const u8) ?ReverseResult {
     return .{ .sym = result.b[0..total_len], .omit = false, .score = 85 };
 }
 
+// ─── Weighted Confidence Scoring ───────────────────────────────
+// Base scores come from REVERSE_MAP.confidence_base or hardcoded values.
+// Naming-convention bonuses are added on top, capped at 100.
+// This makes confidence more granular: a parameterized type on a
+// well-named column (e.g. "user_id" → s128) scores higher than the
+// same type on a generic column (e.g. "col" → s128).
+
+/// Bonus for snake_case column names (contains underscore, all lowercase).
+const BONUS_SNAKE_CASE: u8 = 5;
+/// Bonus for common semantic suffixes (_id, _at, _on, _name, _at).
+const BONUS_SEMANTIC_SUFFIX: u8 = 3;
+/// Bonus for boolean-style prefixes (is_, has_, can_, was_).
+const BONUS_BOOL_PREFIX: u8 = 3;
+
+/// Check if a byte is a lowercase ASCII letter or digit.
+fn isLowerAlnum(ch: u8) bool {
+    return (ch >= 'a' and ch <= 'z') or (ch >= '0' and ch <= '9');
+}
+
+/// Check if a column name follows snake_case convention.
+/// Requires: all lowercase, at least one underscore, no uppercase.
+fn hasSnakeCase(name: []const u8) bool {
+    if (name.len == 0) return false;
+    var has_underscore = false;
+    for (name) |ch| {
+        if (ch == '_') {
+            has_underscore = true;
+        } else if (!isLowerAlnum(ch)) {
+            return false; // uppercase or special char → not snake_case
+        }
+    }
+    return has_underscore;
+}
+
+/// Check if a column name ends with a common semantic suffix.
+fn hasSemanticSuffix(name: []const u8) bool {
+    const suffixes = [_][]const u8{ "_id", "_at", "_on", "_name", "_key", "_ts" };
+    for (suffixes) |suffix| {
+        if (name.len >= suffix.len and std.mem.eql(u8, name[name.len - suffix.len ..], suffix))
+            return true;
+    }
+    return false;
+}
+
+/// Check if a column name starts with a boolean-style prefix.
+fn hasBoolPrefix(name: []const u8) bool {
+    const prefixes = [_][]const u8{ "is_", "has_", "can_", "was_", "should_" };
+    for (prefixes) |prefix| {
+        if (name.len >= prefix.len and std.mem.eql(u8, name[0..prefix.len], prefix))
+            return true;
+    }
+    return false;
+}
+
+/// Apply naming-convention bonuses to a base confidence score.
+/// Bonuses are only added when the base score is below 100 (exact match).
+/// Returns the adjusted score, capped at 100.
+pub fn computeConfidence(base_score: u8, col_name: []const u8) u8 {
+    if (base_score >= 100) return 100;
+    var bonus: u8 = 0;
+    if (hasSnakeCase(col_name)) bonus += BONUS_SNAKE_CASE;
+    if (hasSemanticSuffix(col_name)) bonus += BONUS_SEMANTIC_SUFFIX;
+    if (hasBoolPrefix(col_name)) bonus += BONUS_BOOL_PREFIX;
+    const adjusted = base_score +% bonus;
+    if (adjusted > 100 or adjusted < base_score) return 100; // overflow check
+    return adjusted;
+}
+
 /// Reverse-lookup a SQL type string to its SS symbol.
 /// Handles exact match from REVERSE_MAP + parameterized types (int(N), decimal(P,S), varchar(N)).
 /// For dialects with a vtable reverseLookup (e.g. SQLite), delegates to the backend.
+/// Applies naming-convention bonuses to confidence scores for more granular results.
 pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bool, is_default_ts: bool, dialect: Dialect) ReverseResult {
     const t = std.mem.trim(u8, sql_type, " \t");
 
     // Check if dialect has a custom reverse lookup (e.g. SQLite)
     const backend = dialect_mod.getBackend(dialect);
     if (backend.reverseLookup(t, col_name, is_auto_inc, is_default_ts)) |result| {
-        return result;
+        return .{ .sym = result.sym, .omit = result.omit, .score = computeConfidence(result.score, col_name) };
     }
 
     // General path: exact match from REVERSE_MAP for all dialects + parameterized types
@@ -165,7 +234,7 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
             if (std.mem.eql(u8, t, reverse_map_mod.getDialectType(m.types, d))) {
                 if (m.rev_priority < best_priority) {
                     best_priority = m.rev_priority;
-                    best_match = .{ .sym = m.sym, .omit = canOmitType(col_name, m.sym, is_auto_inc, is_default_ts), .score = m.confidence_base };
+                    best_match = .{ .sym = m.sym, .omit = canOmitType(col_name, m.sym, is_auto_inc, is_default_ts), .score = computeConfidence(m.confidence_base, col_name) };
                 }
             }
         }
@@ -174,18 +243,22 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
 
     // ─── Table-driven parameterized type matching ───
     inline for (PARAM_PATTERNS) |p| {
-        if (matchParam(t, p.prefix, p.sym_prefix)) |result| return result;
+        if (matchParam(t, p.prefix, p.sym_prefix)) |result| {
+            return .{ .sym = result.sym, .omit = result.omit, .score = computeConfidence(result.score, col_name) };
+        }
     }
 
     // NUMBER(P) → "N" ++ P, NUMBER(P,S) → "P,S" (special handling: "N" prefix)
-    if (matchNumber(t)) |result| return result;
+    if (matchNumber(t)) |result| {
+        return .{ .sym = result.sym, .omit = result.omit, .score = computeConfidence(result.score, col_name) };
+    }
 
     // ENUM(...) → pass through (low confidence: custom types are uncertain)
     if (std.mem.startsWith(u8, t, "ENUM(") or std.mem.startsWith(u8, t, "enum("))
-        return .{ .sym = t, .omit = false, .score = 60 };
+        return .{ .sym = t, .omit = false, .score = computeConfidence(60, col_name) };
 
     // Unknown type → passthrough with low confidence
-    return .{ .sym = t, .omit = false, .score = 50 };
+    return .{ .sym = t, .omit = false, .score = computeConfidence(50, col_name) };
 }
 
 // ─── Helper: classify SQL type strings (re-exports from sqlite_hints) ──

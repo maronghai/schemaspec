@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.148.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 29 test suites.
+**Current version**: 0.149.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
 
 ---
 
@@ -168,8 +168,8 @@ Ongoing improvements pursued alongside feature work.
 Tracked items that should be addressed but don't fit neatly into a phase.
 
 - [x] Remove generator duplication — `openapi.zig` and `json_schema.zig` share ~200 lines of schema property logic (v0.147.0)
-- [ ] Consolidate `cli/types.zig` — 16+ flags scattered across parse modules could use a FlagRegistry pattern
-- [ ] Improve reverse engineering confidence scores — currently binary (high/low), could be granular
+- [x] Consolidate `cli/types.zig` — 16+ flags scattered across parse modules could use a FlagRegistry pattern (v0.149.0)
+- [x] Improve reverse engineering confidence scores — currently binary (high/low), could be granular (v0.149.0)
 - [x] Standardize error message format — some use "error:", others use "Error:", others have no prefix (v0.147.0)
 - [x] Expand golden test automation — currently 25 suites, some generators lack golden tests (typeorm, sqlalchemy, knex) (v0.147.0)
 
@@ -188,8 +188,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 7: Editor Extensions | 🔲 Planned | 0/10 | 10 |
 | 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
 | Architecture Targets | 🟡 Ongoing | 12/14 | 2 |
-| Technical Debt | 🔲 Planned | 0/5 | 5 |
-| **Total** | | **71/105** | **34** |
+| Technical Debt | 🟡 Partial | 3/5 | 2 |
+| **Total** | | **74/105** | **31** |
 
 ---
 
@@ -237,6 +237,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.149.0** — FlagRegistry pattern, weighted confidence scoring, test suite sync
 - **v0.148.0** — ErrorFormatter integration, CLI consolidation, confidence score improvements
 - **v0.147.0** — LSP Code Actions (quick fixes for common schema issues)
 - **v0.145.0** — LSP Document Symbols, Completion, Hover, Go-to-Definition

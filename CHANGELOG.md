@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.149.0] - 2026-08-07
+
+### Added
+- **FlagRegistry Pattern** — New `cli/flag_registry.zig` with `GLOBAL_FLAG_REGISTRY` array defining all global CLI flags in one place. `parseGlobalFlags` now uses `flag_reg.matchesFlag()` for boolean flag detection, replacing repetitive raw `std.mem.eql` chains. Added `isKnownGlobalFlag()` for unknown-flag detection. Barrel re-exports from `cli.zig`. 3 unit tests for flag matching.
+- **Weighted Confidence Scoring** — `reverse/map.zig` now applies naming-convention bonuses to reverse engineering confidence scores: +5 for snake_case column names, +3 for semantic suffixes (`_id`, `_at`, `_on`, `_name`, `_key`, `_ts`), +3 for boolean prefixes (`is_`, `has_`, `can_`, `was_`, `should_`). Scores capped at 100. 7 new unit tests for `computeConfidence` and updated score expectations.
+- **Test Suite Sync** — `tests/test_coverage.sh` now includes all 30 golden test suites (was 24): added TypeORM, SQLAlchemy, Knex, Color, Lint, and Parallel suites.
+
+### Changed
+- **CLI Parsing** — `isKnownLongFlag` now checks both `GLOBAL_FLAG_REGISTRY` and `KNOWN_FLAGS` for comprehensive flag detection.
+- **Confidence Score Expectations** — Updated 11 existing score tests in `reverse/map_test.zig` to reflect weighted scoring (e.g., `varchar(128)` on `user_name` now returns 93 instead of 85 due to snake_case + suffix bonuses).
+
 ## [0.148.0] - 2026-08-07
 
 ### Added

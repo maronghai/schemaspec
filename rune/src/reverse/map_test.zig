@@ -201,9 +201,15 @@ test "score: MySQL exact match returns 100" {
     try testing.expectEqual(@as(u8, 100), r.score);
 }
 
-test "score: parameterized type returns 85" {
+test "score: parameterized type on generic column returns 85" {
     const r = reverseLookup("varchar(128)", "col", false, false, .mysql);
     try testing.expectEqual(@as(u8, 85), r.score);
+}
+
+test "score: parameterized type on snake_case column returns 93" {
+    const r = reverseLookup("varchar(128)", "user_name", false, false, .mysql);
+    // user_name → snake_case (+5) + suffix "_name" (+3) = +8 → 85+8=93
+    try testing.expectEqual(@as(u8, 93), r.score);
 }
 
 test "score: SQLite INTEGER with _id suffix returns 100" {
@@ -211,14 +217,14 @@ test "score: SQLite INTEGER with _id suffix returns 100" {
     try testing.expectEqual(@as(u8, 100), r.score);
 }
 
-test "score: SQLite INTEGER with boolean column name returns 80" {
+test "score: SQLite INTEGER with boolean column name returns 88" {
     const r = reverseLookup("INTEGER", "is_active", false, false, .sqlite);
-    try testing.expectEqual(@as(u8, 80), r.score);
+    try testing.expectEqual(@as(u8, 88), r.score);
 }
 
-test "score: SQLite INTEGER fallback returns 50" {
+test "score: SQLite INTEGER fallback on snake_case returns 55" {
     const r = reverseLookup("INTEGER", "some_col", false, false, .sqlite);
-    try testing.expectEqual(@as(u8, 50), r.score);
+    try testing.expectEqual(@as(u8, 55), r.score);
 }
 
 test "score: SQLite TEXT with _at suffix returns 100" {
@@ -233,22 +239,79 @@ test "score: SQLite TEXT with json column name returns 80" {
 
 test "score: SQLite TEXT fallback returns 50" {
     const r = reverseLookup("TEXT", "some_col", false, false, .sqlite);
-    try testing.expectEqual(@as(u8, 50), r.score);
+    try testing.expectEqual(@as(u8, 55), r.score); // snake_case bonus: 50+5=55
 }
 
-test "score: unknown type returns 50 (fallback)" {
+test "score: unknown type on generic column returns 50" {
     const r = reverseLookup("CUSTOM_TYPE_xyz", "col", false, false, .mysql);
     try testing.expectEqual(@as(u8, 50), r.score);
 }
 
-test "score: ENUM passthrough returns 60" {
+test "score: unknown type on snake_case column returns 55" {
+    const r = reverseLookup("CUSTOM_TYPE_xyz", "my_col", false, false, .mysql);
+    try testing.expectEqual(@as(u8, 55), r.score);
+}
+
+test "score: ENUM passthrough on generic column returns 60" {
     const r = reverseLookup("ENUM('a','b')", "col", false, false, .mysql);
     try testing.expectEqual(@as(u8, 60), r.score);
 }
 
-test "score: varchar(255) default returns 85 (cross-dialect match)" {
+test "score: ENUM passthrough on semantic-suffix column returns 68" {
+    const r = reverseLookup("ENUM('a','b')", "status_id", false, false, .mysql);
+    // status_id → snake_case (+5) + suffix "_id" (+3) = +8 → 60+8=68
+    try testing.expectEqual(@as(u8, 68), r.score);
+}
+
+test "score: varchar(255) cross-dialect match returns 85" {
     const r = reverseLookup("varchar(255)", "col", false, false, .mysql);
     try testing.expectEqual(@as(u8, 85), r.score);
+}
+
+// ─── computeConfidence unit tests ──────────────────────────────
+
+test "computeConfidence: 100 stays 100 regardless of name" {
+    try testing.expectEqual(@as(u8, 100), map.computeConfidence(100, "user_id"));
+    try testing.expectEqual(@as(u8, 100), map.computeConfidence(100, "col"));
+}
+
+test "computeConfidence: snake_case adds +5" {
+    // "my_col" → snake_case only (no suffix, no prefix) → +5
+    try testing.expectEqual(@as(u8, 55), map.computeConfidence(50, "my_col"));
+    // "user_name" → snake_case + suffix "_name" → +5+3=+8
+    try testing.expectEqual(@as(u8, 93), map.computeConfidence(85, "user_name"));
+}
+
+test "computeConfidence: semantic suffix adds +3 (on top of snake_case)" {
+    // All names with suffixes have underscores → snake_case bonus always applies
+    // "created_at" → snake_case (+5) + suffix "_at" (+3) = +8
+    try testing.expectEqual(@as(u8, 58), map.computeConfidence(50, "created_at"));
+    try testing.expectEqual(@as(u8, 58), map.computeConfidence(50, "user_id"));
+    try testing.expectEqual(@as(u8, 58), map.computeConfidence(50, "birth_on"));
+}
+
+test "computeConfidence: boolean prefix adds +3 (on top of snake_case)" {
+    // All names with prefixes have underscores → snake_case bonus always applies
+    // "is_active" → snake_case (+5) + prefix "is_" (+3) = +8
+    try testing.expectEqual(@as(u8, 58), map.computeConfidence(50, "is_active"));
+    try testing.expectEqual(@as(u8, 58), map.computeConfidence(50, "has_permission"));
+    try testing.expectEqual(@as(u8, 58), map.computeConfidence(50, "can_edit"));
+}
+
+test "computeConfidence: combined bonuses stack" {
+    // snake_case + suffix + prefix = +5+3+3 = +11, but capped at 100
+    try testing.expectEqual(@as(u8, 61), map.computeConfidence(50, "is_user_id")); // 50+5+3+3=61
+    try testing.expectEqual(@as(u8, 96), map.computeConfidence(85, "is_user_id")); // 85+5+3+3=96
+}
+
+test "computeConfidence: caps at 100" {
+    try testing.expectEqual(@as(u8, 100), map.computeConfidence(95, "is_user_id")); // 95+11=106 → 100
+}
+
+test "computeConfidence: no bonus for non-snake-case" {
+    try testing.expectEqual(@as(u8, 50), map.computeConfidence(50, "col"));
+    try testing.expectEqual(@as(u8, 50), map.computeConfidence(50, "name"));
+    try testing.expectEqual(@as(u8, 85), map.computeConfidence(85, "Col")); // uppercase → not snake_case
 }
 
 // ─── Round-trip tests: sym → toSql → reverseLookup → sym ──────

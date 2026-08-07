@@ -1,15 +1,17 @@
 // ─── CLI: Re-export Barrel ──────────────────────────────────────
 //
-// Split from the original 792-line monolith into three focused modules:
-//   cli/types.zig  — type definitions (Command, ParsedArgs, enums)
-//   cli/parse.zig  — argument parsing and flag detection
-//   cli/help.zig   — help text and usage printing
+// Split from the original 792-line monolith into focused modules:
+//   cli/types.zig         — type definitions (Command, ParsedArgs, enums)
+//   cli/parse.zig         — argument parsing and flag detection
+//   cli/help.zig          — help text and usage printing
+//   cli/flag_registry.zig — data-driven flag definitions (single source of truth)
 //
 // This barrel re-exports everything so existing callers keep working.
 
 const types = @import("cli/types.zig");
 const parse = @import("cli/parse.zig");
 const help = @import("cli/help.zig");
+const flag_registry = @import("cli/flag_registry.zig");
 
 // Re-export all public symbols from sub-modules.
 pub const Target = types.Target;
@@ -32,3 +34,7 @@ pub const suggestSimilarFlag = parse.suggestSimilarFlag;
 
 pub const printUsage = help.printUsage;
 pub const printSubcommandHelp = help.printSubcommandHelp;
+
+// Flag registry: single source of truth for global flag definitions.
+pub const GLOBAL_FLAG_REGISTRY = flag_registry.GLOBAL_FLAG_REGISTRY;
+pub const isKnownGlobalFlag = flag_registry.isKnownGlobalFlag;

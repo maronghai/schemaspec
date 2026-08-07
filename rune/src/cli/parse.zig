@@ -1,6 +1,7 @@
 const std = @import("std");
 const dialect_enum = @import("../dialect/enum.zig");
 const types = @import("types.zig");
+const flag_reg = @import("flag_registry.zig");
 
 const Target = types.Target;
 const DiffFormat = types.DiffFormat;
@@ -104,6 +105,9 @@ pub fn suggestSimilarFlag(unknown: []const u8) ?[]const u8 {
 }
 
 pub fn isKnownLongFlag(flag: []const u8) bool {
+    // Use the flag registry as the single source of truth for known flags.
+    // Also check KNOWN_FLAGS for subcommand-specific flags not in the global registry.
+    if (flag_reg.isKnownGlobalFlag(flag)) return true;
     inline for (KNOWN_FLAGS) |k| {
         if (std.mem.eql(u8, flag, k)) return true;
     }
@@ -191,17 +195,39 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
 
     var i: usize = 1;
     while (i < raw_args.len) : (i += 1) {
-        if (std.mem.eql(u8, raw_args[i], "--version") or std.mem.eql(u8, raw_args[i], "-v")) {
+        const arg = raw_args[i];
+
+        // ─── Boolean flags (data-driven via FlagRegistry) ───
+        // Each boolean flag sets a corresponding bool to true when matched.
+        if (flag_reg.matchesFlag(arg, .{ .long = "--version", .short = "-v" })) {
             want_version = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--stats") or std.mem.eql(u8, raw_args[i], "-s")) {
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--stats", .short = "-s" })) {
             want_stats = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--quiet") or std.mem.eql(u8, raw_args[i], "-q")) {
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--quiet", .short = "-q" })) {
             want_quiet = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--check")) {
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--check" })) {
             want_check = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--dry-run")) {
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--dry-run" })) {
             want_dry_run = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--dialect") or std.mem.eql(u8, raw_args[i], "-d")) {
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--validate-only" })) {
+            want_validate_only = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--init" })) {
+            want_init = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--strict" })) {
+            want_strict = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--json-errors" })) {
+            want_json_errors = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--verbose-passes" })) {
+            want_verbose_passes = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--summary" })) {
+            want_summary = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--stream" })) {
+            want_stream = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--parallel" })) {
+            want_parallel = true;
+        }
+        // ─── Value flags (require next argument) ───
+        else if (flag_reg.matchesFlag(arg, .{ .long = "--dialect", .short = "-d" })) {
             if (i + 1 < raw_args.len) {
                 dialect = dialect_enum.parseDialect(raw_args[i + 1]) catch |e| {
                     if (e == error.UnknownDialect) return error.UnknownDialect;
@@ -212,7 +238,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             } else {
                 return error.MissingDialectValue;
             }
-        } else if (std.mem.eql(u8, raw_args[i], "--target")) {
+        } else if (std.mem.eql(u8, arg, "--target")) {
             if (i + 1 < raw_args.len) {
                 target = parseTarget(raw_args[i + 1]) catch |e| {
                     if (e == error.UnknownTarget) return error.UnknownTarget;
@@ -222,7 +248,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             } else {
                 return error.MissingTargetValue;
             }
-        } else if (std.mem.eql(u8, raw_args[i], "--format")) {
+        } else if (std.mem.eql(u8, arg, "--format")) {
             if (i + 1 < raw_args.len) {
                 if (std.mem.eql(u8, raw_args[i + 1], "json")) {
                     diff_format = .json;
@@ -237,30 +263,14 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             } else {
                 return error.MissingFormatValue;
             }
-        } else if (std.mem.eql(u8, raw_args[i], "--validate-only")) {
-            want_validate_only = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--init")) {
-            want_init = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--strict")) {
-            want_strict = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--json-errors")) {
-            want_json_errors = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--verbose-passes")) {
-            want_verbose_passes = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--summary")) {
-            want_summary = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--stream")) {
-            want_stream = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--parallel")) {
-            want_parallel = true;
-        } else if (std.mem.eql(u8, raw_args[i], "--config")) {
+        } else if (std.mem.eql(u8, arg, "--config")) {
             if (i + 1 < raw_args.len) {
                 config_path = raw_args[i + 1];
                 i += 1;
             } else {
                 return error.MissingConfigValue;
             }
-        } else if (std.mem.eql(u8, raw_args[i], "--color")) {
+        } else if (std.mem.eql(u8, arg, "--color")) {
             if (i + 1 < raw_args.len) {
                 const val = raw_args[i + 1];
                 if (std.mem.eql(u8, val, "always")) {
@@ -274,24 +284,25 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             } else {
                 want_color = .always;
             }
-        } else if (std.mem.eql(u8, raw_args[i], "--import-path")) {
+        } else if (std.mem.eql(u8, arg, "--import-path")) {
             if (i + 1 < raw_args.len) {
                 try import_paths.append(alloc, raw_args[i + 1]);
                 i += 1;
             } else {
                 return error.MissingImportPathValue;
             }
-        } else if (std.mem.eql(u8, raw_args[i], "--output") or std.mem.eql(u8, raw_args[i], "-o")) {
-            try filtered.append(alloc, raw_args[i]);
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--output", .short = "-o" })) {
+            // Pass-through: forwarded to subcommand parsers
+            try filtered.append(alloc, arg);
             if (i + 1 < raw_args.len) {
                 i += 1;
                 try filtered.append(alloc, raw_args[i]);
             }
         } else {
-            if (raw_args[i].len > 2 and raw_args[i][0] == '-' and raw_args[i][1] == '-' and !isKnownLongFlag(raw_args[i])) {
+            if (arg.len > 2 and arg[0] == '-' and arg[1] == '-' and !isKnownLongFlag(arg)) {
                 return error.UnknownFlag;
             }
-            try filtered.append(alloc, raw_args[i]);
+            try filtered.append(alloc, arg);
         }
     }
 
