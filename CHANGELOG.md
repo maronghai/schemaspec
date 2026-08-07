@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.148.0] - 2026-08-07
+
+### Added
+- **ErrorFormatter Integration** — Wired `diagnostic/format.zig` ErrorFormatter into `main.zig` and `pipeline/forward.zig`. All CLI error output now uses standardized `error[rule]: message` format with category rules (`cli`, `config`, `io`, `schema`, `sql-parse`). Added `printErr` and `printWarn` convenience functions for messages without rule codes.
+- **CLI Consolidation** — Extracted shared `parseSimpleSubcommand` helper into `cli/parse.zig`. Removed duplicate definitions from `cli/parse_compile.zig` and `cli/parse_utils.zig`, eliminating ~30 lines of duplicated code.
+- **Confidence Score Constants** — Extracted `CONFIDENCE_THRESHOLD = 80` named constant in `reverse/column.zig`, replacing magic number in `writeColumnConfidence`.
+- **Confidence Score Improvements** — `reverse/map.zig` now returns explicit confidence scores: 85 for standard parameterized types (`varchar(128)`, `decimal(10,2)`), 60 for ENUM passthrough, 50 for unknown types and oversized parameters. Previously all defaulted to 100.
+- **New tests**: 3 new unit tests in `reverse/map_test.zig` covering unknown type fallback, ENUM passthrough confidence, and varchar(255) cross-dialect match.
+
+### Changed
+- **Reverse Engineering** — `writeColumnConfidence` guard condition simplified: removed redundant `col.comment != null and` check.
+- **CLI Error Messages** — Config validation, parse errors, dispatch errors, and schema compilation errors now use `ErrorFormatter` with structured rule codes instead of raw `std.debug.print("error: ...")`.
+
 ## [0.147.0] - 2026-08-07
 
 ### Added

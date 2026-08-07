@@ -11,6 +11,7 @@ const init_mod = @import("cli/init.zig");
 const hooks_mod = @import("cli/hooks.zig");
 const config_mod = @import("config.zig");
 const dialect_enum = @import("dialect/enum.zig");
+const fmt = @import("diagnostic/format.zig");
 
 // ─── Windows UTF-8 Console Support ──────────────────────────────
 
@@ -55,23 +56,26 @@ pub fn main(init: std.process.Init) !void {
     // Load project config (rune.toml) and apply defaults
     // When no explicit --config flag, search upward from cwd (like git searches for .git/).
     var final_parsed = parsed;
-    const cfg = if (parsed.config_path) |path|
-        config_mod.loadConfigWithWarnings(init.io, alloc, path) catch |err| e: {
-            std.debug.print("warning: failed to load {s}: {s}, using defaults\n", .{ path, @errorName(err) });
-            break :e config_mod.Config{};
+    const cfg = e: {
+        if (parsed.config_path) |path| {
+            break :e config_mod.loadConfigWithWarnings(init.io, alloc, path) catch {
+                fmt.printWarn("failed to load config file, using defaults");
+                break :e config_mod.Config{};
+            };
+        } else {
+            break :e config_mod.loadConfigWithDiscoveryAndWarnings(init.io, alloc) catch {
+                fmt.printWarn("failed to load config, using defaults");
+                break :e config_mod.Config{};
+            };
         }
-    else
-        config_mod.loadConfigWithDiscoveryAndWarnings(init.io, alloc) catch |err| e: {
-            std.debug.print("warning: failed to load config: {s}, using defaults\n", .{@errorName(err)});
-            break :e config_mod.Config{};
-        };
+    };
     // Validate config values
     config_mod.validateConfig(cfg) catch |err| {
         switch (err) {
-            error.InvalidDialect => std.debug.print("error: invalid dialect '{s}' in config\n", .{cfg.dialect.?}),
-            error.InvalidColor => std.debug.print("error: invalid color '{s}' in config. Expected: auto, always, never\n", .{cfg.color.?}),
-            error.InvalidTarget => std.debug.print("error: invalid target '{s}' in config. Expected: sql, json-schema\n", .{cfg.target.?}),
-            error.InvalidFormat => std.debug.print("error: invalid format '{s}' in config. Expected: text, json, sarif, markdown\n", .{cfg.format.?}),
+            error.InvalidDialect => fmt.printError("config", "invalid dialect in config"),
+            error.InvalidColor => fmt.printError("config", "invalid color in config. Expected: auto, always, never"),
+            error.InvalidTarget => fmt.printError("config", "invalid target in config. Expected: sql, json-schema"),
+            error.InvalidFormat => fmt.printError("config", "invalid format in config. Expected: text, json, sarif, markdown"),
         }
         std.process.exit(1);
     };
@@ -127,19 +131,19 @@ fn resolveOutputFormat(target: cli.Target) forward.OutputFormat {
 
 fn handleParseError(err: anyerror, arg_list: []const []const u8) noreturn {
     if (err == error.OutOfMemory) {
-        std.debug.print("error: out of memory\n", .{});
+        fmt.printErr("out of memory");
     } else if (err == error.UnknownFlag) {
         if (cli.findUnknownFlag(arg_list)) |flag| {
             if (cli.suggestSimilarFlag(flag)) |suggestion| {
-                std.debug.print("error: unknown flag '{s}'. Did you mean '{s}'?\n", .{ flag, suggestion });
+                std.debug.print("error[cli]: unknown flag '{s}'. Did you mean '{s}'?\n", .{ flag, suggestion });
             } else {
-                std.debug.print("error: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
+                std.debug.print("error[cli]: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
             }
         } else {
-            std.debug.print("error: unknown flag. Run 'rune --help' for usage.\n", .{});
+            fmt.printError("cli", "unknown flag. Run 'rune --help' for usage.");
         }
     } else if (err == error.UnknownCommand) {
-        std.debug.print("error: unknown command '{s}'. Available commands:\n", .{arg_list[1]});
+        fmt.printError("cli", "unknown command. Available commands:");
         inline for (cli.COMMAND_REGISTRY) |cmd| {
             std.debug.print("  {s}\n", .{cmd.name});
         }
@@ -147,7 +151,7 @@ fn handleParseError(err: anyerror, arg_list: []const []const u8) noreturn {
         printAvailableGenerators();
     } else {
         const cli_err: cli.ArgError = @errorCast(err);
-        std.debug.print("error: {s}\n", .{cliArgErrorMessage(cli_err)});
+        fmt.printError("cli", cliArgErrorMessage(cli_err));
     }
     std.process.exit(1);
 }
@@ -157,7 +161,7 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
         error.DiagnosticsError, error.SemanticError, error.SqlParseError, error.ReverseDiagnosticsError => {},
         error.CheckFailed => {
             if (!parsed.quiet) {
-                std.debug.print("check failed: schema has differences\n", .{});
+                fmt.printErr("check failed: schema has differences");
             }
             std.process.exit(1);
         },
@@ -165,9 +169,9 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             printAvailableGenerators();
             std.process.exit(1);
         },
-        error.OutOfMemory => std.debug.print("error: out of memory\n", .{}),
+        error.OutOfMemory => fmt.printErr("out of memory"),
         error.UnknownHookType => {
-            std.debug.print("error: unknown hook type. Available: pre-commit\n", .{});
+            fmt.printError("cli", "unknown hook type. Available: pre-commit");
             std.process.exit(1);
         },
         error.FileNotFound => {
@@ -175,19 +179,19 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             const input_path2 = getInputPath2(parsed.command);
             if (input_path) |path| {
                 if (input_path2) |path2| {
-                    std.debug.print("error: file not found: {s} or {s}\n", .{ path, path2 });
+                    std.debug.print("error[io]: file not found: {s} or {s}\n", .{ path, path2 });
                 } else {
-                    std.debug.print("error: file not found: {s}\n", .{path});
+                    std.debug.print("error[io]: file not found: {s}\n", .{path});
                 }
             } else {
-                std.debug.print("error: file not found\n", .{});
+                fmt.printError("io", "file not found");
             }
         },
-        error.AccessDenied => std.debug.print("error: access denied\n", .{}),
-        error.IsDir => std.debug.print("error: expected a file, got a directory\n", .{}),
-        error.NotDir => std.debug.print("error: expected a directory, got a file\n", .{}),
-        error.UnknownShell => std.debug.print("error: unknown shell. Expected: bash, zsh, fish, powershell\n", .{}),
-        else => std.debug.print("error: {s}\n", .{@errorName(err)}),
+        error.AccessDenied => fmt.printError("io", "access denied"),
+        error.IsDir => fmt.printError("io", "expected a file, got a directory"),
+        error.NotDir => fmt.printError("io", "expected a directory, got a file"),
+        error.UnknownShell => fmt.printError("cli", "unknown shell. Expected: bash, zsh, fish, powershell"),
+        else => fmt.printErr(@errorName(err)),
     }
     std.process.exit(1);
 }
@@ -346,8 +350,8 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .io = io,
                 .dialect = parsed.dialect,
                 .json_errors = false,
-            }) catch |err| {
-                std.debug.print("error: failed to compile schema: {s}\n", .{@errorName(err)});
+            }) catch {
+                fmt.printError("schema", "failed to compile schema");
                 std.process.exit(1);
             };
             const results = try lint_mod.lintSchema(alloc, pipeline.resolved, lint_cfg);
@@ -358,8 +362,8 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                     .io = io,
                     .dialect = parsed.dialect,
                     .json_errors = false,
-                }) catch |err| {
-                    std.debug.print("error: failed to compile schema: {s}\n", .{@errorName(err)});
+                }) catch {
+                    fmt.printError("schema", "failed to compile schema");
                     std.process.exit(1);
                 };
                 const results2 = try lint_mod.lintSchema(alloc, pipeline2.resolved, lint_cfg);

@@ -45,6 +45,7 @@ const PARAM_PATTERNS = [_]ParamPattern{
 };
 
 /// Match a parameterized type pattern. Returns sym_prefix ++ inner (single-param) or stripped inner (multi-param).
+/// Confidence is 85 for standard parameterized types (e.g. varchar(128) → s128).
 fn matchParam(t: []const u8, prefix: []const u8, sym_prefix: []const u8) ?ReverseResult {
     const rest = matchPrefix(t, prefix) orelse return null;
     if (!std.mem.endsWith(u8, rest, ")")) return null;
@@ -53,7 +54,7 @@ fn matchParam(t: []const u8, prefix: []const u8, sym_prefix: []const u8) ?Revers
 
     // varchar(255) → "s" (no length suffix)
     if (std.mem.eql(u8, sym_prefix, "s") and std.mem.eql(u8, inner, "255"))
-        return .{ .sym = "s", .omit = true };
+        return .{ .sym = "s", .omit = true, .score = 100 };
 
     // Multi-param: strip spaces entirely
     const buf = struct {
@@ -62,7 +63,7 @@ fn matchParam(t: []const u8, prefix: []const u8, sym_prefix: []const u8) ?Revers
     var j: usize = 0;
     for (inner) |ch| {
         if (ch != ' ') {
-            if (j >= 32) return .{ .sym = t, .omit = false };
+            if (j >= 32) return .{ .sym = t, .omit = false, .score = 50 };
             buf.b[j] = ch;
             j += 1;
         }
@@ -76,11 +77,11 @@ fn matchParam(t: []const u8, prefix: []const u8, sym_prefix: []const u8) ?Revers
             break;
         }
     }
-    if (has_comma) return .{ .sym = buf.b[0..j], .omit = false };
+    if (has_comma) return .{ .sym = buf.b[0..j], .omit = false, .score = 85 };
 
     // Single param: prepend sym_prefix
     const total_len = sym_prefix.len + j;
-    if (total_len > 15) return .{ .sym = t, .omit = false };
+    if (total_len > 15) return .{ .sym = t, .omit = false, .score = 50 };
 
     const result = struct {
         var b: [16]u8 = undefined;
@@ -94,10 +95,11 @@ fn matchParam(t: []const u8, prefix: []const u8, sym_prefix: []const u8) ?Revers
         result.b[k] = ch;
         k += 1;
     }
-    return .{ .sym = result.b[0..k], .omit = false };
+    return .{ .sym = result.b[0..k], .omit = false, .score = 85 };
 }
 
 /// Match NUMBER(P) or NUMBER(P,S). NUMBER(P) → "N" ++ P, NUMBER(P,S) → "P,S" stripped.
+/// Confidence is 85 for standard parameterized number types.
 fn matchNumber(t: []const u8) ?ReverseResult {
     const rest = matchPrefix(t, "number(") orelse return null;
     if (!std.mem.endsWith(u8, rest, ")")) return null;
@@ -111,7 +113,7 @@ fn matchNumber(t: []const u8) ?ReverseResult {
     var j: usize = 0;
     for (inner) |ch| {
         if (ch != ' ') {
-            if (j >= 32) return .{ .sym = t, .omit = false };
+            if (j >= 32) return .{ .sym = t, .omit = false, .score = 50 };
             buf.b[j] = ch;
             j += 1;
         }
@@ -125,11 +127,11 @@ fn matchNumber(t: []const u8) ?ReverseResult {
             break;
         }
     }
-    if (has_comma) return .{ .sym = buf.b[0..j], .omit = false };
+    if (has_comma) return .{ .sym = buf.b[0..j], .omit = false, .score = 85 };
 
     // Single param: "N" ++ P
     const total_len = 1 + j;
-    if (total_len > 15) return .{ .sym = t, .omit = false };
+    if (total_len > 15) return .{ .sym = t, .omit = false, .score = 50 };
 
     const result = struct {
         var b: [16]u8 = undefined;
@@ -138,7 +140,7 @@ fn matchNumber(t: []const u8) ?ReverseResult {
     for (buf.b[0..j], 0..) |ch, i| {
         result.b[i + 1] = ch;
     }
-    return .{ .sym = result.b[0..total_len], .omit = false };
+    return .{ .sym = result.b[0..total_len], .omit = false, .score = 85 };
 }
 
 /// Reverse-lookup a SQL type string to its SS symbol.
@@ -178,11 +180,12 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
     // NUMBER(P) → "N" ++ P, NUMBER(P,S) → "P,S" (special handling: "N" prefix)
     if (matchNumber(t)) |result| return result;
 
-    // ENUM(...) → pass through
+    // ENUM(...) → pass through (low confidence: custom types are uncertain)
     if (std.mem.startsWith(u8, t, "ENUM(") or std.mem.startsWith(u8, t, "enum("))
-        return .{ .sym = t, .omit = false };
+        return .{ .sym = t, .omit = false, .score = 60 };
 
-    return .{ .sym = t, .omit = false };
+    // Unknown type → passthrough with low confidence
+    return .{ .sym = t, .omit = false, .score = 50 };
 }
 
 // ─── Helper: classify SQL type strings (re-exports from sqlite_hints) ──

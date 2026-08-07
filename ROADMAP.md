@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.147.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 29 test suites.
+**Current version**: 0.148.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 29 test suites.
 
 ---
 
@@ -237,7 +237,8 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
-- **v0.146.0** — LSP Code Actions (quick fixes for common schema issues)
+- **v0.148.0** — ErrorFormatter integration, CLI consolidation, confidence score improvements
+- **v0.147.0** — LSP Code Actions (quick fixes for common schema issues)
 - **v0.145.0** — LSP Document Symbols, Completion, Hover, Go-to-Definition
 - **v0.144.0** — LSP Language Server foundation (JSON-RPC, diagnostics, document sync)
 - **v0.143.0** — WASM cross-compilation, Windows CI, ARM64 CI

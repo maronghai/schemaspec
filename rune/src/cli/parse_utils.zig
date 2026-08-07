@@ -8,48 +8,31 @@ const Command = types.Command;
 const ParsedArgs = types.ParsedArgs;
 const GlobalFlags = types.GlobalFlags;
 
-// ─── Helpers ────────────────────────────────────────────────────
-
-fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = opts.dialect_was_explicit,
-        .target = target,
-        .command = cmd,
-        .quiet = opts.quiet,
-        .strict = opts.strict,
-        .json_errors = opts.json_errors,
-        .import_paths = opts.import_paths,
-        .color = opts.color,
-        .config_path = opts.config_path,
-    };
-}
-
 // ─── Subcommand Parsers ────────────────────────────────────────
 
 pub fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
 }
 
 pub fn parseFormatArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
 }
 
 pub fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const name = if (fargs.len > 1) fargs[1] else null;
-    return parseSimpleSubcommand(dialect, target, .{ .init = .{ .name = name, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .init = .{ .name = name, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
 }
 
 pub fn parseCompletionsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const shell = if (fargs.len > 1) fargs[1] else "bash";
-    return parseSimpleSubcommand(dialect, target, .{ .completions = .{ .shell = shell } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .completions = .{ .shell = shell } }, opts);
 }
 
 pub fn parseHooksArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const hook_type = if (fargs.len > 1) fargs[1] else "pre-commit";
-    return parseSimpleSubcommand(dialect, target, .{ .hooks = .{ .hook_type = hook_type } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .hooks = .{ .hook_type = hook_type } }, opts);
 }
 
 pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
@@ -84,7 +67,7 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
             if (positional_count == 2) input2 = fargs[j];
         }
     }
-    return parseSimpleSubcommand(dialect, target, .{ .lint = .{
+    return shared.parseSimpleSubcommand(dialect, target, .{ .lint = .{
         .input = input,
         .input2 = input2,
         .json_errors = json_errors,
@@ -140,5 +123,5 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
 
 pub fn parseLspArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     _ = fargs;
-    return parseSimpleSubcommand(dialect, target, .lsp, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .lsp, opts);
 }

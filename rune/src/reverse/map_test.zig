@@ -201,9 +201,9 @@ test "score: MySQL exact match returns 100" {
     try testing.expectEqual(@as(u8, 100), r.score);
 }
 
-test "score: parameterized type returns 100" {
+test "score: parameterized type returns 85" {
     const r = reverseLookup("varchar(128)", "col", false, false, .mysql);
-    try testing.expectEqual(@as(u8, 100), r.score);
+    try testing.expectEqual(@as(u8, 85), r.score);
 }
 
 test "score: SQLite INTEGER with _id suffix returns 100" {
@@ -234,6 +234,21 @@ test "score: SQLite TEXT with json column name returns 80" {
 test "score: SQLite TEXT fallback returns 50" {
     const r = reverseLookup("TEXT", "some_col", false, false, .sqlite);
     try testing.expectEqual(@as(u8, 50), r.score);
+}
+
+test "score: unknown type returns 50 (fallback)" {
+    const r = reverseLookup("CUSTOM_TYPE_xyz", "col", false, false, .mysql);
+    try testing.expectEqual(@as(u8, 50), r.score);
+}
+
+test "score: ENUM passthrough returns 60" {
+    const r = reverseLookup("ENUM('a','b')", "col", false, false, .mysql);
+    try testing.expectEqual(@as(u8, 60), r.score);
+}
+
+test "score: varchar(255) default returns 85 (cross-dialect match)" {
+    const r = reverseLookup("varchar(255)", "col", false, false, .mysql);
+    try testing.expectEqual(@as(u8, 85), r.score);
 }
 
 // ─── Round-trip tests: sym → toSql → reverseLookup → sym ──────

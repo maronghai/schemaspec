@@ -10,22 +10,7 @@ const Command = types.Command;
 const ParsedArgs = types.ParsedArgs;
 const GlobalFlags = types.GlobalFlags;
 
-// ─── Shared Helpers ─────────────────────────────────────────────
-
-fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
-    return .{
-        .dialect = dialect,
-        .dialect_was_explicit = opts.dialect_was_explicit,
-        .target = target,
-        .command = cmd,
-        .quiet = opts.quiet,
-        .strict = opts.strict,
-        .json_errors = opts.json_errors,
-        .import_paths = opts.import_paths,
-        .color = opts.color,
-        .config_path = opts.config_path,
-    };
-}
+// ─── Helpers ────────────────────────────────────────────────────
 
 fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags, cmd: Command) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
@@ -35,7 +20,7 @@ fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
         .stats => |c| .{ .stats = .{ .input = input orelse c.input, .format = c.format } },
         else => cmd,
     };
-    return parseSimpleSubcommand(dialect, target, final_cmd, opts);
+    return shared.parseSimpleSubcommand(dialect, target, final_cmd, opts);
 }
 
 // ─── Subcommand Parsers ────────────────────────────────────────
@@ -254,5 +239,5 @@ pub fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
         .markdown
     else
         .text;
-    return parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format } }, opts);
 }

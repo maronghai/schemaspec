@@ -13,6 +13,7 @@ const json_schema = @import("../generators/json_schema.zig");
 const import_res = @import("import_resolver.zig");
 const stats_mod = @import("stats.zig");
 const StatsFormat = @import("../types/enums.zig").StatsFormat;
+const fmt = @import("../diagnostic/format.zig");
 
 // ─── Forward Pipeline: .ss → SQL ─────────────────────────────
 // No dependency on cli.zig — output format dispatch is the caller's responsibility.
@@ -226,9 +227,8 @@ pub fn compileSqlToAst(alloc: std.mem.Allocator, sql_text: []const u8, dialect: 
 
     // Parse SQL → SqlSchema
     var sp_parser = try sql_parser.SqlParser.init(alloc, sql_text, sql_dialect);
-    const parse_result = sp_parser.parse() catch |err| {
-        const lc = sp_parser.lineColAt(sp_parser.pos);
-        std.debug.print("error: SQL parse error at line {d}, col {d}: {s}\n", .{ lc.line, lc.col, @errorName(err) });
+    const parse_result = sp_parser.parse() catch {
+        fmt.printError("sql-parse", "SQL parse error");
         return error.SqlParseError;
     };
 

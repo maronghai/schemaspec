@@ -17,6 +17,24 @@ const KNOWN_FLAGS = types.KNOWN_FLAGS;
 pub const parse_compile = @import("parse_compile.zig");
 pub const parse_utils = @import("parse_utils.zig");
 
+// ─── Shared Subcommand Helpers ───────────────────────────────
+
+/// Build a ParsedArgs for simple subcommands that only need dialect/target/opts.
+pub fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd: Command, opts: GlobalFlags) ParsedArgs {
+    return .{
+        .dialect = dialect,
+        .dialect_was_explicit = opts.dialect_was_explicit,
+        .target = target,
+        .command = cmd,
+        .quiet = opts.quiet,
+        .strict = opts.strict,
+        .json_errors = opts.json_errors,
+        .import_paths = opts.import_paths,
+        .color = opts.color,
+        .config_path = opts.config_path,
+    };
+}
+
 // ─── Shared Flag Parsers ───────────────────────────────────────
 
 pub fn parseRollbackFlag(args: []const []const u8, start: usize) bool {

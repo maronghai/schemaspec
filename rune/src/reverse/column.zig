@@ -10,6 +10,9 @@ const Dialect = sp.Dialect;
 // Extracted from reverse_codegen.zig for single-responsibility.
 // Handles writing SS column definitions from SQL column metadata.
 
+/// Confidence threshold below which a score annotation is emitted.
+const CONFIDENCE_THRESHOLD = 80;
+
 pub const TypeResult = dialect_mod.ReverseResult;
 
 pub fn reverseType(sql_type: []const u8, col_name: []const u8, is_auto_inc: bool, is_default_ts: bool, dialect: Dialect) TypeResult {
@@ -181,9 +184,8 @@ fn writeColumnGenerated(w: anytype, col: sp.SqlColumn) !void {
 /// Suppress when an inline index suffix was added — the suffix already
 /// carries meaning and the comment would clutter the same line.
 fn writeColumnConfidence(w: anytype, col: sp.SqlColumn, tr: TypeResult, dialect: Dialect, has_inline_index: bool) !void {
-    if (tr.score < 80 and !has_inline_index) {
-        // Only emit confidence comment if there's no existing comment
-        if (col.comment == null or (col.comment != null and (col.comment.?.len == 0))) {
+    if (tr.score < CONFIDENCE_THRESHOLD and !has_inline_index) {
+        if (col.comment == null or col.comment.?.len == 0) {
             var score_buf: [8]u8 = undefined;
             const score_str = std.fmt.bufPrint(&score_buf, "score:{d}", .{tr.score}) catch "score:?";
             const backend = dialect_mod.getBackend(dialect);
