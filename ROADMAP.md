@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.151.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
+**Current version**: 0.153.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
 
 ---
 
@@ -88,6 +88,9 @@ Extend the LSP foundation into full editor experiences.
 - [x] Completion — wire LSP completion into VS Code's IntelliSense (v0.152.0)
 - [x] Diagnostics — squiggly lines for errors and warnings (v0.152.0)
 - [x] Commands — `Rune: Validate`, `Rune: Generate`, `Rune: Init` (v0.151.0)
+- [x] Rename — rename table/column with FK reference updates (v0.153.0)
+- [x] Enhanced completion — context-aware FK targets, template refs, prefix filtering (v0.153.0)
+- [x] Rich hover — SQL DDL preview, FK relationship details, view SQL (v0.153.0)
 
 ### Neovim Plugin
 
@@ -185,11 +188,11 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
 | 6: Ecosystem & Community | 🔲 Planned | 2/9 | 7 |
-| 7: Editor Extensions | 🔲 Planned | 4/10 | 6 |
+| 7: Editor Extensions | 🔲 Planned | 7/10 | 3 |
 | 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
 | Architecture Targets | 🟡 Ongoing | 12/14 | 2 |
 | Technical Debt | 🟡 Partial | 3/5 | 2 |
-| **Total** | | **80/105** | **25** |
+| **Total** | | **83/105** | **22** |
 
 ---
 
@@ -237,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.153.0** — LSP feature enrichment: rename support, context-aware completions, rich hover, FK index code action
 - **v0.152.0** — VS Code LSP integration (completion, hover, diagnostics), handleCodeAction bug fix, new LSP tests
 - **v0.151.0** — TextMate grammar, VS Code extension (syntax highlighting, commands), language configuration
 - **v0.150.0** — Docker image, migration guide, package manager support (Homebrew, Scoop, npm)

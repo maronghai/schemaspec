@@ -210,6 +210,32 @@ const MODIFIERS = [_]struct { label: []const u8, detail: []const u8, kind: Compl
     .{ .label = "@", .detail = "Generated column", .kind = .keyword },
 };
 
+/// Extract the word being typed at cursor position (for prefix filtering).
+fn wordAtCursor(text: []const u8, position: Position) []const u8 {
+    var line_start: usize = 0;
+    var current_line: u32 = 0;
+
+    for (text, 0..) |c, i| {
+        if (current_line == position.line) {
+            const cursor_offset = i - line_start;
+            const line = text[line_start .. line_start + cursor_offset];
+            // Find the start of the current word (scan backward from cursor)
+            var word_end = line.len;
+            while (word_end > 0) : (word_end -= 1) {
+                const wc = line[word_end - 1];
+                if (std.ascii.isAlphanumeric(wc) or wc == '_' or wc == '.') continue;
+                break;
+            }
+            return line[word_end..];
+        }
+        if (c == '\n') {
+            line_start = i + 1;
+            current_line += 1;
+        }
+    }
+    return "";
+}
+
 /// Generate completion items based on cursor position and document context.
 pub fn getCompletions(alloc: std.mem.Allocator, ast: TypedAst, position: Position, doc_text: ?[]const u8) CompletionList {
     var items = std.ArrayList(CompletionItem).initCapacity(alloc, 64) catch return .{
@@ -219,34 +245,41 @@ pub fn getCompletions(alloc: std.mem.Allocator, ast: TypedAst, position: Positio
 
     // Determine context from document text and cursor position
     const context = if (doc_text) |text| detectContext(text, position) else .top_level;
+    const prefix = if (doc_text) |text| wordAtCursor(text, position) else "";
 
     switch (context) {
         .top_level => {
             // Offer keywords only
             for (KEYWORDS) |kw| {
-                items.append(alloc, .{
-                    .label = kw.label,
-                    .kind = kw.kind,
-                    .detail = null,
-                }) catch {};
+                if (prefix.len == 0 or std.mem.startsWith(u8, kw.label, prefix)) {
+                    items.append(alloc, .{
+                        .label = kw.label,
+                        .kind = kw.kind,
+                        .detail = null,
+                    }) catch {};
+                }
             }
         },
         .inside_table => {
             // Offer type symbols and modifiers
             for (TYPE_SYMBOLS) |ts| {
-                items.append(alloc, .{
-                    .label = ts.label,
-                    .kind = ts.kind,
-                    .detail = ts.detail,
-                    .documentation = ts.detail,
-                }) catch {};
+                if (prefix.len == 0 or std.mem.startsWith(u8, ts.label, prefix)) {
+                    items.append(alloc, .{
+                        .label = ts.label,
+                        .kind = ts.kind,
+                        .detail = ts.detail,
+                        .documentation = ts.detail,
+                    }) catch {};
+                }
             }
             for (MODIFIERS) |mod| {
-                items.append(alloc, .{
-                    .label = mod.label,
-                    .kind = mod.kind,
-                    .detail = mod.detail,
-                }) catch {};
+                if (prefix.len == 0 or std.mem.startsWith(u8, mod.label, prefix)) {
+                    items.append(alloc, .{
+                        .label = mod.label,
+                        .kind = mod.kind,
+                        .detail = mod.detail,
+                    }) catch {};
+                }
             }
             // Also offer table.column for FK references
             for (ast.tables) |table| {
@@ -254,42 +287,82 @@ pub fn getCompletions(alloc: std.mem.Allocator, ast: TypedAst, position: Positio
                     var law = std.Io.Writer.Allocating.init(alloc);
                     law.writer.print("{s}.{s}", .{ table.name, col.name }) catch continue;
                     const label = law.toOwnedSlice() catch continue;
-                    items.append(alloc, .{
-                        .label = label,
-                        .kind = .field,
-                        .detail = formatColumnDetail(alloc, col),
-                    }) catch {};
+                    if (prefix.len == 0 or std.mem.startsWith(u8, label, prefix)) {
+                        items.append(alloc, .{
+                            .label = label,
+                            .kind = .field,
+                            .detail = formatColumnDetail(alloc, col),
+                        }) catch {};
+                    }
                 }
             }
         },
         .after_fk_keyword => {
-            // Offer table names and table.column for FK references
+            // Offer table names and table.column for FK references with prefix filtering
             for (ast.tables) |table| {
-                items.append(alloc, .{
-                    .label = table.name,
-                    .kind = .class,
-                    .detail = table.comment,
-                }) catch {};
+                if (prefix.len == 0 or std.mem.startsWith(u8, table.name, prefix)) {
+                    items.append(alloc, .{
+                        .label = table.name,
+                        .kind = .class,
+                        .detail = table.comment,
+                    }) catch {};
+                }
                 for (table.columns) |col| {
                     var law = std.Io.Writer.Allocating.init(alloc);
                     law.writer.print("{s}.{s}", .{ table.name, col.name }) catch continue;
                     const label = law.toOwnedSlice() catch continue;
-                    items.append(alloc, .{
-                        .label = label,
-                        .kind = .field,
-                        .detail = formatColumnDetail(alloc, col),
-                    }) catch {};
+                    if (prefix.len == 0 or std.mem.startsWith(u8, label, prefix)) {
+                        items.append(alloc, .{
+                            .label = label,
+                            .kind = .field,
+                            .detail = formatColumnDetail(alloc, col),
+                        }) catch {};
+                    }
                 }
             }
         },
         .after_percent => {
             // Offer table/template names
             for (ast.tables) |table| {
-                items.append(alloc, .{
-                    .label = table.name,
-                    .kind = .class,
-                    .detail = table.comment,
-                }) catch {};
+                if (prefix.len == 0 or std.mem.startsWith(u8, table.name, prefix)) {
+                    items.append(alloc, .{
+                        .label = table.name,
+                        .kind = .class,
+                        .detail = table.comment,
+                    }) catch {};
+                }
+            }
+        },
+        .after_at => {
+            // Offer generated column keywords
+            const gen_keywords = [_]struct { label: []const u8, detail: []const u8 }{
+                .{ .label = "generated", .detail = "Generated column (STORED)" },
+            };
+            for (gen_keywords) |kw| {
+                if (prefix.len == 0 or std.mem.startsWith(u8, kw.label, prefix)) {
+                    items.append(alloc, .{
+                        .label = kw.label,
+                        .kind = .keyword,
+                        .detail = kw.detail,
+                    }) catch {};
+                }
+            }
+        },
+        .after_hash => {
+            // Offer comment template hints
+            const comment_hints = [_]struct { label: []const u8, detail: []const u8 }{
+                .{ .label = "TODO", .detail = "TODO comment" },
+                .{ .label = "NOTE", .detail = "Note comment" },
+                .{ .label = "FIXME", .detail = "Fixme comment" },
+            };
+            for (comment_hints) |hint| {
+                if (prefix.len == 0 or std.mem.startsWith(u8, hint.label, prefix)) {
+                    items.append(alloc, .{
+                        .label = hint.label,
+                        .kind = .text,
+                        .detail = hint.detail,
+                    }) catch {};
+                }
             }
         },
     }
@@ -306,7 +379,26 @@ const CompletionContext = enum {
     inside_table,
     after_fk_keyword,
     after_percent,
+    after_at,
+    after_hash,
 };
+
+/// Strip comments from a line (everything after `#` or `//` that's not inside a string).
+fn stripLineComments(line: []const u8) []const u8 {
+    var in_string = false;
+    var i: usize = 0;
+    while (i < line.len) : (i += 1) {
+        const c = line[i];
+        if (c == '\'' or c == '"') {
+            in_string = !in_string;
+        } else if (!in_string) {
+            if (c == '#' or (c == '/' and i + 1 < line.len and line[i + 1] == '/')) {
+                return line[0..i];
+            }
+        }
+    }
+    return line;
+}
 
 /// Detect the completion context from document text and cursor position.
 fn detectContext(text: []const u8, position: Position) CompletionContext {
@@ -316,12 +408,14 @@ fn detectContext(text: []const u8, position: Position) CompletionContext {
 
     for (text, 0..) |c, i| {
         if (current_line == position.line) {
-            // Found the target line
-            const line_text = text[line_start..@min(i + 1, text.len)];
+            // Found the target line — extract up to cursor position
+            const cursor_offset = i - line_start;
+            const line_text = text[line_start .. line_start + cursor_offset];
+            const stripped = stripLineComments(line_text);
+            const trimmed = std.mem.trim(u8, stripped, " \t\r\n");
 
-            // Check for FK keyword context
-            const trimmed = std.mem.trim(u8, line_text, " \t\r\n");
-            if (trimmed.len >= 2 and std.mem.eql(u8, trimmed[trimmed.len - 2 ..], "FK")) {
+            // Check for FK keyword context (FK anywhere on line, not just at end)
+            if (std.mem.indexOf(u8, trimmed, "FK") != null) {
                 return .after_fk_keyword;
             }
 
@@ -330,13 +424,38 @@ fn detectContext(text: []const u8, position: Position) CompletionContext {
                 return .after_percent;
             }
 
+            // Check for generated column context (after @)
+            if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '@') {
+                return .after_at;
+            }
+
+            // Check for comment context (after #)
+            if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '#') {
+                return .after_hash;
+            }
+
             // Check if we're inside a table body
-            // Simple heuristic: count braces
+            // Count braces, skipping comments and strings
             var brace_depth: u32 = 0;
-            for (text, 0..) |tc, ti| {
-                if (ti > i) break;
-                if (tc == '{') brace_depth += 1;
-                if (tc == '}') {
+            var in_str = false;
+            var str_char: u8 = 0;
+            var j: usize = 0;
+            while (j <= i) : (j += 1) {
+                const tc = text[j];
+                if (in_str) {
+                    if (tc == str_char) in_str = false;
+                } else if (tc == '\'' or tc == '"') {
+                    in_str = true;
+                    str_char = tc;
+                } else if (tc == '#') {
+                    // Skip to end of line
+                    while (j < text.len and text[j] != '\n') j += 1;
+                } else if (tc == '/' and j + 1 < text.len and text[j + 1] == '/') {
+                    // Skip to end of line
+                    while (j < text.len and text[j] != '\n') j += 1;
+                } else if (tc == '{') {
+                    brace_depth += 1;
+                } else if (tc == '}') {
                     if (brace_depth > 0) brace_depth -= 1;
                 }
             }
@@ -355,6 +474,36 @@ fn detectContext(text: []const u8, position: Position) CompletionContext {
 
 // ─── Hover ──────────────────────────────────────────────────
 
+/// Format a SqlType to a human-readable SQL string for hover display.
+fn formatSqlTypeForHover(alloc: std.mem.Allocator, sql_type: anytype) []const u8 {
+    var law = std.Io.Writer.Allocating.init(alloc);
+    defer law.deinit();
+    sql_type.toSql(.mysql, &law.writer) catch return @tagName(sql_type);
+    return law.toOwnedSlice() catch return @tagName(sql_type);
+}
+
+/// Format column flags as a human-readable string for hover display.
+fn formatFlagsForHover(alloc: std.mem.Allocator, flags: anytype) []const u8 {
+    var parts = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return "";
+    if (flags.primary_key) parts.append(alloc, "PRIMARY KEY") catch {};
+    if (flags.auto_increment) parts.append(alloc, "AUTO_INCREMENT") catch {};
+    if (flags.nullable) parts.append(alloc, "NULL") catch {};
+    if (flags.unsigned) parts.append(alloc, "UNSIGNED") catch {};
+    if (flags.inline_unique) parts.append(alloc, "UNIQUE") catch {};
+    if (flags.inline_index) parts.append(alloc, "INDEX") catch {};
+    if (flags.is_enum) parts.append(alloc, "ENUM") catch {};
+    if (flags.is_virtual) parts.append(alloc, "VIRTUAL") catch {};
+    if (flags.is_stored) parts.append(alloc, "STORED") catch {};
+
+    var law = std.Io.Writer.Allocating.init(alloc);
+    defer law.deinit();
+    for (parts.items, 0..) |p, i| {
+        if (i > 0) law.writer.writeAll(" ") catch {};
+        law.writer.writeAll(p) catch {};
+    }
+    return law.toOwnedSlice() catch return "";
+}
+
 /// Generate hover information for a position in the document.
 pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Hover {
     const line = position.line;
@@ -371,11 +520,31 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
             if (table.comment) |c| {
                 aw.writer.print("\n\n{s}", .{c}) catch {};
             }
-            aw.writer.print("\n\n- Columns: {d}", .{table.columns.len}) catch {};
-            aw.writer.print("\n- Foreign Keys: {d}", .{table.fks.len}) catch {};
-            aw.writer.print("\n- Indexes: {d}", .{table.indexes.len}) catch {};
+            aw.writer.print("\n\n| Property | Value |", .{}) catch {};
+            aw.writer.print("\n|----------|-------|", .{}) catch {};
+            aw.writer.print("\n| Columns | {d} |", .{table.columns.len}) catch {};
+            aw.writer.print("\n| Foreign Keys | {d} |", .{table.fks.len}) catch {};
+            aw.writer.print("\n| Indexes | {d} |", .{table.indexes.len}) catch {};
             if (table.engine) |e| {
-                aw.writer.print("\n- Engine: {s}", .{e}) catch {};
+                aw.writer.print("\n| Engine | `{s}` |", .{e}) catch {};
+            }
+            // Show FK relationships
+            if (table.fks.len > 0) {
+                aw.writer.writeAll("\n\n**Relationships:**\n") catch {};
+                for (table.fks) |fk| {
+                    if (fk.fields.len > 0) {
+                        aw.writer.print("- `{s}` → `{s}.{s}`", .{ fk.fields[0], fk.ref_table, if (fk.ref_fields.len > 0) fk.ref_fields[0] else "" }) catch {};
+                        if (fk.actions.len > 0) {
+                            aw.writer.writeAll(" (") catch {};
+                            for (fk.actions, 0..) |action, ai| {
+                                if (ai > 0) aw.writer.writeAll(", ") catch {};
+                                aw.writer.print("{s} {s}", .{ @tagName(action.trigger), @tagName(action.action) }) catch {};
+                            }
+                            aw.writer.writeAll(")") catch {};
+                        }
+                        aw.writer.writeByte('\n') catch {};
+                    }
+                }
             }
             return .{
                 .contents = .{ .kind = .markdown, .value = aw.toOwnedSlice() catch return null },
@@ -404,7 +573,26 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
                     else => {},
                 }
 
-                aw.writer.writeAll("\n\n") catch return null;
+                // SQL DDL snippet
+                aw.writer.writeAll("\n\n```sql\n") catch {};
+                aw.writer.print("{s} {s}", .{ col.name, @tagName(col.sql_type) }) catch {};
+                switch (col.sql_type) {
+                    .varchar => |n| {
+                        if (n > 0) aw.writer.print("({d})", .{n}) catch {};
+                    },
+                    .decimal => |ds| {
+                        aw.writer.print("({d},{d})", .{ ds.precision, ds.scale }) catch {};
+                    },
+                    else => {},
+                }
+                const flags_str = formatFlagsForHover(alloc, col.flags);
+                if (flags_str.len > 0) {
+                    aw.writer.print(" {s}", .{flags_str}) catch {};
+                }
+                if (col.default) |dflt| {
+                    aw.writer.print(" DEFAULT {s}", .{dflt}) catch {};
+                }
+                aw.writer.writeAll("\n```\n") catch {};
 
                 // Flags
                 var flags = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return null;
@@ -456,7 +644,14 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
                     if (fk.fields.len > 0) {
                         aw.writer.print("Column: `{s}`\n", .{fk.fields[0]}) catch {};
                     }
-                    aw.writer.print("Target: `{s}.{s}`", .{ fk.ref_table, if (fk.ref_fields.len > 0) fk.ref_fields[0] else "" }) catch {};
+                    aw.writer.print("Target: `{s}.{s}`\n", .{ fk.ref_table, if (fk.ref_fields.len > 0) fk.ref_fields[0] else "" }) catch {};
+                    // Show actions
+                    if (fk.actions.len > 0) {
+                        aw.writer.writeAll("\n**Actions:**\n") catch {};
+                        for (fk.actions) |action| {
+                            aw.writer.print("- {s} {s}\n", .{ @tagName(action.trigger), @tagName(action.action) }) catch {};
+                        }
+                    }
                     return .{
                         .contents = .{ .kind = .markdown, .value = aw.toOwnedSlice() catch return null },
                         .range = makeRange(fk_line, 0, fk_line, 4),
@@ -476,6 +671,10 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
             if (view.comment) |c| {
                 aw.writer.print("\n\n{s}", .{c}) catch {};
             }
+            // Show SQL definition
+            aw.writer.writeAll("\n\n```sql\n") catch {};
+            aw.writer.writeAll(view.query) catch {};
+            aw.writer.writeAll("\n```\n") catch {};
             return .{
                 .contents = .{ .kind = .markdown, .value = aw.toOwnedSlice() catch return null },
                 .range = makeRange(view_line, 0, view_line, @intCast(view.name.len)),
@@ -625,6 +824,53 @@ pub fn getCodeActions(
         }
     }
 
+    // Add FK index code action: check if any FK column lacks an index
+    for (ast.tables) |table| {
+        for (table.fks) |fk| {
+            if (fk.fields.len == 0) continue;
+            const fk_col = fk.fields[0];
+
+            // Check if this column has an inline index or standalone index
+            var has_index = false;
+            for (table.columns) |col| {
+                if (std.mem.eql(u8, col.name, fk_col) and (col.flags.inline_index or col.flags.inline_unique)) {
+                    has_index = true;
+                    break;
+                }
+            }
+            if (!has_index) {
+                for (table.indexes) |idx| {
+                    for (idx.fields) |f| {
+                        if (std.mem.eql(u8, f, fk_col)) {
+                            has_index = true;
+                            break;
+                        }
+                    }
+                    if (has_index) break;
+                }
+            }
+
+            if (!has_index) {
+                // Find the column line and offer to add + modifier
+                for (table.columns) |col| {
+                    if (std.mem.eql(u8, col.name, fk_col)) {
+                        const col_line: u32 = if (col.line_no > 0) @intCast(col.line_no - 1) else 0;
+                        const col_name_end: u32 = @intCast(col.name.len);
+                        actions.append(alloc, .{
+                            .title = "Add index for FK column",
+                            .kind = .quick_fix,
+                            .edit = .{ .changes = &.{.{
+                                .range = makeRange(col_line, col_name_end, col_line, col_name_end),
+                                .new_text = " +",
+                            }} },
+                        }) catch {};
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     return actions.items;
 }
 
@@ -640,6 +886,173 @@ fn toSnakeCase(alloc: std.mem.Allocator, input: []const u8) ![]const u8 {
         }
     }
     return try result.toOwnedSlice(alloc);
+}
+
+// ─── Rename ──────────────────────────────────────────────
+
+/// Result of a rename operation: list of edits to apply.
+pub const RenameResult = struct {
+    changes: []const TextEdit,
+};
+
+/// Check if rename is valid at the given position.
+/// Returns the symbol name if rename is supported, null otherwise.
+pub fn prepareRename(ast: TypedAst, position: Position, doc_text: []const u8) ?[]const u8 {
+    const line = position.line;
+    const character = position.character;
+
+    // Extract the word at cursor position
+    var line_start: usize = 0;
+    var current_line: u32 = 0;
+    for (doc_text, 0..) |c, i| {
+        if (current_line == line) {
+            const line_text = doc_text[line_start..i];
+            if (character > line_text.len) return null;
+            const before_cursor = line_text[0..character];
+            // Find word boundaries
+            var word_end = before_cursor.len;
+            while (word_end > 0) : (word_end -= 1) {
+                const wc = before_cursor[word_end - 1];
+                if (std.ascii.isAlphanumeric(wc) or wc == '_') continue;
+                break;
+            }
+            var word_start = word_end;
+            while (word_start > 0) : (word_start -= 1) {
+                const wc = before_cursor[word_start - 1];
+                if (std.ascii.isAlphanumeric(wc) or wc == '_') continue;
+                break;
+            }
+            const word = before_cursor[word_start..word_end];
+            if (word.len == 0) return null;
+
+            // Check if the word is a table name or column name
+            for (ast.tables) |table| {
+                if (std.mem.eql(u8, table.name, word)) return word;
+                for (table.columns) |col| {
+                    if (std.mem.eql(u8, col.name, word)) return word;
+                }
+            }
+            return null;
+        }
+        if (c == '\n') {
+            line_start = i + 1;
+            current_line += 1;
+        }
+    }
+    return null;
+}
+
+/// Find all references to a symbol at the given position and return rename edits.
+pub fn getRenameLinks(alloc: std.mem.Allocator, ast: TypedAst, position: Position, doc_text: []const u8, new_name: []const u8) ?RenameResult {
+    const line = position.line;
+    const character = position.character;
+
+    // Extract the word at cursor position
+    var line_start: usize = 0;
+    var current_line: u32 = 0;
+    var old_name: ?[]const u8 = null;
+    for (doc_text, 0..) |c, i| {
+        if (current_line == line) {
+            const line_text = doc_text[line_start..i];
+            if (character > line_text.len) return null;
+            const before_cursor = line_text[0..character];
+            var word_end = before_cursor.len;
+            while (word_end > 0) : (word_end -= 1) {
+                const wc = before_cursor[word_end - 1];
+                if (std.ascii.isAlphanumeric(wc) or wc == '_') continue;
+                break;
+            }
+            var word_start = word_end;
+            while (word_start > 0) : (word_start -= 1) {
+                const wc = before_cursor[word_start - 1];
+                if (std.ascii.isAlphanumeric(wc) or wc == '_') continue;
+                break;
+            }
+            old_name = before_cursor[word_start..word_end];
+            break;
+        }
+        if (c == '\n') {
+            line_start = i + 1;
+            current_line += 1;
+        }
+    }
+
+    const name = old_name orelse return null;
+    var edits = std.ArrayList(TextEdit).initCapacity(alloc, 16) catch return null;
+
+    // Scan all lines for references to the old name
+    line_start = 0;
+    current_line = 0;
+    for (doc_text, 0..) |c, i| {
+        const is_last = i == doc_text.len - 1;
+        const line_text = if (is_last) doc_text[line_start..] else doc_text[line_start..i];
+
+        // Find all occurrences of the old name in this line
+        var search_start: usize = 0;
+        while (search_start < line_text.len) {
+            const pos = std.mem.indexOf(u8, line_text[search_start..], name) orelse break;
+            const abs_pos = search_start + pos;
+
+            // Check word boundaries
+            const before_ok = abs_pos == 0 or !std.ascii.isAlphanumeric(doc_text[line_start + abs_pos - 1]);
+            const after_end = line_start + abs_pos + name.len;
+            const after_ok = after_end >= doc_text.len or !std.ascii.isAlphanumeric(doc_text[after_end]);
+
+            if (before_ok and after_ok) {
+                // Determine what kind of reference this is
+                const is_table_decl = isTableDeclaration(line_text, name);
+                const is_fk_ref = isFkReference(line_text, name, ast);
+
+                // Only rename table declarations, column declarations, and FK references
+                if (is_table_decl or is_fk_ref) {
+                    edits.append(alloc, .{
+                        .range = makeRange(current_line, @intCast(abs_pos), current_line, @intCast(abs_pos + name.len)),
+                        .new_text = new_name,
+                    }) catch {};
+                }
+            }
+
+            search_start = abs_pos + 1;
+        }
+
+        if (c == '\n' or is_last) {
+            line_start = i + 1;
+            current_line += 1;
+        }
+    }
+
+    if (edits.items.len == 0) return null;
+    return .{ .changes = edits.items };
+}
+
+/// Check if a line is a table declaration for the given name.
+fn isTableDeclaration(line_text: []const u8, name: []const u8) bool {
+    const trimmed = std.mem.trim(u8, line_text, " \t\r\n");
+    // Table declarations start with "table <name>" or "template <name>" or "view <name>"
+    if (std.mem.startsWith(u8, trimmed, "table ") and std.mem.indexOf(u8, trimmed, name) != null) return true;
+    if (std.mem.startsWith(u8, trimmed, "template ") and std.mem.indexOf(u8, trimmed, name) != null) return true;
+    if (std.mem.startsWith(u8, trimmed, "view ") and std.mem.indexOf(u8, trimmed, name) != null) return true;
+    return false;
+}
+
+/// Check if a line is an FK reference to the given name.
+fn isFkReference(line_text: []const u8, name: []const u8, ast: TypedAst) bool {
+    const trimmed = std.mem.trim(u8, line_text, " \t\r\n");
+    // FK references: "FK col → table" or "FK col → table.col"
+    if (std.mem.indexOf(u8, trimmed, "FK") == null) return false;
+    // Check if the name appears as a table reference in any FK
+    for (ast.tables) |table| {
+        for (table.fks) |fk| {
+            if (std.mem.eql(u8, fk.ref_table, name)) return true;
+            for (fk.ref_fields) |rf| {
+                if (std.mem.eql(u8, rf, name)) return true;
+            }
+            for (fk.fields) |f| {
+                if (std.mem.eql(u8, f, name)) return true;
+            }
+        }
+    }
+    return false;
 }
 
 // ─── Document Formatting ───────────────────────────────────

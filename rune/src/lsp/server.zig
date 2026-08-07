@@ -115,6 +115,14 @@ pub const Server = struct {
                 if (msg.params) |params| {
                     try self.handleFormatting(stdout_file, id, params);
                 }
+            } else if (std.mem.eql(u8, method, "textDocument/rename")) {
+                if (msg.params) |params| {
+                    try self.handleRename(stdout_file, id, params);
+                }
+            } else if (std.mem.eql(u8, method, "textDocument/prepareRename")) {
+                if (msg.params) |params| {
+                    try self.handlePrepareRename(stdout_file, id, params);
+                }
             } else if (id != null) {
                 // Unknown method with id → respond with method_not_found
                 var w = stdout_file.writerStreaming(self.io, &buf);
@@ -146,6 +154,8 @@ pub const Server = struct {
             .document_symbol_provider = true,
             .code_action_provider = true,
             .formatting_provider = true,
+            .rename_provider = true,
+            .prepare_rename_provider = true,
         });
         try self.sendResponse(stdout_file, rid, &body_alloc);
     }
@@ -397,6 +407,70 @@ pub const Server = struct {
             try body_alloc.writer.writeByte(']');
         } else {
             try body_alloc.writer.writeAll("[]");
+        }
+
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+    }
+
+    fn handleRename(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+        const rid = id orelse return;
+        const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+        const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+        const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+        const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+        const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+        const new_name = lsp_protocol.getStringField(params, "newName") orelse return;
+
+        const doc = self.documents.get(uri) orelse return;
+        const result = self.compile_results.get(uri);
+        const typed = if (result) |r| r.typed_ast else null;
+
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        if (typed) |t| {
+            if (features_mod.getRenameLinks(self.arena, t, .{ .line = line, .character = character }, doc.text, new_name)) |rename_result| {
+                // Build WorkspaceEdit with changes
+                try body_alloc.writer.writeAll("{\"changes\":{\"");
+                try body_alloc.writer.writeAll(uri);
+                try body_alloc.writer.writeAll("\":[");
+                for (rename_result.changes, 0..) |edit, i| {
+                    if (i > 0) try body_alloc.writer.writeByte(',');
+                    try lsp_protocol.writeTextEdit(&body_alloc.writer, edit);
+                }
+                try body_alloc.writer.writeAll("]}}");
+            } else {
+                try body_alloc.writer.writeAll("null");
+            }
+        } else {
+            try body_alloc.writer.writeAll("null");
+        }
+
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+    }
+
+    fn handlePrepareRename(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+        const rid = id orelse return;
+        const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+        const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+        const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+        const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+        const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+
+        const doc = self.documents.get(uri) orelse return;
+        const result = self.compile_results.get(uri);
+        const typed = if (result) |r| r.typed_ast else null;
+
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        if (typed) |t| {
+            if (features_mod.prepareRename(t, .{ .line = line, .character = character }, doc.text)) |symbol_name| {
+                // Return prepare rename result with placeholder
+                try body_alloc.writer.writeAll("{\"placeholder\":\"");
+                try body_alloc.writer.writeAll(symbol_name);
+                try body_alloc.writer.writeAll("\"}");
+            } else {
+                try body_alloc.writer.writeAll("null");
+            }
+        } else {
+            try body_alloc.writer.writeAll("null");
         }
 
         try self.sendResponse(stdout_file, rid, &body_alloc);

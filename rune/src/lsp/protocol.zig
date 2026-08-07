@@ -233,6 +233,8 @@ pub const ServerCapabilities = struct {
     document_symbol_provider: ?bool = null,
     code_action_provider: ?bool = null,
     formatting_provider: ?bool = null,
+    rename_provider: ?bool = null,
+    prepare_rename_provider: ?bool = null,
 };
 
 pub const InitializeResult = struct {
@@ -485,6 +487,14 @@ pub fn writeInitializeResult(w: anytype, caps: ServerCapabilities) !void {
     if (caps.formatting_provider) |fp| {
         try w.writeAll(",\"documentFormattingProvider\":");
         try w.writeAll(if (fp) "true" else "false");
+    }
+    if (caps.rename_provider) |rp| {
+        try w.writeAll(",\"renameProvider\":");
+        try w.writeAll(if (rp) "true" else "false");
+    }
+    if (caps.prepare_rename_provider) |prp| {
+        try w.writeAll(",\"prepareRenameProvider\":");
+        try w.writeAll(if (prp) "true" else "false");
     }
     try w.writeAll("}");
 }
