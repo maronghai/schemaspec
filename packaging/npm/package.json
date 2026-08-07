@@ -1,0 +1,48 @@
+{
+  "name": "rune-schema",
+  "version": "0.150.0",
+  "description": "Minimal DSL for declaring database schemas using single-character symbols",
+  "main": "bin/rune",
+  "bin": {
+    "rune": "bin/rune"
+  },
+  "scripts": {
+    "postinstall": "node scripts/install.js"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "schema",
+    "database",
+    "sql",
+    "dsl",
+    "ddl",
+    "migration"
+  ],
+  "author": "Rune Lang",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rune-lang/rune.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rune-lang/rune/issues"
+  },
+  "homepage": "https://github.com/rune-lang/rune#readme",
+  "engines": {
+    "node": ">=14"
+  },
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

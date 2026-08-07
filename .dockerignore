@@ -1,0 +1,32 @@
+# Git
+.git
+.github
+.gitignore
+
+# Build artifacts
+rune/zig-out
+rune/zig-cache
+rune/.zig-cache
+
+# Test data (not needed in image)
+tests/
+docs/
+plans/
+packaging/
+
+# Documentation
+*.md
+LICENSE
+VERSION
+CHANGELOG.md
+ROADMAP.md
+
+# Editor/IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db

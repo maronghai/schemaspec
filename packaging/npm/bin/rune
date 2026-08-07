@@ -1,0 +1,4 @@
+#!/bin/sh
+# This is a placeholder. The actual binary will be downloaded during npm install.
+echo "rune: binary not installed. Run 'npm install' to download the correct binary."
+exit 1

@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.149.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
+**Current version**: 0.150.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
 
 ---
 
@@ -58,15 +58,15 @@ Build the community and ecosystem around Rune. **Not started.**
 
 ### Distribution
 
-- [ ] Package managers — `brew install rune`, `scoop install rune`, `apt`/`yum`
+- [x] Package managers — `brew install rune`, `scoop install rune`, `apt`/`yum` (v0.150.0)
 - [ ] npm package — `npx rune schema.ss`
-- [ ] Docker image — `ghcr.io/rune-lang/rune:latest`
+- [x] Docker image — `ghcr.io/rune-lang/rune:latest` (v0.150.0)
 - [ ] Zig package manager — `build.zig.zon` for dependency consumption
 
 ### Documentation
 
 - [ ] Interactive tutorial — web-based walkthrough with live examples
-- [ ] Migration guide — from SQL DDL, Prisma, Knex to Rune `.ss`
+- [x] Migration guide — from SQL DDL, Prisma, Knex to Rune `.ss` (v0.150.0)
 - [ ] Cookbook — common patterns (multi-tenant, soft delete, audit trail)
 - [ ] Video walkthroughs — schema design, migration, CI/CD integration
 
@@ -184,12 +184,12 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| 6: Ecosystem & Community | 🔲 Planned | 0/9 | 9 |
+| 6: Ecosystem & Community | 🔲 Planned | 2/9 | 7 |
 | 7: Editor Extensions | 🔲 Planned | 0/10 | 10 |
 | 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
 | Architecture Targets | 🟡 Ongoing | 12/14 | 2 |
 | Technical Debt | 🟡 Partial | 3/5 | 2 |
-| **Total** | | **74/105** | **31** |
+| **Total** | | **76/105** | **29** |
 
 ---
 
@@ -237,6 +237,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.150.0** — Docker image, migration guide, package manager support (Homebrew, Scoop, npm)
 - **v0.149.0** — FlagRegistry pattern, weighted confidence scoring, test suite sync
 - **v0.148.0** — ErrorFormatter integration, CLI consolidation, confidence score improvements
 - **v0.147.0** — LSP Code Actions (quick fixes for common schema issues)

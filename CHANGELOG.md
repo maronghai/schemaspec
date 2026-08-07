@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.150.0] - 2026-08-07
+
+### Added
+- **Docker Image** — New `Dockerfile` with multi-stage build (builder + runtime). Multi-arch support (linux/amd64, linux/arm64). Published to `ghcr.io/rune-lang/rune:latest`. New GitHub Actions workflow (`.github/workflows/docker.yml`) for automated builds on release tags.
+- **Migration Guide** — New `docs/migration-guide.md` with comprehensive migration instructions from SQL DDL, Prisma, and Knex. Includes symbol reference table, step-by-step migration process, and practical tips for incremental migration.
+- **Package Manager Support** — New Homebrew formula (`packaging/homebrew/rune.rb`), Scoop manifest (`packaging/scoop/rune.json`), and npm package (`packaging/npm/`). npm package includes postinstall script that downloads the correct platform binary.
+
+### Changed
+- **Distribution** — Updated README with Docker usage instructions, package manager installation options, and link to migration guide.
+
 ## [0.149.0] - 2026-08-07
 
 ### Added

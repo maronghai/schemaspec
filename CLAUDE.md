@@ -96,6 +96,27 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune lsp                               # Start LSP language server (stdio)
 ```
 
+### Installation
+
+```bash
+# Docker (recommended for CI/CD)
+docker pull ghcr.io/rune-lang/rune:latest
+docker run --rm -v $(pwd):/workspace ghcr.io/rune-lang/rune:latest schema.ss
+
+# Homebrew (macOS/Linux)
+brew install rune
+
+# Scoop (Windows)
+scoop install rune-schema
+
+# npm (cross-platform)
+npm install -g rune-schema
+```
+
+### Migration
+
+See [docs/migration-guide.md](docs/migration-guide.md) for migrating from SQL DDL, Prisma, or Knex.
+
 ## Architecture
 
 ### Source Layout
