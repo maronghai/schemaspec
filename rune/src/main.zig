@@ -1,6 +1,6 @@
 const std = @import("std");
 const cli = @import("cli.zig");
-const forward = @import("pipeline/forward.zig");
+const handlers = @import("pipeline/handlers.zig");
 const diff_pipe = @import("pipeline/diff.zig");
 const reverse_pipe = @import("pipeline/reverse.zig");
 const io_mod = @import("io.zig");
@@ -46,7 +46,7 @@ pub fn main(init: std.process.Init) !void {
             cli.printUsage();
             std.process.exit(1);
         }
-        return forward.handleCompileRequest(init.io, alloc, .{});
+        return handlers.handleCompileRequest(init.io, alloc, .{});
     }
 
     const parsed = cli.parseArgs(alloc, arg_list) catch |err| {
@@ -122,7 +122,7 @@ fn printAvailableGenerators() void {
     }
 }
 
-fn resolveOutputFormat(target: cli.Target) forward.OutputFormat {
+fn resolveOutputFormat(target: cli.Target) handlers.OutputFormat {
     return switch (target) {
         .sql => .sql,
         .json_schema => .json_schema,
@@ -227,7 +227,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             else
                 null;
 
-            return forward.handleCompileRequest(io, alloc, .{
+            return handlers.handleCompileRequest(io, alloc, .{
                 .input = input_path,
                 .output_path = cmd.output,
                 .trace = cmd.trace,
@@ -246,15 +246,15 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .validate => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return forward.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors, parsed.strict);
+            return handlers.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors, parsed.strict);
         },
         .check => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return forward.handleCheck(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
+            return handlers.handleCheck(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
         },
         .stats => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return forward.handleStats(io, alloc, file_data, cmd.format);
+            return handlers.handleStats(io, alloc, file_data, cmd.format);
         },
         .diff => |cmd| {
             return diff_pipe.handleDiff(io, alloc, .{
@@ -309,7 +309,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         .docs => |cmd| {
             // Shortcut for `rune generate docs` — both route through the same generator registry
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return forward.generateFromSchema(io, alloc, file_data, "docs", parsed.dialect, cmd.output, parsed.quiet);
+            return handlers.generateFromSchema(io, alloc, file_data, "docs", parsed.dialect, cmd.output, parsed.quiet);
         },
         .generate => |cmd| {
             if (cmd.list) {
@@ -319,9 +319,9 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             // Batch generation: --generators prisma,drizzle,openapi
             if (cmd.generators_str) |gens_str| {
-                return forward.generateFromSchemaBatch(io, alloc, file_data, gens_str, parsed.dialect, cmd.output, parsed.quiet);
+                return handlers.generateFromSchemaBatch(io, alloc, file_data, gens_str, parsed.dialect, cmd.output, parsed.quiet);
             }
-            return forward.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
+            return handlers.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
         },
         .init => |cmd| {
             return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect);

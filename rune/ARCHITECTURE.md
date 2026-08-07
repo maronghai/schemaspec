@@ -65,6 +65,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `diff/engine.zig` | `diff/format.zig` | Human-readable diff formatting |
 | `diff/migrate.zig` | `diff/migrate_helpers.zig` | Shared `emitSingleTable` helper for forward and rollback paths |
 | `pipeline/forward.zig` | `pipeline/import_resolver.zig` | `@import` directive resolution — `ImportContext`, `resolveImports`, `splitLines`, `tokenizeAndParseWithLines` |
+| `pipeline/handlers.zig` | `pipeline/forward.zig` | CLI output handlers — `handleCompileRequest`, `handleValidate`, `handleCheck`, `handleStats`, `generateFromSchema`, `generateFromSchemaBatch` |
 | `codegen/codegen.zig` | `codegen/columns.zig` | Column definition rendering (emitColumnDef, emitColumnDefEx, emitDefault) + shared `isDominatedByExplicitIndex()` |
 | `codegen/codegen.zig` | `codegen/indexes.zig` | Inline and standalone index emission |
 | `parser/sql_parser.zig` | `parser/sql_parser_helpers.zig` | Identifier/literal/word parsing, whitespace/comment skipping, trailing comment capture, `parseExpression` |
@@ -334,7 +335,7 @@ Rune uses a three-layer type mapping system:
 7. **AST-level diff**: Semantic comparison, not text diff. Detects renames by signature matching. Dialect-aware type equivalence (`diff/semantic.zig`) provides two levels: `typeInfoEquiv` for AST-level TypeInfo comparison and `semanticEquiv` for SQL string-level comparison via reverse lookup. Canonical SS symbol mapping ensures different symbols resolving to the same SQL type are equivalent (e.g., `N4` ↔ `4` in MySQL), but distinct types like `n` (int) vs `N` (bigint) are NOT equivalent.
 8. **Arena allocation**: All modules take `std.mem.Allocator`. Arena-style usage for command-lifetime memory.
 9. **God function decomposition**: Large functions (>100 lines) are split into focused sub-functions. `migrate.zig:generateFromDiff` (258→7 sub-fns), `codegen.zig:generateTypedTable` (135→5 sub-fns), `reverse_codegen.zig:generateInner` (215→4 sub-fns).
-10. **Pipeline-CLI separation**: `pipeline/forward.zig` has no dependency on `cli.zig`. Output format dispatch (SQL vs JSON Schema) is the caller's responsibility.
+10. **Pipeline-CLI separation**: `pipeline/forward.zig` has no dependency on `cli.zig`. CLI output handlers live in `pipeline/handlers.zig`, keeping the compilation pipeline pure.
 11. **Template/Semantic separation**: Template resolution (inheritance, slot merging) is independent of semantic passes (autofk, suffix_inference, validation). Each can be modified without affecting the other.
 12. **Custom type system**: Users can define named type aliases via `~` directives in the schema block. Custom types support dialect-specific overrides and are resolved during type resolution (not parsing).
 13. **SQLite roundtrip preservation**: `-- @sym col_name type` metadata comments preserve original SS types through lossy SQLite type affinity. Forward compiler emits comments; reverse compiler parses them for exact type restoration.

@@ -1,5 +1,5 @@
 const std = @import("std");
-const forward = @import("pipeline/forward.zig");
+const handlers = @import("pipeline/handlers.zig");
 const io_mod = @import("io.zig");
 const dialect_enum = @import("dialect/enum.zig");
 
@@ -16,7 +16,7 @@ pub const WatchConfig = struct {
     /// Target SQL dialect.
     dialect: dialect_enum.Dialect = .mysql,
     /// Output format (sql or json_schema).
-    target: forward.OutputFormat = .sql,
+    target: handlers.OutputFormat = .sql,
     /// Output file path (null = stdout).
     output_path: ?[]const u8 = null,
     /// Suppress non-essential output.
@@ -41,7 +41,7 @@ fn hashFileContent(io: std.Io, path: []const u8) ?u64 {
 /// Run one compilation cycle. Returns true on success, false on error.
 fn compileOnce(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) bool {
     // Compile mode: rune <file>
-    forward.handleCompileRequest(io, alloc, .{
+    handlers.handleCompileRequest(io, alloc, .{
         .input = cfg.input,
         .output_path = cfg.output_path,
         .trace = cfg.trace,

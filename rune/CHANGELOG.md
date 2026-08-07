@@ -4,6 +4,15 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.162.0] - 2026-08-08
+
+### Changed
+- **Pipeline split** — Extracted output handlers from `pipeline/forward.zig` (520 lines) into `pipeline/handlers.zig` (270 lines). `forward.zig` now focuses solely on the compilation pipeline (tokenizer → parser → semantic → ResolvedAst). CLI-level handlers (`handleCompileRequest`, `handleValidate`, `handleCheck`, `handleStats`, `generateFromSchema`, `generateFromSchemaBatch`) live in `handlers.zig`.
+- **Index validation optimization** — Replaced O(n²) linear column lookups in `validate_indexes.zig` with O(n) StringHashMap lookups for `checkColumnRefs`.
+
+### Added
+- **Handler tests** — New `pipeline/handlers_test.zig` with tests for `formatValidateResult` (valid/invalid JSON output).
+
 ## [0.151.0] - 2026-08-07
 
 ### Added

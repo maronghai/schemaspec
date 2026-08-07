@@ -64,16 +64,16 @@ fn checkSemanticDuplicates(ctx: *PassContext, table: *const resolved_ast.Resolve
 
 /// Check for indexes referencing non-existent columns (with "did you mean?" suggestions).
 fn checkColumnRefs(ctx: *PassContext, table: *const resolved_ast.ResolvedTable) !void {
+    // Build a set of valid column names for O(1) lookup.
+    var col_set = std.StringHashMap(void).init(ctx.alloc);
+    defer col_set.deinit();
+    for (table.fields) |col| {
+        col_set.put(col.name, {}) catch {};
+    }
+
     for (table.indexes) |idx| {
         for (idx.fields) |field_name| {
-            var found = false;
-            for (table.fields) |col| {
-                if (std.mem.eql(u8, col.name, field_name)) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
+            if (!col_set.contains(field_name)) {
                 var col_names = try std.ArrayList([]const u8).initCapacity(ctx.alloc, table.fields.len);
                 for (table.fields) |col| {
                     try col_names.append(ctx.alloc, col.name);

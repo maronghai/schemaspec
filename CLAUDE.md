@@ -146,7 +146,7 @@ rune/src/
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
   tests.zig                                                       # colocated test index (81 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
-  pipeline/    forward.zig, reverse.zig, diff.zig,       # pipeline orchestration
+  pipeline/    forward.zig, handlers.zig, reverse.zig,  # pipeline orchestration + CLI handlers
                stats.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig
@@ -191,13 +191,13 @@ rune/src/
 
 - **DialectBackend vtable** (`dialect/dialect.zig`): 33 function pointers (26 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
 
-- **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)`.
+- **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)` in `pipeline/handlers.zig`.
 
 - **PipelineOptions** (`pipeline/forward.zig`): Configuration struct for the unified compilation pipeline. Replaces three separate functions (`compilePipeline`, `compilePipelineVerbose`, `compilePipelineWithImports`) with a single `compilePipeline(alloc, file_data, opts)`. Fields: `io`, `import_ctx`, `resolve_imports`, `merge_imports`, `run_semantic`, `verbose_passes`, `json_errors`.
 
 - **DiffConfig / MigrateConfig / ReverseConfig** (`pipeline/diff.zig`, `pipeline/reverse.zig`): Configuration structs for diff, migrate, and reverse handlers, replacing 8-11 positional parameters each. Follows the `CompileConfig` pattern. `handleDiff(io, alloc, DiffConfig)`, `handleMigrate(io, alloc, MigrateConfig)`, and `handleReverse(io, alloc, file_data, ReverseConfig)` are the unified entry points.
 
-- **`generateFromSchema`** (`pipeline/forward.zig`): Shared helper that handles the full compile→generate→write pipeline. Used by both `rune generate` and `rune docs` in `main.zig`, eliminating duplicate dispatch logic.
+- **`generateFromSchema`** (`pipeline/handlers.zig`): Shared helper that handles the full compile→generate→write pipeline. Used by both `rune generate` and `rune docs` in `main.zig`, eliminating duplicate dispatch logic.
 
 - **CLI Unknown-Flag Detection** (`cli.zig`): Unrecognized `--` flags produce `error.UnknownFlag` with the flag name in the error message, instead of silently treating them as file paths. Known flags are checked against `GLOBAL_FLAG_REGISTRY` (20 entries in `cli/flag_registry.zig`) plus `KNOWN_FLAGS` for subcommand-specific flags.
 
@@ -241,7 +241,8 @@ rune/src/
 
 | Directory | Module | Role |
 |-----------|--------|------|
-| `pipeline/` | `forward.zig` | `.ss` → SQL orchestration (tokenizer → parser → semantic → type resolver → codegen) |
+| `pipeline/` | `forward.zig` | `.ss` → SQL compilation pipeline (tokenizer → parser → semantic → ResolvedAst) |
+| | `handlers.zig` | CLI output handlers (compile, validate, check, stats, generate) |
 | | `reverse.zig` | SQL → `.ss` orchestration + dialect auto-detection |
 | | `diff.zig` | Diff/migrate pipeline orchestration |
 | | `stats.zig` | Schema statistics (field type classification, table/field/view/constraint counts) |
