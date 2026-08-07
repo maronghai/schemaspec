@@ -17,6 +17,7 @@ fn formatSqlTypeForHover(alloc: std.mem.Allocator, sql_type: anytype) []const u8
 
 fn formatFlagsForHover(alloc: std.mem.Allocator, flags: anytype) []const u8 {
     var parts = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return "";
+    defer parts.deinit(alloc);
     if (flags.primary_key) parts.append(alloc, "PRIMARY KEY") catch {};
     if (flags.auto_increment) parts.append(alloc, "AUTO_INCREMENT") catch {};
     if (flags.nullable) parts.append(alloc, "NULL") catch {};
@@ -111,6 +112,7 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
                     else => {},
                 }
                 const flags_str = formatFlagsForHover(alloc, col.flags);
+                defer if (flags_str.len > 0) alloc.free(flags_str);
                 if (flags_str.len > 0) {
                     aw.writer.print(" {s}", .{flags_str}) catch {};
                 }
@@ -120,6 +122,7 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
                 aw.writer.writeAll("\n```\n") catch {};
 
                 var flags = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return null;
+                defer flags.deinit(alloc);
                 if (col.flags.primary_key) flags.append(alloc, "PRIMARY KEY") catch {};
                 if (col.flags.auto_increment) flags.append(alloc, "AUTO_INCREMENT") catch {};
                 if (col.flags.nullable) flags.append(alloc, "NULLABLE") catch {};
@@ -234,6 +237,7 @@ test "Hover: table hover" {
     const result = getHover(std.testing.allocator, ast, .{ .line = 0, .character = 0 });
     try std.testing.expect(result != null);
     if (result) |h| {
+        defer std.testing.allocator.free(h.contents.value);
         try std.testing.expectEqual(MarkupKind.markdown, h.contents.kind);
         try std.testing.expect(std.mem.indexOf(u8, h.contents.value, "users") != null);
     }

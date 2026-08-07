@@ -134,7 +134,22 @@ pub fn getCodeActions(
         }
     }
 
-    return actions.items;
+    return actions.toOwnedSlice(alloc) catch &.{};
+}
+
+/// Free all allocations owned by code actions.
+pub fn freeCodeActions(alloc: std.mem.Allocator, actions: []CodeAction) void {
+    for (actions) |*action| {
+        if (action.edit) |edit| {
+            if (edit.changes) |changes| {
+                for (changes) |*change| {
+                    // new_text is allocated by toOwnedSlice in getCodeActions
+                    alloc.free(change.new_text);
+                }
+            }
+        }
+    }
+    alloc.free(actions);
 }
 
 /// Convert camelCase or PascalCase to snake_case.
@@ -211,6 +226,7 @@ test "CodeActions: missing PK suggestion" {
         .start = .{ .line = 0, .character = 0 },
         .end = .{ .line = 5, .character = 0 },
     });
+    defer freeCodeActions(std.testing.allocator, @constCast(actions));
     try std.testing.expect(actions.len > 0);
 }
 
@@ -265,6 +281,7 @@ test "CodeActions: multiple diagnostics" {
         .start = .{ .line = 0, .character = 0 },
         .end = .{ .line = 5, .character = 0 },
     });
+    defer freeCodeActions(std.testing.allocator, @constCast(actions));
     try std.testing.expect(actions.len > 0);
 }
 

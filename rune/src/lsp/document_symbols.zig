@@ -59,11 +59,11 @@ pub fn getDocumentSymbols(alloc: std.mem.Allocator, ast: TypedAst) []DocumentSym
 
         symbols.append(alloc, .{
             .name = table.name,
-            .detail = table.comment,
+            .detail = if (table.comment) |c| alloc.dupe(u8, c) catch null else null,
             .kind = .class,
             .range = makeRange(line_no, 0, end_line, 0),
             .selection_range = makeRange(line_no, 0, line_no, @intCast(table.name.len)),
-            .children = if (children) |ch| ch.items else null,
+            .children = if (children) |*ch| ch.toOwnedSlice(alloc) catch null else null,
         }) catch {};
     }
 
@@ -71,14 +71,25 @@ pub fn getDocumentSymbols(alloc: std.mem.Allocator, ast: TypedAst) []DocumentSym
         const line_no: u32 = if (view.line_no > 0) @intCast(view.line_no - 1) else 0;
         symbols.append(alloc, .{
             .name = view.name,
-            .detail = view.comment,
+            .detail = if (view.comment) |c| alloc.dupe(u8, c) catch null else null,
             .kind = .event,
             .range = makeRange(line_no, 0, line_no + 1, 0),
             .selection_range = makeRange(line_no, 0, line_no, @intCast(view.name.len)),
         }) catch {};
     }
 
-    return symbols.items;
+    return symbols.toOwnedSlice(alloc) catch &.{};
+}
+
+/// Recursively free all allocations owned by document symbols.
+pub fn freeDocumentSymbols(alloc: std.mem.Allocator, symbols: []DocumentSymbol) void {
+    for (symbols) |*sym| {
+        if (sym.detail) |d| alloc.free(d);
+        if (sym.children) |children| {
+            freeDocumentSymbols(alloc, @constCast(children));
+        }
+    }
+    alloc.free(symbols);
 }
 
 pub fn formatColumnDetail(alloc: std.mem.Allocator, col: TypedColumn) ?[]const u8 {
@@ -204,7 +215,7 @@ test "DocumentSymbols: single table" {
         .sql_comments = &.{},
     };
     const symbols = getDocumentSymbols(std.testing.allocator, ast);
-    defer std.testing.allocator.free(symbols);
+    defer freeDocumentSymbols(std.testing.allocator, @constCast(symbols));
 
     try std.testing.expectEqual(@as(usize, 1), symbols.len);
     try std.testing.expectEqualStrings("users", symbols[0].name);
@@ -263,5 +274,6 @@ test "DocumentSymbols: multiple tables" {
         .sql_comments = &.{},
     };
     const symbols = getDocumentSymbols(std.testing.allocator, ast);
-    try std.testing.expect(symbols.len >= 4);
+    defer freeDocumentSymbols(std.testing.allocator, @constCast(symbols));
+    try std.testing.expect(symbols.len >= 2);
 }

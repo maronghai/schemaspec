@@ -314,6 +314,14 @@ pub const ParsedMessage = struct {
         code: i32,
         message: []const u8,
     };
+
+    /// Free all allocations owned by this message.
+    pub fn deinit(self: *ParsedMessage, alloc: std.mem.Allocator) void {
+        if (self.method) |m| alloc.free(m);
+        if (self.params) |p| freeJsonValue(alloc, p);
+        if (self.result) |r| freeJsonValue(alloc, r);
+        if (self.error_obj) |e| alloc.free(e.message);
+    }
 };
 
 /// Parse a JSON-RPC message from a JSON string.
@@ -395,6 +403,28 @@ fn cloneValue(alloc: std.mem.Allocator, val: std.json.Value) !std.json.Value {
             return .{ .object = new_obj };
         },
     };
+}
+
+/// Free a cloned JSON value and all its children.
+fn freeJsonValue(alloc: std.mem.Allocator, val: std.json.Value) void {
+    switch (val) {
+        .null, .bool, .integer, .float => {},
+        .string => |s| alloc.free(s),
+        .number_string => |s| alloc.free(s),
+        .array => |arr| {
+            for (arr.items) |item| freeJsonValue(alloc, item);
+            arr.deinit();
+        },
+        .object => {
+            var obj = val.object;
+            var iter = obj.iterator();
+            while (iter.next()) |entry| {
+                alloc.free(entry.key_ptr.*);
+                freeJsonValue(alloc, entry.value_ptr.*);
+            }
+            obj.deinit(alloc);
+        },
+    }
 }
 
 /// Extract a string field from a JSON object value.
@@ -721,6 +751,9 @@ fn writeJsonValue(w: anytype, val: anytype) !void {
         try writeJsonString(w, val);
     } else if (T == bool) {
         try w.writeAll(if (val) "true" else "false");
+    } else if (comptime std.meta.fields(T).len == 0) {
+        // Empty struct: serialize as empty JSON object
+        try w.writeAll("{}");
     } else if (comptime std.meta.fields(T).len > 0) {
         // Struct: serialize as JSON object using field names
         try w.writeByte('{');
@@ -790,15 +823,10 @@ test "writeJsonNull" {
 }
 
 test "parseMessage request" {
-    const msg = try parseMessage(std.testing.allocator,
+    var msg = try parseMessage(std.testing.allocator,
         \\{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}
     );
-    defer {
-        if (msg.method) |m| std.testing.allocator.free(m);
-        if (msg.params) |p| {
-            _ = p;
-        }
-    }
+    defer msg.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(?i64, 1), msg.id);
     try std.testing.expect(msg.method != null);
@@ -807,15 +835,10 @@ test "parseMessage request" {
 }
 
 test "parseMessage response" {
-    const msg = try parseMessage(std.testing.allocator,
+    var msg = try parseMessage(std.testing.allocator,
         \\{"jsonrpc":"2.0","id":1,"result":{"capabilities":{}}}
     );
-    defer {
-        if (msg.method) |m| std.testing.allocator.free(m);
-        if (msg.params) |p| {
-            _ = p;
-        }
-    }
+    defer msg.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(?i64, 1), msg.id);
     try std.testing.expect(msg.is_response);
@@ -823,15 +846,10 @@ test "parseMessage response" {
 }
 
 test "parseMessage notification" {
-    const msg = try parseMessage(std.testing.allocator,
+    var msg = try parseMessage(std.testing.allocator,
         \\{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{}}
     );
-    defer {
-        if (msg.method) |m| std.testing.allocator.free(m);
-        if (msg.params) |p| {
-            _ = p;
-        }
-    }
+    defer msg.deinit(std.testing.allocator);
 
     try std.testing.expect(msg.id == null);
     try std.testing.expect(msg.method != null);

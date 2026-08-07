@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.159.0] - 2026-08-07
+
+### Fixed
+- **Version synchronization** — Aligned all packaging files (build.zig.zon, Homebrew, npm, Scoop, VS Code) to the correct version.
+- **LSP test registration** — Registered 8 LSP modules in `tests.zig` so `zig build test` compiles and runs them.
+- **LSP memory leaks** — Fixed memory leaks in `hover.zig` (flags_str, ArrayList), `document_symbols.zig` (children, detail), and `protocol.zig` (ParsedMessage.deinit).
+- **LSP ownership bugs** — Changed `getCompletions`, `getDocumentSymbols`, and `getCodeActions` to use `toOwnedSlice` instead of `.items` for proper ownership transfer.
+- **LSP empty struct serialization** — Fixed `writeJsonValue` to output `{}` for empty structs instead of nothing.
+- **Grammar documentation** — Added missing `type_def_decl` (`~`) and `engine_decl` (`^`) rules to `grammar.ebnf`.
+
+### Added
+- **LSP unit tests** — Added `freeJsonValue`, `ParsedMessage.deinit`, `freeDocumentSymbols`, and `freeCodeActions` helpers for proper test cleanup.
+
+## [0.158.0] - 2026-08-07
+
+### Added
+- **Lint auto-fix** — `rune lint --fix` auto-corrects no-pk and no-timestamps issues.
+- **Lint dry-run** — `--dry-run` preview mode shows fixes without writing.
+- **Init output-dir** — `rune init --output-dir` creates starter schemas in subdirectories.
+
 ## [0.157.0] - 2026-08-07
 
 ### Fixed
