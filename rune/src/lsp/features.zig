@@ -595,7 +595,7 @@ pub fn getCodeActions(
                         .diagnostics = &.{diag},
                         .edit = .{ .changes = &.{.{
                             .range = makeRange(table_line, name_end, table_line, name_end),
-                            .new_text = " # TODO: add description",
+                            .new_text = " # Add a description here",
                         }} },
                     }) catch {};
                     break;
@@ -928,4 +928,151 @@ test "Completion: context-sensitive inside table" {
         }
     }
     try std.testing.expect(has_type);
+}
+
+test "CodeActions: multiple diagnostics" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{
+            .{
+                .name = "orders",
+                .comment = null,
+                .engine = null,
+                .columns = &.{
+                    .{
+                        .name = "id",
+                        .sql_type = .int,
+                        .flags = .{},
+                        .default = null,
+                        .check = null,
+                        .comment = null,
+                        .enum_values = &.{},
+                        .line_no = 2,
+                    },
+                },
+                .fks = &.{},
+                .indexes = &.{},
+                .line_no = 1,
+            },
+        },
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const diags = [_]Diagnostic{
+        .{
+            .range = .{
+                .start = .{ .line = 0, .character = 0 },
+                .end = .{ .line = 0, .character = 10 },
+            },
+            .severity = .warning,
+            .message = "Table 'orders' has no primary key",
+        },
+        .{
+            .range = .{
+                .start = .{ .line = 0, .character = 0 },
+                .end = .{ .line = 0, .character = 10 },
+            },
+            .severity = .info,
+            .message = "Consider adding timestamps",
+        },
+    };
+    const actions = getCodeActions(std.testing.allocator, ast, &diags, .{
+        .start = .{ .line = 0, .character = 0 },
+        .end = .{ .line = 5, .character = 0 },
+    });
+    // Should produce at least one action (add PK) from the diagnostics
+    try std.testing.expect(actions.len > 0);
+}
+
+test "Hover: column hover" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{
+            .{
+                .name = "users",
+                .comment = null,
+                .engine = null,
+                .columns = &.{
+                    .{
+                        .name = "email",
+                        .sql_type = .varchar,
+                        .flags = .{ .unique = true },
+                        .default = null,
+                        .check = null,
+                        .comment = null,
+                        .enum_values = &.{},
+                        .line_no = 3,
+                    },
+                },
+                .fks = &.{},
+                .indexes = &.{},
+                .line_no = 1,
+            },
+        },
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const result = getHover(std.testing.allocator, ast, .{ .line = 2, .character = 2 });
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        defer std.testing.allocator.free(r.contents.value);
+        // Should contain the column name and type
+        try std.testing.expect(std.mem.indexOf(u8, r.contents.value, "email") != null);
+    }
+}
+
+test "DocumentSymbols: multiple tables" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{
+            .{
+                .name = "users",
+                .comment = null,
+                .engine = null,
+                .columns = &.{
+                    .{
+                        .name = "id",
+                        .sql_type = .int,
+                        .flags = .{ .primary_key = true },
+                        .default = null,
+                        .check = null,
+                        .comment = null,
+                        .enum_values = &.{},
+                        .line_no = 2,
+                    },
+                },
+                .fks = &.{},
+                .indexes = &.{},
+                .line_no = 1,
+            },
+            .{
+                .name = "posts",
+                .comment = null,
+                .engine = null,
+                .columns = &.{
+                    .{
+                        .name = "id",
+                        .sql_type = .int,
+                        .flags = .{ .primary_key = true },
+                        .default = null,
+                        .check = null,
+                        .comment = null,
+                        .enum_values = &.{},
+                        .line_no = 5,
+                    },
+                },
+                .fks = &.{},
+                .indexes = &.{},
+                .line_no = 4,
+            },
+        },
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const symbols = getDocumentSymbols(std.testing.allocator, ast);
+    // Should have symbols for both tables and their columns
+    try std.testing.expect(symbols.len >= 4);
 }

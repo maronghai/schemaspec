@@ -123,7 +123,7 @@ See [docs/migration-guide.md](docs/migration-guide.md) for migrating from SQL DD
 cd packaging/vscode && code --install-extension .
 ```
 
-Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). LSP server provides diagnostics, completion, hover, go-to-def, symbols, code actions, formatting.
+Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), LSP-powered IntelliSense (completion, hover, go-to-definition, diagnostics, code actions, formatting), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). The extension starts `rune lsp` automatically on activation. Configure `rune.schemaPath` for custom binary paths.
 
 ## Architecture
 

@@ -319,12 +319,11 @@ pub const Server = struct {
         const end_char: u32 = @intCast(lsp_protocol.getIntField(end_val, "character") orelse 0);
 
         // Get diagnostics from context
-        var diagnostics = [_]lsp_protocol.Diagnostic{};
+        var diagnostics = std.ArrayList(lsp_protocol.Diagnostic).initCapacity(self.arena, 8) catch return;
         if (lsp_protocol.getObjectField(params, "context")) |ctx| {
             if (lsp_protocol.getObjectField(ctx, "diagnostics")) |diags_val| {
                 if (diags_val == .array) {
-                    for (diags_val.array.items, 0..) |d, i| {
-                        if (i >= diagnostics.len) break;
+                    for (diags_val.array.items) |d| {
                         const msg = lsp_protocol.getStringField(d, "message") orelse "";
                         const sev_val = lsp_protocol.getIntField(d, "severity") orelse 1;
                         const range = if (lsp_protocol.getObjectField(d, "range")) |r| blk: {
@@ -335,7 +334,7 @@ pub const Server = struct {
                                 .end = .{ .line = @intCast(@max(0, lsp_protocol.getIntField(e, "line") orelse 0)), .character = @intCast(@max(0, lsp_protocol.getIntField(e, "character") orelse 0)) },
                             };
                         } else lsp_protocol.Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
-                        diagnostics[i] = .{
+                        diagnostics.append(self.arena, .{
                             .range = range,
                             .severity = switch (sev_val) {
                                 1 => .error_sev,
@@ -344,7 +343,7 @@ pub const Server = struct {
                                 else => .hint,
                             },
                             .message = msg,
-                        };
+                        }) catch {};
                     }
                 }
             }
@@ -360,7 +359,7 @@ pub const Server = struct {
                 .start = .{ .line = start_line, .character = start_char },
                 .end = .{ .line = end_line, .character = end_char },
             };
-            const actions = features_mod.getCodeActions(self.arena, t, &diagnostics, range);
+            const actions = features_mod.getCodeActions(self.arena, t, diagnostics.items, range);
             for (actions, 0..) |action, i| {
                 if (i > 0) try body_alloc.writer.writeByte(',');
                 try lsp_protocol.writeCodeAction(&body_alloc.writer, action);

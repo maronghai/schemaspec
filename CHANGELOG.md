@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.152.0] - 2026-08-07
+
+### Added
+- **VS Code LSP Integration** — Extension now starts the Rune language server (`rune lsp`) via `vscode-languageclient`. Enables real-time diagnostics, completion, hover, go-to-definition, code actions, and document formatting directly in VS Code. New settings: `rune.schemaPath` (custom binary path), `rune.lspEnabled` (toggle LSP).
+- **esbuild Bundling** — New `packaging/vscode/esbuild.js` bundles the extension with `vscode-languageclient` into `dist/extension.js`. Build with `npm run build`, package with `npm run package`.
+- **LSP Tests** — 3 new tests in `lsp/features.zig`: `CodeActions: multiple diagnostics`, `Hover: column hover`, `DocumentSymbols: multiple tables`. Total LSP tests: 35.
+
+### Fixed
+- **LSP handleCodeAction bug** — `lsp/server.zig` `handleCodeAction` used a zero-length fixed array for diagnostics, silently dropping all client-provided diagnostic context. Replaced with `std.ArrayList(Diagnostic)` so code actions now correctly receive and use the editor's diagnostic context.
+- **LSP code action placeholder** — The "Add table comment" code action in `lsp/features.zig` inserted `# TODO: add description` as replacement text. Changed to `# Add a description here`.
+
 ## [0.151.0] - 2026-08-07
 
 ### Added

@@ -1,9 +1,51 @@
 const vscode = require('vscode');
+const { LanguageClient, TransportKind } = require('vscode-languageclient/node');
+const path = require('path');
+
+let client = null;
 
 /**
  * @param {vscode.ExtensionContext} context
  */
 function activate(context) {
+  const config = vscode.workspace.getConfiguration('rune');
+  const lspEnabled = config.get('lspEnabled', true);
+
+  // ─── LSP Language Server ──────────────────────────────────────
+  if (lspEnabled) {
+    const serverPath = config.get('schemaPath', 'rune');
+
+    const serverOptions = {
+      command: serverPath,
+      args: ['lsp'],
+      transport: TransportKind.stdio,
+    };
+
+    const clientOptions = {
+      documentSelector: [{ scheme: 'file', language: 'rune' }],
+      synchronize: {
+        fileEvents: vscode.workspace.createFileSystemWatcher('**/*.ss'),
+      },
+    };
+
+    client = new LanguageClient(
+      'runeSchema',
+      'Rune Schema Language Server',
+      serverOptions,
+      clientOptions,
+    );
+
+    client.start().catch((err) => {
+      console.warn('Rune language server failed to start:', err.message);
+      vscode.window.showWarningMessage(
+        `Rune language server failed to start: ${err.message}. ` +
+        `Ensure 'rune' is in your PATH or set rune.schemaPath.`,
+      );
+    });
+  }
+
+  // ─── Commands ─────────────────────────────────────────────────
+
   // Validate command
   const validateCmd = vscode.commands.registerCommand('rune.validate', async () => {
     const editor = vscode.window.activeTextEditor;
@@ -44,7 +86,7 @@ function activate(context) {
       const output = execSync(`rune "${filePath}"`, { encoding: 'utf-8' });
       const outputDoc = await vscode.workspace.openTextDocument({
         content: output,
-        language: 'sql'
+        language: 'sql',
       });
       await vscode.window.showTextDocument(outputDoc, { viewColumn: vscode.ViewColumn.Beside });
     } catch (err) {
@@ -57,15 +99,14 @@ function activate(context) {
     const folder = await vscode.window.showOpenDialog({
       canSelectFiles: false,
       canSelectFolders: true,
-      openLabel: 'Initialize Rune Schema'
+      openLabel: 'Initialize Rune Schema',
     });
     if (!folder || folder.length === 0) return;
     const dirPath = folder[0].fsPath;
     try {
       const { execSync } = require('child_process');
-      execSync(`rune init`, { cwd: dirPath, encoding: 'utf-8' });
+      execSync('rune init', { cwd: dirPath, encoding: 'utf-8' });
       vscode.window.showInformationMessage('Rune schema initialized');
-      // Open the generated schema file
       const schemaFile = `${dirPath}/schema.ss`;
       const doc = await vscode.workspace.openTextDocument(schemaFile);
       await vscode.window.showTextDocument(doc);
@@ -77,6 +118,11 @@ function activate(context) {
   context.subscriptions.push(validateCmd, generateCmd, initCmd);
 }
 
-function deactivate() {}
+function deactivate() {
+  if (client) {
+    return client.stop();
+  }
+  return undefined;
+}
 
 module.exports = { activate, deactivate };

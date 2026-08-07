@@ -1,8 +1,8 @@
 {
   "name": "rune-schema",
   "displayName": "Rune Schema Language",
-  "description": "Syntax highlighting and language support for Rune .ss schema files",
-  "version": "0.151.0",
+  "description": "Syntax highlighting, IntelliSense, and language support for Rune .ss schema files",
+  "version": "0.152.0",
   "publisher": "rune-lang",
   "license": "MIT",
   "engines": {
@@ -31,7 +31,19 @@
   "activationEvents": [
     "onLanguage:rune"
   ],
-  "main": "./extension.js",
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^2.22.0",
+    "esbuild": "^0.20.0"
+  },
+  "scripts": {
+    "build": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "npm run build && vsce package"
+  },
+  "main": "./dist/extension.js",
   "contributes": {
     "languages": [
       {
@@ -67,6 +79,21 @@
         "command": "rune.init",
         "title": "Rune: Initialize Schema"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Rune Schema Language",
+      "properties": {
+        "rune.schemaPath": {
+          "type": "string",
+          "default": "rune",
+          "description": "Path to the rune binary. Use an absolute path if rune is not in your PATH."
+        },
+        "rune.lspEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Rune language server for completion, hover, go-to-definition, and diagnostics."
+        }
+      }
+    }
   }
 }
