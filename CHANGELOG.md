@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.157.0] - 2026-08-07
+
+### Fixed
+- **OpenAPI generator extension** — Changed from `.yaml` to `.json` to match actual output format (OpenAPI 3.1 JSON).
+- **LSP `wordAtCursor` bug** — Fixed function returning empty string on first character of each line instead of processing to cursor position. Now correctly extracts the word at the cursor position.
+- **LSP `detectContext` bug** — Same fix as `wordAtCursor`: now processes the full line instead of returning on the first character.
+- **LSP `aw.pos` deprecation** — Replaced `aw.pos = 0` with `aw.clearRetainingCapacity()` in protocol.zig tests for Zig 0.16 compatibility.
+- **LSP `hover.zig` union syntax** — Fixed `.varchar` to `.{ .varchar = 255 }` for Zig 0.16 tagged union syntax.
+- **LSP `code_actions.zig` severity** — Fixed `.info` to `.information` for `DiagnosticSeverity` enum.
+
+### Added
+- **Generator CHECK constraint tests** — New `generators/common_check_test.zig` with 15 tests for `parseRange`, `parseComparison`, and `parseInList`.
+- **Generator default formatting tests** — New `generators/common_defaults_test.zig` with 16 tests for `writeFormattedDefault` and `getOrmFormatter` across all ORM targets.
+- **Benchmark baseline refresh** — Updated baselines for all 6 dialects to fix `type_resolve` regression noise.
+
 ## [0.156.0] - 2026-08-07
 
 ### Added

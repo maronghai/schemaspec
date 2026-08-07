@@ -62,20 +62,24 @@ pub fn wordAtCursor(text: []const u8, position: Position) []const u8 {
     var current_line: u32 = 0;
 
     for (text, 0..) |c, i| {
-        if (current_line == position.line) {
-            const cursor_offset = i - line_start;
-            const line = text[line_start .. line_start + cursor_offset];
-            var word_end = line.len;
-            while (word_end > 0) : (word_end -= 1) {
-                const wc = line[word_end - 1];
-                if (std.ascii.isAlphanumeric(wc) or wc == '_' or wc == '.') continue;
-                break;
+        if (c == '\n' or i == text.len - 1) {
+            if (current_line == position.line) {
+                const line_end = if (c == '\n') i else i + 1;
+                const line = text[line_start..line_end];
+                const cursor_offset = @min(position.character + 1, line.len);
+                const before_cursor = line[0..cursor_offset];
+                var word_end = before_cursor.len;
+                while (word_end > 0) : (word_end -= 1) {
+                    const wc = before_cursor[word_end - 1];
+                    if (std.ascii.isAlphanumeric(wc) or wc == '_' or wc == '.') continue;
+                    break;
+                }
+                return before_cursor[word_end..];
             }
-            return line[word_end..];
-        }
-        if (c == '\n') {
-            line_start = i + 1;
-            current_line += 1;
+            if (c == '\n') {
+                line_start = i + 1;
+                current_line += 1;
+            }
         }
     }
     return "";
@@ -114,53 +118,55 @@ pub fn detectContext(text: []const u8, position: Position) CompletionContext {
     var current_line: u32 = 0;
 
     for (text, 0..) |c, i| {
-        if (current_line == position.line) {
-            const cursor_offset = i - line_start;
-            const line_text = text[line_start .. line_start + cursor_offset];
-            const stripped = stripLineComments(line_text);
-            const trimmed = std.mem.trim(u8, stripped, " \t\r\n");
+        if (c == '\n' or i == text.len - 1) {
+            if (current_line == position.line) {
+                const line_end = if (c == '\n') i else i + 1;
+                const line_text = text[line_start..line_end];
+                const stripped = stripLineComments(line_text);
+                const trimmed = std.mem.trim(u8, stripped, " \t\r\n");
 
-            if (std.mem.indexOf(u8, trimmed, "FK") != null) {
-                return .after_fk_keyword;
-            }
-            if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '%') {
-                return .after_percent;
-            }
-            if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '@') {
-                return .after_at;
-            }
-            if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '#') {
-                return .after_hash;
-            }
-
-            var brace_depth: u32 = 0;
-            var in_str = false;
-            var str_char: u8 = 0;
-            var j: usize = 0;
-            while (j <= i) : (j += 1) {
-                const tc = text[j];
-                if (in_str) {
-                    if (tc == str_char) in_str = false;
-                } else if (tc == '\'' or tc == '"') {
-                    in_str = true;
-                    str_char = tc;
-                } else if (tc == '#') {
-                    while (j < text.len and text[j] != '\n') j += 1;
-                } else if (tc == '/' and j + 1 < text.len and text[j + 1] == '/') {
-                    while (j < text.len and text[j] != '\n') j += 1;
-                } else if (tc == '{') {
-                    brace_depth += 1;
-                } else if (tc == '}') {
-                    if (brace_depth > 0) brace_depth -= 1;
+                if (std.mem.indexOf(u8, trimmed, "FK") != null) {
+                    return .after_fk_keyword;
                 }
-            }
-            if (brace_depth > 0) return .inside_table;
+                if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '%') {
+                    return .after_percent;
+                }
+                if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '@') {
+                    return .after_at;
+                }
+                if (trimmed.len > 0 and trimmed[trimmed.len - 1] == '#') {
+                    return .after_hash;
+                }
 
-            return .top_level;
-        }
-        if (c == '\n') {
-            line_start = i + 1;
-            current_line += 1;
+                var brace_depth: u32 = 0;
+                var in_str = false;
+                var str_char: u8 = 0;
+                var j: usize = 0;
+                while (j <= i) : (j += 1) {
+                    const tc = text[j];
+                    if (in_str) {
+                        if (tc == str_char) in_str = false;
+                    } else if (tc == '\'' or tc == '"') {
+                        in_str = true;
+                        str_char = tc;
+                    } else if (tc == '#') {
+                        while (j < text.len and text[j] != '\n') j += 1;
+                    } else if (tc == '/' and j + 1 < text.len and text[j + 1] == '/') {
+                        while (j < text.len and text[j] != '\n') j += 1;
+                    } else if (tc == '{') {
+                        brace_depth += 1;
+                    } else if (tc == '}') {
+                        if (brace_depth > 0) brace_depth -= 1;
+                    }
+                }
+                if (brace_depth > 0) return .inside_table;
+
+                return .top_level;
+            }
+            if (c == '\n') {
+                line_start = i + 1;
+                current_line += 1;
+            }
         }
     }
 

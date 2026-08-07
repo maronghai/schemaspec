@@ -251,8 +251,8 @@ test "Hover: column hover" {
                 .columns = &.{
                     .{
                         .name = "email",
-                        .sql_type = .varchar,
-                        .flags = .{ .unique = true },
+                        .sql_type = .{ .varchar = 255 },
+                        .flags = .{ .inline_unique = true },
                         .default = null,
                         .check = null,
                         .comment = null,

@@ -122,4 +122,7 @@ comptime {
     _ = @import("generators/symbol_index_test.zig");
     // utils
     _ = @import("utils/edit_distance_test.zig");
+    // generators (additional)
+    _ = @import("generators/common_check_test.zig");
+    _ = @import("generators/common_defaults_test.zig");
 }

@@ -257,7 +257,7 @@ test "CodeActions: multiple diagnostics" {
                 .start = .{ .line = 0, .character = 0 },
                 .end = .{ .line = 0, .character = 10 },
             },
-            .severity = .info,
+            .severity = .information,
             .message = "Consider adding timestamps",
         },
     };

@@ -73,7 +73,7 @@ pub const REGISTRY = [_]Generator{
     .{
         .name = "openapi",
         .description = "OpenAPI 3.1 spec from .ss schema",
-        .extension = ".yaml",
+        .extension = ".json",
         .generate = @import("generators/openapi.zig").generate,
     },
     .{

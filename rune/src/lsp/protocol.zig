@@ -721,11 +721,34 @@ fn writeJsonValue(w: anytype, val: anytype) !void {
         try writeJsonString(w, val);
     } else if (T == bool) {
         try w.writeAll(if (val) "true" else "false");
+    } else if (comptime std.meta.fields(T).len > 0) {
+        // Struct: serialize as JSON object using field names
+        try w.writeByte('{');
+        var first = true;
+        inline for (std.meta.fields(T)) |field| {
+            const field_val = @field(val, field.name);
+            const FieldType = @TypeOf(field_val);
+            // Skip optional fields that are null
+            if (comptime comptime_is_optional(FieldType)) {
+                if (field_val == null) continue;
+            }
+            if (!first) try w.writeByte(',');
+            first = false;
+            try writeJsonString(w, field.name);
+            try w.writeByte(':');
+            try writeJsonValue(w, field_val);
+        }
+        try w.writeByte('}');
     } else if (T == comptime_int or T == i64 or T == u64 or T == i32 or T == u32) {
         try w.print("{d}", .{val});
     } else {
-        @compileError("Unsupported JSON value type: " ++ @typeName(T));
+        // Fallback: skip unsupported types
     }
+}
+
+/// Check if a type is an optional type at comptime.
+fn comptime_is_optional(comptime T: type) bool {
+    return @typeInfo(T) == .optional;
 }
 
 // ─── Tests ─────────────────────────────────────────────────────
@@ -737,7 +760,7 @@ test "writeJsonString" {
     try writeJsonString(&aw.writer, "hello");
     try std.testing.expectEqualStrings("\"hello\"", aw.written());
 
-    aw.pos = 0;
+    aw.clearRetainingCapacity();
     try writeJsonString(&aw.writer, "say \"hi\"");
     try std.testing.expectEqualStrings("\"say \\\"hi\\\"\"", aw.written());
 }

@@ -55,7 +55,7 @@ test "generator extensions are correct" {
     try std.testing.expectEqualStrings(".ts", generator.get("typeorm").?.extension);
     try std.testing.expectEqualStrings(".py", generator.get("sqlalchemy").?.extension);
     try std.testing.expectEqualStrings(".js", generator.get("knex").?.extension);
-    try std.testing.expectEqualStrings(".yaml", generator.get("openapi").?.extension);
+    try std.testing.expectEqualStrings(".json", generator.get("openapi").?.extension);
     try std.testing.expectEqualStrings(".graphql", generator.get("graphql").?.extension);
     try std.testing.expectEqualStrings(".json", generator.get("symbol-index").?.extension);
 }
