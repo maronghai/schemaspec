@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.162.0 (2026-08-08) — 27,600+ lines production Zig, 1213+ tests, 31 test suites.
+**Current version**: 0.163.0 (2026-08-08) — 27,600+ lines production Zig, 1213+ tests, 31 test suites.
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.163.0** — Watch directory mode (`--recursive` tracks all .ss files, per-file hash changes, error streak tracking), init template presets (`--template blog|ecommerce|rest-api`)
 - **v0.162.0** — Pipeline split & optimization: extracted output handlers from `pipeline/forward.zig` (520 lines) into `pipeline/handlers.zig` (270 lines) for single-responsibility, optimized O(n²) column lookups in `validate_indexes.zig` to O(n) via StringHashMap, added tests for `pipeline/handlers.zig` (formatValidateResult)
 - **v0.161.0** — Quality & architecture polish: split `lint_test.zig` monolith (1,018 lines) into 3 focused test files (`lint/rules_test.zig`, `lint/format_test.zig`, `lint/config_test.zig`), extracted LSP request handlers from `server.zig` into `handlers.zig`, documented lint module in ARCHITECTURE.md, organized tests.zig with section comments
 - **v0.160.0** — Lint module split: extracted 1017-line `lint.zig` monolith into 4 focused sub-modules (`lint/rules.zig`, `lint/format.zig`, `lint/config.zig`, `lint/fix.zig`), extracted lint CLI handler from `main.zig` into `cli/lint_cmd.zig`, shared JSON escape helper eliminates duplication across formatters

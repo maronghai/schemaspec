@@ -474,10 +474,18 @@ rune init                    # Create schema.ss with starter content
 rune init myapp              # Create myapp.ss
 rune init -o custom.ss       # Create custom.ss
 rune init -d pg              # Create schema.ss with PostgreSQL hint
+rune init --template blog    # Create blog schema (posts, categories, tags)
 rune --init                  # Create schema.ss (flag equivalent)
 ```
 
-Scaffolds a new project with a starter `.ss` file containing users, posts, and comments tables with FK references, indexes, and enum types. The `-d`/`--dialect` flag adds a dialect hint comment to the generated file.
+Scaffolds a new project with a starter `.ss` file. Use `--template` to choose from preset schemas:
+
+| Template | Description |
+|----------|-------------|
+| `default` | Users, posts, comments (default) |
+| `blog` | Posts, categories, tags, comments |
+| `ecommerce` | Products, orders, order_items, customers |
+| `rest-api` | Resources, endpoints, API keys, audit log |
 
 ### Completions
 
@@ -512,6 +520,7 @@ rune watch schema.ss --parallel         # Watch with parallel compilation
 rune watch schema.ss -d pg              # Watch and compile to PostgreSQL
 rune watch schema.ss -o out.sql         # Watch and write to file
 rune watch schema.ss -s                 # Watch with compilation stats
+rune watch ./schemas --recursive        # Watch all .ss files in directory recursively
 
 # Lint schema for quality issues (13 rules)
 rune lint schema.ss                     # Check for PK, naming, FK indexes, timestamps, duplicates, circular FK
@@ -519,7 +528,7 @@ rune lint schema.ss --json-errors       # Lint as JSON (machine-readable)
 rune lint schema.ss --strict            # Exit 1 if any warnings (CI/CD)
 ```
 
-Watch mode polls the file for changes and automatically recompiles when modifications are detected. Press Ctrl+C to stop watching.
+Watch mode polls files for changes and automatically recompiles when modifications are detected. Use `--recursive` to watch an entire directory of `.ss` files — only changed files are recompiled. Press Ctrl+C to stop watching.
 
 ### Editor Integration
 

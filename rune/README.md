@@ -33,6 +33,8 @@ cd rune && zig build                              # Build
 | `reverse` | `rune reverse [input.sql]` | Reverse SQL DDL to `.ss` schema (supports `--format json`) |
 | `docs` | `rune docs [input.ss]` | Generate Markdown documentation |
 | `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`) |
+| `init` | `rune init [name] [--template <tpl>]` | Create starter `.ss` schema (templates: `default`, `blog`, `ecommerce`, `rest-api`) |
+| `watch` | `rune watch <input> [--recursive]` | Watch file/directory and recompile on change |
 
 ## Flags Reference
 

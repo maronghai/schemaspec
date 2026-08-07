@@ -24,11 +24,15 @@ pub fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
     var name: ?[]const u8 = null;
     var output: ?[]const u8 = null;
     var output_dir: ?[]const u8 = null;
+    var template: ?[]const u8 = null;
     var j: usize = 1;
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--output-dir") and j + 1 < fargs.len) {
             j += 1;
             output_dir = fargs[j];
+        } else if (std.mem.eql(u8, fargs[j], "--template") and j + 1 < fargs.len) {
+            j += 1;
+            template = fargs[j];
         } else if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
             j += 1;
             output = fargs[j];
@@ -36,7 +40,7 @@ pub fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
             name = fargs[j];
         }
     }
-    return shared.parseSimpleSubcommand(dialect, target, .{ .init = .{ .name = name, .output = output, .output_dir = output_dir } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .init = .{ .name = name, .output = output, .output_dir = output_dir, .template = template } }, opts);
 }
 
 pub fn parseCompletionsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
@@ -106,6 +110,7 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
     var trace = false;
     var stats = false;
     var json_errors = false;
+    var recursive = false;
     var j: usize = 2;
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--interval") and j + 1 < fargs.len) {
@@ -119,6 +124,8 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
             stats = true;
         } else if (std.mem.eql(u8, fargs[j], "--json-errors")) {
             json_errors = true;
+        } else if (std.mem.eql(u8, fargs[j], "--recursive")) {
+            recursive = true;
         }
     }
     return .{
@@ -133,6 +140,7 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
             .trace = trace,
             .stats = stats,
             .json_errors = json_errors,
+            .recursive = recursive,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,

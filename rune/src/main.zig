@@ -205,7 +205,7 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
 fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void {
     // Handle --init flag (invokes init without explicit subcommand)
     if (parsed.init_flag) {
-        return init_mod.handleInit(io, alloc, null, null, null, parsed.dialect);
+        return init_mod.handleInit(io, alloc, null, null, null, parsed.dialect, null);
     }
 
     switch (parsed.command) {
@@ -324,7 +324,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return handlers.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
         },
         .init => |cmd| {
-            return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect);
+            return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template);
         },
         .format_cmd => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
@@ -370,6 +370,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .stats = cmd.stats,
                 .json_errors = cmd.json_errors,
                 .parallel = cmd.parallel,
+                .recursive = cmd.recursive,
             });
         },
         .lsp => {

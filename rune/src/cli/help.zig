@@ -57,9 +57,11 @@ pub fn printUsage() void {
     std.debug.print("  rune generate --list                 # Show available generators\n", .{});
     std.debug.print("  rune init myapp                      # Create starter schema\n", .{});
     std.debug.print("  rune init myapp -d pg                # Create starter schema for PostgreSQL\n", .{});
+    std.debug.print("  rune init myapp --template blog      # Create blog schema template\n", .{});
     std.debug.print("  rune hooks pre-commit               # Generate pre-commit hook\n", .{});
     std.debug.print("  rune watch schema.ss                # Watch file and recompile on change\n", .{});
     std.debug.print("  rune watch schema.ss --interval 500 # Watch with 500ms polling interval\n", .{});
+    std.debug.print("  rune watch ./schemas --recursive    # Watch all .ss files in directory\n", .{});
     std.debug.print("  rune fmt schema.ss                   # Auto-format schema\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
@@ -111,6 +113,13 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  -d, --dialect   Target dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
                 std.debug.print("  -o, --output    Output file path\n", .{});
+                std.debug.print("  --output-dir    Output directory (creates if needed)\n", .{});
+                std.debug.print("  --template      Schema template: default (default), blog, ecommerce, rest-api\n", .{});
+                std.debug.print("\nExamples:\n", .{});
+                std.debug.print("  rune init myapp                      # Default starter schema\n", .{});
+                std.debug.print("  rune init myapp --template blog      # Blog schema (posts, categories, tags)\n", .{});
+                std.debug.print("  rune init myapp --template ecommerce # E-commerce schema (products, orders)\n", .{});
+                std.debug.print("  rune init myapp --template rest-api  # REST API schema (resources, api keys)\n", .{});
             } else if (std.mem.eql(u8, subcommand, "completions")) {
                 std.debug.print("\nArguments:\n", .{});
                 std.debug.print("  shell           Target shell: bash (default), zsh, fish, powershell\n", .{});
@@ -149,6 +158,7 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
             } else if (std.mem.eql(u8, subcommand, "watch")) {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  --interval      Polling interval in milliseconds (default: 1000)\n", .{});
+                std.debug.print("  --recursive     Watch directory recursively for all .ss files\n", .{});
                 std.debug.print("  --parallel      Parallel streaming compilation\n", .{});
                 std.debug.print("  -d, --dialect   Target SQL dialect\n", .{});
                 std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
@@ -163,6 +173,7 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  rune watch schema.ss -o out.sql       # Watch and write to file\n", .{});
                 std.debug.print("  rune watch schema.ss --parallel       # Watch with parallel compilation\n", .{});
                 std.debug.print("  rune watch schema.ss -s               # Watch with compilation stats\n", .{});
+                std.debug.print("  rune watch ./schemas --recursive      # Watch all .ss files in directory\n", .{});
                 std.debug.print("\nPress Ctrl+C to stop watching.\n", .{});
             } else {
                 std.debug.print("\nGlobal options also apply: -d/--dialect, -s/--stats, -q/--quiet, -h/--help\n", .{});

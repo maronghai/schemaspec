@@ -4,12 +4,13 @@ const io_mod = @import("io.zig");
 const dialect_enum = @import("dialect/enum.zig");
 
 // ─── Watch Mode ───────────────────────────────────────────────
-// Polls a .ss file for changes and recompiles automatically.
+// Polls .ss files for changes and recompiles automatically.
+// Supports single-file and directory mode (--recursive).
 // Uses file content hash comparison for change detection.
 
 /// Configuration for watch mode.
 pub const WatchConfig = struct {
-    /// Input .ss file path to watch.
+    /// Input .ss file or directory path to watch.
     input: []const u8,
     /// Polling interval in milliseconds.
     interval_ms: u64 = 1000,
@@ -29,6 +30,8 @@ pub const WatchConfig = struct {
     json_errors: bool = false,
     /// Use parallel streaming compilation (compile independent tables concurrently).
     parallel: bool = false,
+    /// Watch directory recursively instead of a single file.
+    recursive: bool = false,
 };
 
 /// Hash file content for change detection.
@@ -39,10 +42,9 @@ fn hashFileContent(io: std.Io, path: []const u8) ?u64 {
 }
 
 /// Run one compilation cycle. Returns true on success, false on error.
-fn compileOnce(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) bool {
-    // Compile mode: rune <file>
+fn compileOnce(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig, input: []const u8) bool {
     handlers.handleCompileRequest(io, alloc, .{
-        .input = cfg.input,
+        .input = input,
         .output_path = cfg.output_path,
         .trace = cfg.trace,
         .dialect = cfg.dialect,
@@ -54,42 +56,111 @@ fn compileOnce(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) bool {
         .parallel = cfg.parallel,
     }) catch |err| {
         if (!cfg.quiet) {
-            std.debug.print("error: compilation failed: {s}\n", .{@errorName(err)});
+            std.debug.print("error: compilation failed ({s}): {s}\n", .{ input, @errorName(err) });
         }
         return false;
     };
     return true;
 }
 
-/// Watch a .ss file for changes and recompile automatically.
-/// Polls the file's content hash at the configured interval.
+/// Scan a directory for .ss files. Adds them to the provided list.
+/// When recursive=true, descends into subdirectories.
+fn scanDir(io: std.Io, alloc: std.mem.Allocator, dir_path: []const u8, recursive: bool, files: *std.ArrayList([]const u8)) !void {
+    var dir = std.Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true }) catch return;
+    defer dir.close(io);
+
+    var iter = dir.iterate();
+    while (try iter.next(io)) |entry| {
+        if (entry.kind == .file) {
+            // Check for .ss extension
+            if (entry.name.len > 3 and std.mem.eql(u8, entry.name[entry.name.len - 3 ..], ".ss")) {
+                const full_path = if (dir_path.len == 0 or std.mem.eql(u8, dir_path, "."))
+                    try std.fmt.allocPrint(alloc, "{s}", .{entry.name})
+                else
+                    try std.fmt.allocPrint(alloc, "{s}/{s}", .{ dir_path, entry.name });
+                try files.append(alloc, full_path);
+            }
+        } else if (entry.kind == .directory and recursive) {
+            const sub_path = if (dir_path.len == 0 or std.mem.eql(u8, dir_path, "."))
+                try std.fmt.allocPrint(alloc, "{s}", .{entry.name})
+            else
+                try std.fmt.allocPrint(alloc, "{s}/{s}", .{ dir_path, entry.name });
+            try scanDir(io, alloc, sub_path, true, files);
+        }
+    }
+}
+
+/// Collect all .ss files to watch from a path.
+/// Returns a list of file paths (caller owns the list).
+fn collectFiles(io: std.Io, alloc: std.mem.Allocator, input: []const u8, recursive: bool) !std.ArrayList([]const u8) {
+    var files = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+
+    // Try to open as directory first — if it succeeds, it's a directory
+    if (std.Io.Dir.cwd().openDir(io, input, .{ .iterate = true })) |*dir| {
+        defer dir.close(io);
+        try scanDir(io, alloc, input, recursive, &files);
+    } else |_| {
+        // Not a directory — treat as a single file
+        try files.append(alloc, input);
+    }
+
+    return files;
+}
+
+/// Watch a .ss file or directory for changes and recompile automatically.
+/// Polls file content hashes at the configured interval.
 /// Exits cleanly on any error (file not found, compile error).
 pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
+    const files = try collectFiles(io, alloc, cfg.input, cfg.recursive);
+
+    if (files.items.len == 0) {
+        if (!cfg.quiet) {
+            std.debug.print("error: no .ss files found in {s}\n", .{cfg.input});
+        }
+        return error.FileNotFound;
+    }
+
     if (!cfg.quiet) {
-        std.debug.print("Watching {s} (polling every {d}ms)\n", .{ cfg.input, cfg.interval_ms });
+        if (files.items.len == 1) {
+            std.debug.print("Watching {s} (polling every {d}ms)\n", .{ files.items[0], cfg.interval_ms });
+        } else {
+            std.debug.print("Watching {d} files in {s} (polling every {d}ms)\n", .{ files.items.len, cfg.input, cfg.interval_ms });
+        }
         std.debug.print("Press Ctrl+C to stop\n\n", .{});
     }
 
-    var last_hash = hashFileContent(io, cfg.input);
-    if (last_hash == null) {
-        std.debug.print("error: file not found: {s}\n", .{cfg.input});
-        return error.FileNotFound;
+    // Build initial hash map
+    var hashes = std.StringHashMap(u64).init(alloc);
+    var initial_errors: u32 = 0;
+    for (files.items) |file_path| {
+        if (hashFileContent(io, file_path)) |hash| {
+            hashes.put(file_path, hash) catch {};
+        } else {
+            initial_errors += 1;
+        }
     }
 
     // Initial compilation
     if (!cfg.quiet) {
         std.debug.print("Initial compilation...\n", .{});
     }
-    const initial_ok = compileOnce(io, alloc, cfg);
+    var success_count: u32 = 0;
+    var fail_count: u32 = 0;
+    for (files.items) |file_path| {
+        const ok = compileOnce(io, alloc, cfg, file_path);
+        if (ok) success_count += 1 else fail_count += 1;
+    }
     if (!cfg.quiet) {
-        if (initial_ok)
-            std.debug.print("OK\n\n", .{})
-        else
-            std.debug.print("FAILED\n\n", .{});
+        if (files.items.len == 1) {
+            if (fail_count == 0) std.debug.print("OK\n\n", .{}) else std.debug.print("FAILED\n\n", .{});
+        } else {
+            std.debug.print("{d}/{d} compiled successfully\n\n", .{ success_count, files.items.len });
+        }
     }
 
     // Poll loop
     var change_count: u64 = 0;
+    var error_streak: u32 = 0;
     while (true) {
         // Sleep for the configured interval — efficient, no CPU waste
         const dur = std.Io.Clock.Duration{
@@ -98,26 +169,61 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
         };
         dur.sleep(io) catch {};
 
-        const current_hash = hashFileContent(io, cfg.input);
-        if (current_hash == null) {
-            if (!cfg.quiet) {
-                std.debug.print("warning: file disappeared: {s}\n", .{cfg.input});
+        // Check for new files (in directory mode)
+        if (cfg.recursive) {
+            const new_files = try collectFiles(io, alloc, cfg.input, true);
+            for (new_files.items) |file_path| {
+                if (!hashes.contains(file_path)) {
+                    // New file detected — add it
+                    if (!cfg.quiet) {
+                        std.debug.print("New file detected: {s}\n", .{file_path});
+                    }
+                    if (hashFileContent(io, file_path)) |hash| {
+                        hashes.put(file_path, hash) catch {};
+                        if (!cfg.quiet) {
+                            std.debug.print("Compiling {s}...\n", .{file_path});
+                        }
+                        const ok = compileOnce(io, alloc, cfg, file_path);
+                        if (ok) error_streak = 0 else error_streak += 1;
+                    }
+                }
             }
-            continue;
         }
 
-        if (current_hash != last_hash) {
-            last_hash = current_hash;
-            change_count += 1;
-            if (!cfg.quiet) {
-                std.debug.print("[{d}] Change detected in {s}, recompiling...\n", .{ change_count, cfg.input });
+        // Check for changes in existing files
+        var iter = hashes.iterator();
+        while (iter.next()) |entry| {
+            const current_hash = hashFileContent(io, entry.key_ptr.*);
+            if (current_hash == null) {
+                // File disappeared
+                if (!cfg.quiet) {
+                    std.debug.print("warning: file disappeared: {s}\n", .{entry.key_ptr.*});
+                }
+                continue;
             }
-            const ok = compileOnce(io, alloc, cfg);
-            if (!cfg.quiet) {
-                if (ok)
-                    std.debug.print("[{d}] OK\n\n", .{change_count})
-                else
-                    std.debug.print("[{d}] FAILED\n\n", .{change_count});
+
+            if (current_hash != entry.value_ptr.*) {
+                entry.value_ptr.* = current_hash.?;
+                change_count += 1;
+                if (!cfg.quiet) {
+                    std.debug.print("[{d}] Change detected in {s}, recompiling...\n", .{ change_count, entry.key_ptr.* });
+                }
+                const ok = compileOnce(io, alloc, cfg, entry.key_ptr.*);
+                if (ok) {
+                    error_streak = 0;
+                    if (!cfg.quiet) {
+                        std.debug.print("[{d}] OK\n\n", .{change_count});
+                    }
+                } else {
+                    error_streak += 1;
+                    if (!cfg.quiet) {
+                        std.debug.print("[{d}] FAILED", .{change_count});
+                        if (error_streak > 1) {
+                            std.debug.print(" (streak: {d})", .{error_streak});
+                        }
+                        std.debug.print("\n\n", .{});
+                    }
+                }
             }
         }
     }

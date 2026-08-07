@@ -12,6 +12,7 @@ test "WatchConfig defaults" {
     try testing.expectEqual(false, cfg.stats);
     try testing.expectEqual(false, cfg.json_errors);
     try testing.expectEqual(@as(?[]const u8, null), cfg.output_path);
+    try testing.expectEqual(false, cfg.recursive);
 }
 
 test "WatchConfig with custom values" {
@@ -46,4 +47,12 @@ test "WatchConfig with parallel" {
         .parallel = true,
     };
     try testing.expectEqual(true, cfg.parallel);
+}
+
+test "WatchConfig with recursive" {
+    const cfg = watch.WatchConfig{
+        .input = "schemas",
+        .recursive = true,
+    };
+    try testing.expectEqual(true, cfg.recursive);
 }

@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.163.0] - 2026-08-08
+
+### Added
+- **Watch directory mode** — `rune watch ./schemas --recursive` watches all `.ss` files in a directory (with optional recursion). Tracks per-file hashes and recompiles only changed files. Prints directory summary with file count and error streak tracking.
+- **Init template presets** — `rune init myapp --template blog|ecommerce|rest-api` generates predefined starter schemas. Templates: `default` (users/posts), `blog` (posts/categories/tags/comments), `ecommerce` (products/orders/customers), `rest-api` (resources/endpoints/api-keys/audit-log).
+
+## [0.162.0] - 2026-08-08
+
+### Changed
+- **Pipeline split & optimization** — Extracted output handlers from `pipeline/forward.zig` (520 lines) into `pipeline/handlers.zig` (270 lines) for single-responsibility.
+- **Index validation optimization** — Optimized O(n²) column lookups in `validate_indexes.zig` to O(n) via StringHashMap.
+- **Handler tests** — Added tests for `pipeline/handlers.zig` (formatValidateResult).
+
+## [0.161.0] - 2026-08-08
+
+### Changed
+- **Lint test split** — Split `lint_test.zig` monolith (1,018 lines) into 3 focused test files: `lint/rules_test.zig`, `lint/format_test.zig`, `lint/config_test.zig`.
+- **LSP handler extraction** — Extracted LSP request handlers from `server.zig` into `handlers.zig`.
+- **Tests.zig organization** — Added section comments to `tests.zig` for easier navigation.
+
+### Documentation
+- **ARCHITECTURE.md** — Documented lint module structure and sub-module responsibilities.
+
 ## [0.160.0] - 2026-08-07
 
 ### Changed
