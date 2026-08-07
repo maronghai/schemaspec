@@ -117,6 +117,14 @@ npm install -g rune-schema
 
 See [docs/migration-guide.md](docs/migration-guide.md) for migrating from SQL DDL, Prisma, or Knex.
 
+### VS Code Extension
+
+```bash
+cd packaging/vscode && code --install-extension .
+```
+
+Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). LSP server provides diagnostics, completion, hover, go-to-def, symbols, code actions, formatting.
+
 ## Architecture
 
 ### Source Layout

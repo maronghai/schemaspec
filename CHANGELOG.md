@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.151.0] - 2026-08-07
+
+### Added
+- **TextMate Grammar** — New `packaging/vscode/syntaxes/rune.tmLanguage.json` with comprehensive syntax highlighting for `.ss` schema files. Covers all declaration types (`$`, `~`, `%`, `#`, `&`, `>`, `@`, `!`), type symbols, modifiers, literals, comments, and SQL expressions.
+- **VS Code Extension** — New `packaging/vscode/` with `package.json`, `language-configuration.json`, and `extension.js`. Registers Rune language, TextMate grammar, and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). Activation on `.ss` file open.
+- **Language Configuration** — Bracket matching, auto-closing pairs, folding markers, and comment toggling for `.ss` files.
+
+### Changed
+- **npm version sync** — `packaging/npm/package.json` version aligned with VERSION file.
+
 ## [0.150.0] - 2026-08-07
 
 ### Added

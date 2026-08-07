@@ -521,6 +521,22 @@ rune lint schema.ss --strict            # Exit 1 if any warnings (CI/CD)
 
 Watch mode polls the file for changes and automatically recompiles when modifications are detected. Press Ctrl+C to stop watching.
 
+### Editor Integration
+
+**VS Code** — Install the extension for syntax highlighting and commands:
+
+```bash
+cd packaging/vscode && code --install-extension .
+```
+
+**Any LSP-compatible editor** — Rune includes a built-in language server:
+
+```bash
+rune lsp    # Starts the LSP server over stdio
+```
+
+Features: diagnostics, completion, hover, go-to-definition, document symbols, code actions, formatting.
+
 ## Roadmap
 
 - [x] LSP language server (completion, diagnostics, hover, go-to-definition, code actions, formatting)

@@ -95,6 +95,33 @@ zig fmt --check src/
 
 Tests use Zig's built-in `test` blocks with `std.testing` allocator. Each source module has a colocated `*_test.zig` file wired via `src/tests.zig`.
 
+## Editor Integration
+
+### VS Code
+
+The `packaging/vscode/` directory contains a VS Code extension with:
+
+- **Syntax highlighting** — TextMate grammar for `.ss` files
+- **Language configuration** — Bracket matching, auto-closing pairs, folding
+- **Commands** — `Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`
+
+To install locally:
+
+```bash
+cd packaging/vscode
+code --install-extension .
+```
+
+### LSP Server
+
+Rune includes a built-in LSP server. Any editor with LSP support can connect:
+
+```bash
+rune lsp    # Starts the LSP server over stdio
+```
+
+Supported features: diagnostics, completion, hover, go-to-definition, document symbols, code actions, formatting.
+
 ## Architecture
 
 For deep dives into the codebase architecture, IR boundaries, dialect backend vtable, semantic pass manager, and module roles, see [ARCHITECTURE.md](ARCHITECTURE.md).

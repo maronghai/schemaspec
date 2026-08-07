@@ -1,0 +1,72 @@
+{
+  "name": "rune-schema",
+  "displayName": "Rune Schema Language",
+  "description": "Syntax highlighting and language support for Rune .ss schema files",
+  "version": "0.151.0",
+  "publisher": "rune-lang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Snippets"
+  ],
+  "keywords": [
+    "schema",
+    "database",
+    "sql",
+    "dsl",
+    "ddl",
+    "migration",
+    "rune"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rune-lang/rune.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rune-lang/rune/issues"
+  },
+  "activationEvents": [
+    "onLanguage:rune"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "rune",
+        "aliases": [
+          "Rune",
+          "rune",
+          "rune-schema"
+        ],
+        "extensions": [
+          ".ss"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "rune",
+        "scopeName": "source.rune",
+        "path": "./syntaxes/rune.tmLanguage.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "rune.validate",
+        "title": "Rune: Validate Schema"
+      },
+      {
+        "command": "rune.generate",
+        "title": "Rune: Generate SQL"
+      },
+      {
+        "command": "rune.init",
+        "title": "Rune: Initialize Schema"
+      }
+    ]
+  }
+}

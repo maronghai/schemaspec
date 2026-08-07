@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.150.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
+**Current version**: 0.151.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
 
 ---
 
@@ -84,10 +84,10 @@ Extend the LSP foundation into full editor experiences.
 
 ### VS Code Extension
 
-- [ ] Syntax highlighting — TextMate grammar for `.ss` files
+- [x] Syntax highlighting — TextMate grammar for `.ss` files (v0.151.0)
 - [ ] Completion — wire LSP completion into VS Code's IntelliSense
 - [ ] Diagnostics — squiggly lines for errors and warnings
-- [ ] Commands — `Rune: Validate`, `Rune: Generate`, `Rune: Init`
+- [x] Commands — `Rune: Validate`, `Rune: Generate`, `Rune: Init` (v0.151.0)
 
 ### Neovim Plugin
 
@@ -185,11 +185,11 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
 | 6: Ecosystem & Community | 🔲 Planned | 2/9 | 7 |
-| 7: Editor Extensions | 🔲 Planned | 0/10 | 10 |
+| 7: Editor Extensions | 🔲 Planned | 2/10 | 8 |
 | 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
 | Architecture Targets | 🟡 Ongoing | 12/14 | 2 |
 | Technical Debt | 🟡 Partial | 3/5 | 2 |
-| **Total** | | **76/105** | **29** |
+| **Total** | | **78/105** | **27** |
 
 ---
 
@@ -237,6 +237,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.151.0** — TextMate grammar, VS Code extension (syntax highlighting, commands), language configuration
 - **v0.150.0** — Docker image, migration guide, package manager support (Homebrew, Scoop, npm)
 - **v0.149.0** — FlagRegistry pattern, weighted confidence scoring, test suite sync
 - **v0.148.0** — ErrorFormatter integration, CLI consolidation, confidence score improvements

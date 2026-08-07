@@ -4,6 +4,16 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.151.0] - 2026-08-07
+
+### Added
+- **TextMate grammar for `.ss`** — Syntax highlighting for Rune schema files. Based on the formal EBNF grammar. Scopes for declarations (`$`, `~`, `%`, `#`, `&`, `>`, `@`, `!`), type symbols, modifiers, literals, and comments.
+- **VS Code extension** — `packaging/vscode/` with language configuration, TextMate grammar, and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). Activation on `.ss` file open.
+- **Language configuration** — Bracket matching, auto-closing pairs, folding markers, and comment toggling for `.ss` files.
+
+### Changed
+- **npm package version sync** — `packaging/npm/package.json` version aligned with VERSION file.
+
 ## [0.143.0] - 2026-08-06
 
 ### Added

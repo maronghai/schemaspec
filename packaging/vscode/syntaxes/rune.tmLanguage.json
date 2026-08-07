@@ -1,0 +1,242 @@
+{
+  "name": "Rune",
+  "scopeName": "source.rune",
+  "fileTypes": ["ss"],
+  "firstLineMatch": "^\\s*[$~%#@!]",
+  "patterns": [
+    { "include": "#comments" },
+    { "include": "#schema-decl" },
+    { "include": "#type-def" },
+    { "include": "#template-decl" },
+    { "include": "#table-decl" },
+    { "include": "#view-decl" },
+    { "include": "#import-directive" },
+    { "include": "#fk-decl" },
+    { "include": "#index-decl" },
+    { "include": "#composite-pk" },
+    { "include": "#slot-marker" },
+    { "include": "#field-decl" }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-dash.rune",
+          "match": "^\\s*(--).*$",
+          "captures": {
+            "1": { "name": "punctuation.definition.comment.rune" }
+          }
+        },
+        {
+          "name": "comment.line.spec.rune",
+          "match": "^\\s*(;).*$",
+          "captures": {
+            "1": { "name": "punctuation.definition.comment.rune" }
+          }
+        }
+      ]
+    },
+    "schema-decl": {
+      "match": "^\\s*(\\$)\\s*(\\w+)?\\s*(autofk)?",
+      "captures": {
+        "1": { "name": "keyword.control.schema.rune" },
+        "2": { "name": "entity.name.type.schema.rune" },
+        "3": { "name": "keyword.control.autofk.rune" }
+      }
+    },
+    "type-def": {
+      "match": "^\\s*(~)\\s*(\\w+)\\s+(\\w+)(?:\\s+(\\w+)\\s*=\\s*(\\w+))*",
+      "captures": {
+        "1": { "name": "keyword.control.type-def.rune" },
+        "2": { "name": "entity.name.type.user-defined.rune" },
+        "3": { "name": "support.type.rune" },
+        "4": { "name": "entity.other.attribute-name.rune" },
+        "5": { "name": "support.type.rune" }
+      }
+    },
+    "template-decl": {
+      "match": "^\\s*(%)\\s*(\\w+)?(?:\\s*(>)\\s*(\\w+)(?:\\s*(\\+)\\s*(\\w+))*)?",
+      "captures": {
+        "1": { "name": "keyword.control.template.rune" },
+        "2": { "name": "entity.name.type.template.rune" },
+        "3": { "name": "keyword.operator.inheritance.rune" },
+        "4": { "name": "entity.name.type.parent.rune" },
+        "5": { "name": "keyword.operator.mixin.rune" },
+        "6": { "name": "entity.name.type.mixin.rune" }
+      }
+    },
+    "table-decl": {
+      "match": "^\\s*(#)\\s*(\\w+)?\\s*(\\w+)?(?:\\s*:\\s*(.*))?(?:\\s*(\\^)\\s*(\\w+))?",
+      "captures": {
+        "1": { "name": "keyword.control.table.rune" },
+        "2": { "name": "entity.name.type.template-ref.rune" },
+        "3": { "name": "entity.name.type.table.rune" },
+        "4": { "name": "comment.line.table-doc.rune" },
+        "5": { "name": "keyword.control.view-ref.rune" },
+        "6": { "name": "entity.name.type.view.rune" }
+      }
+    },
+    "view-decl": {
+      "match": "^\\s*(&)\\s*(\\w+)\\s*=\\s*(.*)",
+      "captures": {
+        "1": { "name": "keyword.control.view.rune" },
+        "2": { "name": "entity.name.type.view.rune" },
+        "3": { "name": "string.unquoted.sql.rune" }
+      }
+    },
+    "import-directive": {
+      "match": "^\\s*(@import)\\s+(\\S+)",
+      "captures": {
+        "1": { "name": "keyword.control.import.rune" },
+        "2": { "name": "string.quoted.import.rune" }
+      }
+    },
+    "fk-decl": {
+      "match": "^\\s*(>)\\s*(\\w+)\\s*(\\w+)(?:\\.(\\w+))?",
+      "captures": {
+        "1": { "name": "keyword.control.fk.rune" },
+        "2": { "name": "entity.name.type.table.rune" },
+        "3": { "name": "variable.other.column.rune" },
+        "4": { "name": "variable.other.column.rune" }
+      }
+    },
+    "index-decl": {
+      "match": "^\\s*(@)([uf])?\\s*(\\w+)?\\s*\\(?",
+      "captures": {
+        "1": { "name": "keyword.control.index.rune" },
+        "2": { "name": "keyword.modifier.index-type.rune" },
+        "3": { "name": "entity.name.tag.index-name.rune" }
+      }
+    },
+    "composite-pk": {
+      "match": "^\\s*(!)\\s*(\\w+)(?:\\s*,\\s*(\\w+))*",
+      "captures": {
+        "1": { "name": "keyword.control.composite-pk.rune" },
+        "2": { "name": "variable.other.column.rune" },
+        "3": { "name": "variable.other.column.rune" }
+      }
+    },
+    "slot-marker": {
+      "match": "^\\s*(\\.\\.\\.)\\s*$",
+      "captures": {
+        "1": { "name": "keyword.control.slot.rune" }
+      }
+    },
+    "field-decl": {
+      "patterns": [
+        {
+          "match": "^\\s*(\\w+)\\s+(\\d+)(\\s*[+?!]|\\s*@u?|\\s*$)",
+          "captures": {
+            "1": { "name": "variable.other.field.rune" },
+            "2": { "name": "support.type.numeric.rune" },
+            "3": { "name": "keyword.modifier.field.rune" }
+          }
+        },
+        {
+          "match": "^\\s*(\\w+)\\s+(\\d+,\\d+)",
+          "captures": {
+            "1": { "name": "variable.other.field.rune" },
+            "2": { "name": "support.type.decimal.rune" }
+          }
+        },
+        {
+          "match": "^\\s*(\\w+)\\s+(s\\d+)(\\s*[+?!]|\\s*@u?|\\s*$)",
+          "captures": {
+            "1": { "name": "variable.other.field.rune" },
+            "2": { "name": "support.type.varchar.rune" },
+            "3": { "name": "keyword.modifier.field.rune" }
+          }
+        },
+        {
+          "match": "^\\s*(\\w+)\\s+(e)\\s*\\(",
+          "captures": {
+            "1": { "name": "variable.other.field.rune" },
+            "2": { "name": "support.type.enum.rune" }
+          }
+        },
+        {
+          "match": "^\\s*(\\w+)\\s+([nNiImMsSbBjJIdtTUp])([+?!]|@u?|$)",
+          "captures": {
+            "1": { "name": "variable.other.field.rune" },
+            "2": { "name": "support.type.rune" },
+            "3": { "name": "keyword.modifier.field.rune" }
+          }
+        },
+        {
+          "match": "^\\s*(\\w+)\\s+(\\w+)(\\s*[+?!]|\\s*@u?|\\s*$)",
+          "captures": {
+            "1": { "name": "variable.other.field.rune" },
+            "2": { "name": "support.type.custom.rune" },
+            "3": { "name": "keyword.modifier.field.rune" }
+          }
+        }
+      ]
+    },
+    "string-literal": {
+      "name": "string.quoted.single.rune",
+      "begin": "'",
+      "end": "'",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.string.begin.rune" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.string.end.rune" }
+      }
+    },
+    "numeric-literal": {
+      "match": "\\b(-?\\d+(?:\\.\\d+)?)\\b",
+      "name": "constant.numeric.rune"
+    },
+    "modifiers": {
+      "patterns": [
+        { "match": "\\+\\+", "name": "keyword.modifier.auto-increment-pk.rune" },
+        { "match": "\\+(?=[nNiI])", "name": "keyword.modifier.unsigned.rune" },
+        { "match": "\\+(?![+])", "name": "keyword.modifier.auto-increment.rune" },
+        { "match": "!", "name": "keyword.modifier.primary-key.rune" },
+        { "match": "\\?", "name": "keyword.modifier.nullable.rune" },
+        { "match": "@u", "name": "keyword.modifier.unique-index.rune" },
+        { "match": "@(?!u)", "name": "keyword.modifier.index.rune" }
+      ]
+    },
+    "default-value": {
+      "patterns": [
+        {
+          "match": "=",
+          "name": "keyword.operator.default.rune"
+        },
+        {
+          "match": "\\b(NULL|CURRENT_TIMESTAMP)\\b",
+          "name": "constant.language.rune"
+        }
+      ]
+    },
+    "check-constraint": {
+      "patterns": [
+        {
+          "match": "[\\[\\(]",
+          "name": "punctuation.definition.check.begin.rune"
+        },
+        {
+          "match": "[\\]\\)]",
+          "name": "punctuation.definition.check.end.rune"
+        },
+        {
+          "match": "[{}]",
+          "name": "punctuation.definition.check.rune"
+        },
+        {
+          "match": "(>=|<=|>|<|=)",
+          "name": "keyword.operator.comparison.rune"
+        }
+      ]
+    },
+    "fk-actions": {
+      "patterns": [
+        {
+          "match": "(-[CN]|(?<=[.\\w])[CN])",
+          "name": "keyword.modifier.fk-action.rune"
+        }
+      ]
+    }
+  }
+}
