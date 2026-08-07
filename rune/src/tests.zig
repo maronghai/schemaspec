@@ -43,7 +43,6 @@ comptime {
     _ = @import("diff/migrate_graph_test.zig");
     _ = @import("diff/types_test.zig");
     _ = @import("diff/rename_test.zig");
-    _ = @import("diff/invert.zig");
     _ = @import("diff/plan.zig");
     _ = @import("diff/format/text_test.zig");
     _ = @import("diff/format/sarif_test.zig");

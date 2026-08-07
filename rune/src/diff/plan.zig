@@ -251,6 +251,100 @@ test "planFromDiff: drop + create + alter" {
     try testing.expectEqual(@as(usize, 1), plan.operations[2].alter_table.field_diffs.len);
 }
 
+test "invertFieldDiff: add → drop" {
+    const field = ast_mod.Field{
+        .name = "email",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const fd = types.FieldDiff{ .name = "email", .action = .add, .old_field = null, .new_field = field, .rename_from = null };
+    const inv = invertFieldDiff(fd);
+    try testing.expectEqual(types.FieldAction.drop, inv.action);
+    try testing.expectEqual(@as(?ast_mod.Field, field), inv.old_field);
+    try testing.expectEqual(@as(?ast_mod.Field, null), inv.new_field);
+}
+
+test "invertFieldDiff: drop → add" {
+    const field = ast_mod.Field{
+        .name = "email",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const fd = types.FieldDiff{ .name = "email", .action = .drop, .old_field = field, .new_field = null, .rename_from = null };
+    const inv = invertFieldDiff(fd);
+    try testing.expectEqual(types.FieldAction.add, inv.action);
+    try testing.expectEqual(@as(?ast_mod.Field, null), inv.old_field);
+    try testing.expectEqual(@as(?ast_mod.Field, field), inv.new_field);
+}
+
+test "invertFieldDiff: modify swaps old/new" {
+    const old_field = ast_mod.Field{
+        .name = "email",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const new_field = ast_mod.Field{
+        .name = "email",
+        .type_info = .{ .simple = "s128" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const fd = types.FieldDiff{ .name = "email", .action = .modify, .old_field = old_field, .new_field = new_field, .rename_from = null };
+    const inv = invertFieldDiff(fd);
+    try testing.expectEqual(types.FieldAction.modify, inv.action);
+    // After inversion: old=new, new=old
+    try testing.expectEqual(@as(?ast_mod.Field, new_field), inv.old_field);
+    try testing.expectEqual(@as(?ast_mod.Field, old_field), inv.new_field);
+}
+
+test "invertFieldDiff: rename reverses direction" {
+    const old_field = ast_mod.Field{
+        .name = "userName",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const new_field = ast_mod.Field{
+        .name = "user_name",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const fd = types.FieldDiff{ .name = "user_name", .action = .rename, .old_field = old_field, .new_field = new_field, .rename_from = "userName" };
+    const inv = invertFieldDiff(fd);
+    try testing.expectEqual(types.FieldAction.rename, inv.action);
+    // After inversion: name reverts to original, rename_from points to new name
+    try testing.expectEqualStrings("userName", inv.name);
+    try testing.expectEqualStrings("user_name", inv.rename_from.?);
+}
+
 test "invertPlan: roundtrip operations" {
     const d = types.SchemaDiff{
         .table_diffs = &[_]types.TableDiff{

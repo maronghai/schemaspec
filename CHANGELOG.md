@@ -2,7 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.152.0] - 2026-08-07
+## [0.154.0] - 2026-08-07
+
+### Changed
+- **LSP Features Modularization** — Split monolithic `lsp/features.zig` (1491 lines) into 7 focused sub-modules: `document_symbols.zig`, `completions.zig`, `hover.zig`, `go_to_definition.zig`, `code_actions.zig`, `rename.zig`, `formatting.zig`. `features.zig` is now a thin facade re-exporting all sub-modules. No API changes for callers.
+- **Parallel Compilation Deduplication** — Extracted `compileGroupConcurrent` helper from `codegen/parallel.zig`, eliminating ~100 lines of duplicated thread spawn/join/collect/fallback logic across batch processing paths.
+- **Removed Dead Code** — Deleted `diff/invert.zig` (132 lines) which duplicated inversion logic already in `diff/plan.zig`. Migrated 4 unit tests (`invertFieldDiff` cases) to `plan.zig`. Updated `tests.zig` index.
+
+### Added
+- **LSP Helpers Module** — New `lsp/helpers.zig` with shared `makeRange` utility used by all LSP sub-modules.
+
+## [0.153.0] - 2026-08-07
 
 ### Added
 - **VS Code LSP Integration** — Extension now starts the Rune language server (`rune lsp`) via `vscode-languageclient`. Enables real-time diagnostics, completion, hover, go-to-definition, code actions, and document formatting directly in VS Code. New settings: `rune.schemaPath` (custom binary path), `rune.lspEnabled` (toggle LSP).

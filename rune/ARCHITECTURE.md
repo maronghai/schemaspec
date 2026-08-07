@@ -446,6 +446,41 @@ zig build bench -- bench/large.ss 5         # large schema
 | Init & completions | `tests/test_init.sh` | 12 | Init & completions |
 | **Total** | | **~753+** | |
 
+## LSP Server
+
+The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It runs the compilation pipeline on document open/change and caches the `TypedAst` for interactive features.
+
+### Sub-modules
+
+| Module | Lines | Responsibility |
+|--------|-------|---------------|
+| `lsp/server.zig` | ~629 | JSON-RPC main loop, request dispatch |
+| `lsp/protocol.zig` | ~869 | LSP protocol types and JSON serialization |
+| `lsp/documents.zig` | ~188 | Document state manager (open/change/close) |
+| `lsp/compile_service.zig` | ~202 | Pipeline wrapper for LSP diagnostics |
+| `lsp/features.zig` | ~30 | Thin facade re-exporting sub-modules |
+| `lsp/helpers.zig` | ~10 | Shared `makeRange` utility |
+| `lsp/document_symbols.zig` | ~200 | Outline view (tables, columns, FKs, indexes) |
+| `lsp/completions.zig` | ~250 | Context-sensitive completion (keywords, types, modifiers) |
+| `lsp/hover.zig` | ~200 | Hover info (table stats, column types, FK relationships) |
+| `lsp/go_to_definition.zig` | ~50 | Navigate FK references to target tables |
+| `lsp/code_actions.zig` | ~150 | Quick fixes (add PK, add comment, snake_case, FK index) |
+| `lsp/rename.zig` | ~130 | Symbol rename with reference tracking |
+| `lsp/formatting.zig` | ~10 | Document formatting via formatter |
+
+### Data flow
+
+```
+Editor → JSON-RPC → server.zig dispatch
+  ├── textDocument/didOpen/didChange → compile_service.zig → pipeline → TypedAst cache
+  ├── textDocument/completion → completions.zig → CompletionList
+  ├── textDocument/hover → hover.zig → Hover (markdown)
+  ├── textDocument/definition → go_to_definition.zig → Location
+  ├── textDocument/codeAction → code_actions.zig → CodeAction[]
+  ├── textDocument/rename → rename.zig → WorkspaceEdit
+  └── textDocument/formatting → formatting.zig → TextEdit[]
+```
+
 ## Platform Support
 
 Rune supports multiple platforms via Zig's cross-compilation:
