@@ -1,6 +1,7 @@
 (* ── Top Level ── *)
 
-spec             = { blank_line | schema_decl | import_decl | template_def | view_decl | table_decl } ;
+spec             = { blank_line | schema_decl | import_decl | type_def_decl | engine_decl
+                   | template_def | view_decl | table_decl } ;
 blank_line       = newline ;
 
 (* ── Schema ── *)
@@ -15,6 +16,24 @@ charset_name     = word ;
 import_decl      = "@import", WS, string_literal, newline ;
 string_literal   = DQUOTE, { char - DQUOTE | DQUOTE DQUOTE }, DQUOTE
                  | SQUOTE, { char - SQUOTE | SQUOTE SQUOTE }, SQUOTE ;
+
+(* ── Custom Type Definition ── *)
+(* ~ name base_type                                           *)
+(* ~ name base_type mysql=type postgres=type                  *)
+(* ~ name = mysql=type postgres=type  (no base type)          *)
+
+type_def_decl    = "~", WS, type_name, [ WS, "=" ], [ WS, base_type ],
+                   { WS, dialect_override }, newline ;
+type_name        = word ;
+base_type        = word | type_symbol ;
+dialect_override = dialect_name, "=", type_symbol ;
+dialect_name     = "mysql" | "postgres" | "sqlite" | "mssql" | "oracle" | "db2" ;
+
+(* ── Engine Directive ── *)
+(* ^ engine_name  — sets the table engine (e.g. InnoDB, MyISAM) *)
+
+engine_decl      = "^", WS, engine_name, newline ;
+engine_name      = word ;
 
 (* ── Template ── *)
 

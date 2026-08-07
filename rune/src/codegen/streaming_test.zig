@@ -286,7 +286,7 @@ test "streaming: many columns preserves all in output" {
     const cols = try alloc.alloc(typed_ast_mod.TypedColumn, 10);
     for (0..10) |i| {
         var buf: [16]u8 = undefined;
-        const name = std.fmt.bufPrint(&buf, "col_{d}", .{i}) catch unreachable;
+        const name = try std.fmt.bufPrint(&buf, "col_{d}", .{i});
         cols[i] = makeTestColumn(try alloc.dupe(u8, name), .{ .passthrough = "int" });
     }
 
@@ -307,7 +307,7 @@ test "streaming: many columns preserves all in output" {
     // All 10 columns should appear in the output
     for (0..10) |i| {
         var buf: [16]u8 = undefined;
-        const name = std.fmt.bufPrint(&buf, "col_{d}", .{i}) catch unreachable;
+        const name = try std.fmt.bufPrint(&buf, "col_{d}", .{i});
         try testing.expect(std.mem.indexOf(u8, result.tables[0].sql, name) != null);
     }
 }

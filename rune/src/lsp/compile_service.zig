@@ -140,7 +140,7 @@ fn resolveTypedAst(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst,
 // ─── Tests ─────────────────────────────────────────────────────
 
 test "compile valid schema" {
-    const result = compile(std.testing.allocator,
+    const result = try compile(std.testing.allocator,
         \\# users table
         \\table users {
         \\  id    n   ++ PK
@@ -158,7 +158,7 @@ test "compile valid schema" {
 }
 
 test "compile invalid schema" {
-    const result = compile(std.testing.allocator,
+    const result = try compile(std.testing.allocator,
         \\table { }
     , "test.ss", .mysql);
     defer std.testing.allocator.free(result.diagnostics);
@@ -168,7 +168,7 @@ test "compile invalid schema" {
 }
 
 test "compile empty schema" {
-    const result = compile(std.testing.allocator, "", "test.ss", .mysql);
+    const result = try compile(std.testing.allocator, "", "test.ss", .mysql);
     defer std.testing.allocator.free(result.diagnostics);
 
     // Empty schema should compile without errors
@@ -180,7 +180,7 @@ test "compile empty schema" {
 }
 
 test "compile schema with foreign key" {
-    const result = compile(std.testing.allocator,
+    const result = try compile(std.testing.allocator,
         \\table users {
         \\  id n ++ PK
         \\}

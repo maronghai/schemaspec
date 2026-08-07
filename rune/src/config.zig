@@ -67,7 +67,7 @@ pub fn loadConfigWithDiscoveryAndWarnings(io: std.Io, alloc: std.mem.Allocator) 
         const data = dir.readFileAlloc(io, "rune.toml", alloc, .unlimited) catch |err| {
             if (err != error.FileNotFound) {
                 if (owned) dir.close(io);
-                return Config{};
+                return err;
             }
             const parent = dir.openDir(io, "..", .{}) catch {
                 if (owned) dir.close(io);

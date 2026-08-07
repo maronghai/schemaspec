@@ -122,4 +122,16 @@ comptime {
     _ = @import("generators/symbol_index_test.zig");
     // utils
     _ = @import("utils/edit_distance_test.zig");
+    // generators (additional)
+    _ = @import("generators/common_check_test.zig");
+    _ = @import("generators/common_defaults_test.zig");
+    // lsp
+    _ = @import("lsp/protocol.zig");
+    _ = @import("lsp/server.zig");
+    _ = @import("lsp/hover.zig");
+    _ = @import("lsp/completions.zig");
+    _ = @import("lsp/document_symbols.zig");
+    _ = @import("lsp/code_actions.zig");
+    _ = @import("lsp/compile_service.zig");
+    _ = @import("lsp/documents.zig");
 }

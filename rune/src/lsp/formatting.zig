@@ -5,5 +5,8 @@ const std = @import("std");
 /// Format the entire document using the Rune formatter.
 pub fn getFormatting(alloc: std.mem.Allocator, text: []const u8) ?[]const u8 {
     const formatter = @import("../formatter.zig");
-    return formatter.format(alloc, text) catch null;
+    return formatter.format(alloc, text) catch |err| {
+        std.log.err("formatting failed: {s}", .{@errorName(err)});
+        return null;
+    };
 }

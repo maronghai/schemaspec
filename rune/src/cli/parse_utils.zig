@@ -17,12 +17,26 @@ pub fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
 
 pub fn parseFormatArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1), .check = opts.check } }, opts);
 }
 
 pub fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    const name = if (fargs.len > 1) fargs[1] else null;
-    return shared.parseSimpleSubcommand(dialect, target, .{ .init = .{ .name = name, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
+    var name: ?[]const u8 = null;
+    var output: ?[]const u8 = null;
+    var output_dir: ?[]const u8 = null;
+    var j: usize = 1;
+    while (j < fargs.len) : (j += 1) {
+        if (std.mem.eql(u8, fargs[j], "--output-dir") and j + 1 < fargs.len) {
+            j += 1;
+            output_dir = fargs[j];
+        } else if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
+            j += 1;
+            output = fargs[j];
+        } else if (fargs[j][0] != '-') {
+            name = fargs[j];
+        }
+    }
+    return shared.parseSimpleSubcommand(dialect, target, .{ .init = .{ .name = name, .output = output, .output_dir = output_dir } }, opts);
 }
 
 pub fn parseCompletionsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
@@ -42,6 +56,8 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
     var strict = opts.strict;
     var format: types.LintFormat = .text;
     var rules: ?[]const u8 = null;
+    var fix = false;
+    var dry_run = opts.dry_run;
     var positional_count: usize = 0;
     var j: usize = 1;
     while (j < fargs.len) : (j += 1) {
@@ -49,6 +65,10 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
             json_errors = true;
         } else if (std.mem.eql(u8, fargs[j], "--strict")) {
             strict = true;
+        } else if (std.mem.eql(u8, fargs[j], "--fix")) {
+            fix = true;
+        } else if (std.mem.eql(u8, fargs[j], "--dry-run")) {
+            dry_run = true;
         } else if (std.mem.eql(u8, fargs[j], "--format") and j + 1 < fargs.len) {
             j += 1;
             if (std.mem.eql(u8, fargs[j], "sarif")) {
@@ -74,6 +94,8 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
         .strict = strict,
         .format = format,
         .rules = rules,
+        .fix = fix,
+        .dry_run = dry_run,
     } }, opts);
 }
 
