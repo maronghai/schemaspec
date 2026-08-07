@@ -40,11 +40,11 @@ const test_helpers = @import("../test_helpers.zig");
 const diag_mod = @import("../diagnostic.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
-fn makeIndex(alloc: std.mem.Allocator, name: []const u8, field: []const u8, line_no: u32) ast.IndexDecl {
+fn makeIndex(alloc: std.mem.Allocator, name: []const u8, field: []const u8, line_no: u32) !ast.IndexDecl {
     return .{
         .kind = .regular,
         .name = name,
-        .fields = alloc.dupe([]const u8, &.{field}) catch unreachable,
+        .fields = try alloc.dupe([]const u8, &.{field}),
         .descending = &.{false},
         .line_no = line_no,
     };
@@ -62,7 +62,7 @@ test "validate_index_names: cross-table duplicate emits warning" {
         .engine = null,
         .fields = try alloc.dupe(ast.Field, &.{test_helpers.makeTestField("name", .{ .simple = "s" })}),
         .fks = &.{},
-        .indexes = try alloc.dupe(ast.IndexDecl, &.{makeIndex(alloc, "idx_email", "name", 2)}),
+        .indexes = try alloc.dupe(ast.IndexDecl, &.{try makeIndex(alloc, "idx_email", "name", 2)}),
         .line_no = 1,
     });
     try tables.append(alloc, .{
@@ -71,7 +71,7 @@ test "validate_index_names: cross-table duplicate emits warning" {
         .engine = null,
         .fields = try alloc.dupe(ast.Field, &.{test_helpers.makeTestField("amount", .{ .simple = "m" })}),
         .fks = &.{},
-        .indexes = try alloc.dupe(ast.IndexDecl, &.{makeIndex(alloc, "idx_email", "amount", 5)}),
+        .indexes = try alloc.dupe(ast.IndexDecl, &.{try makeIndex(alloc, "idx_email", "amount", 5)}),
         .line_no = 4,
     });
 
@@ -97,8 +97,8 @@ test "validate_index_names: same-table duplicate skipped" {
         .fields = try alloc.dupe(ast.Field, &.{test_helpers.makeTestField("name", .{ .simple = "s" })}),
         .fks = &.{},
         .indexes = try alloc.dupe(ast.IndexDecl, &.{
-            makeIndex(alloc, "idx_name", "name", 2),
-            makeIndex(alloc, "idx_name", "name", 3),
+            try makeIndex(alloc, "idx_name", "name", 2),
+            try makeIndex(alloc, "idx_name", "name", 3),
         }),
         .line_no = 1,
     });
@@ -122,7 +122,7 @@ test "validate_index_names: unique names produce no diagnostics" {
         .engine = null,
         .fields = try alloc.dupe(ast.Field, &.{test_helpers.makeTestField("name", .{ .simple = "s" })}),
         .fks = &.{},
-        .indexes = try alloc.dupe(ast.IndexDecl, &.{makeIndex(alloc, "idx_users_name", "name", 2)}),
+        .indexes = try alloc.dupe(ast.IndexDecl, &.{try makeIndex(alloc, "idx_users_name", "name", 2)}),
         .line_no = 1,
     });
     try tables.append(alloc, .{
@@ -131,7 +131,7 @@ test "validate_index_names: unique names produce no diagnostics" {
         .engine = null,
         .fields = try alloc.dupe(ast.Field, &.{test_helpers.makeTestField("amount", .{ .simple = "m" })}),
         .fks = &.{},
-        .indexes = try alloc.dupe(ast.IndexDecl, &.{makeIndex(alloc, "idx_orders_amount", "amount", 5)}),
+        .indexes = try alloc.dupe(ast.IndexDecl, &.{try makeIndex(alloc, "idx_orders_amount", "amount", 5)}),
         .line_no = 4,
     });
 

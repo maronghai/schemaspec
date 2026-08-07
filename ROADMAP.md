@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.155.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
+**Current version**: 0.156.0 (2026-08-07) — 27,500+ lines production Zig, 1153+ tests, 31 test suites.
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.156.0** — Quality & polish: `rune fmt --check` for CI, config error propagation, LSP formatting logging, `catch unreachable` cleanup
 - **v0.155.0** — Documentation fixes: migration guide syntax correction, packaging manifest sync, all-dialect benchmark baselines
 - **v0.153.0** — LSP feature enrichment: rename support, context-aware completions, rich hover, FK index code action
 - **v0.152.0** — VS Code LSP integration (completion, hover, diagnostics), handleCodeAction bug fix, new LSP tests

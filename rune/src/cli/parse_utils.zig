@@ -17,7 +17,7 @@ pub fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
 
 pub fn parseFormatArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1), .check = opts.check } }, opts);
 }
 
 pub fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {

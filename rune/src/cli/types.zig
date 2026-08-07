@@ -21,7 +21,7 @@ pub const Command = union(enum) {
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
     docs: struct { input: ?[]const u8, output: ?[]const u8 },
-    format_cmd: struct { input: ?[]const u8, output: ?[]const u8 },
+    format_cmd: struct { input: ?[]const u8, output: ?[]const u8, check: bool = false },
     generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool },
     init: struct { name: ?[]const u8, output: ?[]const u8 },
     completions: struct { shell: []const u8 },

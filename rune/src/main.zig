@@ -165,6 +165,12 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             }
             std.process.exit(1);
         },
+        error.FormatCheckFailed => {
+            if (!parsed.quiet) {
+                fmt.printErr("format check failed: file needs formatting");
+            }
+            std.process.exit(1);
+        },
         error.UnknownGenerator => {
             printAvailableGenerators();
             std.process.exit(1);
@@ -324,6 +330,12 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             const formatter = @import("formatter.zig");
             const formatted = try formatter.format(alloc, file_data);
+            if (cmd.check) {
+                if (!std.mem.eql(u8, formatted, file_data)) {
+                    return error.FormatCheckFailed;
+                }
+                return;
+            }
             try io_mod.writeOutput(io, formatted, cmd.output, parsed.quiet);
         },
         .completions => |cmd| {

@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.156.0] - 2026-08-07
+
+### Added
+- **`rune fmt --check`** — New `--check` flag for the format command. Verifies formatting without modifying files; exits with code 1 if the file needs formatting. Designed for CI/CD pipelines.
+
+### Fixed
+- **Config discovery error swallowing** — `rune.toml` discovery now propagates filesystem errors (e.g. `AccessDenied`, `IsDir`) instead of silently returning an empty config. The caller still falls back to defaults with a warning.
+- **LSP formatting error logging** — `lsp/formatting.zig` now logs formatting errors to the LSP output channel before returning null, instead of silently swallowing them.
+- **`catch unreachable` in test helpers** — Replaced `catch unreachable` with `try` in `validate_index_names.zig` and `streaming_test.zig` for proper OOM error propagation.
+
+## [0.155.0] - 2026-08-07
+
+### Fixed
+- **Migration guide syntax errors** — Replaced invalid `*`/`^` modifiers with actual parser syntax (`n++`, `!`, `@u`, `?`).
+- **Packaging manifests** — Updated Homebrew formula, Scoop manifest, and npm package.json to v0.155.0.
+- **Benchmark baselines** — Saved baselines for all 6 dialects (pg, sqlite, mssql, oracle, db2).
+
 ## [0.154.0] - 2026-08-07
 
 ### Changed
