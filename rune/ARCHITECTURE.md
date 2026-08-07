@@ -425,7 +425,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 81 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~926+ | Core logic + pipeline + colocated |
+| Unit tests | 83 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~926+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 87 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |
@@ -446,9 +446,47 @@ zig build bench -- bench/large.ss 5         # large schema
 | Init & completions | `tests/test_init.sh` | 12 | Init & completions |
 | **Total** | | **~753+** | |
 
+## Lint Module
+
+The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results.
+
+### Sub-modules
+
+| File | Lines | Responsibility |
+|------|-------|---------------|
+| `lint/rules.zig` | ~429 | 17 lint rules (no-pk, naming, no-index-fk, no-timestamps, wide-table, enum-case, count, fk-cascade, nullable-pk, orphan-type, index-unused, circular-fk, duplicate-index, empty-table, table-comment, naming_conventions, and table_count) |
+| `lint/config.zig` | ~239 | `LintConfig` struct with toggle flags, `LintRules` TOML config parsing, severity/threshold configuration |
+| `lint/format.zig` | ~150 | Output formatters: text (human-readable), JSON (machine-readable), SARIF (CI/CD integration) |
+| `lint/fix.zig` | ~18 | Auto-fix logic for fixable rules (no-pk, no-timestamps) |
+| `lint.zig` | ~33 | Re-export barrel module |
+
+### Lint Rules
+
+| Rule | Description | Fixable |
+|------|-------------|---------|
+| `no-pk` | Table has no primary key | Yes |
+| `naming` | Table/column name not snake_case | No |
+| `no-index-fk` | Foreign key column without index | No |
+| `no-timestamps` | Table missing created_at/updated_at | Yes |
+| `wide-table` | Table exceeds column threshold (default 30) | No |
+| `enum-case` | Custom type name not UPPER_CASE | No |
+| `count` | Table has too few columns | No |
+| `fk-cascade` | FK missing ON DELETE/ON UPDATE actions | No |
+| `nullable-pk` | Primary key column is nullable | No |
+| `orphan-type` | Custom type defined but not used | No |
+| `index-unused` | Non-FK, non-unique index may be unused | No |
+| `circular-fk` | Circular FK dependency detected | No |
+| `duplicate-index` | Duplicate index on same columns | No |
+| `empty-table` | Table has zero columns | No |
+| `table-comment` | Table has no comment | No |
+
+### Diff-Aware Lint
+
+`lintDiff(old, new)` compares two lint result sets and returns `added`/`removed`/`unchanged` arrays. Used by `rune lint --diff` to show only new issues introduced by schema changes.
+
 ## LSP Server
 
-The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It runs the compilation pipeline on document open/change and caches the `TypedAst` for interactive features.
+The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It runs the compilation pipeline on document open/change and caches the `TypedAst` for interactive features. Request handlers are extracted to `handlers.zig` for maintainability.
 
 ### Sub-modules
 
@@ -457,6 +495,7 @@ The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It
 | `lsp/server.zig` | ~629 | JSON-RPC main loop, request dispatch |
 | `lsp/protocol.zig` | ~869 | LSP protocol types and JSON serialization |
 | `lsp/documents.zig` | ~188 | Document state manager (open/change/close) |
+| `lsp/handlers.zig` | ~380 | Request handlers (initialize, shutdown, didOpen/didChange/didClose/didSave, completion, hover, definition, codeAction, formatting, rename) |
 | `lsp/compile_service.zig` | ~202 | Pipeline wrapper for LSP diagnostics |
 | `lsp/features.zig` | ~30 | Thin facade re-exporting sub-modules |
 | `lsp/helpers.zig` | ~10 | Shared `makeRange` utility |
@@ -471,7 +510,7 @@ The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It
 ### Data flow
 
 ```
-Editor → JSON-RPC → server.zig dispatch
+Editor → JSON-RPC → server.zig dispatch → handlers.zig
   ├── textDocument/didOpen/didChange → compile_service.zig → pipeline → TypedAst cache
   ├── textDocument/completion → completions.zig → CompletionList
   ├── textDocument/hover → hover.zig → Hover (markdown)

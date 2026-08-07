@@ -1,18 +1,20 @@
 // Test module index — imports colocated test files so zig build test discovers them.
+// ─── Section comments group tests by module for easy navigation. ────────────
+
 comptime {
-    // ast_visitor
+    // ── ast_visitor ──────────────────────────────────────────────
     _ = @import("ast_visitor_test.zig");
-    // bench
+    // ── bench ────────────────────────────────────────────────────
     _ = @import("bench_test.zig");
-    // cli
+    // ── cli ──────────────────────────────────────────────────────
     _ = @import("cli_test.zig");
-    // color
+    // ── color ────────────────────────────────────────────────────
     _ = @import("color_test.zig");
-    // completions
+    // ── completions ──────────────────────────────────────────────
     _ = @import("completions_test.zig");
-    // config
+    // ── config ───────────────────────────────────────────────────
     _ = @import("config.zig");
-    // codegen
+    // ── codegen ──────────────────────────────────────────────────
     _ = @import("codegen/codegen_test.zig");
     _ = @import("codegen/columns_test.zig");
     _ = @import("codegen/indexes_test.zig");
@@ -21,7 +23,7 @@ comptime {
     _ = @import("codegen/parallel.zig");
     _ = @import("codegen/deps.zig");
     _ = @import("golden_test.zig");
-    // dialect
+    // ── dialect ──────────────────────────────────────────────────
     _ = @import("dialect/dialect_test.zig");
     _ = @import("dialect/common_test.zig");
     _ = @import("dialect/mysql_test.zig");
@@ -31,7 +33,7 @@ comptime {
     _ = @import("dialect/oracle_test.zig");
     _ = @import("dialect/db2_test.zig");
     _ = @import("dialect/sqlite_hints_test.zig");
-    // diff
+    // ── diff ─────────────────────────────────────────────────────
     _ = @import("diff/diff_test.zig");
     _ = @import("diff/engine_test.zig");
     _ = @import("diff/fields_test.zig");
@@ -48,17 +50,33 @@ comptime {
     _ = @import("diff/format/sarif_test.zig");
     _ = @import("diff/format/json_test.zig");
     _ = @import("diff/format/markdown_test.zig");
-    // formatter
+    // ── formatter ────────────────────────────────────────────────
     _ = @import("formatter_test.zig");
-    // lint
-    _ = @import("lint_test.zig");
-    // io
+    // ── io ───────────────────────────────────────────────────────
     _ = @import("io_test.zig");
-    // watch
+    // ── watch ────────────────────────────────────────────────────
     _ = @import("watch_test.zig");
-    // json_schema
+    // ── generators ───────────────────────────────────────────────
     _ = @import("generators/json_schema_test.zig");
-    // parser
+    _ = @import("generators/common_test.zig");
+    _ = @import("generators/sql_ddl_test.zig");
+    _ = @import("generators/prisma_test.zig");
+    _ = @import("generators/docs_test.zig");
+    _ = @import("generators/drizzle_test.zig");
+    _ = @import("generators/typeorm_test.zig");
+    _ = @import("generators/sqlalchemy_test.zig");
+    _ = @import("generators/knex_test.zig");
+    _ = @import("generators/openapi_test.zig");
+    _ = @import("generators/graphql_test.zig");
+    _ = @import("generators/symbol_index_test.zig");
+    _ = @import("generators/common_check_test.zig");
+    _ = @import("generators/common_defaults_test.zig");
+    _ = @import("generator_test.zig");
+    // ── lint ─────────────────────────────────────────────────────
+    _ = @import("lint/rules_test.zig");
+    _ = @import("lint/format_test.zig");
+    _ = @import("lint/config_test.zig");
+    // ── parser ───────────────────────────────────────────────────
     _ = @import("parser/tokenizer_test.zig");
     _ = @import("parser/parser_test.zig");
     _ = @import("parser/parse_check_test.zig");
@@ -68,13 +86,13 @@ comptime {
     _ = @import("parser/parse_table_test.zig");
     _ = @import("parser/parse_template_test.zig");
     _ = @import("parser/sql_parser_test.zig");
-    // pipeline
+    // ── pipeline ─────────────────────────────────────────────────
     _ = @import("pipeline/diff_test.zig");
     _ = @import("pipeline/forward_test.zig");
     _ = @import("pipeline/import_resolver_test.zig");
     _ = @import("pipeline/stats_test.zig");
     _ = @import("pipeline/reverse_test.zig");
-    // reverse
+    // ── reverse ──────────────────────────────────────────────────
     _ = @import("reverse/map_test.zig");
     _ = @import("reverse/column_test.zig");
     _ = @import("reverse/check_test.zig");
@@ -82,7 +100,7 @@ comptime {
     _ = @import("reverse/dialect_detect_test.zig");
     _ = @import("reverse/fk_test.zig");
     _ = @import("reverse/template_extraction_test.zig");
-    // semantic
+    // ── semantic ─────────────────────────────────────────────────
     _ = @import("semantic/analyzer_test.zig");
     _ = @import("semantic/diagnostic_test.zig");
     _ = @import("semantic/pass_manager_test.zig");
@@ -100,32 +118,16 @@ comptime {
     _ = @import("semantic/pass/validate_type_modifiers.zig");
     _ = @import("semantic/pass/validate_template_types.zig");
     _ = @import("semantic/pass/validate_fk_types.zig");
-    // types
+    // ── types ────────────────────────────────────────────────────
     _ = @import("types/ast_test.zig");
     _ = @import("types/ir_version.zig");
     _ = @import("types/type_resolver_test.zig");
     _ = @import("types/type_registry_test.zig");
     _ = @import("types/sql_type_test.zig");
     _ = @import("types/symbol_table_test.zig");
-    // generators
-    _ = @import("generator_test.zig");
-    _ = @import("generators/common_test.zig");
-    _ = @import("generators/sql_ddl_test.zig");
-    _ = @import("generators/prisma_test.zig");
-    _ = @import("generators/docs_test.zig");
-    _ = @import("generators/drizzle_test.zig");
-    _ = @import("generators/typeorm_test.zig");
-    _ = @import("generators/sqlalchemy_test.zig");
-    _ = @import("generators/knex_test.zig");
-    _ = @import("generators/openapi_test.zig");
-    _ = @import("generators/graphql_test.zig");
-    _ = @import("generators/symbol_index_test.zig");
-    // utils
+    // ── utils ────────────────────────────────────────────────────
     _ = @import("utils/edit_distance_test.zig");
-    // generators (additional)
-    _ = @import("generators/common_check_test.zig");
-    _ = @import("generators/common_defaults_test.zig");
-    // lsp
+    // ── lsp ──────────────────────────────────────────────────────
     _ = @import("lsp/protocol.zig");
     _ = @import("lsp/server.zig");
     _ = @import("lsp/hover.zig");
