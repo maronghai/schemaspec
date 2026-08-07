@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.160.0] - 2026-08-07
+
+### Changed
+- **Lint module split** — Extracted 1017-line `lint.zig` monolith into 4 focused sub-modules: `lint/rules.zig` (15 lint rule implementations), `lint/format.zig` (text/JSON/SARIF formatters with shared `writeJsonString` helper), `lint/config.zig` (LintConfig, TOML parsing, diff-aware comparison), `lint/fix.zig` (auto-fix for no-pk and no-timestamps).
+- **Lint CLI handler extraction** — Moved ~110-line lint command handler from `main.zig:dispatch()` into `cli/lint_cmd.zig`, following the existing `cli/init.zig` and `cli/hooks.zig` pattern.
+- **`main.zig` simplified** — Lint command dispatch reduced from ~110 lines to ~12 lines (struct literal construction + delegation).
+
 ## [0.159.0] - 2026-08-07
 
 ### Fixed

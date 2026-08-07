@@ -137,7 +137,9 @@ rune/src/
   main.zig, cli.zig, io.zig, utils.zig, completions.zig, color.zig, config.zig  # CLI + glue
   wasm.zig                                                   # WASM library entry point (wasm32-wasi)
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
-  bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules
+  bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules (lint.zig = barrel for lint/ sub-modules)
+  lint/rules.zig, lint/format.zig, lint/config.zig, lint/fix.zig  # lint engine split
+  cli/lint_cmd.zig                                                 # lint CLI handler (extracted from main.zig)
   generator.zig                                                   # generator registry (pluggable)
   lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting)
                 compile_service.zig, server.zig, features.zig
@@ -303,7 +305,8 @@ rune/src/
 | | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_version, rune_reset) |
-| | `lint.zig` | Schema quality linting with auto-fix (missing PK, naming, FK indexes, timestamps, wide table, enum case, low count, FK cascade, nullable PK, orphan types, unused index, circular FK, duplicate index — 13 rules, `lintFix()` for no-pk and no-timestamps) |
+| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (15 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, TOML parsing), `lint/fix.zig` (auto-fix) |
+| | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
 | | `bench.zig` | Benchmark entry point |
