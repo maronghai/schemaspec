@@ -32,6 +32,8 @@ pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?
         .formatting_provider = true,
         .rename_provider = true,
         .prepare_rename_provider = true,
+        .references_provider = true,
+        .document_highlight_provider = true,
     });
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
@@ -348,6 +350,68 @@ pub fn handlePrepareRename(self: *Server, stdout_file: anytype, id: ?i64, params
     } else {
         try body_alloc.writer.writeAll("null");
     }
+
+    try self.sendResponse(stdout_file, rid, &body_alloc);
+}
+
+pub fn handleReferences(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+    const rid = id orelse return;
+    const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+    const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+
+    const result = self.compile_results.get(uri);
+    const typed = if (result) |r| r.typed_ast else null;
+
+    var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+    try body_alloc.writer.writeByte('[');
+    if (typed) |t| {
+        const refs = features_mod.getReferences(t, line, character, uri);
+        for (refs, 0..) |ref, i| {
+            if (i > 0) try body_alloc.writer.writeByte(',');
+            try body_alloc.writer.writeByte('{');
+            try lsp_protocol.writeRange(&body_alloc.writer, "range", ref.range);
+            try body_alloc.writer.writeAll(",\"uri\":\"");
+            try body_alloc.writer.writeAll(uri);
+            try body_alloc.writer.writeByte('"');
+            if (ref.is_definition) {
+                try body_alloc.writer.writeAll(",\"context\":{\"includeDeclaration\":true}");
+            }
+            try body_alloc.writer.writeByte('}');
+        }
+    }
+    try body_alloc.writer.writeByte(']');
+
+    try self.sendResponse(stdout_file, rid, &body_alloc);
+}
+
+pub fn handleDocumentHighlight(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+    const rid = id orelse return;
+    const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+    const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+
+    const result = self.compile_results.get(uri);
+    const typed = if (result) |r| r.typed_ast else null;
+
+    var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+    try body_alloc.writer.writeByte('[');
+    if (typed) |t| {
+        const highlights = features_mod.getDocumentHighlights(t, line, character);
+        for (highlights, 0..) |hl, i| {
+            if (i > 0) try body_alloc.writer.writeByte(',');
+            try body_alloc.writer.writeByte('{');
+            try lsp_protocol.writeRange(&body_alloc.writer, "range", hl.range);
+            try body_alloc.writer.writeAll(",\"kind\":");
+            try body_alloc.writer.print("{d}", .{@intFromEnum(hl.kind)});
+            try body_alloc.writer.writeByte('}');
+        }
+    }
+    try body_alloc.writer.writeByte(']');
 
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }

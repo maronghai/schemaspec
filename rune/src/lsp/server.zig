@@ -125,6 +125,14 @@ pub const Server = struct {
                 if (msg.params) |params| {
                     try handlers.handlePrepareRename(self, stdout_file, id, params);
                 }
+            } else if (std.mem.eql(u8, method, "textDocument/references")) {
+                if (msg.params) |params| {
+                    try handlers.handleReferences(self, stdout_file, id, params);
+                }
+            } else if (std.mem.eql(u8, method, "textDocument/documentHighlight")) {
+                if (msg.params) |params| {
+                    try handlers.handleDocumentHighlight(self, stdout_file, id, params);
+                }
             } else if (id != null) {
                 // Unknown method with id → respond with method_not_found
                 var w = stdout_file.writerStreaming(self.io, &buf);

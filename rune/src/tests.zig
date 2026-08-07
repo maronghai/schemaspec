@@ -137,4 +137,6 @@ comptime {
     _ = @import("lsp/code_actions.zig");
     _ = @import("lsp/compile_service.zig");
     _ = @import("lsp/documents.zig");
+    _ = @import("lsp/references.zig");
+    _ = @import("lsp/highlights.zig");
 }

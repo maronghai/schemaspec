@@ -458,7 +458,7 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 | `lint/rules.zig` | ~429 | 17 lint rules (no-pk, naming, no-index-fk, no-timestamps, wide-table, enum-case, count, fk-cascade, nullable-pk, orphan-type, index-unused, circular-fk, duplicate-index, empty-table, table-comment, naming_conventions, and table_count) |
 | `lint/config.zig` | ~239 | `LintConfig` struct with toggle flags, `LintRules` TOML config parsing, severity/threshold configuration |
 | `lint/format.zig` | ~150 | Output formatters: text (human-readable), JSON (machine-readable), SARIF (CI/CD integration) |
-| `lint/fix.zig` | ~18 | Auto-fix logic for fixable rules (no-pk, no-timestamps) |
+| `lint/fix.zig` | ~180 | Auto-fix logic for fixable rules (no-pk, no-timestamps, empty-table) |
 | `lint.zig` | ~33 | Re-export barrel module |
 
 ### Lint Rules
@@ -478,7 +478,7 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 | `index-unused` | Non-FK, non-unique index may be unused | No |
 | `circular-fk` | Circular FK dependency detected | No |
 | `duplicate-index` | Duplicate index on same columns | No |
-| `empty-table` | Table has zero columns | No |
+| `empty-table` | Table has zero columns | Yes |
 | `table-comment` | Table has no comment | No |
 
 ### Diff-Aware Lint
@@ -506,6 +506,8 @@ The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It
 | `lsp/go_to_definition.zig` | ~50 | Navigate FK references to target tables |
 | `lsp/code_actions.zig` | ~150 | Quick fixes (add PK, add comment, snake_case, FK index) |
 | `lsp/rename.zig` | ~130 | Symbol rename with reference tracking |
+| `lsp/references.zig` | ~100 | Find all references to a table or column name |
+| `lsp/highlights.zig` | ~100 | Document highlights — highlight all occurrences of symbol under cursor |
 | `lsp/formatting.zig` | ~10 | Document formatting via formatter |
 
 ### Data flow
@@ -516,6 +518,8 @@ Editor → JSON-RPC → server.zig dispatch → handlers.zig
   ├── textDocument/completion → completions.zig → CompletionList
   ├── textDocument/hover → hover.zig → Hover (markdown)
   ├── textDocument/definition → go_to_definition.zig → Location
+  ├── textDocument/references → references.zig → Location[]
+  ├── textDocument/documentHighlight → highlights.zig → DocumentHighlight[]
   ├── textDocument/codeAction → code_actions.zig → CodeAction[]
   ├── textDocument/rename → rename.zig → WorkspaceEdit
   └── textDocument/formatting → formatting.zig → TextEdit[]

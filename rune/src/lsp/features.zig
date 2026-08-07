@@ -14,6 +14,8 @@ pub const hover_mod = @import("hover.zig");
 pub const go_to_definition = @import("go_to_definition.zig");
 pub const code_actions = @import("code_actions.zig");
 pub const rename_mod = @import("rename.zig");
+pub const references_mod = @import("references.zig");
+pub const highlights_mod = @import("highlights.zig");
 
 // Convenience re-exports for callers that import features.zig directly
 pub const getDocumentSymbols = document_symbols.getDocumentSymbols;
@@ -24,5 +26,7 @@ pub const getCodeActions = code_actions.getCodeActions;
 pub const prepareRename = rename_mod.prepareRename;
 pub const getRenameLinks = rename_mod.getRenameLinks;
 pub const RenameResult = rename_mod.RenameResult;
+pub const getReferences = references_mod.getReferences;
+pub const getDocumentHighlights = highlights_mod.getDocumentHighlights;
 
 pub const getFormatting = @import("formatting.zig").getFormatting;

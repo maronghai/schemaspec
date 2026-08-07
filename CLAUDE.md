@@ -141,7 +141,7 @@ rune/src/
   lint/rules.zig, lint/format.zig, lint/config.zig, lint/fix.zig  # lint engine split
   cli/lint_cmd.zig                                                 # lint CLI handler (extracted from main.zig)
   generator.zig                                                   # generator registry (pluggable)
-  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting)
+  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights)
                 compile_service.zig, server.zig, features.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
   tests.zig                                                       # colocated test index (81 files)

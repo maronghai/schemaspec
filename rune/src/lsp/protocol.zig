@@ -235,6 +235,8 @@ pub const ServerCapabilities = struct {
     formatting_provider: ?bool = null,
     rename_provider: ?bool = null,
     prepare_rename_provider: ?bool = null,
+    references_provider: ?bool = null,
+    document_highlight_provider: ?bool = null,
 };
 
 pub const InitializeResult = struct {
@@ -583,7 +585,7 @@ pub fn writeDocumentSymbol(w: anytype, sym: DocumentSymbol) !void {
 }
 
 /// Write a Range as a named JSON field.
-fn writeRange(w: anytype, key: []const u8, r: Range) !void {
+pub fn writeRange(w: anytype, key: []const u8, r: Range) !void {
     try writeJsonString(w, key);
     try w.writeAll(":{\"start\":{\"line\":");
     try w.print("{d}", .{r.start.line});
@@ -782,6 +784,46 @@ fn writeJsonValue(w: anytype, val: anytype) !void {
 /// Check if a type is an optional type at comptime.
 fn comptime_is_optional(comptime T: type) bool {
     return @typeInfo(T) == .optional;
+}
+
+// ─── Document Highlight ──────────────────────────────────────
+
+pub const DocumentHighlightKind = enum(u32) {
+    text = 1,
+    read = 2,
+    write = 3,
+};
+
+pub const DocumentHighlight = struct {
+    range: Range,
+    kind: DocumentHighlightKind,
+};
+
+/// Write a DocumentHighlight as JSON.
+pub fn writeDocumentHighlight(w: anytype, highlight: DocumentHighlight) !void {
+    try w.writeByte('{');
+    try writeRange(w, "range", highlight.range);
+    try w.writeAll(",\"kind\":");
+    try w.print("{d}", .{@intFromEnum(highlight.kind)});
+    try w.writeByte('}');
+}
+
+// ─── Reference ───────────────────────────────────────────────
+
+pub const Reference = struct {
+    range: Range,
+    /// True if this is the definition site.
+    is_definition: bool,
+};
+
+/// Write a Reference (Location with optional context) as JSON.
+pub fn writeReference(w: anytype, ref: Reference) !void {
+    try w.writeByte('{');
+    try writeRange(w, "range", ref.range);
+    if (ref.is_definition) {
+        try w.writeAll(",\"context\":{\"includeDeclaration\":true}");
+    }
+    try w.writeByte('}');
 }
 
 // ─── Tests ─────────────────────────────────────────────────────

@@ -81,6 +81,7 @@ pub fn tokenizeAndParseWithLines(alloc: std.mem.Allocator, lines: []const []cons
     const tok = tokenizer.Tokenizer.init(lines);
     const tokenized = try tok.tokenizeAll(alloc);
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
+    defer diagnostics.diagnostics.deinit(alloc);
     diagnostics.json_errors = json_errors;
     var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
     // Parser always succeeds when diagnostics are present — errors are recorded

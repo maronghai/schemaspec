@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.164.0] - 2026-08-08
+
+### Added
+- **LSP find-references** — `textDocument/references` support for finding all references to a table or column name across the document.
+- **LSP document highlights** — `textDocument/documentHighlight` support for highlighting all occurrences of the symbol under the cursor.
+- **Lint auto-fix: empty-table** — `rune lint --fix` now removes empty table declarations (tables with zero fields).
+- **Lint fix tests** — Unit tests for the lint auto-fix module covering no-pk, no-timestamps, and empty-table rules.
+
+### Fixed
+- **LSP compile_service memory leak** — Fixed leaked allocations in `lsp/compile_service.zig` by using arena allocation for pipeline intermediates and freeing tokenizer output after semantic analysis. Tests now use arena allocators matching the LSP server's actual usage pattern.
+- **import_resolver memory leak** — Fixed leaked DiagnosticCollector in `tokenizeAndParseWithLines` by adding proper cleanup.
+
 ## [0.163.0] - 2026-08-08
 
 ### Added
