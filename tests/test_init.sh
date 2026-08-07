@@ -119,5 +119,33 @@ else
   fail "$TEST_NAME" "expected SQLite output"
 fi
 
+# Test 13: init with --output-dir
+TEST_NAME="init with --output-dir"
+mkdir -p "$TMPDIR/subdir"
+"$COMPILER" init --output-dir "$TMPDIR/subdir" > /dev/null 2>&1
+if [ -f "$TMPDIR/subdir/schema.ss" ]; then
+  pass "$TEST_NAME"
+else
+  fail "$TEST_NAME" "schema.ss not created in subdir"
+fi
+
+# Test 14: init with --output-dir and custom name
+TEST_NAME="init with --output-dir and name"
+"$COMPILER" init myapp --output-dir "$TMPDIR/subdir" > /dev/null 2>&1
+if [ -f "$TMPDIR/subdir/myapp.ss" ]; then
+  pass "$TEST_NAME"
+else
+  fail "$TEST_NAME" "myapp.ss not created in subdir"
+fi
+
+# Test 15: init with --output-dir schema compiles
+TEST_NAME="output-dir schema compiles"
+OUTPUT=$("$COMPILER" "$TMPDIR/subdir/schema.ss" 2>&1)
+if [ $? -eq 0 ] && echo "$OUTPUT" | grep -q "CREATE TABLE"; then
+  pass "$TEST_NAME"
+else
+  fail "$TEST_NAME" "$OUTPUT"
+fi
+
 summary "rune init"
 exit $FAIL

@@ -88,6 +88,74 @@ else
     FAIL=$((FAIL + 1))
 fi
 
+# Test 7: Fix --dry-run on no-pk schema
+FIX_TMP=$(mktemp)
+cp "$LINT_DIR/fix_no_pk.ss" "$FIX_TMP"
+output_fix=$("$BIN" lint "$FIX_TMP" --fix --dry-run 2>&1) || true
+# File should be unchanged
+if diff -q "$FIX_TMP" "$LINT_DIR/fix_no_pk.ss" > /dev/null 2>&1; then
+    echo -e "  ${GREEN}✓${RESET} lint_fix_dryrun_no_change"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${RESET} lint_fix_dryrun_no_change (file was modified)"
+    FAIL=$((FAIL + 1))
+fi
+# Output should contain id n++
+if echo "$output_fix" | grep -q "id       n++"; then
+    echo -e "  ${GREEN}✓${RESET} lint_fix_dryrun_shows_pk"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${RESET} lint_fix_dryrun_shows_pk (id n++ not in output)"
+    FAIL=$((FAIL + 1))
+fi
+rm -f "$FIX_TMP"
+
+# Test 8: Fix --dry-run on no-timestamps schema
+FIX_TMP=$(mktemp)
+cp "$LINT_DIR/fix_no_timestamps.ss" "$FIX_TMP"
+output_fix_ts=$("$BIN" lint "$FIX_TMP" --fix --dry-run 2>&1) || true
+if diff -q "$FIX_TMP" "$LINT_DIR/fix_no_timestamps.ss" > /dev/null 2>&1; then
+    echo -e "  ${GREEN}✓${RESET} lint_fix_dryrun_ts_no_change"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${RESET} lint_fix_dryrun_ts_no_change (file was modified)"
+    FAIL=$((FAIL + 1))
+fi
+if echo "$output_fix_ts" | grep -q "created_at t"; then
+    echo -e "  ${GREEN}✓${RESET} lint_fix_dryrun_shows_ts"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${RESET} lint_fix_dryrun_shows_ts (created_at not in output)"
+    FAIL=$((FAIL + 1))
+fi
+rm -f "$FIX_TMP"
+
+# Test 9: Fix modifies file (non-dry-run)
+FIX_TMP=$(mktemp)
+cp "$LINT_DIR/fix_no_pk.ss" "$FIX_TMP"
+"$BIN" lint "$FIX_TMP" --fix 2>&1 || true
+if grep -q "id       n++" "$FIX_TMP"; then
+    echo -e "  ${GREEN}✓${RESET} lint_fix_writes_file"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${RESET} lint_fix_writes_file (id n++ not found in file)"
+    FAIL=$((FAIL + 1))
+fi
+rm -f "$FIX_TMP"
+
+# Test 10: Fix on clean schema does nothing
+FIX_TMP=$(mktemp)
+cp "$LINT_DIR/clean.ss" "$FIX_TMP"
+"$BIN" lint "$FIX_TMP" --fix 2>&1 || true
+if diff -q "$FIX_TMP" "$LINT_DIR/clean.ss" > /dev/null 2>&1; then
+    echo -e "  ${GREEN}✓${RESET} lint_fix_clean_noop"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${RESET} lint_fix_clean_noop (file was modified)"
+    FAIL=$((FAIL + 1))
+fi
+rm -f "$FIX_TMP"
+
 echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo -e "${GREEN}Lint: $PASS passed${RESET}, ${RED}$FAIL failed${RESET}"
 echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"

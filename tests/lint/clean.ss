@@ -7,10 +7,12 @@ id n++
 created_at d
 updated_at d
 
-# base users
+; Users table
+# base users : User accounts
 name s
 email s
 
-# base orders
+; Orders table
+# base orders : Customer orders
 user_id n
 total p

@@ -68,6 +68,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune stats schema.ss --format json    # Stats as JSON
 ./rune/zig-out/bin/rune init                             # Create starter schema
 ./rune/zig-out/bin/rune init myapp                       # Create starter schema with name
+./rune/zig-out/bin/rune init --output-dir src/schema    # Create in subdirectory
 ./rune/zig-out/bin/rune --init                           # Create starter schema (flag equivalent)
 ./rune/zig-out/bin/rune completions bash                 # Generate bash completions
 ./rune/zig-out/bin/rune completions zsh                  # Generate zsh completions
@@ -91,6 +92,8 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune watch schema.ss --parallel        # Watch with parallel compilation
 ./rune/zig-out/bin/rune watch schema.ss -s                # Watch with compilation stats
 ./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues
+./rune/zig-out/bin/rune lint schema.ss --fix              # Lint and auto-fix issues (no-pk, no-timestamps)
+./rune/zig-out/bin/rune lint schema.ss --fix --dry-run    # Preview fixes without writing
 ./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON
 ./rune/zig-out/bin/rune lint schema.ss --strict           # Lint, exit 1 on warnings
 ./rune/zig-out/bin/rune lsp                               # Start LSP language server (stdio)
@@ -300,7 +303,7 @@ rune/src/
 | | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_version, rune_reset) |
-| | `lint.zig` | Schema quality linting (missing PK, naming, FK indexes, timestamps, wide table, enum case, low count, FK cascade, nullable PK, orphan types, unused index, circular FK, duplicate index — 13 rules) |
+| | `lint.zig` | Schema quality linting with auto-fix (missing PK, naming, FK indexes, timestamps, wide table, enum case, low count, FK cascade, nullable PK, orphan types, unused index, circular FK, duplicate index — 13 rules, `lintFix()` for no-pk and no-timestamps) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
 | | `bench.zig` | Benchmark entry point |

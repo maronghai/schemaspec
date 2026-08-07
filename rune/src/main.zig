@@ -205,7 +205,7 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
 fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void {
     // Handle --init flag (invokes init without explicit subcommand)
     if (parsed.init_flag) {
-        return init_mod.handleInit(io, alloc, null, null, parsed.dialect);
+        return init_mod.handleInit(io, alloc, null, null, null, parsed.dialect);
     }
 
     switch (parsed.command) {
@@ -324,7 +324,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return forward.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
         },
         .init => |cmd| {
-            return init_mod.handleInit(io, alloc, cmd.name, cmd.output, parsed.dialect);
+            return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect);
         },
         .format_cmd => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
@@ -367,41 +367,44 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 std.process.exit(1);
             };
             const results = try lint_mod.lintSchema(alloc, pipeline.resolved, lint_cfg);
-            // Diff-aware lint: if second file provided, compare results
-            if (cmd.input2) |input2_path| {
-                const file_data2 = try io_mod.readFileOrStdin(io, alloc, input2_path);
-                const pipeline2 = forward.compilePipeline(alloc, file_data2, .{
-                    .io = io,
-                    .dialect = parsed.dialect,
-                    .json_errors = false,
-                }) catch {
-                    fmt.printError("schema", "failed to compile schema");
-                    std.process.exit(1);
-                };
-                const results2 = try lint_mod.lintSchema(alloc, pipeline2.resolved, lint_cfg);
-                const diff = try lint_mod.lintDiff(results.items, results2.items, alloc);
-                const use_color = parsed.color.shouldUseColor(io);
-                if (cmd.format == .sarif) {
-                    const sarif = try lint_mod.formatLintSarif(alloc, diff.added, version.VERSION, cmd.input2);
-                    try io_mod.writeOutput(io, sarif, null, parsed.quiet);
-                } else if (cmd.json_errors or cmd.format == .json) {
-                    const json = try lint_mod.formatLintJson(alloc, diff.added);
-                    try io_mod.writeOutput(io, json, null, parsed.quiet);
+            // When --fix is active, skip normal output (fix summary goes to stderr)
+            if (!cmd.fix) {
+                // Diff-aware lint: if second file provided, compare results
+                if (cmd.input2) |input2_path| {
+                    const file_data2 = try io_mod.readFileOrStdin(io, alloc, input2_path);
+                    const pipeline2 = forward.compilePipeline(alloc, file_data2, .{
+                        .io = io,
+                        .dialect = parsed.dialect,
+                        .json_errors = false,
+                    }) catch {
+                        fmt.printError("schema", "failed to compile schema");
+                        std.process.exit(1);
+                    };
+                    const results2 = try lint_mod.lintSchema(alloc, pipeline2.resolved, lint_cfg);
+                    const diff = try lint_mod.lintDiff(results.items, results2.items, alloc);
+                    const use_color = parsed.color.shouldUseColor(io);
+                    if (cmd.format == .sarif) {
+                        const sarif = try lint_mod.formatLintSarif(alloc, diff.added, version.VERSION, cmd.input2);
+                        try io_mod.writeOutput(io, sarif, null, parsed.quiet);
+                    } else if (cmd.json_errors or cmd.format == .json) {
+                        const json = try lint_mod.formatLintJson(alloc, diff.added);
+                        try io_mod.writeOutput(io, json, null, parsed.quiet);
+                    } else {
+                        const text = try lint_mod.formatLintResults(alloc, diff.added, use_color);
+                        try io_mod.writeOutput(io, text, null, parsed.quiet);
+                    }
                 } else {
-                    const text = try lint_mod.formatLintResults(alloc, diff.added, use_color);
-                    try io_mod.writeOutput(io, text, null, parsed.quiet);
-                }
-            } else {
-                const use_color = parsed.color.shouldUseColor(io);
-                if (cmd.format == .sarif) {
-                    const sarif = try lint_mod.formatLintSarif(alloc, results.items, version.VERSION, cmd.input);
-                    try io_mod.writeOutput(io, sarif, null, parsed.quiet);
-                } else if (cmd.json_errors or cmd.format == .json) {
-                    const json = try lint_mod.formatLintJson(alloc, results.items);
-                    try io_mod.writeOutput(io, json, null, parsed.quiet);
-                } else {
-                    const text = try lint_mod.formatLintResults(alloc, results.items, use_color);
-                    try io_mod.writeOutput(io, text, null, parsed.quiet);
+                    const use_color = parsed.color.shouldUseColor(io);
+                    if (cmd.format == .sarif) {
+                        const sarif = try lint_mod.formatLintSarif(alloc, results.items, version.VERSION, cmd.input);
+                        try io_mod.writeOutput(io, sarif, null, parsed.quiet);
+                    } else if (cmd.json_errors or cmd.format == .json) {
+                        const json = try lint_mod.formatLintJson(alloc, results.items);
+                        try io_mod.writeOutput(io, json, null, parsed.quiet);
+                    } else {
+                        const text = try lint_mod.formatLintResults(alloc, results.items, use_color);
+                        try io_mod.writeOutput(io, text, null, parsed.quiet);
+                    }
                 }
             }
             if (cmd.strict) {
@@ -423,6 +426,30 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                     for (results.items) |r| {
                         if (r.severity == .warning) std.process.exit(1);
                     }
+                }
+            }
+            // Lint auto-fix: apply fixes to source text
+            if (cmd.fix and results.items.len > 0) {
+                const fixed = try lint_mod.lintFix(alloc, file_data, results.items);
+                if (cmd.dry_run) {
+                    // Dry run: print fixed source to stdout
+                    try io_mod.writeOutput(io, fixed.source, null, parsed.quiet);
+                } else if (cmd.input) |input_path| {
+                    // Write back to the input file
+                    std.Io.Dir.cwd().writeFile(io, .{
+                        .sub_path = input_path,
+                        .data = fixed.source,
+                    }) catch {
+                        fmt.printError("io", "failed to write fixed file");
+                        std.process.exit(1);
+                    };
+                }
+                // Print fix summary
+                for (fixed.fixes) |fix| {
+                    std.debug.print("fixed: [{s}] {s} — {s}\n", .{ fix.rule, fix.table, fix.description });
+                }
+                if (!parsed.quiet) {
+                    std.debug.print("Applied {d} fix(es)\n", .{fixed.fixes.len});
                 }
             }
         },

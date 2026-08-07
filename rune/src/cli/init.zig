@@ -41,11 +41,15 @@ pub const STARTER_SCHEMA =
     \\
 ;
 
-pub fn handleInit(io: std.Io, alloc: std.mem.Allocator, name: ?[]const u8, output: ?[]const u8, dialect: dialect_enum.Dialect) !void {
+pub fn handleInit(io: std.Io, alloc: std.mem.Allocator, name: ?[]const u8, output: ?[]const u8, output_dir: ?[]const u8, dialect: dialect_enum.Dialect) !void {
     const filename = name orelse "schema";
     const out_path = output orelse blk: {
-        const path = try std.fmt.allocPrint(alloc, "{s}.ss", .{filename});
-        break :blk path;
+        if (output_dir) |dir| {
+            // Create directory recursively (like mkdir -p)
+            std.Io.Dir.cwd().createDirPath(io, dir) catch {};
+            break :blk try std.fmt.allocPrint(alloc, "{s}/{s}.ss", .{ dir, filename });
+        }
+        break :blk try std.fmt.allocPrint(alloc, "{s}.ss", .{filename});
     };
     // Prepend dialect hint comment for the user
     const dialect_name = @tagName(dialect);
