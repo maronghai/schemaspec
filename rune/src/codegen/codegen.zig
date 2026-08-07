@@ -60,7 +60,7 @@ pub const BufferPool = struct {
 pub const Codegen = struct {
     alloc: std.mem.Allocator,
     dialect: Dialect,
-    backend: dialect_mod.DialectBackend,
+    backend: *const dialect_mod.DialectBackend,
 
     pub fn init(alloc: std.mem.Allocator, dialect: Dialect) Codegen {
         return .{

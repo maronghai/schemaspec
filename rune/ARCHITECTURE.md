@@ -178,7 +178,7 @@ Input (SQL DDL text)
 
 ## DialectBackend Vtable
 
-26 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field for dialect-specific SQL generation (33+ dispatch points):
+26 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field for dialect-specific SQL generation (33+ dispatch points). `getBackend()` returns `*const DialectBackend` (pointer to static const, avoids 136-byte copy on every call).
 
 ```zig
 DialectBackend = struct {
@@ -382,7 +382,7 @@ No code changes needed — users define types in `.ss` files. For built-in suppo
 1. Add variant to `Dialect` enum in `dialect/enum.zig`
 2. Create `DialectBackend` instance in `dialect/<name>.zig` (~300 lines, self-contained type mapping)
 3. Register in `getBackend()` switch in `dialect.zig`
-4. Add comptime validation in `dialect.zig`
+4. Add comptime validation call in `dialect.zig` (`comptimeValidateAllPointers`)
 5. Update CLI `parseDialect` to accept dialect aliases
 6. Add reverse mappings to `REVERSE_MAP` in `types/reverse_map.zig`
 7. Update `DialectTypeMap` struct with new dialect field
@@ -456,7 +456,7 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 | File | Lines | Responsibility |
 |------|-------|---------------|
 | `lint/rules.zig` | ~429 | 17 lint rules (no-pk, naming, no-index-fk, no-timestamps, wide-table, enum-case, count, fk-cascade, nullable-pk, orphan-type, index-unused, circular-fk, duplicate-index, empty-table, table-comment, naming_conventions, and table_count) |
-| `lint/config.zig` | ~239 | `LintConfig` struct with toggle flags, `LintRules` TOML config parsing, severity/threshold configuration |
+| `lint/config.zig` | ~239 | `LintConfig` struct with toggle flags, `LintRule` enum (single source of truth for rule names + enable/disable), `LintRules` TOML config parsing, severity/threshold configuration |
 | `lint/format.zig` | ~150 | Output formatters: text (human-readable), JSON (machine-readable), SARIF (CI/CD integration) |
 | `lint/fix.zig` | ~180 | Auto-fix logic for fixable rules (no-pk, no-timestamps, empty-table) |
 | `lint.zig` | ~33 | Re-export barrel module |

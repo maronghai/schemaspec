@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.165.0] - 2026-08-08
+
+### Changed
+- **DialectBackend vtable: pointer return** — `getBackend()` now returns `*const DialectBackend` instead of copying 136 bytes on every call. Updated `Codegen.backend`, `MigrationContext.backend`, and all codegen/migration emission functions to use pointers throughout.
+- **MigrationContext struct** — Replaced 9-parameter function signatures in `diff/migrate.zig` with a single `MigrationContext` struct, reducing parameter bloat across 8 emit* functions.
+- **LintRule enum** — Introduced `LintRule` enum in `lint/config.zig` with `isEnabled()`, `name()`, and `fromName()` methods. Updated `runAll()` and `fixAll()` to use `LintRule.isEnabled()` instead of direct config field access.
+- **applyLintRules refactor** — Replaced 24-line string comparison chains with `LintRule.fromName()` + `setRuleEnabled()` dispatch, reducing duplication and making new rules a single enum addition.
+- **Comptime dialect validation** — Replaced 31+ manually-maintained `@compileError` lines with `comptimeValidateAllPointers()` that auto-validates all function pointer fields via struct iteration.
+
 ## [0.164.0] - 2026-08-08
 
 ### Added

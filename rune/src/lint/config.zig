@@ -12,6 +12,78 @@ pub const LintResult = struct {
     severity: LintSeverity,
 };
 
+/// Enumeration of all lint rules. Provides a single source of truth for rule names,
+/// config field mapping, and enable/disable logic.
+pub const LintRule = enum {
+    no_pk,
+    naming,
+    no_index_fk,
+    no_timestamps,
+    wide_table,
+    enum_case,
+    count,
+    fk_cascade,
+    nullable_pk,
+    orphan_type,
+    index_unused,
+    circular_fk,
+    duplicate_index,
+    empty_table,
+    table_comment,
+
+    /// Check if this rule is enabled in the given config.
+    pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
+        return switch (self) {
+            .no_pk => cfg.check_pk,
+            .naming => cfg.check_naming,
+            .no_index_fk => cfg.check_fk_index,
+            .no_timestamps => cfg.check_timestamps,
+            .wide_table => cfg.check_wide_table,
+            .enum_case => cfg.check_enum_case,
+            .count => cfg.check_count,
+            .fk_cascade => cfg.check_fk_cascade,
+            .nullable_pk => cfg.check_nullable_pk,
+            .orphan_type => cfg.check_orphan_type,
+            .index_unused => cfg.check_index_unused,
+            .circular_fk => cfg.check_circular_fk,
+            .duplicate_index => cfg.check_duplicate_index,
+            .empty_table => cfg.check_empty_table,
+            .table_comment => cfg.check_table_comment,
+        };
+    }
+
+    /// Human-readable rule name for config files and output.
+    pub fn name(self: LintRule) []const u8 {
+        return switch (self) {
+            .no_pk => "no-pk",
+            .naming => "naming",
+            .no_index_fk => "no-index-fk",
+            .no_timestamps => "no-timestamps",
+            .wide_table => "wide-table",
+            .enum_case => "enum-case",
+            .count => "count",
+            .fk_cascade => "fk-cascade",
+            .nullable_pk => "nullable-pk",
+            .orphan_type => "orphan-type",
+            .index_unused => "index-unused",
+            .circular_fk => "circular-fk",
+            .duplicate_index => "duplicate-index",
+            .empty_table => "empty-table",
+            .table_comment => "table-comment",
+        };
+    }
+
+    /// Parse a rule name string into a LintRule enum value.
+    pub fn fromName(n: []const u8) ?LintRule {
+        inline for (std.meta.fields(LintRule)) |field| {
+            if (std.mem.eql(u8, @field(LintRule, field.name).name(), n)) {
+                return @field(LintRule, field.name);
+            }
+        }
+        return null;
+    }
+};
+
 pub const LintConfig = struct {
     check_pk: bool = true,
     check_naming: bool = true,
@@ -185,49 +257,38 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
 
     // If enabled list is set, disable everything first, then enable listed rules
     if (rules.enabled) |enabled| {
-        cfg.check_pk = false;
-        cfg.check_naming = false;
-        cfg.check_fk_index = false;
-        cfg.check_timestamps = false;
-        cfg.check_wide_table = false;
-        cfg.check_enum_case = false;
-        cfg.check_count = false;
-        cfg.check_fk_cascade = false;
-        cfg.check_nullable_pk = false;
-        cfg.check_orphan_type = false;
-        cfg.check_index_unused = false;
-        cfg.check_circular_fk = false;
+        cfg = LintConfig{
+            .check_pk = false,
+            .check_naming = false,
+            .check_fk_index = false,
+            .check_timestamps = false,
+            .check_wide_table = false,
+            .check_enum_case = false,
+            .check_count = false,
+            .check_fk_cascade = false,
+            .check_nullable_pk = false,
+            .check_orphan_type = false,
+            .check_index_unused = false,
+            .check_circular_fk = false,
+            .check_duplicate_index = false,
+            .check_empty_table = false,
+            .check_table_comment = false,
+            .wide_table_max = base.wide_table_max,
+            .count_min = base.count_min,
+        };
         for (enabled) |rule| {
-            if (std.mem.eql(u8, rule, "no-pk")) cfg.check_pk = true;
-            if (std.mem.eql(u8, rule, "naming")) cfg.check_naming = true;
-            if (std.mem.eql(u8, rule, "no-index-fk")) cfg.check_fk_index = true;
-            if (std.mem.eql(u8, rule, "no-timestamps")) cfg.check_timestamps = true;
-            if (std.mem.eql(u8, rule, "wide-table")) cfg.check_wide_table = true;
-            if (std.mem.eql(u8, rule, "enum-case")) cfg.check_enum_case = true;
-            if (std.mem.eql(u8, rule, "count")) cfg.check_count = true;
-            if (std.mem.eql(u8, rule, "fk-cascade")) cfg.check_fk_cascade = true;
-            if (std.mem.eql(u8, rule, "nullable-pk")) cfg.check_nullable_pk = true;
-            if (std.mem.eql(u8, rule, "orphan-type")) cfg.check_orphan_type = true;
-            if (std.mem.eql(u8, rule, "index-unused")) cfg.check_index_unused = true;
-            if (std.mem.eql(u8, rule, "circular-fk")) cfg.check_circular_fk = true;
+            if (LintRule.fromName(rule)) |r| {
+                cfg = setRuleEnabled(cfg, r, true);
+            }
         }
     }
 
     // Disable listed rules
     if (rules.disabled) |disabled| {
         for (disabled) |rule| {
-            if (std.mem.eql(u8, rule, "no-pk")) cfg.check_pk = false;
-            if (std.mem.eql(u8, rule, "naming")) cfg.check_naming = false;
-            if (std.mem.eql(u8, rule, "no-index-fk")) cfg.check_fk_index = false;
-            if (std.mem.eql(u8, rule, "no-timestamps")) cfg.check_timestamps = false;
-            if (std.mem.eql(u8, rule, "wide-table")) cfg.check_wide_table = false;
-            if (std.mem.eql(u8, rule, "enum-case")) cfg.check_enum_case = false;
-            if (std.mem.eql(u8, rule, "count")) cfg.check_count = false;
-            if (std.mem.eql(u8, rule, "fk-cascade")) cfg.check_fk_cascade = false;
-            if (std.mem.eql(u8, rule, "nullable-pk")) cfg.check_nullable_pk = false;
-            if (std.mem.eql(u8, rule, "orphan-type")) cfg.check_orphan_type = false;
-            if (std.mem.eql(u8, rule, "index-unused")) cfg.check_index_unused = false;
-            if (std.mem.eql(u8, rule, "circular-fk")) cfg.check_circular_fk = false;
+            if (LintRule.fromName(rule)) |r| {
+                cfg = setRuleEnabled(cfg, r, false);
+            }
         }
     }
 
@@ -236,4 +297,27 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
     if (rules.thresholds.count_min) |min| cfg.count_min = min;
 
     return cfg;
+}
+
+/// Set a rule's enabled state in a LintConfig.
+fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
+    var c = cfg;
+    switch (rule) {
+        .no_pk => c.check_pk = enabled,
+        .naming => c.check_naming = enabled,
+        .no_index_fk => c.check_fk_index = enabled,
+        .no_timestamps => c.check_timestamps = enabled,
+        .wide_table => c.check_wide_table = enabled,
+        .enum_case => c.check_enum_case = enabled,
+        .count => c.check_count = enabled,
+        .fk_cascade => c.check_fk_cascade = enabled,
+        .nullable_pk => c.check_nullable_pk = enabled,
+        .orphan_type => c.check_orphan_type = enabled,
+        .index_unused => c.check_index_unused = enabled,
+        .circular_fk => c.check_circular_fk = enabled,
+        .duplicate_index => c.check_duplicate_index = enabled,
+        .empty_table => c.check_empty_table = enabled,
+        .table_comment => c.check_table_comment = enabled,
+    }
+    return c;
 }

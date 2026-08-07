@@ -15,6 +15,21 @@ const TypeInfo = ast_mod.TypeInfo;
 
 const Dialect = dialect_enum.Dialect;
 
+// ─── Migration Context ─────────────────────────────────────
+// Bundles shared state passed through all migration emission functions,
+// replacing 9-parameter signatures with a single context struct.
+
+const MigrationContext = struct {
+    alloc: std.mem.Allocator,
+    w: *std.Io.Writer,
+    backend: *const dialect_mod.DialectBackend,
+    cg: ?*codegen.Codegen,
+    dialect: Dialect,
+    resolved: resolved_ast.ResolvedAst,
+    has_operations: *bool,
+    needs_comma: *bool,
+};
+
 // ─── Helpers ───────────────────────────────────────────────
 
 const optionalStrEq = utils.optionalStrEq;
@@ -75,7 +90,17 @@ pub fn generateFromPlan(
                 var sub_needs_comma = false;
                 var cg = codegen.Codegen.init(alloc, dialect);
 
-                try emitAlterTableOps(alloc, w, backend, at, &cg, dialect, new_resolved, &table_has_ops, &sub_needs_comma);
+                var ctx = MigrationContext{
+                    .alloc = alloc,
+                    .w = w,
+                    .backend = backend,
+                    .cg = &cg,
+                    .dialect = dialect,
+                    .resolved = new_resolved,
+                    .has_operations = &table_has_ops,
+                    .needs_comma = &sub_needs_comma,
+                };
+                try emitAlterTableOps(&ctx, at);
                 if (table_has_ops) {
                     has_operations = true;
                     try w.writeAll(";\n");
@@ -148,15 +173,8 @@ pub fn generateRollback(
 /// Emit ALTER TABLE operations from a plan's AlterTable operation.
 /// Bridges the plan IR to the existing field/index/FK emission helpers.
 fn emitAlterTableOps(
-    alloc: std.mem.Allocator,
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     at: @import("plan.zig").MigrationPlan.AlterTable,
-    cg: ?*codegen.Codegen,
-    dialect: Dialect,
-    resolved: resolved_ast.ResolvedAst,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
     // Bridge to existing helpers by constructing a temporary TableDiff
     const td = diff_mod.TableDiff{
@@ -167,139 +185,105 @@ fn emitAlterTableOps(
         .fk_diffs = at.fk_diffs,
         .metadata_diff = at.metadata_diff,
     };
-    try emitFieldDiffs(alloc, w, backend, td, cg, dialect, resolved, table_has_ops, sub_needs_comma);
-    try emitIndexDiffs(w, backend, td, table_has_ops, sub_needs_comma);
-    try emitMetadataDiffs(w, backend, td, table_has_ops, sub_needs_comma);
-    try emitFkDiffs(w, backend, td, table_has_ops, sub_needs_comma);
+    try emitFieldDiffs(ctx, td);
+    try emitIndexDiffs(ctx, td);
+    try emitMetadataDiffs(ctx, td);
+    try emitFkDiffs(ctx, td);
 }
 
 fn emitFieldDiffs(
-    alloc: std.mem.Allocator,
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     td: diff_mod.TableDiff,
-    cg: ?*codegen.Codegen,
-    dialect: Dialect,
-    resolved: resolved_ast.ResolvedAst,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
     for (td.field_diffs) |fd| {
         switch (fd.action) {
-            .add => try emitAddField(alloc, w, backend, td.name, fd, cg, dialect, resolved, table_has_ops, sub_needs_comma),
-            .drop => try emitDropField(w, backend, td.name, fd, table_has_ops, sub_needs_comma),
-            .modify => try emitModifyField(alloc, w, backend, td.name, fd, cg, dialect, resolved, table_has_ops, sub_needs_comma),
-            .rename => try emitRenameField(alloc, w, backend, td.name, fd, cg, dialect, resolved, table_has_ops, sub_needs_comma),
+            .add => try emitAddField(ctx, td.name, fd),
+            .drop => try emitDropField(ctx, td.name, fd),
+            .modify => try emitModifyField(ctx, td.name, fd),
+            .rename => try emitRenameField(ctx, td.name, fd),
         }
     }
 }
 
 fn emitAddField(
-    alloc: std.mem.Allocator,
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     table_name: []const u8,
     fd: diff_mod.FieldDiff,
-    cg: ?*codegen.Codegen,
-    dialect: Dialect,
-    resolved: resolved_ast.ResolvedAst,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
-    if (cg) |c| {
-        try emit.beginAlterTable(w, backend, table_name, table_has_ops);
+    if (ctx.cg) |c| {
+        try emit.beginAlterTable(ctx.w, ctx.backend, table_name, ctx.has_operations);
         const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else return;
-        try emit.emitComma(w, sub_needs_comma);
-        try w.writeAll("ADD COLUMN ");
-        const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
-        try c.emitColumnDef(w, typed_col);
+        try emit.emitComma(ctx.w, ctx.needs_comma);
+        try ctx.w.writeAll("ADD COLUMN ");
+        const typed_col = try TypeResolver.resolveColumn(ctx.alloc, field_to_use, ctx.dialect, ctx.resolved.custom_types);
+        try c.emitColumnDef(ctx.w, typed_col);
     }
 }
 
 fn emitDropField(
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     table_name: []const u8,
     fd: diff_mod.FieldDiff,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
-    try emit.beginAlterTable(w, backend, table_name, table_has_ops);
-    try emit.emitComma(w, sub_needs_comma);
-    try backend.emitAlterDropColumn(w, fd.name);
+    try emit.beginAlterTable(ctx.w, ctx.backend, table_name, ctx.has_operations);
+    try emit.emitComma(ctx.w, ctx.needs_comma);
+    try ctx.backend.emitAlterDropColumn(ctx.w, fd.name);
 }
 
 fn emitModifyField(
-    alloc: std.mem.Allocator,
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     table_name: []const u8,
     fd: diff_mod.FieldDiff,
-    cg: ?*codegen.Codegen,
-    dialect: Dialect,
-    resolved: resolved_ast.ResolvedAst,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
-    try emit.beginAlterTable(w, backend, table_name, table_has_ops);
+    try emit.beginAlterTable(ctx.w, ctx.backend, table_name, ctx.has_operations);
     const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else return;
-    try emit.emitComma(w, sub_needs_comma);
-    try backend.emitAlterModifyColumn(w, field_to_use.name);
-    if (backend.modify_needs_column_def) {
-        const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
-        if (cg) |c| {
-            try c.emitColumnDefEx(w, typed_col, backend.modify_column_def_skips_name);
+    try emit.emitComma(ctx.w, ctx.needs_comma);
+    try ctx.backend.emitAlterModifyColumn(ctx.w, field_to_use.name);
+    if (ctx.backend.modify_needs_column_def) {
+        const typed_col = try TypeResolver.resolveColumn(ctx.alloc, field_to_use, ctx.dialect, ctx.resolved.custom_types);
+        if (ctx.cg) |c| {
+            try c.emitColumnDefEx(ctx.w, typed_col, ctx.backend.modify_column_def_skips_name);
         }
     }
 }
 
 fn emitRenameField(
-    alloc: std.mem.Allocator,
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     table_name: []const u8,
     fd: diff_mod.FieldDiff,
-    cg: ?*codegen.Codegen,
-    dialect: Dialect,
-    resolved: resolved_ast.ResolvedAst,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
-    try emit.beginAlterTable(w, backend, table_name, table_has_ops);
+    try emit.beginAlterTable(ctx.w, ctx.backend, table_name, ctx.has_operations);
     if (fd.rename_from) |old_name| {
-        try emit.emitComma(w, sub_needs_comma);
-        try backend.emitAlterRenameColumn(w, old_name, fd.name);
-        if (backend.rename_needs_column_def) {
+        try emit.emitComma(ctx.w, ctx.needs_comma);
+        try ctx.backend.emitAlterRenameColumn(ctx.w, old_name, fd.name);
+        if (ctx.backend.rename_needs_column_def) {
             const field_to_use = if (fd.new_field) |nf| nf else if (fd.old_field) |of| of else return;
-            if (cg) |c| {
-                const typed_col = try TypeResolver.resolveColumn(alloc, field_to_use, dialect, resolved.custom_types);
-                try c.emitColumnDef(w, typed_col);
+            if (ctx.cg) |c| {
+                const typed_col = try TypeResolver.resolveColumn(ctx.alloc, field_to_use, ctx.dialect, ctx.resolved.custom_types);
+                try c.emitColumnDef(ctx.w, typed_col);
             }
         }
     }
 }
 
 fn emitIndexDiffs(
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     td: diff_mod.TableDiff,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
     for (td.index_diffs) |idx_diff| {
         switch (idx_diff.action) {
             .add => {
                 if (idx_diff.new_idx) |idx| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emit.emitComma(w, sub_needs_comma);
-                    try backend.emitAlterAddIndex(w, td.name, idx);
+                    try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                    try emit.emitComma(ctx.w, ctx.needs_comma);
+                    try ctx.backend.emitAlterAddIndex(ctx.w, td.name, idx);
                 }
             },
             .drop => {
                 if (idx_diff.old_idx) |idx| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emit.emitComma(w, sub_needs_comma);
-                    try backend.emitAlterDropIndex(w, idx);
+                    try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                    try emit.emitComma(ctx.w, ctx.needs_comma);
+                    try ctx.backend.emitAlterDropIndex(ctx.w, idx);
                 }
             },
             .modify => {
@@ -307,14 +291,14 @@ fn emitIndexDiffs(
                 const drop_idx = if (idx_diff.old_idx) |old_idx| old_idx else null;
                 const add_idx = if (idx_diff.new_idx) |new_idx| new_idx else null;
                 if (drop_idx) |di| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emit.emitComma(w, sub_needs_comma);
-                    try backend.emitAlterDropIndex(w, di);
+                    try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                    try emit.emitComma(ctx.w, ctx.needs_comma);
+                    try ctx.backend.emitAlterDropIndex(ctx.w, di);
                 }
                 if (add_idx) |ai| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emit.emitComma(w, sub_needs_comma);
-                    try backend.emitAlterAddIndex(w, td.name, ai);
+                    try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                    try emit.emitComma(ctx.w, ctx.needs_comma);
+                    try ctx.backend.emitAlterAddIndex(ctx.w, td.name, ai);
                 }
             },
         }
@@ -322,69 +306,63 @@ fn emitIndexDiffs(
 }
 
 fn emitMetadataDiffs(
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     td: diff_mod.TableDiff,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
     if (td.metadata_diff) |md| {
         if (!optionalStrEq(md.old_comment, md.new_comment)) {
             const comment = md.new_comment;
             if (comment) |c| {
-                const result = backend.commentResult();
+                const result = ctx.backend.commentResult();
                 switch (result) {
                     .added_to_alter => {
-                        try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                        try emit.emitComma(w, sub_needs_comma);
-                        try backend.emitAlterTableComment(w, td.name, c);
+                        try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                        try emit.emitComma(ctx.w, ctx.needs_comma);
+                        try ctx.backend.emitAlterTableComment(ctx.w, td.name, c);
                     },
                     .standalone_emitted => {
-                        if (table_has_ops.*) {
-                            try w.writeAll(";\n\n");
-                            table_has_ops.* = false;
-                            sub_needs_comma.* = false;
+                        if (ctx.has_operations.*) {
+                            try ctx.w.writeAll(";\n\n");
+                            ctx.has_operations.* = false;
+                            ctx.needs_comma.* = false;
                         }
-                        try backend.emitAlterTableComment(w, td.name, c);
+                        try ctx.backend.emitAlterTableComment(ctx.w, td.name, c);
                     },
                     .unsupported => {
-                        try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                        try emit.emitComma(w, sub_needs_comma);
-                        try backend.emitAlterTableComment(w, td.name, c);
+                        try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                        try emit.emitComma(ctx.w, ctx.needs_comma);
+                        try ctx.backend.emitAlterTableComment(ctx.w, td.name, c);
                     },
                 }
             }
         }
         if (!optionalStrEq(md.old_engine, md.new_engine)) {
-            try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-            try emit.emitComma(w, sub_needs_comma);
-            try backend.emitAlterEngine(w, md.new_engine);
+            try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+            try emit.emitComma(ctx.w, ctx.needs_comma);
+            try ctx.backend.emitAlterEngine(ctx.w, md.new_engine);
         }
     }
 }
 
 fn emitFkDiffs(
-    w: anytype,
-    backend: dialect_mod.DialectBackend,
+    ctx: *MigrationContext,
     td: diff_mod.TableDiff,
-    table_has_ops: *bool,
-    sub_needs_comma: *bool,
 ) !void {
     for (td.fk_diffs) |fk_diff| {
         switch (fk_diff.action) {
             .add => {
                 if (fk_diff.new_fk) |fk| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emit.emitComma(w, sub_needs_comma);
-                    try w.writeAll("ADD ");
-                    try backend.emitForeignKey(w, fk);
+                    try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                    try emit.emitComma(ctx.w, ctx.needs_comma);
+                    try ctx.w.writeAll("ADD ");
+                    try ctx.backend.emitForeignKey(ctx.w, fk);
                 }
             },
             .drop => {
                 if (fk_diff.old_fk) |fk| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emit.emitComma(w, sub_needs_comma);
-                    try backend.emitAlterDropFk(w, fk);
+                    try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                    try emit.emitComma(ctx.w, ctx.needs_comma);
+                    try ctx.backend.emitAlterDropFk(ctx.w, fk);
                 }
             },
             .modify => {
@@ -392,15 +370,15 @@ fn emitFkDiffs(
                 const drop_fk = if (fk_diff.old_fk) |old_fk| old_fk else null;
                 const add_fk = if (fk_diff.new_fk) |new_fk| new_fk else null;
                 if (drop_fk) |df| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emit.emitComma(w, sub_needs_comma);
-                    try backend.emitAlterDropFk(w, df);
+                    try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                    try emit.emitComma(ctx.w, ctx.needs_comma);
+                    try ctx.backend.emitAlterDropFk(ctx.w, df);
                 }
                 if (add_fk) |af| {
-                    try emit.beginAlterTable(w, backend, td.name, table_has_ops);
-                    try emit.emitComma(w, sub_needs_comma);
-                    try w.writeAll("ADD ");
-                    try backend.emitForeignKey(w, af);
+                    try emit.beginAlterTable(ctx.w, ctx.backend, td.name, ctx.has_operations);
+                    try emit.emitComma(ctx.w, ctx.needs_comma);
+                    try ctx.w.writeAll("ADD ");
+                    try ctx.backend.emitForeignKey(ctx.w, af);
                 }
             },
         }

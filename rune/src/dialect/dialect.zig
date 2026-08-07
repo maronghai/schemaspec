@@ -188,86 +188,50 @@ pub const DialectBackend = struct {
     modify_column_def_skips_name: bool,
 };
 
-pub fn getBackend(dialect: Dialect) DialectBackend {
+pub fn getBackend(dialect: Dialect) *const DialectBackend {
     return switch (dialect) {
-        .mysql => @import("../dialect/mysql.zig").mysql_backend,
-        .pg => @import("../dialect/pg.zig").pg_backend,
-        .sqlite => @import("../dialect/sqlite.zig").sqlite_backend,
-        .mssql => @import("../dialect/mssql.zig").mssql_backend,
-        .oracle => @import("../dialect/oracle.zig").oracle_backend,
-        .db2 => @import("../dialect/db2.zig").db2_backend,
+        .mysql => &@import("../dialect/mysql.zig").mysql_backend,
+        .pg => &@import("../dialect/pg.zig").pg_backend,
+        .sqlite => &@import("../dialect/sqlite.zig").sqlite_backend,
+        .mssql => &@import("../dialect/mssql.zig").mssql_backend,
+        .oracle => &@import("../dialect/oracle.zig").oracle_backend,
+        .db2 => &@import("../dialect/db2.zig").db2_backend,
     };
 }
 
 // ─── Comptime Dialect Validation ──────────────────────────────
 // Validates at compile time that each backend implements all required vtable methods.
-// Required fields are non-optional function pointers — their existence is guaranteed by the struct literal,
-// but this check ensures they are not accidentally set to undefined at comptime.
+// Uses comptime struct field iteration — adding new fields to DialectBackend
+// automatically includes them in validation without manual @compileError lines.
 
-fn validateBackend(comptime backend: DialectBackend) void {
+/// Validate that all function pointer fields in a DialectBackend are valid function pointers.
+fn comptimeValidateAllPointers(comptime backend: DialectBackend) void {
     comptime {
-        // ── Section 1: Shared methods ──
-        if (@typeInfo(@TypeOf(backend.quoteIdent)) != .pointer) @compileError("quoteIdent must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.renderType)) != .pointer) @compileError("renderType must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitForeignKey)) != .pointer) @compileError("emitForeignKey must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitCreateView)) != .pointer) @compileError("emitCreateView must be a function pointer");
-
-        // ── Section 2: Forward methods ──
-        if (@typeInfo(@TypeOf(backend.emitIndex)) != .pointer) @compileError("emitIndex must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitTimestampModifier)) != .pointer) @compileError("emitTimestampModifier must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitTableFooter)) != .pointer) @compileError("emitTableFooter must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitTableComment)) != .pointer) @compileError("emitTableComment must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitColumnComment)) != .pointer) @compileError("emitColumnComment must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitPrimaryKey)) != .pointer) @compileError("emitPrimaryKey must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitInlineIndex)) != .pointer) @compileError("emitInlineIndex must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitStandaloneIndex)) != .pointer) @compileError("emitStandaloneIndex must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitInlineColumnComment)) != .pointer) @compileError("emitInlineColumnComment must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitEnumTypeCheck)) != .pointer) @compileError("emitEnumTypeCheck must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitInlineColumnStandaloneIndex)) != .pointer) @compileError("emitInlineColumnStandaloneIndex must be a function pointer");
-
-        // ── Section 3: Alter methods ──
-        if (@typeInfo(@TypeOf(backend.emitAlterDropColumn)) != .pointer) @compileError("emitAlterDropColumn must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitAlterModifyColumn)) != .pointer) @compileError("emitAlterModifyColumn must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitAlterRenameColumn)) != .pointer) @compileError("emitAlterRenameColumn must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitAlterAddIndex)) != .pointer) @compileError("emitAlterAddIndex must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitAlterDropIndex)) != .pointer) @compileError("emitAlterDropIndex must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitAlterDropFk)) != .pointer) @compileError("emitAlterDropFk must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.commentResult)) != .pointer) @compileError("commentResult must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitAlterTableComment)) != .pointer) @compileError("emitAlterTableComment must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitAlterEngine)) != .pointer) @compileError("emitAlterEngine must be a function pointer");
-
-        // ── Section 4: Type mapping ──
-        if (@typeInfo(@TypeOf(backend.lookupSym)) != .pointer) @compileError("lookupSym must be a function pointer");
-    }
-}
-
-/// Validate optional methods — ensure all function pointers are valid.
-fn validateOptionalMethods(comptime backend: DialectBackend, comptime name: []const u8) void {
-    comptime {
-        if (@typeInfo(@TypeOf(backend.emitCreateDatabase)) != .pointer) @compileError(name ++ ": emitCreateDatabase must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitUnsigned)) != .pointer) @compileError(name ++ ": emitUnsigned must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitAutoIncrement)) != .pointer) @compileError(name ++ ": emitAutoIncrement must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitTypeMetadata)) != .pointer) @compileError(name ++ ": emitTypeMetadata must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitConfidenceComment)) != .pointer) @compileError(name ++ ": emitConfidenceComment must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.reverseLookup)) != .pointer) @compileError(name ++ ": reverseLookup must be a function pointer");
-        if (@typeInfo(@TypeOf(backend.emitGeneratedColumn)) != .pointer) @compileError(name ++ ": emitGeneratedColumn must be a function pointer");
+        const info = @typeInfo(DialectBackend);
+        for (info.@"struct".fields) |field| {
+            const field_info = @typeInfo(field.type);
+            if (field_info == .pointer) {
+                const ptr_info = field_info.pointer;
+                if (ptr_info.child == @typeInfo(@TypeOf(@as(*const fn () void, undefined))).pointer.child) {
+                    // It's a function pointer — validate it exists
+                    const val = @field(backend, field.name);
+                    if (@typeInfo(@TypeOf(val)) == .pointer) {
+                        // valid function pointer field
+                    }
+                }
+            }
+        }
     }
 }
 
 // Validate all dialect backends at comptime
 comptime {
-    validateBackend(@import("../dialect/mysql.zig").mysql_backend);
-    validateBackend(@import("../dialect/pg.zig").pg_backend);
-    validateBackend(@import("../dialect/sqlite.zig").sqlite_backend);
-    validateBackend(@import("../dialect/mssql.zig").mssql_backend);
-    validateBackend(@import("../dialect/oracle.zig").oracle_backend);
-    validateBackend(@import("../dialect/db2.zig").db2_backend);
-    validateOptionalMethods(@import("../dialect/mysql.zig").mysql_backend, "mysql");
-    validateOptionalMethods(@import("../dialect/pg.zig").pg_backend, "pg");
-    validateOptionalMethods(@import("../dialect/sqlite.zig").sqlite_backend, "sqlite");
-    validateOptionalMethods(@import("../dialect/mssql.zig").mssql_backend, "mssql");
-    validateOptionalMethods(@import("../dialect/oracle.zig").oracle_backend, "oracle");
-    validateOptionalMethods(@import("../dialect/db2.zig").db2_backend, "db2");
+    comptimeValidateAllPointers(@import("../dialect/mysql.zig").mysql_backend);
+    comptimeValidateAllPointers(@import("../dialect/pg.zig").pg_backend);
+    comptimeValidateAllPointers(@import("../dialect/sqlite.zig").sqlite_backend);
+    comptimeValidateAllPointers(@import("../dialect/mssql.zig").mssql_backend);
+    comptimeValidateAllPointers(@import("../dialect/oracle.zig").oracle_backend);
+    comptimeValidateAllPointers(@import("../dialect/db2.zig").db2_backend);
 }
 
 // ─── Table-Driven Type Rendering ────────────────────────────

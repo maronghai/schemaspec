@@ -189,7 +189,7 @@ rune/src/
 
 - **Generator Registry** (`generator.zig`): `Generator` struct (name, description, extension, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `extension` field specifies the output file extension (e.g. `.prisma`, `.sql`, `.json`) used in batch mode. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`.
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 33 function pointers (26 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). The vtable is organized into 7 logical sections: Shared, Forward, Alter, TypeMapping, Optional, Behavioral flags, and Capability.
+- **DialectBackend vtable** (`dialect/dialect.zig`): 33 function pointers (26 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. `getBackend()` returns `*const DialectBackend` (pointer to static const, avoids 136-byte copy). Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). Comptime validation via `comptimeValidateAllPointers()` auto-validates all function pointer fields.
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)` in `pipeline/handlers.zig`.
 
@@ -289,7 +289,7 @@ rune/src/
 | | `format/sarif.zig` | SARIF diff output (CI/CD integration, versioned from `version.zig`) |
 | | `format/markdown.zig` | Markdown diff output (PR descriptions, documentation) |
 | | `semantic.zig` | Dialect-aware type equivalence (`typeInfoEquiv` + `semanticEquiv`) |
-| | `migrate.zig` | Migration SQL generation |
+| | `migrate.zig` | Migration SQL generation with `MigrationContext` struct (bundles shared state for emit functions) |
 | `types/` | `ast.zig` | AST type definitions (Schema, Table, Field, Template, etc.) |
 | | `resolved_ast.zig` | ResolvedTable + ResolvedAst (semantic output) |
 | | `typed_ast.zig` | TypedAst IR + ColumnFlags bitflags |
@@ -306,7 +306,7 @@ rune/src/
 | | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_version, rune_reset) |
-| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (15 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, TOML parsing), `lint/fix.zig` (auto-fix) |
+| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (15 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum, TOML parsing), `lint/fix.zig` (auto-fix) |
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |

@@ -30,11 +30,11 @@ pub fn emitDefault(w: *Writer, value: []const u8) !void {
     }
 }
 
-pub fn emitColumnDef(backend: dialect_mod.DialectBackend, w: *Writer, col: typed_ast_mod.TypedColumn) !void {
+pub fn emitColumnDef(backend: *const dialect_mod.DialectBackend, w: *Writer, col: typed_ast_mod.TypedColumn) !void {
     return emitColumnDefEx(backend, w, col, false);
 }
 
-pub fn emitColumnDefEx(backend: dialect_mod.DialectBackend, w: *Writer, col: typed_ast_mod.TypedColumn, skip_name: bool) !void {
+pub fn emitColumnDefEx(backend: *const dialect_mod.DialectBackend, w: *Writer, col: typed_ast_mod.TypedColumn, skip_name: bool) !void {
     if (!skip_name) {
         try backend.quoteIdent(w, col.name);
         try w.writeAll(" ");

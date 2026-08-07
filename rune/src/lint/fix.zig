@@ -1,5 +1,6 @@
 const std = @import("std");
 const LintResult = @import("config.zig").LintResult;
+const LintRule = @import("config.zig").LintRule;
 
 // ─── Lint Auto-Fix ──────────────────────────────────────────
 // Modifies source text to fix lintable issues.
@@ -30,12 +31,13 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
     defer needs_empty_removal.deinit();
 
     for (results) |r| {
-        if (std.mem.eql(u8, r.rule, "no-pk")) {
-            try needs_pk.put(r.table, {});
-        } else if (std.mem.eql(u8, r.rule, "no-timestamps")) {
-            try needs_timestamps.put(r.table, {});
-        } else if (std.mem.eql(u8, r.rule, "empty-table")) {
-            try needs_empty_removal.put(r.table, {});
+        if (LintRule.fromName(r.rule)) |rule| {
+            switch (rule) {
+                .no_pk => try needs_pk.put(r.table, {}),
+                .no_timestamps => try needs_timestamps.put(r.table, {}),
+                .empty_table => try needs_empty_removal.put(r.table, {}),
+                else => {},
+            }
         }
     }
 

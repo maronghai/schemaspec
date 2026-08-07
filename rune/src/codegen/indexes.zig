@@ -4,7 +4,7 @@ const typed_ast_mod = @import("../types/typed_ast.zig");
 const columns_mod = @import("columns.zig");
 const Writer = std.Io.Writer;
 
-pub fn emitInlineIndexes(backend: dialect_mod.DialectBackend, w: *Writer, table: typed_ast_mod.TypedTable, needs_comma: *bool) !void {
+pub fn emitInlineIndexes(backend: *const dialect_mod.DialectBackend, w: *Writer, table: typed_ast_mod.TypedTable, needs_comma: *bool) !void {
     for (table.columns) |col| {
         if (col.flags.inline_unique) {
             if (!columns_mod.isDominatedByExplicitIndex(col.name, table.indexes, true)) {
@@ -19,13 +19,13 @@ pub fn emitInlineIndexes(backend: dialect_mod.DialectBackend, w: *Writer, table:
     }
 }
 
-pub fn emitStandaloneIndexes(backend: dialect_mod.DialectBackend, w: *Writer, table: typed_ast_mod.TypedTable) !void {
+pub fn emitStandaloneIndexes(backend: *const dialect_mod.DialectBackend, w: *Writer, table: typed_ast_mod.TypedTable) !void {
     for (table.indexes) |idx| {
         try backend.emitStandaloneIndex(w, table.name, idx);
     }
 }
 
-pub fn emitInlineColumnStandaloneIndexes(backend: dialect_mod.DialectBackend, w: *Writer, table: typed_ast_mod.TypedTable) !void {
+pub fn emitInlineColumnStandaloneIndexes(backend: *const dialect_mod.DialectBackend, w: *Writer, table: typed_ast_mod.TypedTable) !void {
     for (table.columns) |col| {
         if (col.flags.inline_index) {
             if (!columns_mod.isDominatedByExplicitIndex(col.name, table.indexes, false)) {

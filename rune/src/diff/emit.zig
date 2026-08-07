@@ -11,7 +11,7 @@ const dialect_mod = @import("../dialect/dialect.zig");
 
 /// Emit "ALTER TABLE <name>\n" header, but only once per table.
 /// `table_has_ops` tracks whether the header has been emitted.
-pub fn beginAlterTable(w: anytype, backend: dialect_mod.DialectBackend, table_name: []const u8, table_has_ops: *bool) !void {
+pub fn beginAlterTable(w: anytype, backend: *const dialect_mod.DialectBackend, table_name: []const u8, table_has_ops: *bool) !void {
     if (!table_has_ops.*) {
         try w.writeAll("ALTER TABLE ");
         try backend.quoteIdent(w, table_name);

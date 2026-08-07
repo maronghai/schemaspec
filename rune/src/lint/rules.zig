@@ -4,6 +4,7 @@ const ResolvedTable = @import("../types/resolved_ast.zig").ResolvedTable;
 const ast_mod = @import("../types/ast.zig");
 const LintConfig = @import("config.zig").LintConfig;
 const LintResult = @import("config.zig").LintResult;
+const LintRule = @import("config.zig").LintRule;
 
 // ─── Lint Rules ───────────────────────────────────────────────
 // Individual lint rule implementations. Each rule checks one
@@ -15,44 +16,44 @@ pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.
     errdefer results.deinit(alloc);
 
     for (ast.tables) |table| {
-        if (cfg.check_pk) try noPk(alloc, &results, table);
-        if (cfg.check_naming) try namingConventions(alloc, &results, table);
-        if (cfg.check_fk_index) try noIndexFk(alloc, &results, table);
-        if (cfg.check_timestamps) try noTimestamps(alloc, &results, table);
-        if (cfg.check_wide_table) try wideTable(alloc, &results, table, cfg.wide_table_max);
-        if (cfg.check_count) try count(alloc, &results, table, cfg.count_min);
-        if (cfg.check_fk_cascade) try noFkCascade(alloc, &results, table);
-        if (cfg.check_nullable_pk) try nullablePk(alloc, &results, table);
+        if (LintRule.no_pk.isEnabled(cfg)) try noPk(alloc, &results, table);
+        if (LintRule.naming.isEnabled(cfg)) try namingConventions(alloc, &results, table);
+        if (LintRule.no_index_fk.isEnabled(cfg)) try noIndexFk(alloc, &results, table);
+        if (LintRule.no_timestamps.isEnabled(cfg)) try noTimestamps(alloc, &results, table);
+        if (LintRule.wide_table.isEnabled(cfg)) try wideTable(alloc, &results, table, cfg.wide_table_max);
+        if (LintRule.count.isEnabled(cfg)) try count(alloc, &results, table, cfg.count_min);
+        if (LintRule.fk_cascade.isEnabled(cfg)) try noFkCascade(alloc, &results, table);
+        if (LintRule.nullable_pk.isEnabled(cfg)) try nullablePk(alloc, &results, table);
     }
-    if (cfg.check_enum_case) {
+    if (LintRule.enum_case.isEnabled(cfg)) {
         for (ast.custom_types) |ct| {
             try enumCase(alloc, &results, ct);
         }
     }
-    if (cfg.check_orphan_type) {
+    if (LintRule.orphan_type.isEnabled(cfg)) {
         for (ast.custom_types) |ct| {
             try orphanType(alloc, &results, ast, ct);
         }
     }
-    if (cfg.check_index_unused) {
+    if (LintRule.index_unused.isEnabled(cfg)) {
         for (ast.tables) |table| {
             try indexUnused(alloc, &results, table);
         }
     }
-    if (cfg.check_circular_fk) {
+    if (LintRule.circular_fk.isEnabled(cfg)) {
         try circularFk(alloc, &results, ast);
     }
-    if (cfg.check_duplicate_index) {
+    if (LintRule.duplicate_index.isEnabled(cfg)) {
         for (ast.tables) |table| {
             try duplicateIndex(alloc, &results, table);
         }
     }
-    if (cfg.check_empty_table) {
+    if (LintRule.empty_table.isEnabled(cfg)) {
         for (ast.tables) |table| {
             try emptyTable(alloc, &results, table);
         }
     }
-    if (cfg.check_table_comment) {
+    if (LintRule.table_comment.isEnabled(cfg)) {
         for (ast.tables) |table| {
             try tableComment(alloc, &results, table);
         }
