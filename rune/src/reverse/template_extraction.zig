@@ -118,10 +118,11 @@ pub fn findTemplates(alloc: std.mem.Allocator, schema: sp.SqlSchema) ![]Template
                 cand.name = try alloc.dupe(u8, "base");
             }
             alloc.free(cand.table_indices);
+            const new_indices = try assigned.toOwnedSlice(alloc);
             try result.append(alloc, .{
                 .name = cand.name,
                 .fields = cand.fields,
-                .table_indices = try assigned.toOwnedSlice(alloc),
+                .table_indices = new_indices,
             });
         } else {
             alloc.free(cand.name);

@@ -37,20 +37,20 @@ pub const ReverseCodegen = struct {
 
         try emitSchemaHeader(self, w, schema);
 
-        var tmpl_list: []template_ext.TemplateCandidate = &.{};
+        var my_tmpl: []template_ext.TemplateCandidate = &.{};
         if (extract_templates) {
-            tmpl_list = try template_ext.findTemplates(self.alloc, schema);
-            defer {
-                for (tmpl_list) |t| {
-                    self.alloc.free(t.fields);
-                    self.alloc.free(t.table_indices);
-                }
-                self.alloc.free(tmpl_list);
+            my_tmpl = try template_ext.findTemplates(self.alloc, schema);
+        }
+        defer {
+            for (my_tmpl) |t| {
+                self.alloc.free(t.fields);
+                self.alloc.free(t.table_indices);
             }
+            self.alloc.free(my_tmpl);
         }
 
-        try emitTemplates(self, w, schema, tmpl_list);
-        try emitTables(self, w, schema, tmpl_list);
+        try emitTemplates(self, w, schema, my_tmpl);
+        try emitTables(self, w, schema, my_tmpl);
 
         try w.flush();
         return try aw.toOwnedSlice();
