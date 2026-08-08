@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.172.0** — `rune tune`: auto-template extraction — finds fields co-occurring in most tables and extracts them into `% base` template, rewrites .ss file with `#base table` references
 - **v0.171.0** — Stats per-table: added `--per-table` flag to `rune stats` for per-table breakdown (fields, types, constraints per table), supports JSON/Markdown/text output formats
 - **v0.170.0** — Lint enhancements: added `serial-type` rule (warns on PostgreSQL-specific serial types for cross-dialect compatibility), added `table-name-length` rule (configurable max table name length, default 64), added LSP features facade tests (7 new tests covering document symbols, hover, completions, go-to-definition, references, highlights)
 - **v0.169.0** — MSSQL IDENTITY fix: fixed SQL parser to recognize `IDENTITY(seed, increment)` as column modifier (was mis-parsed as separate column), implemented MSSQL `emitAutoIncrement` for forward codegen, updated all 3 MSSQL reverse golden test files

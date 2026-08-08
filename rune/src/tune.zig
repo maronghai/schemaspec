@@ -1,0 +1,293 @@
+const std = @import("std");
+const io_mod = @import("io.zig");
+
+// ─── Tune: Auto-Template Extraction ──────────────────────────
+// Finds fields that co-occur in many tables and extracts them
+// into a template definition.
+
+const MIN_TEMPLATE_FIELDS = 2;
+const MIN_SHARED_TABLES = 2;
+
+const TableBlock = struct {
+    name: []const u8,
+    header_line: []const u8,
+    field_lines: []const []const u8,
+};
+
+const FieldEntry = struct {
+    name: []const u8,
+    line: []const u8,
+};
+
+const Template = struct {
+    name: []const u8,
+    fields: []const FieldEntry,
+};
+
+// ─── Public API ──────────────────────────────────────────────
+
+pub fn handleTune(io: std.Io, alloc: std.mem.Allocator, source: []const u8, dry_run: bool) !void {
+    const result = try tune(alloc, source);
+    if (dry_run) {
+        try io_mod.writeOutput(io, result, null, false);
+    } else {
+        try io_mod.writeOutput(io, result, null, false);
+    }
+}
+
+pub fn tune(alloc: std.mem.Allocator, source: []const u8) ![]const u8 {
+    const tables = try parseTableBlocks(alloc, source);
+    if (tables.len < 2) return source;
+
+    // Build field entries per table
+    var all_fields = try std.ArrayList([]const FieldEntry).initCapacity(alloc, tables.len);
+    for (tables) |tbl| {
+        var fields = try std.ArrayList(FieldEntry).initCapacity(alloc, tbl.field_lines.len);
+        for (tbl.field_lines) |line| {
+            try fields.append(alloc, .{ .name = fieldName(line), .line = line });
+        }
+        try all_fields.append(alloc, try fields.toOwnedSlice(alloc));
+    }
+
+    // Find the most valuable field set (fields co-occurring in most tables)
+    const best = (findBestFieldSet(all_fields.items) catch return source) orelse return source;
+
+    // Generate output
+    var output = try std.ArrayList(u8).initCapacity(alloc, source.len + 256);
+
+    // Write template
+    try output.appendSlice(alloc, "% base\n");
+    for (best.fields) |fe| {
+        try output.appendSlice(alloc, fe.line);
+        try output.append(alloc, '\n');
+    }
+    try output.append(alloc, '\n');
+
+    // Write tables
+    for (tables, 0..) |tbl, ti| {
+        const fields = all_fields.items[ti];
+        var has_all = true;
+        for (best.fields) |tfe| {
+            var found = false;
+            for (fields) |fe| {
+                if (std.mem.eql(u8, fe.name, tfe.name)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                has_all = false;
+                break;
+            }
+        }
+
+        if (has_all) {
+            try output.appendSlice(alloc, "#base ");
+            try output.appendSlice(alloc, tbl.name);
+            try output.append(alloc, '\n');
+            for (tbl.field_lines) |line| {
+                const fn_ = fieldName(line);
+                var in_tmpl = false;
+                for (best.fields) |tfe| {
+                    if (std.mem.eql(u8, fn_, tfe.name)) {
+                        in_tmpl = true;
+                        break;
+                    }
+                }
+                if (!in_tmpl) {
+                    try output.appendSlice(alloc, line);
+                    try output.append(alloc, '\n');
+                }
+            }
+        } else {
+            try output.appendSlice(alloc, tbl.header_line);
+            try output.append(alloc, '\n');
+            for (tbl.field_lines) |line| {
+                try output.appendSlice(alloc, line);
+                try output.append(alloc, '\n');
+            }
+        }
+        try output.append(alloc, '\n');
+    }
+
+    return try output.toOwnedSlice(alloc);
+}
+
+// ─── Parsing ─────────────────────────────────────────────────
+
+fn parseTableBlocks(alloc: std.mem.Allocator, source: []const u8) ![]TableBlock {
+    var blocks = try std.ArrayList(TableBlock).initCapacity(alloc, 32);
+    var lines = std.mem.splitScalar(u8, source, '\n');
+    var current_fields = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+    var current_name: []const u8 = "";
+    var current_header: []const u8 = "";
+    var has_table = false;
+
+    while (lines.next()) |raw_line| {
+        const line = std.mem.trim(u8, raw_line, "\r");
+        if (line.len > 0 and line[0] == '#') {
+            if (has_table) {
+                try blocks.append(alloc, .{
+                    .name = current_name,
+                    .header_line = current_header,
+                    .field_lines = try current_fields.toOwnedSlice(alloc),
+                });
+                current_fields = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+            }
+            current_name = tableName(line);
+            current_header = line;
+            has_table = true;
+        } else if (has_table and line.len > 0 and line[0] != ';' and line[0] != '%' and line[0] != '@' and line[0] != '$') {
+            try current_fields.append(alloc, line);
+        }
+    }
+    if (has_table) {
+        try blocks.append(alloc, .{
+            .name = current_name,
+            .header_line = current_header,
+            .field_lines = try current_fields.toOwnedSlice(alloc),
+        });
+    }
+    return try blocks.toOwnedSlice(alloc);
+}
+
+fn tableName(header: []const u8) []const u8 {
+    const rest = if (header.len > 1 and header[1] == ' ') header[2..] else header[1..];
+    // "# user" → "user"
+    // "# base user" → "user" (first word is template, second is table)
+    // "# user > base" → "user" (before >)
+    if (std.mem.indexOf(u8, rest, " >")) |pos| {
+        return std.mem.trim(u8, rest[0..pos], " ");
+    }
+    // Check if first word could be a template name (2+ words)
+    var parts = std.mem.splitScalar(u8, rest, ' ');
+    const first = parts.next() orelse return rest;
+    const second = parts.next() orelse return first;
+    // If there's a second word, check if it looks like a table name (not a comment)
+    if (second.len > 0 and second[0] != ':') {
+        return second; // "# base user" → "user"
+    }
+    return first; // "# user : comment" → "user"
+}
+
+fn fieldName(line: []const u8) []const u8 {
+    var parts = std.mem.splitScalar(u8, std.mem.trim(u8, line, " \t"), ' ');
+    return parts.next() orelse line;
+}
+
+// ─── Field Set Finding ───────────────────────────────────────
+
+fn findBestFieldSet(all_fields: []const []const FieldEntry) !?Template {
+    const table_count = all_fields.len;
+    if (table_count < MIN_SHARED_TABLES) return null;
+
+    // Step 1: Count how many tables each field name appears in
+    var field_freq = std.StringHashMap(usize).init(std.heap.page_allocator);
+    defer field_freq.deinit();
+
+    for (all_fields) |fields| {
+        for (fields) |fe| {
+            const gop = try field_freq.getOrPut(fe.name);
+            if (!gop.found_existing) gop.value_ptr.* = 1 else gop.value_ptr.* += 1;
+        }
+    }
+
+    // Step 2: Find the most frequent fields (appear in >= 2 tables)
+    var frequent_fields = try std.ArrayList([]const u8).initCapacity(std.heap.page_allocator, 32);
+    var iter = field_freq.iterator();
+    while (iter.next()) |entry| {
+        if (entry.value_ptr.* >= MIN_SHARED_TABLES) {
+            try frequent_fields.append(std.heap.page_allocator, entry.key_ptr.*);
+        }
+    }
+
+    if (frequent_fields.items.len < MIN_TEMPLATE_FIELDS) return null;
+
+    // Step 3: Find the largest set of frequent fields that co-occur in the most tables
+    var best_fields: ?[]const []const u8 = null;
+    var best_table_count: usize = 0;
+    var best_field_count: usize = 0;
+
+    for (frequent_fields.items) |seed| {
+        var candidate = try std.ArrayList([]const u8).initCapacity(std.heap.page_allocator, 16);
+        try candidate.append(std.heap.page_allocator, seed);
+
+        // Find tables that have the seed
+        var seed_tables = try std.ArrayList(usize).initCapacity(std.heap.page_allocator, table_count);
+        for (all_fields, 0..) |fields, ti| {
+            for (fields) |fe| {
+                if (std.mem.eql(u8, fe.name, seed)) {
+                    try seed_tables.append(std.heap.page_allocator, ti);
+                    break;
+                }
+            }
+        }
+
+        // Try to add more fields that appear in ALL seed_tables
+        for (frequent_fields.items) |candidate_field| {
+            if (std.mem.eql(u8, candidate_field, seed)) continue;
+            var in_all = true;
+            for (seed_tables.items) |ti| {
+                var found = false;
+                for (all_fields[ti]) |fe| {
+                    if (std.mem.eql(u8, fe.name, candidate_field)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    in_all = false;
+                    break;
+                }
+            }
+            if (in_all) {
+                try candidate.append(std.heap.page_allocator, candidate_field);
+            }
+        }
+
+        // Score: tables_with_all_fields * field_count
+        const t_count = seed_tables.items.len;
+        const f_count = candidate.items.len;
+        if (f_count >= MIN_TEMPLATE_FIELDS and t_count >= MIN_SHARED_TABLES) {
+            if (t_count * f_count > best_table_count * best_field_count or
+                (t_count * f_count == best_table_count * best_field_count and f_count > best_field_count))
+            {
+                best_table_count = t_count;
+                best_field_count = f_count;
+                best_fields = try candidate.toOwnedSlice(std.heap.page_allocator);
+            }
+        }
+        candidate.deinit(std.heap.page_allocator);
+        seed_tables.deinit(std.heap.page_allocator);
+    }
+
+    frequent_fields.deinit(std.heap.page_allocator);
+
+    if (best_fields) |fields| {
+        // Build FieldEntry list from the field names
+        var template_fields = try std.ArrayList(FieldEntry).initCapacity(std.heap.page_allocator, fields.len);
+        for (fields) |fname| {
+            // Find the line text from the first table that has this field
+            for (all_fields) |tfields| {
+                for (tfields) |fe| {
+                    if (std.mem.eql(u8, fe.name, fname)) {
+                        try template_fields.append(std.heap.page_allocator, fe);
+                        break;
+                    }
+                }
+                // Check if we already added this field
+                if (template_fields.items.len > 0 and
+                    std.mem.eql(u8, template_fields.items[template_fields.items.len - 1].name, fname))
+                {
+                    break;
+                }
+            }
+        }
+        return .{
+            .name = "base",
+            .fields = try template_fields.toOwnedSlice(std.heap.page_allocator),
+        };
+    }
+
+    return null;
+}

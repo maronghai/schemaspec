@@ -373,6 +373,11 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .recursive = cmd.recursive,
             });
         },
+        .tune => |cmd| {
+            const tune_mod = @import("tune.zig");
+            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            return tune_mod.handleTune(io, alloc, file_data, cmd.dry_run);
+        },
         .lsp => {
             const lsp_server = @import("lsp/server.zig");
             var server = lsp_server.Server.init(alloc, io);
@@ -399,6 +404,7 @@ fn getInputPath(command: cli.Command) ?[]const u8 {
         .generate => |cmd| cmd.input,
         .lint => |cmd| cmd.input,
         .watch => |cmd| cmd.input,
+        .tune => |cmd| cmd.input,
         else => null,
     };
 }

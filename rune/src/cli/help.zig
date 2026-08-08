@@ -63,6 +63,7 @@ pub fn printUsage() void {
     std.debug.print("  rune watch schema.ss --interval 500 # Watch with 500ms polling interval\n", .{});
     std.debug.print("  rune watch ./schemas --recursive    # Watch all .ss files in directory\n", .{});
     std.debug.print("  rune format schema.ss                  # Auto-format schema\n", .{});
+    std.debug.print("  rune tune schema.ss                    # Extract common fields into templates\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});
@@ -175,6 +176,14 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  rune watch schema.ss -s               # Watch with compilation stats\n", .{});
                 std.debug.print("  rune watch ./schemas --recursive      # Watch all .ss files in directory\n", .{});
                 std.debug.print("\nPress Ctrl+C to stop watching.\n", .{});
+            } else if (std.mem.eql(u8, subcommand, "tune")) {
+                std.debug.print("\nScans all tables, finds shared field patterns, and extracts them\n", .{});
+                std.debug.print("into template definitions. Rewrites the file in-place.\n", .{});
+                std.debug.print("\nOptions:\n", .{});
+                std.debug.print("  --dry-run       Preview changes without modifying the file\n", .{});
+                std.debug.print("\nExamples:\n", .{});
+                std.debug.print("  rune tune schema.ss            # Extract templates, rewrite file\n", .{});
+                std.debug.print("  rune tune schema.ss --dry-run  # Preview changes only\n", .{});
             } else {
                 std.debug.print("\nGlobal options also apply: -d/--dialect, -s/--stats, -q/--quiet, -h/--help\n", .{});
             }

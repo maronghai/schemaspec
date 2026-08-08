@@ -28,6 +28,7 @@ pub const Command = union(enum) {
     hooks: struct { hook_type: []const u8 },
     lint: struct { input: ?[]const u8 = null, input2: ?[]const u8 = null, json_errors: bool = false, strict: bool = false, format: LintFormat = .text, rules: ?[]const u8 = null, fix: bool = false, dry_run: bool = false },
     watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null, parallel: bool = false, trace: bool = false, stats: bool = false, json_errors: bool = false, recursive: bool = false },
+    tune: struct { input: ?[]const u8 = null, dry_run: bool = false },
     lsp,
     version,
     help: struct { subcommand: ?[]const u8 = null },
@@ -107,6 +108,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "hooks", .args = "<type>", .description = "Generate git hooks (pre-commit)" },
     .{ .name = "lint", .args = "[input.ss] [--fix] [--dry-run] [--strict] [--format json|sarif] [--rules <file>]", .description = "Lint schema for quality issues (missing PK, naming, etc.)" },
     .{ .name = "watch", .args = "<input> [--interval <ms>] [--recursive] [--parallel]", .description = "Watch file/directory and recompile on change" },
+    .{ .name = "tune", .args = "[input.ss] [--dry-run]", .description = "Extract common fields into templates" },
     .{ .name = "lsp", .args = "", .description = "Start LSP language server (stdio)" },
 };
 

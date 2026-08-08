@@ -151,6 +151,18 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
     };
 }
 
+pub fn parseTuneArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    const input = if (fargs.len > 1) fargs[1] else null;
+    var dry_run = false;
+    for (fargs[1..]) |arg| {
+        if (std.mem.eql(u8, arg, "--dry-run")) {
+            dry_run = true;
+            break;
+        }
+    }
+    return shared.parseSimpleSubcommand(dialect, target, .{ .tune = .{ .input = input, .dry_run = dry_run } }, opts);
+}
+
 pub fn parseLspArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     _ = fargs;
     return shared.parseSimpleSubcommand(dialect, target, .lsp, opts);
