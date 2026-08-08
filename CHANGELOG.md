@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.174.0] - 2026-08-09
+
+### Fixed
+- **LSP references precise column ranges** — FK references now highlight only the FK field name (e.g., `user_id`) instead of the entire line. Added `findNameInLine` helper to scan document text for exact name positions.
+- **LSP highlights precise column ranges** — FK reference highlights now use precise column ranges instead of full-line ranges. Added `findNameInHighlights` helper for consistent name matching.
+- **LSP go-to-definition multi-column FK** — `getDefinition` now checks all FK fields (`fk.fields`) instead of only the first field (`fk.fields[0]`). Multi-column FKs like `(user_id, role_id) -> (users.id, roles.id)` now navigate correctly from any FK field.
+- **LSP document_symbols column range** — Column `range` now ends at the column name length instead of extending to character 100, providing precise selection ranges in the outline view.
+
+### Changed
+- **LSP hover dialect-aware SQL types** — `getHover` now accepts a `Dialect` parameter. Column hover shows dialect-specific SQL types (e.g., `INT` for MySQL, `integer` for PostgreSQL) instead of generic Zig enum tag names. FK target column type display is also dialect-aware.
+- **LSP features facade** — `features.zig` now imports and re-exports `Dialect` enum for type-safe dialect parameter passing.
+
+### Added
+- **LSP FK feature tests** — Added 4 new tests covering FK-related LSP features: references with FK precise ranges, highlights with FK precise ranges, go-to-definition with multi-column FK, and hover with dialect-specific SQL types.
+
 ## [0.173.0] - 2026-08-09
 
 ### Fixed

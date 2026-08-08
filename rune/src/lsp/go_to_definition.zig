@@ -34,14 +34,17 @@ pub fn getDefinition(alloc: std.mem.Allocator, ast: TypedAst, uri: []const u8, p
             const col_line: u32 = if (col.line_no > 0) @intCast(col.line_no - 1) else 0;
             if (line == col_line) {
                 for (table.fks) |fk| {
-                    if (fk.fields.len > 0 and std.mem.eql(u8, fk.fields[0], col.name)) {
-                        for (ast.tables) |target| {
-                            if (std.mem.eql(u8, target.name, fk.ref_table)) {
-                                const target_line: u32 = if (target.line_no > 0) @intCast(target.line_no - 1) else 0;
-                                return .{
-                                    .uri = uri,
-                                    .range = makeRange(target_line, 0, target_line, @intCast(target.name.len)),
-                                };
+                    // Check all FK fields (not just the first) for multi-column FKs
+                    for (fk.fields) |field| {
+                        if (std.mem.eql(u8, field, col.name)) {
+                            for (ast.tables) |target| {
+                                if (std.mem.eql(u8, target.name, fk.ref_table)) {
+                                    const target_line: u32 = if (target.line_no > 0) @intCast(target.line_no - 1) else 0;
+                                    return .{
+                                        .uri = uri,
+                                        .range = makeRange(target_line, 0, target_line, @intCast(target.name.len)),
+                                    };
+                                }
                             }
                         }
                     }

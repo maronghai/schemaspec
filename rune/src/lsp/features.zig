@@ -1,5 +1,6 @@
 const std = @import("std");
 const protocol = @import("protocol.zig");
+const Dialect = @import("../dialect/enum.zig").Dialect;
 
 // ─── LSP Features ───────────────────────────────────────────
 // Facade module that re-exports LSP feature implementations.

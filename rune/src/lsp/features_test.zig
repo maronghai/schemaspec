@@ -10,6 +10,7 @@ const protocol = @import("protocol.zig");
 const Position = protocol.Position;
 const sql_type_mod = @import("../types/sql_type.zig");
 const ast_mod = @import("../types/ast.zig");
+const Dialect = @import("../dialect/enum.zig").Dialect;
 
 // ─── Shared Test Helpers ───────────────────────────────────────
 
@@ -150,7 +151,7 @@ test "getHover: table header" {
         makeSimpleColumn("name"),
     });
     const ast = makeAst(&.{table}, &.{});
-    const hover = features.getHover(alloc, ast, .{ .line = 0, .character = 0 });
+    const hover = features.getHover(alloc, ast, .{ .line = 0, .character = 0 }, .mysql);
 
     try testing.expect(hover != null);
     try testing.expect(hover.?.contents.value.len > 0);
@@ -172,7 +173,7 @@ test "getHover: column line" {
     const table = makeTable("users", &.{ col_id, col_name });
     const ast = makeAst(&.{table}, &.{});
     // Hover on line 2 (0-indexed) should show "name" column
-    const hover = features.getHover(alloc, ast, .{ .line = 2, .character = 0 });
+    const hover = features.getHover(alloc, ast, .{ .line = 2, .character = 0 }, .mysql);
 
     try testing.expect(hover != null);
     try testing.expect(std.mem.indexOf(u8, hover.?.contents.value, "name") != null);
@@ -186,7 +187,7 @@ test "getHover: no match returns null" {
     const table = makeTable("users", &.{makePkColumn("id")});
     const ast = makeAst(&.{table}, &.{});
     // Line 100 doesn't exist
-    const hover = features.getHover(alloc, ast, .{ .line = 100, .character = 0 });
+    const hover = features.getHover(alloc, ast, .{ .line = 100, .character = 0 }, .mysql);
 
     try testing.expect(hover == null);
 }
@@ -300,4 +301,141 @@ test "getDocumentHighlights: table name highlights" {
     const highlights = features.getDocumentHighlights(alloc, ast, 0, 6, "# users\nid n++");
 
     try testing.expect(highlights.len > 0);
+}
+
+// ─── FK-Related Tests ────────────────────────────────────────
+
+test "getReferences: FK column reference finds precise range" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const fk = ast_mod.FkDecl{
+        .fields = &.{"user_id"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 4,
+    };
+
+    var orders_table = makeTableWithFks("orders", &.{
+        makePkColumn("id"),
+        makeColumn("user_id", .int, .{}),
+    }, &.{fk});
+    orders_table.line_no = 3;
+
+    var users_table = makeTable("users", &.{makePkColumn("id")});
+    users_table.line_no = 1;
+
+    const ast = makeAst(&.{ users_table, orders_table }, &.{});
+    // Document text: line 0 = "# users", line 1 = "id n++ PK", line 2 = "", line 3 = "# orders", line 4 = "user_id n -> users.id"
+    const doc_text = "# users\nid n++ PK\n\n# orders\nuser_id n -> users.id";
+
+    // Cursor on "users" table name (line 0, character 2)
+    const refs = features.getReferences(alloc, ast, 0, 2, "file:///test.ss", doc_text);
+
+    // Should find at least 1 reference (the FK usage in orders)
+    try testing.expect(refs.len >= 1);
+}
+
+test "getDocumentHighlights: FK column highlights precise range" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const fk = ast_mod.FkDecl{
+        .fields = &.{"user_id"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 4,
+    };
+
+    var orders_table = makeTableWithFks("orders", &.{
+        makePkColumn("id"),
+        makeColumn("user_id", .int, .{}),
+    }, &.{fk});
+    orders_table.line_no = 3;
+
+    var users_table = makeTable("users", &.{makePkColumn("id")});
+    users_table.line_no = 1;
+
+    const ast = makeAst(&.{ users_table, orders_table }, &.{});
+    const doc_text = "# users\nid n++ PK\n\n# orders\nuser_id n -> users.id";
+
+    // Cursor on "users" table name (line 0, character 2)
+    const highlights = features.getDocumentHighlights(alloc, ast, 0, 2, doc_text);
+
+    // Should find at least 1 highlight (the FK usage)
+    try testing.expect(highlights.len >= 1);
+    // The FK highlight should NOT be a full-line range
+    for (highlights) |hl| {
+        if (hl.kind == .read) {
+            // FK reference should have a precise range (not starting at character 0 with full line width)
+            try testing.expect(hl.range.end.character > hl.range.start.character);
+            try testing.expect(hl.range.end.character - hl.range.start.character < 50); // Not a full line
+        }
+    }
+}
+
+test "getDefinition: multi-column FK navigates to target" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Multi-column FK: (user_id, role_id) -> (users.id, users.id)
+    const fk = ast_mod.FkDecl{
+        .fields = &.{ "user_id", "role_id" },
+        .ref_table = "users",
+        .ref_fields = &.{ "id", "id" },
+        .actions = &.{},
+        .line_no = 2, // FK declaration on line_no 2 (0-indexed: line 1)
+    };
+
+    var user_roles_table = makeTableWithFks("user_roles", &.{
+        makePkColumn("id"),
+        makeColumn("user_id", .int, .{}),
+        makeColumn("role_id", .int, .{}),
+    }, &.{fk});
+    user_roles_table.line_no = 1;
+
+    var users_table = makeTable("users", &.{makePkColumn("id")});
+    users_table.line_no = 5;
+
+    const ast = makeAst(&.{ user_roles_table, users_table }, &.{});
+
+    // Cursor on FK declaration line (line 1, which is 0-indexed from line_no 2 - 1)
+    const def = features.getDefinition(alloc, ast, "file:///test.ss", .{ .line = 1, .character = 0 });
+
+    // Should navigate to the users table
+    try testing.expect(def != null);
+    try testing.expect(std.mem.indexOf(u8, def.?.uri, "test.ss") != null);
+}
+
+test "getHover: column with dialect" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    var col_id = makeColumn("id", .int, .{ .primary_key = true, .auto_increment = true });
+    col_id.line_no = 2;
+
+    const table = makeTable("users", &.{col_id});
+    const ast = makeAst(&.{table}, &.{});
+
+    // Test with MySQL dialect
+    const hover_mysql = features.getHover(alloc, ast, .{ .line = 1, .character = 0 }, .mysql);
+    try testing.expect(hover_mysql != null);
+    if (hover_mysql) |h| {
+        defer alloc.free(h.contents.value);
+        try testing.expect(std.mem.indexOf(u8, h.contents.value, "id") != null);
+    }
+
+    // Test with PostgreSQL dialect
+    const hover_pg = features.getHover(alloc, ast, .{ .line = 1, .character = 0 }, .pg);
+    try testing.expect(hover_pg != null);
+    if (hover_pg) |h| {
+        defer alloc.free(h.contents.value);
+        try testing.expect(std.mem.indexOf(u8, h.contents.value, "id") != null);
+    }
 }

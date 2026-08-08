@@ -44,15 +44,17 @@ pub fn getReferences(alloc: std.mem.Allocator, typed: TypedAst, line: u32, chara
                 for (typed.tables) |other_table| {
                     for (other_table.fks) |fk| {
                         if (std.mem.eql(u8, fk.ref_table, table.name)) {
+                            // Find the precise position of the FK field name on the FK line
                             const fk_line = @as(u32, @intCast(other_table.line_no -| 1));
-                            const line_len = @as(u32, @intCast(getLineText(doc_text, fk_line).len));
-                            refs.append(alloc, .{
-                                .range = .{
-                                    .start = .{ .line = fk_line, .character = 0 },
-                                    .end = .{ .line = fk_line, .character = line_len },
-                                },
-                                .is_definition = false,
-                            }) catch {};
+                            if (fk.fields.len > 0) {
+                                const field_name = fk.fields[0];
+                                if (findNameInLine(doc_text, fk_line, field_name)) |range| {
+                                    refs.append(alloc, .{
+                                        .range = range,
+                                        .is_definition = false,
+                                    }) catch {};
+                                }
+                            }
                         }
                     }
                 }
@@ -67,18 +69,22 @@ pub fn getReferences(alloc: std.mem.Allocator, typed: TypedAst, line: u32, chara
             if (line == col_line) {
                 if (std.mem.eql(u8, col.name, "")) continue;
 
-                // Find all references to this column in FK declarations
+                // Find FK references to this column in other tables
                 for (typed.tables) |fk_table| {
                     for (fk_table.fks) |fk| {
                         if (std.mem.eql(u8, fk.ref_table, table.name)) {
-                            const line_len = @as(u32, @intCast(getLineText(doc_text, col_line).len));
-                            refs.append(alloc, .{
-                                .range = .{
-                                    .start = .{ .line = col_line, .character = 0 },
-                                    .end = .{ .line = col_line, .character = line_len },
-                                },
-                                .is_definition = false,
-                            }) catch {};
+                            // Check if this FK references this specific column
+                            if (fk.ref_fields.len > 0 and std.mem.eql(u8, fk.ref_fields[0], col.name)) {
+                                const fk_line = @as(u32, @intCast(fk_table.line_no -| 1));
+                                if (fk.fields.len > 0) {
+                                    if (findNameInLine(doc_text, fk_line, fk.fields[0])) |range| {
+                                        refs.append(alloc, .{
+                                            .range = range,
+                                            .is_definition = false,
+                                        }) catch {};
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -87,4 +93,40 @@ pub fn getReferences(alloc: std.mem.Allocator, typed: TypedAst, line: u32, chara
     }
 
     return refs.toOwnedSlice(alloc) catch &.{};
+}
+
+/// Find the precise character range of `name` on the given 0-indexed line in doc_text.
+/// Returns the Range if found, null otherwise.
+fn findNameInLine(doc_text: []const u8, target_line: u32, name: []const u8) ?Range {
+    var line_start: usize = 0;
+    var current_line: u32 = 0;
+
+    for (doc_text, 0..) |c, i| {
+        if (current_line == target_line) {
+            const line_end = if (c == '\n') i else doc_text.len;
+            const line_text = doc_text[line_start..line_end];
+            // Search for the name as a whole word
+            var search_start: usize = 0;
+            while (search_start < line_text.len) {
+                const pos = std.mem.indexOf(u8, line_text[search_start..], name) orelse break;
+                const abs_pos = search_start + pos;
+                const before_ok = abs_pos == 0 or !std.ascii.isAlphanumeric(line_text[abs_pos - 1]);
+                const after_end = abs_pos + name.len;
+                const after_ok = after_end >= line_text.len or !std.ascii.isAlphanumeric(line_text[after_end]);
+                if (before_ok and after_ok) {
+                    return .{
+                        .start = .{ .line = target_line, .character = @intCast(abs_pos) },
+                        .end = .{ .line = target_line, .character = @intCast(abs_pos + name.len) },
+                    };
+                }
+                search_start = abs_pos + 1;
+            }
+            return null;
+        }
+        if (c == '\n') {
+            line_start = i + 1;
+            current_line += 1;
+        }
+    }
+    return null;
 }

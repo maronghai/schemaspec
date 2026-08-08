@@ -29,7 +29,7 @@ pub fn getDocumentSymbols(alloc: std.mem.Allocator, ast: TypedAst) []DocumentSym
                     .name = col.name,
                     .detail = formatColumnDetail(alloc, col),
                     .kind = if (col.flags.primary_key) .constant else .field,
-                    .range = makeRange(col_line, 0, col_line, 100),
+                    .range = makeRange(col_line, 0, col_line, @intCast(col.name.len)),
                     .selection_range = makeRange(col_line, 0, col_line, @intCast(col.name.len)),
                 }) catch {};
             }

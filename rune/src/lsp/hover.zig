@@ -6,18 +6,19 @@ const Hover = protocol.Hover;
 const MarkupKind = protocol.MarkupKind;
 const makeRange = @import("helpers.zig").makeRange;
 const formatFlagsForHover = @import("helpers.zig").formatFlagsForHover;
+const Dialect = @import("../dialect/enum.zig").Dialect;
 
 // ─── Hover ──────────────────────────────────────────────────
 
-fn formatSqlTypeForHover(alloc: std.mem.Allocator, sql_type: anytype) []const u8 {
+fn formatSqlTypeForHover(alloc: std.mem.Allocator, sql_type: anytype, dialect: Dialect) []const u8 {
     var law = std.Io.Writer.Allocating.init(alloc);
     defer law.deinit();
-    sql_type.toSql(.mysql, &law.writer) catch return @tagName(sql_type);
+    sql_type.toSql(dialect, &law.writer) catch return @tagName(sql_type);
     return law.toOwnedSlice() catch return @tagName(sql_type);
 }
 
 /// Generate hover information for a position in the document.
-pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Hover {
+pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position, dialect: Dialect) ?Hover {
     const line = position.line;
 
     for (ast.tables) |table| {
@@ -67,29 +68,13 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
                 var aw = std.Io.Writer.Allocating.init(alloc);
                 defer aw.deinit();
 
-                aw.writer.print("**{s}** : `{s}`", .{ col.name, @tagName(col.sql_type) }) catch return null;
+                const sql_type_str = formatSqlTypeForHover(alloc, col.sql_type, dialect);
+                defer alloc.free(sql_type_str);
 
-                switch (col.sql_type) {
-                    .varchar => |n| {
-                        if (n > 0) aw.writer.print("({d})", .{n}) catch {};
-                    },
-                    .decimal => |ds| {
-                        aw.writer.print("({d},{d})", .{ ds.precision, ds.scale }) catch {};
-                    },
-                    else => {},
-                }
+                aw.writer.print("**{s}** : `{s}`", .{ col.name, sql_type_str }) catch return null;
 
                 aw.writer.writeAll("\n\n```sql\n") catch {};
-                aw.writer.print("{s} {s}", .{ col.name, @tagName(col.sql_type) }) catch {};
-                switch (col.sql_type) {
-                    .varchar => |n| {
-                        if (n > 0) aw.writer.print("({d})", .{n}) catch {};
-                    },
-                    .decimal => |ds| {
-                        aw.writer.print("({d},{d})", .{ ds.precision, ds.scale }) catch {};
-                    },
-                    else => {},
-                }
+                aw.writer.print("{s} {s}", .{ col.name, sql_type_str }) catch {};
                 const flags_str = formatFlagsForHover(alloc, col.flags);
                 defer if (flags_str.len > 0) alloc.free(flags_str);
                 if (flags_str.len > 0) {
@@ -148,16 +133,9 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
                                 for (ref_table.columns) |ref_col| {
                                     if (std.mem.eql(u8, ref_col.name, fk.ref_fields[0])) {
                                         aw.writer.writeAll("\n**Target Column:**\n") catch {};
-                                        aw.writer.print("- Type: `{s}`", .{@tagName(ref_col.sql_type)}) catch {};
-                                        switch (ref_col.sql_type) {
-                                            .varchar => |n| {
-                                                if (n > 0) aw.writer.print("({d})", .{n}) catch {};
-                                            },
-                                            .decimal => |ds| {
-                                                aw.writer.print("({d},{d})", .{ ds.precision, ds.scale }) catch {};
-                                            },
-                                            else => {},
-                                        }
+                                        const ref_type_str = formatSqlTypeForHover(alloc, ref_col.sql_type, dialect);
+                                        defer alloc.free(ref_type_str);
+                                        aw.writer.print("- Type: `{s}`", .{ref_type_str}) catch {};
                                         aw.writer.writeByte('\n') catch {};
                                         if (ref_col.flags.primary_key) {
                                             aw.writer.writeAll("- `PRIMARY KEY`\n") catch {};
@@ -241,7 +219,7 @@ test "Hover: table hover" {
         .views = &.{},
         .sql_comments = &.{},
     };
-    const result = getHover(std.testing.allocator, ast, .{ .line = 0, .character = 0 });
+    const result = getHover(std.testing.allocator, ast, .{ .line = 0, .character = 0 }, .mysql);
     try std.testing.expect(result != null);
     if (result) |h| {
         defer std.testing.allocator.free(h.contents.value);
@@ -279,7 +257,7 @@ test "Hover: column hover" {
         .views = &.{},
         .sql_comments = &.{},
     };
-    const result = getHover(std.testing.allocator, ast, .{ .line = 2, .character = 2 });
+    const result = getHover(std.testing.allocator, ast, .{ .line = 2, .character = 2 }, .mysql);
     try std.testing.expect(result != null);
     if (result) |r| {
         defer std.testing.allocator.free(r.contents.value);

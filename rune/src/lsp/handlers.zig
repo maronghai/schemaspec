@@ -157,7 +157,7 @@ pub fn handleHover(self: *Server, stdout_file: anytype, id: ?i64, params: std.js
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     if (typed) |t| {
-        if (features_mod.getHover(self.arena, t, .{ .line = line, .character = character })) |hover| {
+        if (features_mod.getHover(self.arena, t, .{ .line = line, .character = character }, self.dialect)) |hover| {
             try lsp_protocol.writeHover(&body_alloc.writer, hover);
         } else {
             try body_alloc.writer.writeAll("null");
