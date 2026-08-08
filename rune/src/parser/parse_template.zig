@@ -4,6 +4,7 @@ const ast_mod = @import("../types/ast.zig");
 const Field = ast_mod.Field;
 const Template = ast_mod.Template;
 const SourceLocation = ast_mod.SourceLocation;
+const locFromLine = @import("loc.zig").locFromLine;
 
 // ─── Template Parsing ─────────────────────────────────────────
 // Extracted from parser.zig for single-responsibility.
@@ -85,14 +86,4 @@ pub fn flushTemplate(
         .line_no = line_no,
         .loc = loc,
     });
-}
-
-/// Compute SourceLocation from a tokenized line and a token within it.
-fn locFromLine(line: tk.Line, tok: []const u8) SourceLocation {
-    const col = @import("../semantic/diagnostic.zig").tokenColumn(tok, line.raw);
-    return .{
-        .line = line.line_no,
-        .col = col,
-        .offset = line.offset + col - 1,
-    };
 }

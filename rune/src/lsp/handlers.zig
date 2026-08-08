@@ -250,7 +250,7 @@ pub fn handleCodeAction(self: *Server, stdout_file: anytype, id: ?i64, params: s
         const actions = features_mod.getCodeActions(self.arena, t, diagnostics.items, range);
         for (actions, 0..) |action, i| {
             if (i > 0) try body_alloc.writer.writeByte(',');
-            try lsp_protocol.writeCodeAction(&body_alloc.writer, action);
+            try lsp_protocol.writeCodeAction(&body_alloc.writer, action, uri);
         }
     }
     try body_alloc.writer.writeByte(']');
@@ -362,13 +362,15 @@ pub fn handleReferences(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
     const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
+    const doc = self.documents.get(uri);
+    const doc_text = if (doc) |d| d.text else "";
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     try body_alloc.writer.writeByte('[');
     if (typed) |t| {
-        const refs = features_mod.getReferences(t, line, character, uri);
+        const refs = features_mod.getReferences(self.arena, t, line, character, uri, doc_text);
         for (refs, 0..) |ref, i| {
             if (i > 0) try body_alloc.writer.writeByte(',');
             try body_alloc.writer.writeByte('{');
@@ -395,13 +397,15 @@ pub fn handleDocumentHighlight(self: *Server, stdout_file: anytype, id: ?i64, pa
     const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
     const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
+    const doc = self.documents.get(uri);
+    const doc_text = if (doc) |d| d.text else "";
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     try body_alloc.writer.writeByte('[');
     if (typed) |t| {
-        const highlights = features_mod.getDocumentHighlights(t, line, character);
+        const highlights = features_mod.getDocumentHighlights(self.arena, t, line, character, doc_text);
         for (highlights, 0..) |hl, i| {
             if (i > 0) try body_alloc.writer.writeByte(',');
             try body_alloc.writer.writeByte('{');

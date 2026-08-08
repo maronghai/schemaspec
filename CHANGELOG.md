@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.173.0] - 2026-08-09
+
+### Fixed
+- **LSP writeCodeAction hardcoded URI** — Replaced `"file:///"` literal with actual document URI in `writeCodeAction` JSON serialization. Previously, all code actions referenced a non-existent `file:///` path instead of the correct document.
+- **LSP magic number 100 for range ends** — Replaced hardcoded `character = 100` in `references.zig` and `highlights.zig` with actual line length computed from document text via shared `getLineText` helper.
+
+### Changed
+- **LSP shared utilities** — Extracted `getLineText`, `lineLength`, and `formatFlagsForHover` into `lsp/helpers.zig` as shared utilities. `hover.zig` no longer duplicates flag formatting logic.
+- **LSP dynamic arrays** — Replaced static 256-element arrays in `references.zig` and `highlights.zig` with allocator-based `ArrayList`, eliminating silent truncation for schemas with many references.
+- **Parser shared `locFromLine`** — Extracted duplicated `locFromLine` function into shared `parser/loc.zig` module. `parse_table.zig`, `parse_template.zig`, and `parse_recovery.zig` now import from the shared location.
+
 ## [0.170.0] - 2026-08-09
 
 ### Added

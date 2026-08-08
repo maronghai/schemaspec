@@ -5,6 +5,7 @@ const Position = protocol.Position;
 const Hover = protocol.Hover;
 const MarkupKind = protocol.MarkupKind;
 const makeRange = @import("helpers.zig").makeRange;
+const formatFlagsForHover = @import("helpers.zig").formatFlagsForHover;
 
 // ─── Hover ──────────────────────────────────────────────────
 
@@ -13,28 +14,6 @@ fn formatSqlTypeForHover(alloc: std.mem.Allocator, sql_type: anytype) []const u8
     defer law.deinit();
     sql_type.toSql(.mysql, &law.writer) catch return @tagName(sql_type);
     return law.toOwnedSlice() catch return @tagName(sql_type);
-}
-
-fn formatFlagsForHover(alloc: std.mem.Allocator, flags: anytype) []const u8 {
-    var parts = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return "";
-    defer parts.deinit(alloc);
-    if (flags.primary_key) parts.append(alloc, "PRIMARY KEY") catch {};
-    if (flags.auto_increment) parts.append(alloc, "AUTO_INCREMENT") catch {};
-    if (flags.nullable) parts.append(alloc, "NULL") catch {};
-    if (flags.unsigned) parts.append(alloc, "UNSIGNED") catch {};
-    if (flags.inline_unique) parts.append(alloc, "UNIQUE") catch {};
-    if (flags.inline_index) parts.append(alloc, "INDEX") catch {};
-    if (flags.is_enum) parts.append(alloc, "ENUM") catch {};
-    if (flags.is_virtual) parts.append(alloc, "VIRTUAL") catch {};
-    if (flags.is_stored) parts.append(alloc, "STORED") catch {};
-
-    var law = std.Io.Writer.Allocating.init(alloc);
-    defer law.deinit();
-    for (parts.items, 0..) |p, i| {
-        if (i > 0) law.writer.writeAll(" ") catch {};
-        law.writer.writeAll(p) catch {};
-    }
-    return law.toOwnedSlice() catch return "";
 }
 
 /// Generate hover information for a position in the document.
@@ -121,22 +100,15 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
                 }
                 aw.writer.writeAll("\n```\n") catch {};
 
-                var flags = std.ArrayList([]const u8).initCapacity(alloc, 8) catch return null;
-                defer flags.deinit(alloc);
-                if (col.flags.primary_key) flags.append(alloc, "PRIMARY KEY") catch {};
-                if (col.flags.auto_increment) flags.append(alloc, "AUTO_INCREMENT") catch {};
-                if (col.flags.nullable) flags.append(alloc, "NULLABLE") catch {};
-                if (col.flags.unsigned) flags.append(alloc, "UNSIGNED") catch {};
-                if (col.flags.inline_unique) flags.append(alloc, "UNIQUE") catch {};
-                if (col.flags.inline_index) flags.append(alloc, "INDEXED") catch {};
-                if (col.flags.is_enum) flags.append(alloc, "ENUM") catch {};
-                if (col.flags.is_virtual) flags.append(alloc, "VIRTUAL") catch {};
-                if (col.flags.is_stored) flags.append(alloc, "STORED") catch {};
-
-                if (flags.items.len > 0) {
+                const detail_flags = formatFlagsForHover(alloc, col.flags);
+                defer if (detail_flags.len > 0) alloc.free(detail_flags);
+                if (detail_flags.len > 0) {
                     aw.writer.writeAll("**Flags:** ") catch {};
-                    for (flags.items, 0..) |f, i| {
-                        if (i > 0) aw.writer.writeAll(", ") catch {};
+                    var detail_iter = std.mem.splitScalar(u8, detail_flags, ' ');
+                    var first = true;
+                    while (detail_iter.next()) |f| {
+                        if (!first) aw.writer.writeAll(", ") catch {};
+                        first = false;
                         aw.writer.print("`{s}`", .{f}) catch {};
                     }
                     aw.writer.writeByte('\n') catch {};

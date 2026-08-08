@@ -278,12 +278,11 @@ test "getReferences: find table references" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    _ = alloc;
 
     const table = makeTable("users", &.{makePkColumn("id")});
     const ast = makeAst(&.{table}, &.{});
 
-    const refs = features.getReferences(ast, 0, 6, "file:///test.ss");
+    const refs = features.getReferences(alloc, ast, 0, 6, "file:///test.ss", "# users\nid n++");
 
     try testing.expect(refs.len > 0);
 }
@@ -294,12 +293,11 @@ test "getDocumentHighlights: table name highlights" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    _ = alloc;
 
     const table = makeTable("users", &.{makePkColumn("id")});
     const ast = makeAst(&.{table}, &.{});
 
-    const highlights = features.getDocumentHighlights(ast, 0, 6);
+    const highlights = features.getDocumentHighlights(alloc, ast, 0, 6, "# users\nid n++");
 
     try testing.expect(highlights.len > 0);
 }

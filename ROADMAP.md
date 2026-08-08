@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.170.0 (2026-08-09) — 31,800+ lines production Zig, 1246+ tests, 32 test suites.
+**Current version**: 0.173.0 (2026-08-09) — 31,800+ lines production Zig, 1246+ tests, 32 test suites.
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.173.0** — LSP quality & parser cleanup: fixed hardcoded URI in `writeCodeAction`, replaced magic number 100 with actual line lengths in `references.zig`/`highlights.zig`, replaced static256 arrays with dynamic `ArrayList`, extracted shared `getLineText`/`formatFlagsForHover` into `helpers.zig`, extracted shared `locFromLine` into `parser/loc.zig`
 - **v0.172.0** — `rune tune`: auto-template extraction — finds fields co-occurring in most tables and extracts them into `% base` template, rewrites .ss file with `#base table` references
 - **v0.171.0** — Stats per-table: added `--per-table` flag to `rune stats` for per-table breakdown (fields, types, constraints per table), supports JSON/Markdown/text output formats
 - **v0.170.0** — Lint enhancements: added `serial-type` rule (warns on PostgreSQL-specific serial types for cross-dialect compatibility), added `table-name-length` rule (configurable max table name length, default 64), added LSP features facade tests (7 new tests covering document symbols, hover, completions, go-to-definition, references, highlights)

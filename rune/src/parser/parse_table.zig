@@ -2,6 +2,7 @@ const std = @import("std");
 const tk = @import("tokenizer.zig");
 const ast_mod = @import("../types/ast.zig");
 const SourceLocation = ast_mod.SourceLocation;
+const locFromLine = @import("loc.zig").locFromLine;
 
 // ─── Table Parsing ────────────────────────────────────────────
 // Extracted from parser.zig for single-responsibility.
@@ -179,14 +180,4 @@ fn detectSetOperation(query: ?[]const u8) ?SetOperationResult {
         }
     }
     return null;
-}
-
-/// Compute SourceLocation from a tokenized line and a token within it.
-fn locFromLine(line: tk.Line, tok: []const u8) SourceLocation {
-    const col = @import("../semantic/diagnostic.zig").tokenColumn(tok, line.raw);
-    return .{
-        .line = line.line_no,
-        .col = col,
-        .offset = line.offset + col - 1,
-    };
 }

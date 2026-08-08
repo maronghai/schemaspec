@@ -58,6 +58,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `parser.zig` | `parse_table.zig` | Table header parsing + engine token stripping |
 | `parser.zig` | `parse_trace.zig` | Parser diagnostic trace output (debug mode) |
 | `parser.zig` | `parse_recovery.zig` | Error handling + sync point detection for error recovery |
+| `parser.zig` | `loc.zig` | Shared `locFromLine` utility — computes `SourceLocation` from tokenized line + token |
 | `diff/engine.zig` | `diff/fields.zig` | Field-level diffing + rename detection + equality helpers |
 | `diff/engine.zig` | `diff/indexes.zig` | Index diffing |
 | `diff/engine.zig` | `diff/fks.zig` | FK diffing |
@@ -499,7 +500,7 @@ The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It
 | `lsp/handlers.zig` | ~380 | Request handlers (initialize, shutdown, didOpen/didChange/didClose/didSave, completion, hover, definition, codeAction, formatting, rename) |
 | `lsp/compile_service.zig` | ~202 | Pipeline wrapper for LSP diagnostics |
 | `lsp/features.zig` | ~30 | Thin facade re-exporting sub-modules |
-| `lsp/helpers.zig` | ~10 | Shared `makeRange` utility |
+| `lsp/helpers.zig` | ~50 | Shared `makeRange`, `getLineText`, `lineLength`, `formatFlagsForHover` utilities |
 | `lsp/document_symbols.zig` | ~200 | Outline view (tables, columns, FKs, indexes) |
 | `lsp/completions.zig` | ~250 | Context-sensitive completion (keywords, types, modifiers) |
 | `lsp/hover.zig` | ~200 | Hover info (table stats, column types, FK relationships) |

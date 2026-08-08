@@ -4,6 +4,7 @@ const diag = @import("../semantic/diagnostic.zig");
 const ast_mod = @import("../types/ast.zig");
 const SourceLocation = ast_mod.SourceLocation;
 const LineType = tk.LineType;
+pub const locFromLine = @import("loc.zig").locFromLine;
 
 // ─── Parse Recovery: error handling ──────────────────────────
 //
@@ -52,14 +53,4 @@ pub fn findNextBlockBoundary(lines: []const tk.Line, start: usize) ?usize {
         if (isBlockBoundary(lines[i].line_type)) return i;
     }
     return null;
-}
-
-/// Compute SourceLocation from a tokenized line and a token within it.
-pub fn locFromLine(line: tk.Line, tok: []const u8) SourceLocation {
-    const col = diag.tokenColumn(tok, line.raw);
-    return .{
-        .line = line.line_no,
-        .col = col,
-        .offset = line.offset + col - 1,
-    };
 }

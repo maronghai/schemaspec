@@ -506,7 +506,7 @@ pub fn writeTextEdit(w: anytype, edit: TextEdit) !void {
 }
 
 /// Write a CodeAction as JSON.
-pub fn writeCodeAction(w: anytype, action: CodeAction) !void {
+pub fn writeCodeAction(w: anytype, action: CodeAction, doc_uri: []const u8) !void {
     try w.writeByte('{');
     try json_utils.writeJsonField(w, "title", action.title);
     try w.writeByte(',');
@@ -540,7 +540,9 @@ pub fn writeCodeAction(w: anytype, action: CodeAction) !void {
         if (edit.changes) |changes| {
             for (changes, 0..) |tc, i| {
                 if (i > 0) try w.writeByte(',');
-                try w.writeAll("\"file:///\":[");
+                try w.writeByte('"');
+                try json_utils.writeJsonString(w, doc_uri);
+                try w.writeAll("\":[");
                 try writeTextEdit(w, tc);
                 try w.writeByte(']');
             }
