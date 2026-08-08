@@ -39,8 +39,9 @@ pub const DocumentManager = struct {
         const owned_text = try self.alloc.dupe(u8, text);
         const owned_lang = try self.alloc.dupe(u8, language_id);
 
-        // If already open, free old content
+        // If already open, free old content and the duplicate URI
         if (self.documents.getEntry(owned_uri)) |entry| {
+            self.alloc.free(owned_uri);
             self.alloc.free(entry.value_ptr.*.text);
             self.alloc.free(entry.value_ptr.*.language_id);
             entry.value_ptr.* = .{

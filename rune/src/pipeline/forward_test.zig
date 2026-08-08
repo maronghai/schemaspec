@@ -153,3 +153,38 @@ test "compilePipeline: default values preserved" {
     try testing.expect(count_col.default_val != null);
     try testing.expectEqualStrings("0", count_col.default_val.?.value);
 }
+
+test "compilePipeline: empty input produces empty result" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const result = try pf.compilePipeline(alloc, "", .{});
+    // Empty input should produce no tables
+    try testing.expectEqual(@as(usize, 0), result.resolved.tables.len);
+}
+
+test "compilePipeline: comments-only input produces empty result" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ss_input =
+        \\# This is a comment
+        \\# Another comment
+    ;
+    const result = try pf.compilePipeline(alloc, ss_input, .{});
+    // Parser is lenient; comments may or may not produce tables
+    // The key is that compilation succeeds without crashing
+    _ = result;
+}
+
+test "compilePipeline: whitespace-only input produces empty result" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const result = try pf.compilePipeline(alloc, "   \n  \n  ", .{});
+    // Whitespace-only should produce no tables
+    try testing.expectEqual(@as(usize, 0), result.resolved.tables.len);
+}

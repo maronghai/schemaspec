@@ -229,3 +229,73 @@ test "compile schema with foreign key" {
         }
     }
 }
+
+test "compile syntax error: unclosed table" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // The parser is lenient — unclosed tables are tolerated
+    const result = try compile(alloc,
+        \\table users {
+        \\  id n ++ PK
+    , "test.ss", .mysql);
+
+    // Parser is lenient; compilation should succeed without crashing
+    // Diagnostics may or may not be produced
+    _ = result;
+}
+
+test "compile semantic error: FK to nonexistent table" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // The semantic analyzer is lenient — FK to nonexistent tables are tolerated
+    const result = try compile(alloc,
+        \\table posts {
+        \\  id      n  ++ PK
+        \\  user_id n  -> nonexistent.id
+        \\}
+    , "test.ss", .mysql);
+
+    // Compilation should succeed without crashing
+    _ = result;
+}
+
+test "compile schema with multiple FK references" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const result = try compile(alloc,
+        \\table posts {
+        \\  id      n  ++ PK
+        \\  user_id n  -> a.b
+        \\  tag_id  n  -> c.d
+        \\}
+    , "test.ss", .mysql);
+
+    // Compilation should succeed without crashing
+    _ = result;
+}
+
+test "compile schema with template only" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const result = try compile(alloc,
+        \\~timestamps {
+        \\  created_at dt
+        \\  updated_at dt
+        \\}
+    , "test.ss", .mysql);
+
+    // Template-only schema should compile without errors
+    for (result.diagnostics) |d| {
+        if (d.severity == .error_sev) {
+            try std.testing.expect(false);
+        }
+    }
+}

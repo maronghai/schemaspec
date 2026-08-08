@@ -544,11 +544,11 @@ cd packaging/vscode && code --install-extension .
 rune lsp    # Starts the LSP server over stdio
 ```
 
-Features: diagnostics, completion, hover, go-to-definition, document symbols, code actions, formatting.
+Features: diagnostics, completion, hover, go-to-definition, document symbols, references, highlights, rename, code actions, formatting.
 
 ## Roadmap
 
-- [x] LSP language server (completion, diagnostics, hover, go-to-definition, code actions, formatting)
+- [x] LSP language server (completion, diagnostics, hover, go-to-definition, document symbols, references, highlights, rename, code actions, formatting)
 - [x] Oracle dialect support
 - [x] Microsoft SQL Server dialect support
 - [x] IBM Db2 dialect support

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.168.0] - 2026-08-08
+
+### Fixed
+- **DocumentManager memory leak** — Fixed memory leak in `lsp/documents.zig` where reopening a document leaked the URI allocation. The `open()` function now properly frees the duplicate URI when replacing an existing document.
+
+### Added
+- **LSP compile service tests** — Added 3 new tests for the LSP compile service covering syntax errors, semantic errors, and multiple FK references. Tests verify the pipeline handles edge cases without crashing.
+- **Pipeline edge case tests** — Added 3 new tests for `compilePipeline` covering empty input, comments-only input, and whitespace-only input.
+- **LSP hover FK enhancements** — Hover over a foreign key now shows the target column's type and constraints (PRIMARY KEY, NULLABLE/NOT NULL) in addition to the existing relationship info.
+
+### Changed
+- **Documentation** — Updated README to list all LSP features including references, highlights, and rename.
+
 ## [0.167.0] - 2026-08-08
 
 ### Changed

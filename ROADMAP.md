@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.167.0 (2026-08-08) — 31,800+ lines production Zig, 1226+ tests, 32 test suites.
+**Current version**: 0.168.0 (2026-08-08) — 31,800+ lines production Zig, 1230+ tests, 32 test suites.
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.168.0** — Quality & polish: fixed DocumentManager memory leak on document reopen, added LSP compile service tests (3 new), pipeline edge case tests (3 new), enhanced LSP hover for FK references (shows target column type and constraints), updated documentation
 - **v0.166.0** — Memory safety & buffer pool optimization: fixed `generateTypedView` buffer leak for UNION/INTERSECT/EXCEPT views, added `StreamingCodegen.deinit` and fixed 4 parallel path leaks, extended BufferPool to default SQL codegen path, 6 new view codegen unit tests, synced all packaging manifests to v0.166.0
 - **v0.163.0** — Watch directory mode (`--recursive` tracks all .ss files, per-file hash changes, error streak tracking), init template presets (`--template blog|ecommerce|rest-api`)
 - **v0.162.0** — Pipeline split & optimization: extracted output handlers from `pipeline/forward.zig` (520 lines) into `pipeline/handlers.zig` (270 lines) for single-responsibility, optimized O(n²) column lookups in `validate_indexes.zig` to O(n) via StringHashMap, added tests for `pipeline/handlers.zig` (formatValidateResult)

@@ -168,6 +168,41 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position) ?Ho
                         aw.writer.print("Column: `{s}`\n", .{fk.fields[0]}) catch {};
                     }
                     aw.writer.print("Target: `{s}.{s}`\n", .{ fk.ref_table, if (fk.ref_fields.len > 0) fk.ref_fields[0] else "" }) catch {};
+
+                    // Look up target column type and constraints
+                    if (fk.ref_fields.len > 0) {
+                        for (ast.tables) |ref_table| {
+                            if (std.mem.eql(u8, ref_table.name, fk.ref_table)) {
+                                for (ref_table.columns) |ref_col| {
+                                    if (std.mem.eql(u8, ref_col.name, fk.ref_fields[0])) {
+                                        aw.writer.writeAll("\n**Target Column:**\n") catch {};
+                                        aw.writer.print("- Type: `{s}`", .{@tagName(ref_col.sql_type)}) catch {};
+                                        switch (ref_col.sql_type) {
+                                            .varchar => |n| {
+                                                if (n > 0) aw.writer.print("({d})", .{n}) catch {};
+                                            },
+                                            .decimal => |ds| {
+                                                aw.writer.print("({d},{d})", .{ ds.precision, ds.scale }) catch {};
+                                            },
+                                            else => {},
+                                        }
+                                        aw.writer.writeByte('\n') catch {};
+                                        if (ref_col.flags.primary_key) {
+                                            aw.writer.writeAll("- `PRIMARY KEY`\n") catch {};
+                                        }
+                                        if (ref_col.flags.nullable) {
+                                            aw.writer.writeAll("- `NULLABLE`\n") catch {};
+                                        } else {
+                                            aw.writer.writeAll("- `NOT NULL`\n") catch {};
+                                        }
+                                        break;
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+
                     if (fk.actions.len > 0) {
                         aw.writer.writeAll("\n**Actions:**\n") catch {};
                         for (fk.actions) |action| {
