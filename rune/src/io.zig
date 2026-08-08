@@ -49,7 +49,8 @@ pub fn mmapFile(io: std.Io, path: []const u8) !MmapResult {
 
     if (comptime @import("builtin").os.tag == .windows or @import("builtin").os.tag == .wasi) {
         // Windows and WASM: fall back to regular read (no POSIX mmap)
-        const data = try std.Io.Dir.cwd().readFileAlloc(io, path, std.heap.page_allocator, .limited(size));
+        // Use .unlimited — .limited(size) triggers StreamTooLong on Windows
+        const data = try std.Io.Dir.cwd().readFileAlloc(io, path, std.heap.page_allocator, .unlimited);
         return .{ .data = data, .size = data.len, .is_heap = true };
     } else {
         const mapped = try std.posix.mmap(

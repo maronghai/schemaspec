@@ -86,7 +86,7 @@ pub fn parseCreateTable(self: *sp.SqlParser) !SqlTable {
 
         if (self.lookaheadIs("CONSTRAINT")) {
             self.skipSpacesAndNewlines();
-            self.advance();
+            self.skipWord(); // consume "CONSTRAINT"
             self.skipSpaces();
             _ = try self.parseIdentifier();
             self.skipSpaces();
@@ -198,6 +198,7 @@ pub fn parseCreateTable(self: *sp.SqlParser) !SqlTable {
             self.skipSpaces();
             comment = try self.parseStringLiteral();
         } else {
+            // Unrecognized table option — skip the keyword and any value
             self.skipWord();
             self.skipSpaces();
             if (self.peek() == '=') {
@@ -208,6 +209,16 @@ pub fn parseCreateTable(self: *sp.SqlParser) !SqlTable {
                 } else {
                     self.skipWord();
                 }
+            } else if (self.peek() == '(') {
+                // Skip parenthesized value (e.g., STORAGE (...), CHECK (...))
+                var depth: usize = 1;
+                self.advance();
+                while (self.pos < self.src.len and depth > 0) {
+                    const c = self.src[self.pos];
+                    if (c == '(') depth += 1 else if (c == ')') depth -= 1;
+                    if (depth > 0) self.pos += 1;
+                }
+                if (self.pos < self.src.len) self.pos += 1; // closing )
             }
         }
     }
@@ -410,6 +421,9 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
         }
         self.skipSpaces();
     }
+
+    // Advance past trailing newline so the caller's loop sees the next token (e.g. ')' or ',')
+    if (self.pos < self.src.len and self.src[self.pos] == '\n') self.pos += 1;
 
     return .{
         .name = name,

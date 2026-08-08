@@ -10,24 +10,24 @@ const SqlForeignKey = common.SqlForeignKey;
 
 pub fn parseForeignKey(self: *sp.SqlParser) !SqlForeignKey {
     self.expectKeyword("FOREIGN");
-    self.skipSpaces();
+    self.skipSpacesAndNewlines();
     self.expectKeyword("KEY");
-    self.skipSpaces();
+    self.skipSpacesAndNewlines();
     const fk_fl = try self.parseParenFieldList();
     self.alloc.free(fk_fl.descending);
     const fk_fields = fk_fl.fields;
-    self.skipSpaces();
+    self.skipSpacesAndNewlines();
     self.expectKeyword("REFERENCES");
-    self.skipSpaces();
+    self.skipSpacesAndNewlines();
     const ref_table = try self.parseIdentifier();
-    self.skipSpaces();
+    self.skipSpacesAndNewlines();
     const fk_ref_fl = try self.parseParenFieldList();
     self.alloc.free(fk_ref_fl.descending);
     const fk_ref_fields = fk_ref_fl.fields;
 
     var actions = try std.ArrayList(FkAction).initCapacity(self.alloc, 4);
     while (true) {
-        self.skipSpaces();
+        self.skipSpacesAndNewlines();
         if (self.matchKeyword("ON")) {
             self.skipSpaces();
             const trigger: FkActionTrigger = blk: {

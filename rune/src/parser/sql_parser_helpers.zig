@@ -322,6 +322,33 @@ pub fn expect(self: *sp.SqlParser, ch: u8) void {
     }
 }
 
+/// Expect statement end: `;` or `GO` (MSSQL batch separator).
+pub fn expectStatementEnd(self: *sp.SqlParser) void {
+    self.skipSpacesAndNewlines();
+    if (self.pos >= self.src.len) return;
+    if (self.src[self.pos] == ';') {
+        self.pos += 1;
+        return;
+    }
+    // Check for GO batch separator
+    if (self.uses_go_separator and self.pos + 1 < self.src.len) {
+        const c0 = self.src[self.pos];
+        const c1 = self.src[self.pos + 1];
+        if ((c0 == 'G' or c0 == 'g') and (c1 == 'O' or c1 == 'o')) {
+            if (self.pos + 2 >= self.src.len) {
+                self.pos += 2;
+                return;
+            }
+            const c2 = self.src[self.pos + 2];
+            if (c2 == '\n' or c2 == '\r' or c2 == ' ' or c2 == '\t' or c2 == '-' or c2 == '/') {
+                self.pos += 2;
+                return;
+            }
+        }
+    }
+    self.reportError("expected ';' or 'GO', got '{c}'", .{self.peek()});
+}
+
 pub fn lookaheadIs(self: *sp.SqlParser, kw: []const u8) bool {
     const saved = self.pos;
     self.skipSpacesAndNewlines();
@@ -470,6 +497,79 @@ pub fn skipToSemicolon(self: *sp.SqlParser) void {
             },
             else => self.pos += 1,
         }
+    }
+}
+
+/// Skip to the next `GO` batch separator (MSSQL) or `;`.
+/// Used when the input may use either separator style.
+pub fn skipToGoOrSemicolon(self: *sp.SqlParser) void {
+    while (self.pos < self.src.len) {
+        const c = self.src[self.pos];
+        if (c == ';') {
+            self.pos += 1;
+            return;
+        }
+        // Check for GO batch separator: G/O at current position, followed by newline/EOF/whitespace
+        if ((c == 'G' or c == 'g') and self.pos + 1 < self.src.len) {
+            const c1 = self.src[self.pos + 1];
+            if (c1 == 'O' or c1 == 'o') {
+                const after = if (self.pos + 2 < self.src.len) self.src[self.pos + 2] else 0;
+                if (after == 0 or after == '\n' or after == '\r' or after == ' ' or after == '\t' or after == '-' or after == '/') {
+                    self.pos += 2;
+                    // Skip trailing whitespace/newlines
+                    while (self.pos < self.src.len) {
+                        const w = self.src[self.pos];
+                        if (w == '\n' or w == '\r' or w == ' ' or w == '\t') {
+                            self.pos += 1;
+                        } else break;
+                    }
+                    return;
+                }
+            }
+        }
+        // Skip quoted strings to avoid matching GO inside strings
+        if (c == '\'') {
+            self.pos += 1;
+            while (self.pos < self.src.len and self.src[self.pos] != '\'') {
+                if (self.src[self.pos] == '\'' and self.pos + 1 < self.src.len and self.src[self.pos + 1] == '\'') {
+                    self.pos += 2;
+                } else {
+                    self.pos += 1;
+                }
+            }
+            if (self.pos < self.src.len) self.pos += 1; // closing '
+            continue;
+        }
+        if (c == '"') {
+            self.pos += 1;
+            while (self.pos < self.src.len and self.src[self.pos] != '"') {
+                if (self.src[self.pos] == '"' and self.pos + 1 < self.src.len and self.src[self.pos + 1] == '"') {
+                    self.pos += 2;
+                } else {
+                    self.pos += 1;
+                }
+            }
+            if (self.pos < self.src.len) self.pos += 1; // closing "
+            continue;
+        }
+        if (c == '-' and self.pos + 1 < self.src.len and self.src[self.pos + 1] == '-') {
+            // Skip -- line comment
+            while (self.pos < self.src.len and self.src[self.pos] != '\n') self.pos += 1;
+            continue;
+        }
+        if (c == '/' and self.pos + 1 < self.src.len and self.src[self.pos + 1] == '*') {
+            // Skip /* block comment */
+            self.pos += 2;
+            while (self.pos + 1 < self.src.len) {
+                if (self.src[self.pos] == '*' and self.src[self.pos + 1] == '/') {
+                    self.pos += 2;
+                    break;
+                }
+                self.pos += 1;
+            }
+            continue;
+        }
+        self.pos += 1;
     }
 }
 

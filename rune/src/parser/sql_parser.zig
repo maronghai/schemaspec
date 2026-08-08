@@ -35,6 +35,8 @@ pub const SqlParser = struct {
     dialect: Dialect,
     /// Pre-computed line start offsets for O(log n) line/col lookup.
     line_offsets: []const usize,
+    /// Whether input uses GO as batch separator (MSSQL).
+    uses_go_separator: bool,
 
     pub fn init(alloc: std.mem.Allocator, src: []const u8, dialect: Dialect) !SqlParser {
         // Build line offset table: line_offsets[i] = byte offset where line (i+1) starts
@@ -45,13 +47,38 @@ pub const SqlParser = struct {
                 try offsets.append(alloc, i + 1);
             }
         }
+        // Detect GO batch separator (MSSQL style: GO on its own line)
+        const uses_go = std.mem.indexOf(u8, src, "GO\n") != null or
+            std.mem.indexOf(u8, src, "GO\r\n") != null;
+        // If GO separator detected, normalize: replace GO followed by newline with semicolons
+        const effective_src = if (uses_go) blk: {
+            var normalized = try std.ArrayList(u8).initCapacity(alloc, src.len + 16);
+            var i: usize = 0;
+            while (i < src.len) {
+                if (i + 1 < src.len and (src[i] == 'G' or src[i] == 'g') and (src[i + 1] == 'O' or src[i + 1] == 'o')) {
+                    // Check if GO is followed by newline (standalone GO)
+                    if (i + 2 < src.len and (src[i + 2] == '\n' or src[i + 2] == '\r')) {
+                        try normalized.append(alloc, ';');
+                        i += 2; // skip GO
+                        // Skip the newline after GO
+                        if (i < src.len and src[i] == '\r') i += 1;
+                        if (i < src.len and src[i] == '\n') i += 1;
+                        continue;
+                    }
+                }
+                try normalized.append(alloc, src[i]);
+                i += 1;
+            }
+            break :blk try normalized.toOwnedSlice(alloc);
+        } else src;
         return .{
             .alloc = alloc,
-            .src = src,
+            .src = effective_src,
             .pos = 0,
             .diagnostics = try diag.DiagnosticCollector.init(alloc),
             .dialect = dialect,
             .line_offsets = try offsets.toOwnedSlice(alloc),
+            .uses_go_separator = uses_go,
         };
     }
 
@@ -166,7 +193,7 @@ pub const SqlParser = struct {
             } else if (self.matchKeyword("COMMENT")) {
                 try self.parseCommentOn(tables.items);
             } else {
-                // Not a CREATE or COMMENT statement — silently skip (DML, transactions, etc.)
+                // Not a recognized statement — silently skip (DML, transactions, EXEC, etc.)
                 self.skipToSemicolon();
             }
         }
@@ -188,6 +215,30 @@ pub const SqlParser = struct {
             },
             .diagnostics = try self.diagnostics.toOwnedSlice(self.alloc),
         };
+    }
+
+    /// Check if current position is a GO batch separator and advance past it.
+    /// Peeks without advancing if not a GO separator.
+    fn matchGoSeparator(self: *SqlParser) bool {
+        const saved = self.pos;
+        if (self.pos + 1 < self.src.len) {
+            const c0 = self.src[self.pos];
+            const c1 = self.src[self.pos + 1];
+            if ((c0 == 'G' or c0 == 'g') and (c1 == 'O' or c1 == 'o')) {
+                // Must be followed by newline, EOF, whitespace, comment, or (
+                if (self.pos + 2 >= self.src.len) {
+                    self.pos += 2;
+                    return true;
+                }
+                const c2 = self.src[self.pos + 2];
+                if (c2 == '\n' or c2 == '\r' or c2 == ' ' or c2 == '\t' or c2 == '-' or c2 == '/' or c2 == '(') {
+                    self.pos += 2;
+                    return true;
+                }
+            }
+        }
+        self.pos = saved;
+        return false;
     }
 
     // ─── CREATE [UNIQUE] INDEX (standalone, PG syntax) ────────────
@@ -394,6 +445,14 @@ pub const SqlParser = struct {
 
     pub fn skipToSemicolon(self: *SqlParser) void {
         sql_parser_helpers.skipToSemicolon(self);
+    }
+
+    pub fn skipToGoOrSemicolon(self: *SqlParser) void {
+        sql_parser_helpers.skipToGoOrSemicolon(self);
+    }
+
+    pub fn expectStatementEnd(self: *SqlParser) void {
+        sql_parser_helpers.expectStatementEnd(self);
     }
 
     pub fn readLineComment(self: *SqlParser) ?[]const u8 {
