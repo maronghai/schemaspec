@@ -137,9 +137,28 @@ pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
 }
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.
-pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, format: StatsFormat) !void {
+pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, format: StatsFormat, per_table: bool) !void {
     const result = try compilePipeline(alloc, file_data, .{});
     const s = computeStats(result.resolved);
+
+    if (per_table) {
+        const table_stats = stats_mod.computePerTableStats(result.resolved);
+        switch (format) {
+            .json => {
+                const json = try stats_mod.formatPerTableStatsJson(alloc, table_stats);
+                try io_mod.writeOutput(io, json, null, false);
+            },
+            .markdown => {
+                const md = try stats_mod.formatPerTableStatsMarkdown(alloc, table_stats);
+                try io_mod.writeOutput(io, md, null, false);
+            },
+            .text, .summary => {
+                stats_mod.printPerTableStats(table_stats);
+            },
+        }
+        return;
+    }
+
     switch (format) {
         .json => {
             const json = try stats_mod.formatStatsJson(alloc, s);

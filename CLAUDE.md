@@ -66,6 +66,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune validate schema.ss -s            # Validate with stats
 ./rune/zig-out/bin/rune stats schema.ss                  # Print schema statistics
 ./rune/zig-out/bin/rune stats schema.ss --format json    # Stats as JSON
+./rune/zig-out/bin/rune stats schema.ss --per-table      # Per-table breakdown
 ./rune/zig-out/bin/rune init                             # Create starter schema
 ./rune/zig-out/bin/rune init myapp                       # Create starter schema with name
 ./rune/zig-out/bin/rune init --output-dir src/schema    # Create in subdirectory
