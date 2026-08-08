@@ -416,6 +416,15 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
                     is_virtual = true;
                 }
             }
+        } else if (self.matchKeyword("IDENTITY")) {
+            // MSSQL: IDENTITY(seed, increment) — auto_increment
+            auto_increment = true;
+            self.skipSpaces();
+            if (self.peek() == '(') {
+                self.advance(); // skip (
+                while (self.peek() != ')' and self.pos < self.src.len) self.advance();
+                if (self.peek() == ')') self.advance();
+            }
         } else {
             break;
         }

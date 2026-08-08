@@ -172,6 +172,11 @@ fn mssqlEmitGeneratedColumn(w: *Writer, expr: []const u8, is_stored: bool) anyer
     }
 }
 
+fn mssqlEmitAutoIncrement(w: *Writer) anyerror!void {
+    // MSSQL: IDENTITY(1,1) — auto-increment with seed=1, increment=1
+    try w.writeAll(" IDENTITY(1,1)");
+}
+
 // ─── Backend Instance ──────────────────────────────────────
 
 pub const mssql_backend = DialectBackend{
@@ -182,6 +187,7 @@ pub const mssql_backend = DialectBackend{
     .emitTableComment = mssqlEmitTableComment,
     .emitColumnComment = mssqlEmitColumnComment,
     .emitPrimaryKey = mssqlEmitPrimaryKey,
+    .emitAutoIncrement = mssqlEmitAutoIncrement,
     .emitInlineIndex = mssqlEmitInlineIndex,
     .emitStandaloneIndex = mssqlEmitStandaloneIndex,
     .emitInlineColumnComment = mssqlEmitInlineColumnComment,

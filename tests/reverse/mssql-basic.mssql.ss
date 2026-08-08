@@ -1,6 +1,5 @@
 # users
-id n !
-IDENTITY (1,1) ?
+id n ++
 name NVARCHAR(100)
 email NVARCHAR(255) ?
 bio S ?

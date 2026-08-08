@@ -1,6 +1,5 @@
 # orders
-id n !
-IDENTITY (1,1) ?
+id n ++
 user_id
 total 12,2
 status NVARCHAR(50)

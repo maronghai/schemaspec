@@ -1,6 +1,5 @@
 # products
-id N !
-IDENTITY (1,1) ?
+id N ++
 name NVARCHAR(200)
 price 10,2
 in_stock b

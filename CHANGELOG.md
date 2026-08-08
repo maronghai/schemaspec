@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.169.0] - 2026-08-08
+
+### Fixed
+- **MSSQL IDENTITY parsing** — Fixed SQL parser to recognize MSSQL's `IDENTITY(seed, increment)` syntax as a column modifier. Previously, `IDENTITY` was mis-parsed as a separate column name, producing phantom `IDENTITY (1,1) ?` entries in reverse-engineered `.ss` output.
+- **MSSQL auto_increment codegen** — Implemented `emitAutoIncrement` for MSSQL backend to emit `IDENTITY(1,1)` in forward codegen. Previously, auto_increment columns in MSSQL output had no identity clause.
+
+### Changed
+- **MSSQL reverse golden files** — Updated all 3 MSSQL reverse test golden files to match corrected parser behavior: `id n !` → `id n ++` (auto_increment + primary_key), removed phantom `IDENTITY (1,1) ?` columns.
+
 ## [0.168.0] - 2026-08-08
 
 ### Fixed
