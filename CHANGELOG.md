@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.170.0] - 2026-08-09
+
+### Added
+- **Lint rule: serial-type** — Warns when using PostgreSQL-specific `serial`/`bigserial` types in schemas. Recommends using `auto_increment` modifier for cross-dialect compatibility.
+- **Lint rule: table-name-length** — Warns when table names exceed a configurable length (default: 64 chars). Some databases have hard limits on table name length.
+- **LSP features facade tests** — Added comprehensive tests for the LSP features module covering document symbols, hover, completions, go-to-definition, references, and document highlights.
+
+### Changed
+- **Lint config** — Added `check_serial_type`, `check_table_name_length`, and `table_name_max` fields to `LintConfig`. Added `table_name_max` threshold to `LintRulesConfig`.
+
 ## [0.169.0] - 2026-08-08
 
 ### Fixed

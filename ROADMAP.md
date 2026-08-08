@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.169.0 (2026-08-08) — 31,800+ lines production Zig, 1230+ tests, 32 test suites.
+**Current version**: 0.170.0 (2026-08-09) — 31,800+ lines production Zig, 1246+ tests, 32 test suites.
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.170.0** — Lint enhancements: added `serial-type` rule (warns on PostgreSQL-specific serial types for cross-dialect compatibility), added `table-name-length` rule (configurable max table name length, default 64), added LSP features facade tests (7 new tests covering document symbols, hover, completions, go-to-definition, references, highlights)
 - **v0.169.0** — MSSQL IDENTITY fix: fixed SQL parser to recognize `IDENTITY(seed, increment)` as column modifier (was mis-parsed as separate column), implemented MSSQL `emitAutoIncrement` for forward codegen, updated all 3 MSSQL reverse golden test files
 - **v0.168.0** — Quality & polish: fixed DocumentManager memory leak on document reopen, added LSP compile service tests (3 new), pipeline edge case tests (3 new), enhanced LSP hover for FK references (shows target column type and constraints), updated documentation
 - **v0.166.0** — Memory safety & buffer pool optimization: fixed `generateTypedView` buffer leak for UNION/INTERSECT/EXCEPT views, added `StreamingCodegen.deinit` and fixed 4 parallel path leaks, extended BufferPool to default SQL codegen path, 6 new view codegen unit tests, synced all packaging manifests to v0.166.0

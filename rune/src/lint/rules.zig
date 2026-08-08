@@ -58,6 +58,16 @@ pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.
             try tableComment(alloc, &results, table);
         }
     }
+    if (LintRule.serial_type.isEnabled(cfg)) {
+        for (ast.tables) |table| {
+            try serialType(alloc, &results, table);
+        }
+    }
+    if (LintRule.table_name_length.isEnabled(cfg)) {
+        for (ast.tables) |table| {
+            try tableNameLength(alloc, &results, table, cfg.table_name_max);
+        }
+    }
 
     return results;
 }
@@ -398,6 +408,37 @@ fn tableComment(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), t
             .table = table.name,
             .message = msg,
             .severity = .info,
+        });
+    }
+}
+
+fn serialType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    for (table.fields) |field| {
+        switch (field.type_info) {
+            .simple => |s| {
+                if (std.mem.eql(u8, s, "serial") or std.mem.eql(u8, s, "bigserial")) {
+                    const msg = try std.fmt.allocPrint(alloc, "column '{s}' uses PostgreSQL-specific type '{s}' — use auto_increment modifier for cross-dialect compatibility", .{ field.name, s });
+                    try results.append(alloc, .{
+                        .rule = "serial-type",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+            },
+            else => {},
+        }
+    }
+}
+
+fn tableNameLength(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable, max: usize) !void {
+    if (table.name.len > max) {
+        const msg = try std.fmt.allocPrint(alloc, "table name '{s}' is {d} chars (max: {d})", .{ table.name, table.name.len, max });
+        try results.append(alloc, .{
+            .rule = "table-name-length",
+            .table = table.name,
+            .message = msg,
+            .severity = .warning,
         });
     }
 }

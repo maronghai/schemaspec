@@ -30,6 +30,8 @@ pub const LintRule = enum {
     duplicate_index,
     empty_table,
     table_comment,
+    serial_type,
+    table_name_length,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -49,6 +51,8 @@ pub const LintRule = enum {
             .duplicate_index => cfg.check_duplicate_index,
             .empty_table => cfg.check_empty_table,
             .table_comment => cfg.check_table_comment,
+            .serial_type => cfg.check_serial_type,
+            .table_name_length => cfg.check_table_name_length,
         };
     }
 
@@ -70,6 +74,8 @@ pub const LintRule = enum {
             .duplicate_index => "duplicate-index",
             .empty_table => "empty-table",
             .table_comment => "table-comment",
+            .serial_type => "serial-type",
+            .table_name_length => "table-name-length",
         };
     }
 
@@ -100,8 +106,11 @@ pub const LintConfig = struct {
     check_duplicate_index: bool = true,
     check_empty_table: bool = true,
     check_table_comment: bool = true,
+    check_serial_type: bool = true,
+    check_table_name_length: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
+    table_name_max: usize = 64,
 };
 
 // ─── Diff-aware Lint ─────────────────────────────────────────
@@ -156,6 +165,7 @@ pub const LintRulesConfig = struct {
     pub const Thresholds = struct {
         wide_table_max: ?usize = null,
         count_min: ?usize = null,
+        table_name_max: ?usize = null,
     };
 };
 
@@ -209,6 +219,8 @@ pub fn parseLintRules(alloc: std.mem.Allocator, data: []const u8) !LintRulesConf
                     result.thresholds.wide_table_max = std.fmt.parseInt(usize, val_str, 10) catch null;
                 } else if (std.mem.eql(u8, key, "count_min")) {
                     result.thresholds.count_min = std.fmt.parseInt(usize, val_str, 10) catch null;
+                } else if (std.mem.eql(u8, key, "table_name_max")) {
+                    result.thresholds.table_name_max = std.fmt.parseInt(usize, val_str, 10) catch null;
                 }
             }
             continue;
@@ -273,8 +285,11 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             .check_duplicate_index = false,
             .check_empty_table = false,
             .check_table_comment = false,
+            .check_serial_type = false,
+            .check_table_name_length = false,
             .wide_table_max = base.wide_table_max,
             .count_min = base.count_min,
+            .table_name_max = base.table_name_max,
         };
         for (enabled) |rule| {
             if (LintRule.fromName(rule)) |r| {
@@ -295,6 +310,7 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
     // Apply thresholds
     if (rules.thresholds.wide_table_max) |max| cfg.wide_table_max = max;
     if (rules.thresholds.count_min) |min| cfg.count_min = min;
+    if (rules.thresholds.table_name_max) |max| cfg.table_name_max = max;
 
     return cfg;
 }
@@ -318,6 +334,8 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .duplicate_index => c.check_duplicate_index = enabled,
         .empty_table => c.check_empty_table = enabled,
         .table_comment => c.check_table_comment = enabled,
+        .serial_type => c.check_serial_type = enabled,
+        .table_name_length => c.check_table_name_length = enabled,
     }
     return c;
 }

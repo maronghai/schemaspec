@@ -141,4 +141,5 @@ comptime {
     _ = @import("lsp/highlights.zig");
     _ = @import("lsp/json.zig");
     _ = @import("lsp/message.zig");
+    _ = @import("lsp/features_test.zig");
 }

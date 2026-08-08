@@ -815,3 +815,103 @@ test "lint: table with comment passes table-comment" {
         }
     }
 }
+
+// ─── Serial Type Tests ────────────────────────────────────────
+
+test "lint: serial type detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makeField("id", .{ .simple = "serial" }, &.{}, null),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "serial-type")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: bigserial type detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "events", &.{
+        makeField("id", .{ .simple = "bigserial" }, &.{}, null),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "serial-type")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: non-serial type passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "serial-type")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Table Name Length Tests ──────────────────────────────────
+
+test "lint: long table name detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const long_name = "this_is_a_very_long_table_name_that_exceeds_the_default_character_limit_of_sixty_four";
+    const table = try makeTestTable(alloc, long_name, &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "table-name-length")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: short table name passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "table-name-length")) {
+            try testing.expect(false);
+        }
+    }
+}
