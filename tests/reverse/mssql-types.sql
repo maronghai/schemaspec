@@ -1,0 +1,9 @@
+CREATE TABLE products (
+  id BIGINT NOT NULL IDENTITY(1,1),
+  name NVARCHAR(200) NOT NULL,
+  price NUMERIC(10,2) NOT NULL,
+  in_stock BIT NOT NULL,
+  created_at DATETIME2 NOT NULL,
+  updated_at DATETIME2,
+  PRIMARY KEY (id)
+);

@@ -139,4 +139,6 @@ comptime {
     _ = @import("lsp/documents.zig");
     _ = @import("lsp/references.zig");
     _ = @import("lsp/highlights.zig");
+    _ = @import("lsp/json.zig");
+    _ = @import("lsp/message.zig");
 }

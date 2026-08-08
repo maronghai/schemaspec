@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.167.0] - 2026-08-08
+
+### Changed
+- **LSP protocol split** — Extracted JSON serialization utilities (`writeJsonString`, `writeJsonField`, `writeJsonValue`, etc.) from the 952-line `lsp/protocol.zig` monolith into `lsp/json.zig` (~170 lines). Extracted JSON-RPC message parsing (`parseMessage`, `ParsedMessage`, `cloneValue`, `freeJsonValue`, field extractors) into `lsp/message.zig` (~170 lines). `protocol.zig` now re-exports all symbols for backward compatibility, reduced from 953 to ~530 lines.
+
+### Added
+- **MSSQL reverse engineering tests** — Added `test_reverse_mssql.sh` with 3 test cases covering basic table reverse, type mapping (NUMERIC, BIT, DATETIME2, NVARCHAR), and FK reverse engineering. Added to `test_coverage.sh` suite list.
+
 ## [0.166.0] - 2026-08-08
 
 ### Fixed
