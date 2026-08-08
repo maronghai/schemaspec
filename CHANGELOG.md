@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.175.0] - 2026-08-09
+
+### Fixed
+- **TypeORM duplicate index branch** — Removed identical if/else branches in `typeorm.zig` that produced the same output for both unique and regular single-column indexes.
+- **Windows file URI handling** — `uriToPath` in `documents.zig` now correctly strips the leading `/` from Windows `file:///C:/path` URIs.
+
+### Changed
+- **Generator deduplication** — Extracted `shouldEmitDefault` helper into `generators/common.zig`, replacing 6 inline default value checks across drizzle, knex, sqlalchemy, typeorm, and prisma generators.
+- **Removed 4 redundant `writeDefault` wrappers** — drizzle, knex, sqlalchemy, and typeorm generators now call `common.writeFormattedDefault` directly, eliminating 16 lines of passthrough boilerplate.
+- **LSP shared `findNameInLine`** — Extracted identical name-finding logic from `highlights.zig` and `references.zig` into `lsp/helpers.zig`, eliminating 50 lines of duplication.
+- **Removed `reverse/map_data.zig` shim** — 4-line re-export indirection eliminated; `reverse/map.zig` and `dialect/sqlite.zig` now import directly from `types/reverse_map.zig`.
+
+### Added
+- **`common.shouldEmitDefault`** — Shared predicate for checking if a default value should be emitted in ORM output (non-empty and not "null"). 3 new tests added.
+- **LSP helpers test coverage** — `findNameInLine` is now tested via the existing LSP test suite through both highlights and references paths.
+
 ## [0.174.0] - 2026-08-09
 
 ### Fixed

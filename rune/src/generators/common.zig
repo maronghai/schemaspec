@@ -87,6 +87,14 @@ pub fn writeJsonValue(w: *std.Io.Writer, val: []const u8) !void {
     }
 }
 
+// ─── Default Value Guards ─────────────────────────────────────
+
+/// Check if a default value should be emitted in ORM output.
+/// Returns true if the default is non-empty and not the literal "null".
+pub fn shouldEmitDefault(dflt: []const u8) bool {
+    return dflt.len > 0 and !std.mem.eql(u8, dflt, "null");
+}
+
 // ─── FK Reference Lookup ──────────────────────────────────────
 
 pub fn findFkRefTable(col_name: []const u8, fks: []const FkDecl) ?[]const u8 {
@@ -101,6 +109,7 @@ pub fn findFkRefTable(col_name: []const u8, fks: []const FkDecl) ?[]const u8 {
 // ─── Name Helpers ─────────────────────────────────────────────
 
 /// Strip trailing 's' for a simple singular form. Used by GraphQL and Prisma generators.
+/// Note: does not handle irregular plurals (e.g. "categories" → "categor").
 pub fn toCamelSingular(name: []const u8) []const u8 {
     if (name.len == 0) return name;
     if (name[name.len - 1] == 's' and name.len > 1) {

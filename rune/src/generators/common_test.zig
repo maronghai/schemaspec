@@ -186,6 +186,20 @@ test "tableHasCompositeFks: returns false for single-column FK" {
     try testing.expect(!common.tableHasCompositeFks(table));
 }
 
+test "shouldEmitDefault: non-empty non-null returns true" {
+    try testing.expect(common.shouldEmitDefault("'hello'"));
+    try testing.expect(common.shouldEmitDefault("42"));
+    try testing.expect(common.shouldEmitDefault("now()"));
+}
+
+test "shouldEmitDefault: empty returns false" {
+    try testing.expect(!common.shouldEmitDefault(""));
+}
+
+test "shouldEmitDefault: null returns false" {
+    try testing.expect(!common.shouldEmitDefault("null"));
+}
+
 test "writeJsonValue: integer" {
     var aw = std.Io.Writer.Allocating.init(testing.allocator);
     defer aw.deinit();

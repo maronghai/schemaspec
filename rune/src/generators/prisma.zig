@@ -100,7 +100,7 @@ fn writeField(w: *Writer, col: typed_ast.TypedColumn) !void {
             try w.print(" @default({s})", .{col.enum_values[0]});
         }
     } else if (col.default) |dflt| {
-        if (dflt.len > 0 and !std.mem.eql(u8, dflt, "null")) {
+        if (common.shouldEmitDefault(dflt)) {
             try w.print(" @default({s})", .{dflt});
         }
     }

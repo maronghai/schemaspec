@@ -84,10 +84,16 @@ pub const DocumentManager = struct {
     }
 
     /// Get the file path from a file:// URI.
+    /// Handles Windows file:///C:/path URIs by stripping the leading slash.
     pub fn uriToPath(self: *const DocumentManager, uri: []const u8) ![]const u8 {
         const prefix = "file://";
         if (std.mem.startsWith(u8, uri, prefix)) {
-            return try self.alloc.dupe(u8, uri[prefix.len..]);
+            var path = uri[prefix.len..];
+            // Windows: file:///C:/path → strip leading '/' to get 'C:/path'
+            if (path.len >= 2 and path[0] == '/' and path[1] != '/' and std.ascii.isAlphabetic(path[1]) and path.len > 2 and path[2] == ':') {
+                path = path[1..];
+            }
+            return try self.alloc.dupe(u8, path);
         }
         return try self.alloc.dupe(u8, uri);
     }

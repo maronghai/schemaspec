@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.174.0 (2026-08-09) — 31,800+ lines production Zig, 1250+ tests, 32 test suites.
+**Current version**: 0.175.0 (2026-08-09) — 31,800+ lines production Zig, 1253+ tests, 32 test suites.
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.175.0** — Code quality & deduplication: extracted `shouldEmitDefault` shared helper, removed 4 redundant `writeDefault` wrappers across ORM generators, extracted shared `findNameInLine` into LSP helpers, removed `map_data.zig` shim, fixed TypeORM duplicate index branch, fixed Windows file URI handling
 - **v0.174.0** — LSP precision & quality: precise column ranges for references/highlights (FK field names instead of full lines), dialect-aware hover SQL types (respects server dialect instead of hardcoded MySQL), multi-column FK go-to-definition support, precise column selection ranges in document symbols, 4 new FK-related LSP feature tests
 - **v0.173.0** — LSP quality & parser cleanup: fixed hardcoded URI in `writeCodeAction`, replaced magic number 100 with actual line lengths in `references.zig`/`highlights.zig`, replaced static256 arrays with dynamic `ArrayList`, extracted shared `getLineText`/`formatFlagsForHover` into `helpers.zig`, extracted shared `locFromLine` into `parser/loc.zig`
 - **v0.172.0** — `rune tune`: auto-template extraction — finds fields co-occurring in most tables and extracts them into `% base` template, rewrites .ss file with `#base table` references

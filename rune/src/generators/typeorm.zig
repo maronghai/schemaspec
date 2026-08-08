@@ -131,11 +131,7 @@ fn writeEntity(w: *Writer, table: typed_ast.TypedTable) !void {
     for (table.indexes) |idx| {
         if (idx.kind == .primary_key) continue;
         if (idx.fields.len == 1) {
-            if (idx.kind == .unique) {
-                try w.print("@Index('{s}', {s})\n", .{ idx.name, idx.fields[0] });
-            } else {
-                try w.print("@Index('{s}', {s})\n", .{ idx.name, idx.fields[0] });
-            }
+            try w.print("@Index('{s}', {s})\n", .{ idx.name, idx.fields[0] });
         } else {
             try w.print("@Index('{s}', [", .{idx.name});
             for (idx.fields, 0..) |field, fi| {
@@ -212,9 +208,9 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
         try w.writeAll(", nullable: true");
     }
     if (col.default) |dflt| {
-        if (dflt.len > 0 and !std.mem.eql(u8, dflt, "null")) {
+        if (common.shouldEmitDefault(dflt)) {
             try w.writeAll(", default: ");
-            try writeDefault(w, col, dflt);
+            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.typeorm));
         }
     }
     try w.writeAll(" })\n");
@@ -288,11 +284,6 @@ fn tsType(col: typed_ast.TypedColumn) []const u8 {
         .json, .jsonb => "object",
         .blob, .uuid => "string",
     };
-}
-
-fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
-    _ = col;
-    try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.typeorm));
 }
 
 // ─── Helpers ────────────────────────────────────────────────────

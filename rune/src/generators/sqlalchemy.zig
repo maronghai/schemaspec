@@ -220,9 +220,9 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
 
     // Default value
     if (col.default) |dflt| {
-        if (dflt.len > 0 and !std.mem.eql(u8, dflt, "null")) {
+        if (common.shouldEmitDefault(dflt)) {
             try w.writeAll(", server_default=");
-            try writeDefault(w, col, dflt);
+            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.sqlalchemy));
         }
     }
 
@@ -274,9 +274,4 @@ fn writeColumnType(w: *Writer, col: typed_ast.TypedColumn) !void {
         },
         .raw_sql, .passthrough => try w.writeAll("String"),
     }
-}
-
-fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
-    _ = col;
-    try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.sqlalchemy));
 }

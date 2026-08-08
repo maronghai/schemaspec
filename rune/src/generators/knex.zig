@@ -187,9 +187,9 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
 
     // Default value
     if (col.default) |dflt| {
-        if (dflt.len > 0 and !std.mem.eql(u8, dflt, "null")) {
+        if (common.shouldEmitDefault(dflt)) {
             try w.writeAll(".defaultTo(");
-            try writeDefault(w, col, dflt);
+            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.knex));
             try w.writeAll(")");
         }
     }
@@ -225,15 +225,10 @@ fn writeColumnOptions(w: *Writer, col: typed_ast.TypedColumn) !void {
         try w.writeAll(".notNullable()");
     }
     if (col.default) |dflt| {
-        if (dflt.len > 0 and !std.mem.eql(u8, dflt, "null")) {
+        if (common.shouldEmitDefault(dflt)) {
             try w.writeAll(".defaultTo(");
-            try writeDefault(w, col, dflt);
+            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.knex));
             try w.writeAll(")");
         }
     }
-}
-
-fn writeDefault(w: *Writer, col: typed_ast.TypedColumn, dflt: []const u8) !void {
-    _ = col;
-    try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.knex));
 }

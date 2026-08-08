@@ -1,5 +1,5 @@
 const std = @import("std");
-const data = @import("../reverse/map_data.zig");
+const data = @import("../types/reverse_map.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const sqlite_hints = @import("../dialect/sqlite_hints.zig");
