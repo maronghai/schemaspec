@@ -56,8 +56,11 @@ pub fn handleCompileRequest(
         break :blk try streaming.formatStreamingResult(alloc, &result, cfg.dialect);
     } else switch (cfg.format) {
         .sql => blk: {
+            var pool = codegen.BufferPool.init(alloc);
+            defer pool.deinit();
             var cg = codegen.Codegen.init(alloc, cfg.dialect);
-            break :blk try cg.generateFromTypedAst(typed);
+            const result = try cg.generateFromTypedAstPooled(&pool, typed);
+            break :blk result.sql;
         },
         .json_schema => blk: {
             break :blk try json_schema.generate(alloc, typed, cfg.dialect);

@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.166.0] - 2026-08-08
+
+### Fixed
+- **`generateTypedView` buffer leak** — Added `defer buf.deinit()` to the UNION/INTERSECT/EXCEPT view codegen path in `codegen/codegen.zig`. Previously, every set-operation view leaked an allocating writer buffer.
+- **`StreamingCodegen` resource leak** — Added `deinit()` method to `StreamingCodegen` in `codegen/streaming.zig` that properly frees the underlying `Codegen` struct via `alloc.destroy()`. Added `defer sc.deinit()` at all 4 call sites in `codegen/parallel.zig` (3 sequential fallback paths + view compilation loop). Previously, the view loop leaked one `Codegen` allocation per view.
+
+### Changed
+- **BufferPool for default SQL codegen** — Modified `handleCompileRequest` in `pipeline/handlers.zig` to use `BufferPool` + `generateFromTypedAstPooled` for the default (non-streaming) `.sql` format path, reusing the same pool pattern already used in streaming mode.
+- **Packaging manifest sync** — Updated all 6 packaging manifests from v0.159.0 to v0.166.0: `VERSION`, `build.zig.zon`, `npm/package.json`, `homebrew/rune.rb`, `scoop/rune.json`, `vscode/package.json`.
+
+### Added
+- **View codegen tests** — 6 new unit tests in `codegen/codegen_test.zig` covering simple views, UNION ALL, UNION DISTINCT, INTERSECT, EXCEPT, and views with comments. All 4 set-operation variants are now tested across MySQL and PostgreSQL dialects.
+
 ## [0.165.0] - 2026-08-08
 
 ### Changed

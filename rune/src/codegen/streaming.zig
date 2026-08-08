@@ -68,6 +68,11 @@ pub const StreamingCodegen = struct {
         };
     }
 
+    /// Release the underlying Codegen struct.
+    pub fn deinit(self: *StreamingCodegen) void {
+        self.alloc.destroy(self.cg);
+    }
+
     /// Generate SQL for a single table and return it.
     /// This allows incremental processing of large schemas.
     pub fn generateTable(self: *StreamingCodegen, table: typed_ast_mod.TypedTable) ![]const u8 {

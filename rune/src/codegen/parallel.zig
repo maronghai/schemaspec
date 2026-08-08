@@ -152,12 +152,14 @@ pub fn compileParallel(
 ) !streaming.StreamingResult {
     if (typed.tables.len < config.min_tables) {
         var sc = try streaming.StreamingCodegen.init(alloc, dialect);
+        defer sc.deinit();
         return sc.generateStreaming(typed);
     }
 
     // WASM: no threads available — fall back to sequential streaming
     if (comptime @import("builtin").os.tag == .wasi) {
         var sc = try streaming.StreamingCodegen.init(alloc, dialect);
+        defer sc.deinit();
         return sc.generateStreaming(typed);
     }
 
@@ -167,6 +169,7 @@ pub fn compileParallel(
     // If all tables are dependent, fall back to sequential
     if (graph.groups.len <= 1) {
         var sc = try streaming.StreamingCodegen.init(alloc, dialect);
+        defer sc.deinit();
         return sc.generateStreaming(typed);
     }
 
@@ -219,6 +222,7 @@ pub fn compileParallel(
 
     for (typed.views) |view| {
         var sc = try streaming.StreamingCodegen.init(alloc, dialect);
+        defer sc.deinit();
         const sql = try sc.generateView(view);
         views.appendAssumeCapacity(.{
             .name = view.name,

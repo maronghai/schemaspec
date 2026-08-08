@@ -193,6 +193,7 @@ pub const Codegen = struct {
                 .except => " EXCEPT ",
             };
             var buf = std.Io.Writer.Allocating.init(self.alloc);
+            defer buf.deinit();
             try buf.writer.writeAll(view.query);
             try buf.writer.writeAll(op_str);
             try buf.writer.writeAll(second);

@@ -451,3 +451,179 @@ test "codegen: multiple tables separated by blank line" {
     const pos_b = std.mem.indexOf(u8, sql, "`b`").?;
     try testing.expect(pos_b > pos_a);
 }
+
+test "codegen: simple view" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = typed_ast_mod.TypedView{
+        .name = "active_users",
+        .query = "SELECT * FROM users WHERE active = 1",
+        .comment = null,
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(typed_ast_mod.TypedView, &.{view});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+
+    var cg = Codegen.init(alloc, .mysql);
+    const sql = try cg.generateFromTypedAst(typed);
+
+    try testing.expect(std.mem.indexOf(u8, sql, "CREATE OR REPLACE VIEW `active_users`") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT * FROM users WHERE active = 1") != null);
+}
+
+test "codegen: view with UNION ALL" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = typed_ast_mod.TypedView{
+        .name = "all_active",
+        .query = "SELECT * FROM users WHERE active = 1",
+        .comment = null,
+        .line_no = 1,
+        .union_op = .union_all,
+        .second_query = "SELECT * FROM admins WHERE active = 1",
+    };
+    const views = try alloc.dupe(typed_ast_mod.TypedView, &.{view});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+
+    var cg = Codegen.init(alloc, .mysql);
+    const sql = try cg.generateFromTypedAst(typed);
+
+    try testing.expect(std.mem.indexOf(u8, sql, "CREATE OR REPLACE VIEW `all_active`") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT * FROM users WHERE active = 1") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "UNION ALL") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT * FROM admins WHERE active = 1") != null);
+}
+
+test "codegen: view with UNION DISTINCT" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = typed_ast_mod.TypedView{
+        .name = "distinct_users",
+        .query = "SELECT name FROM users",
+        .comment = null,
+        .line_no = 1,
+        .union_op = .union_distinct,
+        .second_query = "SELECT name FROM admins",
+    };
+    const views = try alloc.dupe(typed_ast_mod.TypedView, &.{view});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+
+    var cg = Codegen.init(alloc, .mysql);
+    const sql = try cg.generateFromTypedAst(typed);
+
+    // UNION DISTINCT renders as just UNION in MySQL
+    try testing.expect(std.mem.indexOf(u8, sql, "UNION") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT name FROM users") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT name FROM admins") != null);
+}
+
+test "codegen: view with INTERSECT" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = typed_ast_mod.TypedView{
+        .name = "common_users",
+        .query = "SELECT id FROM users",
+        .comment = null,
+        .line_no = 1,
+        .union_op = .intersect,
+        .second_query = "SELECT id FROM active_logins",
+    };
+    const views = try alloc.dupe(typed_ast_mod.TypedView, &.{view});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+
+    var cg = Codegen.init(alloc, .pg);
+    const sql = try cg.generateFromTypedAst(typed);
+
+    try testing.expect(std.mem.indexOf(u8, sql, "INTERSECT") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT id FROM users") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT id FROM active_logins") != null);
+}
+
+test "codegen: view with EXCEPT" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = typed_ast_mod.TypedView{
+        .name = "inactive_users",
+        .query = "SELECT id FROM users",
+        .comment = null,
+        .line_no = 1,
+        .union_op = .except,
+        .second_query = "SELECT id FROM active_logins",
+    };
+    const views = try alloc.dupe(typed_ast_mod.TypedView, &.{view});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+
+    var cg = Codegen.init(alloc, .pg);
+    const sql = try cg.generateFromTypedAst(typed);
+
+    try testing.expect(std.mem.indexOf(u8, sql, "EXCEPT") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT id FROM users") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "SELECT id FROM active_logins") != null);
+}
+
+test "codegen: view with comment" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = typed_ast_mod.TypedView{
+        .name = "v_active",
+        .query = "SELECT * FROM users WHERE active = 1",
+        .comment = "active users view",
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(typed_ast_mod.TypedView, &.{view});
+    const typed = typed_ast_mod.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+
+    var cg = Codegen.init(alloc, .pg);
+    const sql = try cg.generateFromTypedAst(typed);
+
+    try testing.expect(std.mem.indexOf(u8, sql, "CREATE OR REPLACE VIEW \"v_active\"") != null);
+    try testing.expect(std.mem.indexOf(u8, sql, "COMMENT ON TABLE") != null);
+}

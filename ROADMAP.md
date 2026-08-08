@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.165.0 (2026-08-08) — 30,600+ lines production Zig, 1217+ tests, 31 test suites.
+**Current version**: 0.166.0 (2026-08-08) — 30,600+ lines production Zig, 1223+ tests, 31 test suites.
 
 ---
 
@@ -141,7 +141,7 @@ Ongoing improvements pursued alongside feature work.
 - [x] Memory-mapped file I/O — for large schema files (>10MB) (v0.123.0)
 - [x] Benchmark CI gate — enforce no regressions beyond 10% (v0.82.0)
 - [x] Benchmark dialect parameterization — `rune bench --dialect <d>` supports all 6 dialects (v0.74.0)
-- [ ] Zero-allocation codegen path — reuse buffers across compilations
+- [~] Zero-allocation codegen path — reuse buffers across compilations (BufferPool extended to default path, v0.166.0)
 - [ ] Incremental compilation — recompile only changed tables
 
 ### Code Quality
@@ -190,9 +190,9 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 6: Ecosystem & Community | 🔲 Planned | 2/9 | 7 |
 | 7: Editor Extensions | 🔲 Planned | 7/10 | 3 |
 | 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
-| Architecture Targets | 🟡 Ongoing | 12/14 | 2 |
+| Architecture Targets | 🟡 Ongoing | 12.5/14 | 1.5 |
 | Technical Debt | 🟡 Partial | 3/5 | 2 |
-| **Total** | | **83/105** | **22** |
+| **Total** | | **83.5/105** | **21.5** |
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.166.0** — Memory safety & buffer pool optimization: fixed `generateTypedView` buffer leak for UNION/INTERSECT/EXCEPT views, added `StreamingCodegen.deinit` and fixed 4 parallel path leaks, extended BufferPool to default SQL codegen path, 6 new view codegen unit tests, synced all packaging manifests to v0.166.0
 - **v0.163.0** — Watch directory mode (`--recursive` tracks all .ss files, per-file hash changes, error streak tracking), init template presets (`--template blog|ecommerce|rest-api`)
 - **v0.162.0** — Pipeline split & optimization: extracted output handlers from `pipeline/forward.zig` (520 lines) into `pipeline/handlers.zig` (270 lines) for single-responsibility, optimized O(n²) column lookups in `validate_indexes.zig` to O(n) via StringHashMap, added tests for `pipeline/handlers.zig` (formatValidateResult)
 - **v0.161.0** — Quality & architecture polish: split `lint_test.zig` monolith (1,018 lines) into 3 focused test files (`lint/rules_test.zig`, `lint/format_test.zig`, `lint/config_test.zig`), extracted LSP request handlers from `server.zig` into `handlers.zig`, documented lint module in ARCHITECTURE.md, organized tests.zig with section comments
