@@ -60,4 +60,4 @@ plan-*.md
 CHANGELOG.md
 plans/
 
-000.ss
+000.sspackaging/vscode/*.vsix

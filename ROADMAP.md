@@ -124,7 +124,7 @@ Extend the `.ss` language and pipeline for new use cases.
 
 ### Pipeline Extensions
 
-- [ ] SQL formatting — `rune fmt --dialect pg` for dialect-aware SQL formatting
+- [ ] SQL formatting — `rune format --dialect pg` for dialect-aware SQL formatting
 - [ ] Schema visualization — generate ER diagrams from `.ss` files
 - [ ] Live collaboration — multi-user schema editing via LSP extensions
 
@@ -252,7 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 - **v0.159.0** — LSP quality & infrastructure: registered LSP tests in zig build test, fixed memory leaks and ownership bugs in LSP modules, added grammar rules for custom types and engine directives, synced all packaging versions
 - **v0.158.0** — Lint auto-fix & init improvements: `rune lint --fix` auto-corrects no-pk and no-timestamps issues, `--dry-run` preview mode, `rune init --output-dir` creates starter schemas in subdirectories
 - **v0.157.0** — Quality & bug fixes: OpenAPI extension fix (.yaml→.json), LSP wordAtCursor/detectContext bug fixes, Zig 0.16 compatibility fixes, new generator tests (CHECK constraints, default formatting)
-- **v0.156.0** — Quality & polish: `rune fmt --check` for CI, config error propagation, LSP formatting logging, `catch unreachable` cleanup
+- **v0.156.0** — Quality & polish: `rune format --check` for CI, config error propagation, LSP formatting logging, `catch unreachable` cleanup
 - **v0.155.0** — Documentation fixes: migration guide syntax correction, packaging manifest sync, all-dialect benchmark baselines
 - **v0.153.0** — LSP feature enrichment: rename support, context-aware completions, rich hover, FK index code action
 - **v0.152.0** — VS Code LSP integration (completion, hover, diagnostics), handleCodeAction bug fix, new LSP tests

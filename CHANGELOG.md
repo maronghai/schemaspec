@@ -144,7 +144,7 @@ All notable changes to this project will be documented in this file.
 ## [0.156.0] - 2026-08-07
 
 ### Added
-- **`rune fmt --check`** — New `--check` flag for the format command. Verifies formatting without modifying files; exits with code 1 if the file needs formatting. Designed for CI/CD pipelines.
+- **`rune format --check`** — New `--check` flag for the format command. Verifies formatting without modifying files; exits with code 1 if the file needs formatting. Designed for CI/CD pipelines.
 
 ### Fixed
 - **Config discovery error swallowing** — `rune.toml` discovery now propagates filesystem errors (e.g. `AccessDenied`, `IsDir`) instead of silently returning an empty config. The caller still falls back to defaults with a warning.
@@ -241,7 +241,7 @@ All notable changes to this project will be documented in this file.
 - **LSP Code Actions** — New `textDocument/codeAction` support provides quick fixes for common schema issues. Includes: missing primary key (suggest adding `++`), missing table comment (suggest adding comment), naming convention violations (suggest snake_case rename). Server now advertises `codeActionProvider` capability.
 - **LSP Dialect Configuration** — LSP server now accepts `initializationOptions.dialect` during `initialize` handshake. Editors can configure the target SQL dialect (mysql, pg, sqlite, mssql, oracle, db2) for type resolution instead of defaulting to MySQL.
 - **Context-sensitive Completion** — `textDocument/completion` now filters suggestions based on cursor context. Inside table bodies: type symbols and modifiers. After `FK` keyword: table names and FK references. After `%`: template names. Top level: keywords only.
-- **LSP Document Formatting** — New `textDocument/formatting` support formats `.ss` files using the `rune fmt` engine. Server now advertises `documentFormattingProvider` capability.
+- **LSP Document Formatting** — New `textDocument/formatting` support formats `.ss` files using the `rune format` engine. Server now advertises `documentFormattingProvider` capability.
 - **New tests**: 7 new unit tests in `features.zig` covering code actions (empty diagnostics, missing PK suggestion), snake_case conversion, and context-sensitive completion (top level, inside table). Total: ~1147 tests.
 
 ### Changed

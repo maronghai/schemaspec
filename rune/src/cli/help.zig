@@ -62,7 +62,7 @@ pub fn printUsage() void {
     std.debug.print("  rune watch schema.ss                # Watch file and recompile on change\n", .{});
     std.debug.print("  rune watch schema.ss --interval 500 # Watch with 500ms polling interval\n", .{});
     std.debug.print("  rune watch ./schemas --recursive    # Watch all .ss files in directory\n", .{});
-    std.debug.print("  rune fmt schema.ss                   # Auto-format schema\n", .{});
+    std.debug.print("  rune format schema.ss                  # Auto-format schema\n", .{});
     std.debug.print("\nPipe mode: read from stdin when no input file is given.\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune\n", .{});
     std.debug.print("  echo '# t\\nid n' | rune --target json-schema\n", .{});
