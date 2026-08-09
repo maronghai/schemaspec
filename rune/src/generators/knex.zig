@@ -145,10 +145,8 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
     }
 
     // Check if this column is an FK — if so, skip it (handled by .foreign())
-    for (table.fks) |fk| {
-        if (fk.fields.len == 1 and std.mem.eql(u8, fk.fields[0], col.name)) {
-            return; // FK column handled by .foreign()
-        }
+    if (common.findFkRefTable(col.name, table.fks) != null) {
+        return; // FK column handled by .foreign()
     }
 
     // Primary key with autoincrement

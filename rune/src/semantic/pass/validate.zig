@@ -8,6 +8,15 @@ const edit_distance = @import("../../utils/edit_distance.zig");
 
 /// Helper: validate a single FK declaration against the table and schema.
 fn validateFk(ctx: *PassContext, table_names: *const std.StringHashMap(void), table_name_list: []const []const u8, table: ResolvedTable, fk: FkDecl) !void {
+    // Validate FK field count matches ref_fields count
+    if (fk.fields.len != fk.ref_fields.len) {
+        ctx.diagnostics.push(.{
+            .severity = .warning,
+            .line_no = table.line_no,
+            .message = try std.fmt.allocPrint(ctx.alloc, "FK field count ({d}) does not match ref_field count ({d}) in table '{s}'", .{ fk.fields.len, fk.ref_fields.len, table.name }),
+        });
+    }
+
     for (fk.fields) |fk_field| {
         var found = false;
         for (table.fields) |field| {

@@ -129,6 +129,20 @@ pub fn generateFromPlan(
                     has_operations = true;
                 }
             },
+            .drop_type => |dt| {
+                try emitDropType(w, backend, dt.name, dialect);
+                has_operations = true;
+            },
+            .create_type => |ct| {
+                try emitCreateType(w, backend, ct.name, ct.type_def, dialect);
+                has_operations = true;
+            },
+            .modify_type => |mt| {
+                // For modify: drop old type, create new type
+                try emitDropType(w, backend, mt.name, dialect);
+                try emitCreateType(w, backend, mt.name, mt.new_type, dialect);
+                has_operations = true;
+            },
         }
     }
 
@@ -383,4 +397,88 @@ fn emitFkDiffs(
             },
         }
     }
+}
+
+// ─── Custom Type Emission ──────────────────────────────────────
+
+/// Emit DROP TYPE statement for dialects that support it (PG, MySQL 8.0+).
+fn emitDropType(
+    w: *std.Io.Writer,
+    backend: *const dialect_mod.DialectBackend,
+    name: []const u8,
+    dialect: Dialect,
+) !void {
+    switch (dialect) {
+        .pg, .mysql => {
+            try w.writeAll("DROP TYPE IF EXISTS ");
+            try backend.quoteIdent(w, name);
+            try w.writeAll(";\n\n");
+        },
+        .sqlite, .mssql, .oracle, .db2 => {
+            // SQLite doesn't support CREATE/DROP TYPE; MSSQL/Oracle/Db2 use different syntax
+            // Emit as a comment for documentation
+            try w.writeAll("-- DROP TYPE ");
+            try backend.quoteIdent(w, name);
+            try w.writeAll(" -- (not supported in ");
+            try w.writeAll(@tagName(dialect));
+            try w.writeAll(")\n");
+        },
+    }
+}
+
+/// Emit CREATE TYPE statement for custom types.
+fn emitCreateType(
+    w: *std.Io.Writer,
+    backend: *const dialect_mod.DialectBackend,
+    name: []const u8,
+    type_def: ast_mod.CustomType,
+    dialect: Dialect,
+) !void {
+    switch (dialect) {
+        .pg => {
+            // PostgreSQL: CREATE TYPE name AS ENUM ('val1', 'val2', ...)
+            try w.writeAll("CREATE TYPE ");
+            try backend.quoteIdent(w, name);
+            try w.writeAll(" AS ENUM (");
+            try emitEnumValues(w, type_def, dialect);
+            try w.writeAll(");\n");
+        },
+        .mysql => {
+            // MySQL: CREATE TYPE is not standard; ENUM types are inline in column definitions
+            // Emit as comment for documentation
+            try w.writeAll("-- CREATE TYPE ");
+            try backend.quoteIdent(w, name);
+            try w.writeAll(" AS ENUM (");
+            try emitEnumValues(w, type_def, dialect);
+            try w.writeAll(") -- (MySQL uses inline ENUM)\n");
+        },
+        .sqlite, .mssql, .oracle, .db2 => {
+            // SQLite doesn't support CREATE/DROP TYPE
+            // Emit as comment for documentation
+            try w.writeAll("-- CREATE TYPE ");
+            try backend.quoteIdent(w, name);
+            try w.writeAll(" AS ENUM (");
+            try emitEnumValues(w, type_def, dialect);
+            try w.writeAll(") -- (not supported in ");
+            try w.writeAll(@tagName(dialect));
+            try w.writeAll(")\n");
+        },
+    }
+}
+
+/// Emit enum values from a custom type definition.
+fn emitEnumValues(
+    w: *std.Io.Writer,
+    type_def: ast_mod.CustomType,
+    dialect: Dialect,
+) !void {
+    // For now, we support simple enum types where base is the enum values
+    // The custom type definition stores the base type info
+    // In Rune syntax: ~ status : s { active, inactive, pending }
+    // The enum values are part of the type definition
+    // Since we don't have direct access to enum values in CustomType,
+    // we emit a placeholder that will be replaced when the full type system is available
+    _ = type_def;
+    _ = dialect;
+    try w.writeAll("'-- values --'");
 }
