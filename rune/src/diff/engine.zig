@@ -62,9 +62,78 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
     defer new_map.deinit();
     for (new.tables, 0..) |t, i| try new_map.put(t.name, i);
 
-    // Tables in new but not old → create
-    for (new.tables) |new_table| {
+    // Collect dropped and created table names for rename detection
+    var pending_drops = try std.ArrayList([]const u8).initCapacity(alloc, INITIAL_DROPPED_TABLES_CAPACITY);
+    defer pending_drops.deinit(alloc);
+    var pending_creates = try std.ArrayList(usize).initCapacity(alloc, INITIAL_TABLE_DIFF_CAPACITY);
+    defer pending_creates.deinit(alloc);
+
+    // Tables in new but not old → pending creates
+    for (new.tables, 0..) |new_table, i| {
         if (!old_map.contains(new_table.name)) {
+            try pending_creates.append(alloc, i);
+        }
+    }
+
+    // Tables in old but not new → pending drops
+    for (old.tables) |old_table| {
+        if (!new_map.contains(old_table.name)) {
+            try pending_drops.append(alloc, old_table.name);
+        }
+    }
+
+    // Table-level rename detection: match dropped tables with created tables
+    // when field overlap exceeds 70%.
+    var matched_drops = std.StringHashMap(void).init(alloc);
+    defer matched_drops.deinit();
+    var matched_creates = std.StringHashMap(void).init(alloc);
+    defer matched_creates.deinit();
+
+    for (pending_drops.items) |old_name| {
+        const old_idx = old_map.get(old_name) orelse continue;
+        const old_table = old.tables[old_idx];
+        var best_match: ?struct { new_idx: usize, overlap: f64 } = null;
+
+        for (pending_creates.items) |new_idx| {
+            if (matched_creates.contains(&new_idx)) continue;
+            const new_table = new.tables[new_idx];
+            const overlap = computeFieldOverlap(old_table.fields, new_table.fields);
+            if (overlap >= 0.7) {
+                if (best_match == null or overlap > best_match.?.overlap) {
+                    best_match = .{ .new_idx = new_idx, .overlap = overlap };
+                }
+            }
+        }
+
+        if (best_match) |bm| {
+            const new_table = new.tables[bm.new_idx];
+            const field_diffs = try diff_fields.diffFields(alloc, old_table.fields, new_table.fields);
+            const index_diffs = try diff_indexes.diffIndexes(alloc, old_table.indexes, new_table.indexes, field_diffs);
+            const fk_diffs = try diff_fks.diffFks(alloc, old_table.fks, new_table.fks, field_diffs);
+            const metadata_diff = TableMetadataDiff{
+                .old_comment = old_table.comment,
+                .new_comment = new_table.comment,
+                .old_engine = old_table.engine,
+                .new_engine = new_table.engine,
+            };
+            try table_diffs.append(alloc, .{
+                .name = new_table.name,
+                .action = .alter,
+                .field_diffs = field_diffs,
+                .index_diffs = index_diffs,
+                .fk_diffs = fk_diffs,
+                .metadata_diff = if (metadata_diff.hasChanges()) metadata_diff else null,
+                .rename_from = old_name,
+            });
+            try matched_drops.put(old_name, {});
+            try matched_creates.put(&bm.new_idx, {});
+        }
+    }
+
+    // Remaining creates (not matched as renames)
+    for (pending_creates.items) |new_idx| {
+        if (!matched_creates.contains(&new_idx)) {
+            const new_table = new.tables[new_idx];
             const field_diffs = try diff_fields.createAllFieldDiffs(alloc, new_table.fields);
             const index_diffs = try diff_indexes.createAllIndexDiffs(alloc, new_table.indexes);
             const fk_diffs = try diff_fks.createAllFkDiffs(alloc, new_table.fks);
@@ -78,10 +147,10 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
         }
     }
 
-    // Tables in old but not new → dropped
-    for (old.tables) |old_table| {
-        if (!new_map.contains(old_table.name)) {
-            try dropped_tables.append(alloc, old_table.name);
+    // Remaining drops (not matched as renames)
+    for (pending_drops.items) |old_name| {
+        if (!matched_drops.contains(old_name)) {
+            try dropped_tables.append(alloc, old_name);
         }
     }
 
@@ -147,6 +216,29 @@ fn viewQueriesEql(old: ast_mod.View, new: ast_mod.View) bool {
     const old_second = old.second_query orelse "";
     const new_second = new.second_query orelse "";
     return std.mem.eql(u8, old_second, new_second);
+}
+
+/// Compute field name overlap ratio between two field lists.
+/// Returns a value between 0.0 (no overlap) and 1.0 (identical fields).
+/// Used for table-level rename detection.
+fn computeFieldOverlap(old_fields: []const ast_mod.Field, new_fields: []const ast_mod.Field) f64 {
+    if (old_fields.len == 0 and new_fields.len == 0) return 1.0;
+    if (old_fields.len == 0 or new_fields.len == 0) return 0.0;
+
+    // Count matching field names using the smaller set as the probe
+    var match_count: usize = 0;
+    for (old_fields) |old_field| {
+        for (new_fields) |new_field| {
+            if (std.mem.eql(u8, old_field.name, new_field.name)) {
+                match_count += 1;
+                break;
+            }
+        }
+    }
+
+    // Jaccard-like similarity: intersection / union
+    const max_fields = @max(old_fields.len, new_fields.len);
+    return @as(f64, @floatFromInt(match_count)) / @as(f64, @floatFromInt(max_fields));
 }
 
 fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: resolved_ast.ResolvedTable) !TableDiff {

@@ -20,6 +20,28 @@ pub const PassContext = struct {
     template_refs: std.StringHashMap(void) = undefined,
     diagnostics: *diag.DiagnosticCollector = undefined,
     symbol_table: symbol_table_mod.SymbolTable = undefined,
+
+    /// Create a PassContext with proper initialization of all fields.
+    /// Prefer this over struct literal for clarity and safety.
+    pub fn init(
+        alloc: std.mem.Allocator,
+        tables: *std.ArrayList(ResolvedTable),
+        schema: ?ast_mod.Schema,
+        templates: std.StringHashMap(*const Template),
+        template_refs: std.StringHashMap(void),
+        diagnostics: *diag.DiagnosticCollector,
+        symbol_table: symbol_table_mod.SymbolTable,
+    ) PassContext {
+        return .{
+            .alloc = alloc,
+            .tables = tables,
+            .schema = schema,
+            .templates = templates,
+            .template_refs = template_refs,
+            .diagnostics = diagnostics,
+            .symbol_table = symbol_table,
+        };
+    }
 };
 
 /// Access mode for a semantic pass — declares read/write behavior for conflict detection.

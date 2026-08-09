@@ -71,4 +71,6 @@ pub const TableDiff = struct {
     index_diffs: []const IndexDiff,
     fk_diffs: []const FkDiff,
     metadata_diff: ?TableMetadataDiff = null,
+    /// Original table name when action is rename (null otherwise).
+    rename_from: ?[]const u8 = null,
 };

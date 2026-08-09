@@ -210,6 +210,10 @@ rune/src/
 
 - **Table-Driven Subcommand Dispatch** (`cli.zig`): Subcommand routing uses a comptime `parsers` array of `{name, parse_fn}` entries. Adding a new subcommand = add an entry to `COMMAND_REGISTRY` + add a `parseXxxArgs` function + add an entry to the `parsers` table.
 
+- **Table-Driven LSP Method Dispatch** (`lsp/server.zig`): LSP method routing uses a `DISPATCH_TABLE` array of `{method, handler}` entries. Each handler has a uniform signature `(self, stdout, id, params)`. Adding a new LSP method = add entry to `DISPATCH_TABLE` + add handler in `lsp/handlers.zig`. Eliminates the 22-branch if-else chain that previously existed in the `run()` method.
+
+- **Data-Driven Lint Rule Dispatch** (`lint/rules.zig`): Lint rule execution uses a `RULES` array of `{rule, handler}` entries. Each handler receives the full AST + config and iterates over relevant entities (tables, custom types, or entire schema). Adding a new lint rule = add entry to `RULES` + implement handler function. Replaces 22 repetitive guard-then-call blocks with a single loop.
+
 - **FlagRegistry** (`cli/flag_registry.zig`): All 20 global CLI flags defined once in `GLOBAL_FLAG_REGISTRY` array. `matchesFlag()` matches long and short forms. `isKnownGlobalFlag()` provides unknown-flag detection. `parseGlobalFlags` uses `matchesFlag` for boolean flag detection instead of raw `std.mem.eql` chains.
 
 - **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (12 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.

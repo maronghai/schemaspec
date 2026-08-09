@@ -71,15 +71,15 @@ pub const SemanticAnalyzer = struct {
             owned_diagnostics.use_color = self.use_color;
         }
         var diagnostics_ptr = if (external_collector) |ec| ec else &owned_diagnostics;
-        var ctx = PassContext{
-            .alloc = self.alloc,
-            .tables = &tables,
-            .schema = tree.schema,
-            .templates = tmpl_map,
-            .template_refs = template_refs,
-            .diagnostics = diagnostics_ptr,
-            .symbol_table = symbol_table_mod.SymbolTable.init(self.alloc),
-        };
+        var ctx = pm.PassContext.init(
+            self.alloc,
+            &tables,
+            tree.schema,
+            tmpl_map,
+            template_refs,
+            diagnostics_ptr,
+            symbol_table_mod.SymbolTable.init(self.alloc),
+        );
         for (DEFAULT_PASSES) |pass| {
             if (self.verbose) {
                 const table_count = ctx.tables.items.len;

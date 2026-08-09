@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.185.0 (2026-08-09) — 42,500+ lines production Zig, 1362 tests, 32 test suites.
+**Current version**: 0.186.0 (2026-08-09) — 42,500+ lines production Zig, 1362 tests, 32 test suites.
 
 ---
 
@@ -175,6 +175,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 - [x] Improve reverse engineering confidence scores — currently binary (high/low), could be granular (v0.149.0)
 - [x] Standardize error message format — some use "error:", others use "Error:", others have no prefix (v0.147.0)
 - [x] Expand golden test automation — currently 25 suites, some generators lack golden tests (typeorm, sqlalchemy, knex) (v0.147.0)
+- [x] Table-driven LSP method dispatch — replace if-else chain with dispatch table (v0.186.0)
+- [x] Data-driven lint rule dispatch — replace repetitive guard-then-call blocks (v0.186.0)
 
 ---
 
@@ -240,6 +242,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.186.0** — Architecture refactoring & quality: table-driven LSP method dispatch (replaced 22-branch if-else chain with dispatch table), data-driven lint rule dispatch (replaced 22 repetitive guard-then-call blocks with dispatch table), PassContext.init() method for explicit initialization, WASM error reporting (rune_last_error() export), table-level rename detection in diff engine (70% field overlap threshold), rename display in text/JSON/SARIF diff formatters
 - **v0.185.0** — Quality & compilation fixes: fixed 2 test compilation errors (std.Thread.Mutex → std.atomic.Mutex for Zig 0.16 compatibility, varchar_explicit → varchar field name mismatch), fixed fragile `undefined` in PassContext by initializing symbol_table with empty SymbolTable, improved `--check` mode in reverse pipeline to produce meaningful output (was silently returning), verified all 1362 tests pass
 - **v0.184.0** — BufferPool parallel extension & quality: extended BufferPool to parallel codegen path (mutex-protected acquire/release for thread-safe buffer reuse), added graceful error recovery with actionable suggestions (OOM, file not found, access denied, disk full), added `--dry-run` flag to `rune generate` command for previewing output without writing files, created schema cookbook with common patterns (multi-tenant, soft delete, audit trail, RBAC, polymorphic associations), updated ARCHITECTURE.md with BufferPool and error recovery documentation
 - **v0.183.0** — Quality & code cleanup: fixed SqlParser memory leak (added `deinit()` method with `owns_src` tracking), fixed 3 test compilation errors (`getTemplate` visibility, `StringHashMap.put` API, pass_manager writer-dependency test), fixed 4 incorrect test expectations in `sql_parser_helpers_test.zig`, extracted `lineNoToZeroBased` helper in LSP module (replaced 15+ instances of 1-based to 0-based line conversion), extracted `lintOutput` helper in `lint_cmd.zig` (deduplicated 3-way output format block)

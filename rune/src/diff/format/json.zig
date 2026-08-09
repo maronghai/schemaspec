@@ -41,6 +41,11 @@ pub fn formatDiffJson(alloc: std.mem.Allocator, d: SchemaDiff) ![]const u8 {
         try jsonEscapeString(w, td.name);
         try w.writeAll("\",\n");
         try w.print("    \"action\": \"{s}\",\n", .{@tagName(td.action)});
+        if (td.rename_from) |old_name| {
+            try w.writeAll("    \"rename_from\": \"");
+            try jsonEscapeString(w, old_name);
+            try w.writeAll("\",\n");
+        }
 
         // field_diffs
         try w.writeAll("    \"field_diffs\": [");

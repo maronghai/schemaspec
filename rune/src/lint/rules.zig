@@ -10,87 +10,50 @@ const LintRule = @import("config.zig").LintRule;
 // Individual lint rule implementations. Each rule checks one
 // specific schema anti-pattern and appends results if found.
 
+/// Handler function signature for data-driven dispatch.
+const RuleHandler = *const fn (alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) anyerror!void;
+
+/// Dispatch table entry: rule enum + handler function.
+const RuleEntry = struct {
+    rule: LintRule,
+    handler: RuleHandler,
+};
+
+/// Table-driven rule dispatch — eliminates 22 repetitive guard-then-call blocks.
+/// Adding a new rule = add entry to RULES + implement handler below.
+const RULES = [_]RuleEntry{
+    .{ .rule = .no_pk, .handler = checkNoPk },
+    .{ .rule = .naming, .handler = checkNaming },
+    .{ .rule = .no_index_fk, .handler = checkNoIndexFk },
+    .{ .rule = .no_timestamps, .handler = checkNoTimestamps },
+    .{ .rule = .wide_table, .handler = checkWideTable },
+    .{ .rule = .count, .handler = checkCount },
+    .{ .rule = .fk_cascade, .handler = checkFkCascade },
+    .{ .rule = .nullable_pk, .handler = checkNullablePk },
+    .{ .rule = .enum_case, .handler = checkEnumCase },
+    .{ .rule = .orphan_type, .handler = checkOrphanType },
+    .{ .rule = .index_unused, .handler = checkIndexUnused },
+    .{ .rule = .circular_fk, .handler = checkCircularFk },
+    .{ .rule = .duplicate_index, .handler = checkDuplicateIndex },
+    .{ .rule = .empty_table, .handler = checkEmptyTable },
+    .{ .rule = .table_comment, .handler = checkTableComment },
+    .{ .rule = .serial_type, .handler = checkSerialType },
+    .{ .rule = .table_name_length, .handler = checkTableNameLength },
+    .{ .rule = .column_length, .handler = checkColumnLength },
+    .{ .rule = .index_column_missing, .handler = checkIndexColumnMissing },
+    .{ .rule = .naming_prefix, .handler = checkNamingPrefix },
+    .{ .rule = .fk_naming, .handler = checkFkNaming },
+    .{ .rule = .bool_default, .handler = checkBoolDefault },
+};
+
 /// Run all enabled lint checks on a resolved schema.
 pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.ArrayList(LintResult) {
     var results = try std.ArrayList(LintResult).initCapacity(alloc, 8);
     errdefer results.deinit(alloc);
 
-    for (ast.tables) |table| {
-        if (LintRule.no_pk.isEnabled(cfg)) try noPk(alloc, &results, table);
-        if (LintRule.naming.isEnabled(cfg)) try namingConventions(alloc, &results, table);
-        if (LintRule.no_index_fk.isEnabled(cfg)) try noIndexFk(alloc, &results, table);
-        if (LintRule.no_timestamps.isEnabled(cfg)) try noTimestamps(alloc, &results, table);
-        if (LintRule.wide_table.isEnabled(cfg)) try wideTable(alloc, &results, table, cfg.wide_table_max);
-        if (LintRule.count.isEnabled(cfg)) try count(alloc, &results, table, cfg.count_min);
-        if (LintRule.fk_cascade.isEnabled(cfg)) try noFkCascade(alloc, &results, table);
-        if (LintRule.nullable_pk.isEnabled(cfg)) try nullablePk(alloc, &results, table);
-    }
-    if (LintRule.enum_case.isEnabled(cfg)) {
-        for (ast.custom_types) |ct| {
-            try enumCase(alloc, &results, ct);
-        }
-    }
-    if (LintRule.orphan_type.isEnabled(cfg)) {
-        for (ast.custom_types) |ct| {
-            try orphanType(alloc, &results, ast, ct);
-        }
-    }
-    if (LintRule.index_unused.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try indexUnused(alloc, &results, table);
-        }
-    }
-    if (LintRule.circular_fk.isEnabled(cfg)) {
-        try circularFk(alloc, &results, ast);
-    }
-    if (LintRule.duplicate_index.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try duplicateIndex(alloc, &results, table);
-        }
-    }
-    if (LintRule.empty_table.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try emptyTable(alloc, &results, table);
-        }
-    }
-    if (LintRule.table_comment.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try tableComment(alloc, &results, table);
-        }
-    }
-    if (LintRule.serial_type.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try serialType(alloc, &results, table);
-        }
-    }
-    if (LintRule.table_name_length.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try tableNameLength(alloc, &results, table, cfg.table_name_max);
-        }
-    }
-    if (LintRule.column_length.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try columnLength(alloc, &results, table);
-        }
-    }
-    if (LintRule.index_column_missing.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try indexColumnMissing(alloc, &results, table);
-        }
-    }
-    if (LintRule.naming_prefix.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try namingPrefix(alloc, &results, table);
-        }
-    }
-    if (LintRule.fk_naming.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try fkNaming(alloc, &results, table);
-        }
-    }
-    if (LintRule.bool_default.isEnabled(cfg)) {
-        for (ast.tables) |table| {
-            try boolDefault(alloc, &results, table);
+    for (RULES) |entry| {
+        if (entry.rule.isEnabled(cfg)) {
+            try entry.handler(alloc, &results, ast, cfg);
         }
     }
 
@@ -98,37 +61,44 @@ pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.
 }
 
 // ─── Individual Rules ─────────────────────────────────────────
+// Each handler receives the full AST + config and iterates over
+// the relevant entities (tables, custom types, or entire schema).
 
-fn noPk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        for (field.modifiers) |mod| {
-            if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) return;
+fn checkNoPk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        var has_pk = false;
+        for (table.fields) |field| {
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
+                    has_pk = true;
+                    break;
+                }
+            }
+            if (has_pk) break;
+        }
+        if (!has_pk) {
+            for (table.indexes) |idx| {
+                if (idx.kind == .primary_key) {
+                    has_pk = true;
+                    break;
+                }
+            }
+        }
+        if (!has_pk) {
+            try results.append(alloc, .{
+                .rule = "no-pk",
+                .table = table.name,
+                .message = "table has no primary key",
+                .severity = .warning,
+            });
         }
     }
-    for (table.indexes) |idx| {
-        if (idx.kind == .primary_key) return;
-    }
-    try results.append(alloc, .{
-        .rule = "no-pk",
-        .table = table.name,
-        .message = "table has no primary key",
-        .severity = .warning,
-    });
 }
 
-fn namingConventions(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    if (!isSnakeCase(table.name)) {
-        const msg = try std.fmt.allocPrint(alloc, "table name '{s}' should use snake_case", .{table.name});
-        try results.append(alloc, .{
-            .rule = "naming",
-            .table = table.name,
-            .message = msg,
-            .severity = .info,
-        });
-    }
-    for (table.fields) |field| {
-        if (!isSnakeCase(field.name)) {
-            const msg = try std.fmt.allocPrint(alloc, "column name '{s}' should use snake_case", .{field.name});
+fn checkNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        if (!isSnakeCase(table.name)) {
+            const msg = try std.fmt.allocPrint(alloc, "table name '{s}' should use snake_case", .{table.name});
             try results.append(alloc, .{
                 .rule = "naming",
                 .table = table.name,
@@ -136,100 +106,11 @@ fn namingConventions(alloc: std.mem.Allocator, results: *std.ArrayList(LintResul
                 .severity = .info,
             });
         }
-    }
-}
-
-fn noIndexFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        if (field.fk != null and !fieldHasIndex(table, field.name)) {
-            const msg = try std.fmt.allocPrint(alloc, "foreign key column '{s}' has no index", .{field.name});
-            try results.append(alloc, .{
-                .rule = "no-index-fk",
-                .table = table.name,
-                .message = msg,
-                .severity = .warning,
-            });
-        }
-    }
-}
-
-fn noTimestamps(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        if (std.mem.eql(u8, field.name, "created_at") or std.mem.eql(u8, field.name, "updated_at")) return;
-    }
-    try results.append(alloc, .{
-        .rule = "no-timestamps",
-        .table = table.name,
-        .message = "no created_at/updated_at fields",
-        .severity = .info,
-    });
-}
-
-fn wideTable(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable, max: usize) !void {
-    if (table.fields.len > max) {
-        const msg = try std.fmt.allocPrint(alloc, "table has {d} fields (threshold: {d})", .{ table.fields.len, max });
-        try results.append(alloc, .{
-            .rule = "wide-table",
-            .table = table.name,
-            .message = msg,
-            .severity = .warning,
-        });
-    }
-}
-
-fn enumCase(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), custom_type: ast_mod.CustomType) !void {
-    if (!isUpperSnakeCase(custom_type.name)) {
-        const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' should use UPPER_CASE naming", .{custom_type.name});
-        try results.append(alloc, .{
-            .rule = "enum-case",
-            .table = custom_type.name,
-            .message = msg,
-            .severity = .info,
-        });
-    }
-}
-
-fn count(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable, min: usize) !void {
-    var non_pk_count: usize = 0;
-    for (table.fields) |field| {
-        var is_pk = false;
-        for (field.modifiers) |mod| {
-            if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
-                is_pk = true;
-                break;
-            }
-        }
-        if (!is_pk) non_pk_count += 1;
-    }
-    if (non_pk_count < min) {
-        const msg = try std.fmt.allocPrint(alloc, "table has only {d} non-PK field(s) — is this a junction table?", .{non_pk_count});
-        try results.append(alloc, .{
-            .rule = "count",
-            .table = table.name,
-            .message = msg,
-            .severity = .info,
-        });
-    }
-}
-
-fn noFkCascade(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        if (field.fk) |fk| {
-            var has_delete = false;
-            var has_update = false;
-            for (fk.actions) |action| {
-                if (action.trigger == .on_delete) has_delete = true;
-                if (action.trigger == .on_update) has_update = true;
-            }
-            if (!has_delete or !has_update) {
-                const msg = if (!has_delete and !has_update)
-                    try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON DELETE/ON UPDATE actions", .{field.name})
-                else if (!has_delete)
-                    try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON DELETE action", .{field.name})
-                else
-                    try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON UPDATE action", .{field.name});
+        for (table.fields) |field| {
+            if (!isSnakeCase(field.name)) {
+                const msg = try std.fmt.allocPrint(alloc, "column name '{s}' should use snake_case", .{field.name});
                 try results.append(alloc, .{
-                    .rule = "fk-cascade",
+                    .rule = "naming",
                     .table = table.name,
                     .message = msg,
                     .severity = .info,
@@ -239,18 +120,48 @@ fn noFkCascade(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ta
     }
 }
 
-fn nullablePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        var is_pk = false;
-        var is_nullable = false;
-        for (field.modifiers) |mod| {
-            if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) is_pk = true;
-            if (mod.kind == .nullable) is_nullable = true;
+fn checkNoIndexFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (field.fk != null and !fieldHasIndex(table, field.name)) {
+                const msg = try std.fmt.allocPrint(alloc, "foreign key column '{s}' has no index", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "no-index-fk",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
         }
-        if (is_pk and is_nullable) {
-            const msg = try std.fmt.allocPrint(alloc, "primary key column '{s}' should not be nullable", .{field.name});
+    }
+}
+
+fn checkNoTimestamps(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        var has_ts = false;
+        for (table.fields) |field| {
+            if (std.mem.eql(u8, field.name, "created_at") or std.mem.eql(u8, field.name, "updated_at")) {
+                has_ts = true;
+                break;
+            }
+        }
+        if (!has_ts) {
             try results.append(alloc, .{
-                .rule = "nullable-pk",
+                .rule = "no-timestamps",
+                .table = table.name,
+                .message = "no created_at/updated_at fields",
+                .severity = .info,
+            });
+        }
+    }
+}
+
+fn checkWideTable(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    for (ast.tables) |table| {
+        if (table.fields.len > cfg.wide_table_max) {
+            const msg = try std.fmt.allocPrint(alloc, "table has {d} fields (threshold: {d})", .{ table.fields.len, cfg.wide_table_max });
+            try results.append(alloc, .{
+                .rule = "wide-table",
                 .table = table.name,
                 .message = msg,
                 .severity = .warning,
@@ -259,46 +170,37 @@ fn nullablePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), tab
     }
 }
 
-fn orphanType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, ct: ast_mod.CustomType) !void {
-    for (ast.tables) |table| {
-        for (table.fields) |field| {
-            switch (field.type_info) {
-                .simple => |s| if (std.mem.eql(u8, s, ct.name)) return,
-                else => {},
-            }
+fn checkEnumCase(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        if (!isUpperSnakeCase(ct.name)) {
+            const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' should use UPPER_CASE naming", .{ct.name});
+            try results.append(alloc, .{
+                .rule = "enum-case",
+                .table = ct.name,
+                .message = msg,
+                .severity = .info,
+            });
         }
     }
-    const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' is defined but never used by any table", .{ct.name});
-    try results.append(alloc, .{
-        .rule = "orphan-type",
-        .table = ct.name,
-        .message = msg,
-        .severity = .info,
-    });
 }
 
-fn indexUnused(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    var fk_fields = std.StringHashMap(void).init(alloc);
-    defer fk_fields.deinit();
-    for (table.fields) |field| {
-        if (field.fk != null) {
-            try fk_fields.put(field.name, {});
-        }
-    }
-    for (table.indexes) |idx| {
-        if (idx.kind == .primary_key or idx.kind == .unique) continue;
-        var covers_fk = false;
-        for (idx.fields) |idx_field| {
-            if (fk_fields.contains(idx_field)) {
-                covers_fk = true;
-                break;
+fn checkCount(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    for (ast.tables) |table| {
+        var non_pk_count: usize = 0;
+        for (table.fields) |field| {
+            var is_pk = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
+                    is_pk = true;
+                    break;
+                }
             }
+            if (!is_pk) non_pk_count += 1;
         }
-        if (!covers_fk) {
-            const field_name = if (idx.fields.len > 0) idx.fields[0] else "??";
-            const msg = try std.fmt.allocPrint(alloc, "index '{s}' on [{s}] may be unused (no FK or unique constraint)", .{ idx.name, field_name });
+        if (non_pk_count < cfg.count_min) {
+            const msg = try std.fmt.allocPrint(alloc, "table has only {d} non-PK field(s) — is this a junction table?", .{non_pk_count});
             try results.append(alloc, .{
-                .rule = "index-unused",
+                .rule = "count",
                 .table = table.name,
                 .message = msg,
                 .severity = .info,
@@ -307,7 +209,118 @@ fn indexUnused(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ta
     }
 }
 
-fn circularFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst) !void {
+fn checkFkCascade(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (field.fk) |fk| {
+                var has_delete = false;
+                var has_update = false;
+                for (fk.actions) |action| {
+                    if (action.trigger == .on_delete) has_delete = true;
+                    if (action.trigger == .on_update) has_update = true;
+                }
+                if (!has_delete or !has_update) {
+                    const msg = if (!has_delete and !has_update)
+                        try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON DELETE/ON UPDATE actions", .{field.name})
+                    else if (!has_delete)
+                        try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON DELETE action", .{field.name})
+                    else
+                        try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON UPDATE action", .{field.name});
+                    try results.append(alloc, .{
+                        .rule = "fk-cascade",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .info,
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn checkNullablePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            var is_pk = false;
+            var is_nullable = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) is_pk = true;
+                if (mod.kind == .nullable) is_nullable = true;
+            }
+            if (is_pk and is_nullable) {
+                const msg = try std.fmt.allocPrint(alloc, "primary key column '{s}' should not be nullable", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "nullable-pk",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
+fn checkOrphanType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        var used = false;
+        for (ast.tables) |table| {
+            for (table.fields) |field| {
+                switch (field.type_info) {
+                    .simple => |s| if (std.mem.eql(u8, s, ct.name)) {
+                        used = true;
+                        break;
+                    },
+                    else => {},
+                }
+                if (used) break;
+            }
+            if (used) break;
+        }
+        if (!used) {
+            const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' is defined but never used by any table", .{ct.name});
+            try results.append(alloc, .{
+                .rule = "orphan-type",
+                .table = ct.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+fn checkIndexUnused(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        var fk_fields = std.StringHashMap(void).init(alloc);
+        defer fk_fields.deinit();
+        for (table.fields) |field| {
+            if (field.fk != null) {
+                try fk_fields.put(field.name, {});
+            }
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key or idx.kind == .unique) continue;
+            var covers_fk = false;
+            for (idx.fields) |idx_field| {
+                if (fk_fields.contains(idx_field)) {
+                    covers_fk = true;
+                    break;
+                }
+            }
+            if (!covers_fk) {
+                const field_name = if (idx.fields.len > 0) idx.fields[0] else "??";
+                const msg = try std.fmt.allocPrint(alloc, "index '{s}' on [{s}] may be unused (no FK or unique constraint)", .{ idx.name, field_name });
+                try results.append(alloc, .{
+                    .rule = "index-unused",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
+
+fn checkCircularFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     var graph = std.StringHashMap(std.ArrayList([]const u8)).init(alloc);
     defer {
         var iter = graph.iterator();
@@ -335,6 +348,218 @@ fn circularFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast
     for (ast.tables) |table| {
         if (!visited.contains(table.name)) {
             try detectCircularFkDfs(alloc, &visited, &path, &graph, table.name, results);
+        }
+    }
+}
+
+fn checkDuplicateIndex(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        if (table.indexes.len < 2) continue;
+
+        var i: usize = 0;
+        while (i < table.indexes.len) : (i += 1) {
+            var j: usize = i + 1;
+            while (j < table.indexes.len) : (j += 1) {
+                if (indexesEqual(table.indexes[i], table.indexes[j])) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates index '{s}' (same columns and type)", .{ table.indexes[j].name, table.indexes[i].name });
+                    try results.append(alloc, .{
+                        .rule = "duplicate-index",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn checkEmptyTable(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        if (table.fields.len == 0) {
+            try results.append(alloc, .{
+                .rule = "empty-table",
+                .table = table.name,
+                .message = "table has no fields",
+                .severity = .warning,
+            });
+        }
+    }
+}
+
+fn checkTableComment(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        if (table.comment == null or (table.comment != null and table.comment.?.len == 0)) {
+            const msg = try std.fmt.allocPrint(alloc, "table '{s}' has no comment", .{table.name});
+            try results.append(alloc, .{
+                .rule = "table-comment",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+fn checkSerialType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            switch (field.type_info) {
+                .simple => |s| {
+                    if (std.mem.eql(u8, s, "serial") or std.mem.eql(u8, s, "bigserial")) {
+                        const msg = try std.fmt.allocPrint(alloc, "column '{s}' uses PostgreSQL-specific type '{s}' — use auto_increment modifier for cross-dialect compatibility", .{ field.name, s });
+                        try results.append(alloc, .{
+                            .rule = "serial-type",
+                            .table = table.name,
+                            .message = msg,
+                            .severity = .warning,
+                        });
+                    }
+                },
+                else => {},
+            }
+        }
+    }
+}
+
+fn checkTableNameLength(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    for (ast.tables) |table| {
+        if (table.name.len > cfg.table_name_max) {
+            const msg = try std.fmt.allocPrint(alloc, "table name '{s}' is {d} chars (max: {d})", .{ table.name, table.name.len, cfg.table_name_max });
+            try results.append(alloc, .{
+                .rule = "table-name-length",
+                .table = table.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
+
+fn checkColumnLength(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            switch (field.type_info) {
+                .varchar_explicit => |len| {
+                    if (len == 0) {
+                        const msg = try std.fmt.allocPrint(alloc, "string column '{s}' has no explicit length — consider adding length (e.g., s64) for cross-dialect compatibility", .{field.name});
+                        try results.append(alloc, .{
+                            .rule = "column-length",
+                            .table = table.name,
+                            .message = msg,
+                            .severity = .info,
+                        });
+                    }
+                },
+                .simple => |s| {
+                    if (std.mem.eql(u8, s, "S")) {
+                        const msg = try std.fmt.allocPrint(alloc, "string column '{s}' has no explicit length — consider adding length (e.g., s64) for cross-dialect compatibility", .{field.name});
+                        try results.append(alloc, .{
+                            .rule = "column-length",
+                            .table = table.name,
+                            .message = msg,
+                            .severity = .info,
+                        });
+                    }
+                },
+                else => {},
+            }
+        }
+    }
+}
+
+fn checkIndexColumnMissing(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.indexes) |idx| {
+            for (idx.fields) |idx_field| {
+                var found = false;
+                for (table.fields) |field| {
+                    if (std.mem.eql(u8, field.name, idx_field)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' references column '{s}' which does not exist in table", .{ idx.name, idx_field });
+                    try results.append(alloc, .{
+                        .rule = "index-column-missing",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+            }
+        }
+    }
+}
+
+fn checkNamingPrefix(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    const prefixes = [_][]const u8{ "tbl_", "t_", "tb_", "table_" };
+    for (ast.tables) |table| {
+        for (prefixes) |prefix| {
+            if (table.name.len > prefix.len and std.mem.startsWith(u8, table.name, prefix)) {
+                const msg = try std.fmt.allocPrint(alloc, "table name '{s}' uses anti-pattern prefix '{s}'", .{ table.name, prefix });
+                try results.append(alloc, .{
+                    .rule = "naming-prefix",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+                break;
+            }
+        }
+    }
+}
+
+fn checkFkNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Check if field has a FK reference
+            var has_fk = false;
+            for (table.fks) |fk| {
+                for (fk.fields) |col| {
+                    if (std.mem.eql(u8, col, field.name)) {
+                        has_fk = true;
+                        break;
+                    }
+                }
+                if (has_fk) break;
+            }
+            if (!has_fk) continue;
+
+            // FK columns should end with _id
+            if (!std.mem.endsWith(u8, field.name, "_id")) {
+                const msg = try std.fmt.allocPrint(alloc, "FK column '{s}' should follow '<table>_id' naming convention", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "fk-naming",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
+
+fn checkBoolDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Check if field is boolean type using type_info
+            const is_bool = field.type_info.isBoolean();
+            if (!is_bool) continue;
+
+            // Check if field has an explicit default value
+            const has_default = field.default_val != null;
+
+            if (!has_default) {
+                const msg = try std.fmt.allocPrint(alloc, "boolean column '{s}' has no explicit default value", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "bool-default",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
         }
     }
 }
@@ -385,26 +610,6 @@ fn detectCircularFkDfs(
     _ = path.pop();
 }
 
-fn duplicateIndex(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    if (table.indexes.len < 2) return;
-
-    var i: usize = 0;
-    while (i < table.indexes.len) : (i += 1) {
-        var j: usize = i + 1;
-        while (j < table.indexes.len) : (j += 1) {
-            if (indexesEqual(table.indexes[i], table.indexes[j])) {
-                const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates index '{s}' (same columns and type)", .{ table.indexes[j].name, table.indexes[i].name });
-                try results.append(alloc, .{
-                    .rule = "duplicate-index",
-                    .table = table.name,
-                    .message = msg,
-                    .severity = .warning,
-                });
-            }
-        }
-    }
-}
-
 fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
     if (a.kind != b.kind) return false;
     if (a.fields.len != b.fields.len) return false;
@@ -414,179 +619,7 @@ fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
     return true;
 }
 
-fn emptyTable(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    if (table.fields.len == 0) {
-        try results.append(alloc, .{
-            .rule = "empty-table",
-            .table = table.name,
-            .message = "table has no fields",
-            .severity = .warning,
-        });
-    }
-}
-
-fn tableComment(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    if (table.comment == null or (table.comment != null and table.comment.?.len == 0)) {
-        const msg = try std.fmt.allocPrint(alloc, "table '{s}' has no comment", .{table.name});
-        try results.append(alloc, .{
-            .rule = "table-comment",
-            .table = table.name,
-            .message = msg,
-            .severity = .info,
-        });
-    }
-}
-
-fn serialType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        switch (field.type_info) {
-            .simple => |s| {
-                if (std.mem.eql(u8, s, "serial") or std.mem.eql(u8, s, "bigserial")) {
-                    const msg = try std.fmt.allocPrint(alloc, "column '{s}' uses PostgreSQL-specific type '{s}' — use auto_increment modifier for cross-dialect compatibility", .{ field.name, s });
-                    try results.append(alloc, .{
-                        .rule = "serial-type",
-                        .table = table.name,
-                        .message = msg,
-                        .severity = .warning,
-                    });
-                }
-            },
-            else => {},
-        }
-    }
-}
-
-fn tableNameLength(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable, max: usize) !void {
-    if (table.name.len > max) {
-        const msg = try std.fmt.allocPrint(alloc, "table name '{s}' is {d} chars (max: {d})", .{ table.name, table.name.len, max });
-        try results.append(alloc, .{
-            .rule = "table-name-length",
-            .table = table.name,
-            .message = msg,
-            .severity = .warning,
-        });
-    }
-}
-
-fn columnLength(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        switch (field.type_info) {
-            .varchar_explicit => |len| {
-                if (len == 0) {
-                    const msg = try std.fmt.allocPrint(alloc, "string column '{s}' has no explicit length — consider adding length (e.g., s64) for cross-dialect compatibility", .{field.name});
-                    try results.append(alloc, .{
-                        .rule = "column-length",
-                        .table = table.name,
-                        .message = msg,
-                        .severity = .info,
-                    });
-                }
-            },
-            .simple => |s| {
-                if (std.mem.eql(u8, s, "S")) {
-                    const msg = try std.fmt.allocPrint(alloc, "string column '{s}' has no explicit length — consider adding length (e.g., s64) for cross-dialect compatibility", .{field.name});
-                    try results.append(alloc, .{
-                        .rule = "column-length",
-                        .table = table.name,
-                        .message = msg,
-                        .severity = .info,
-                    });
-                }
-            },
-            else => {},
-        }
-    }
-}
-
 // ─── Helpers ──────────────────────────────────────────────────
-
-fn indexColumnMissing(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.indexes) |idx| {
-        for (idx.fields) |idx_field| {
-            var found = false;
-            for (table.fields) |field| {
-                if (std.mem.eql(u8, field.name, idx_field)) {
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
-                const msg = try std.fmt.allocPrint(alloc, "index '{s}' references column '{s}' which does not exist in table", .{ idx.name, idx_field });
-                try results.append(alloc, .{
-                    .rule = "index-column-missing",
-                    .table = table.name,
-                    .message = msg,
-                    .severity = .warning,
-                });
-            }
-        }
-    }
-}
-
-fn namingPrefix(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    const prefixes = [_][]const u8{ "tbl_", "t_", "tb_", "table_" };
-    for (prefixes) |prefix| {
-        if (table.name.len > prefix.len and std.mem.startsWith(u8, table.name, prefix)) {
-            const msg = try std.fmt.allocPrint(alloc, "table name '{s}' uses anti-pattern prefix '{s}'", .{ table.name, prefix });
-            try results.append(alloc, .{
-                .rule = "naming-prefix",
-                .table = table.name,
-                .message = msg,
-                .severity = .info,
-            });
-            return;
-        }
-    }
-}
-
-fn fkNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        // Check if field has a FK reference
-        var has_fk = false;
-        for (table.fks) |fk| {
-            for (fk.fields) |col| {
-                if (std.mem.eql(u8, col, field.name)) {
-                    has_fk = true;
-                    break;
-                }
-            }
-            if (has_fk) break;
-        }
-        if (!has_fk) continue;
-
-        // FK columns should end with _id
-        if (!std.mem.endsWith(u8, field.name, "_id")) {
-            const msg = try std.fmt.allocPrint(alloc, "FK column '{s}' should follow '<table>_id' naming convention", .{field.name});
-            try results.append(alloc, .{
-                .rule = "fk-naming",
-                .table = table.name,
-                .message = msg,
-                .severity = .info,
-            });
-        }
-    }
-}
-
-fn boolDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
-    for (table.fields) |field| {
-        // Check if field is boolean type using type_info
-        const is_bool = field.type_info.isBoolean();
-        if (!is_bool) continue;
-
-        // Check if field has an explicit default value
-        const has_default = field.default_val != null;
-
-        if (!has_default) {
-            const msg = try std.fmt.allocPrint(alloc, "boolean column '{s}' has no explicit default value", .{field.name});
-            try results.append(alloc, .{
-                .rule = "bool-default",
-                .table = table.name,
-                .message = msg,
-                .severity = .info,
-            });
-        }
-    }
-}
 
 fn isSnakeCase(name: []const u8) bool {
     for (name) |c| {

@@ -93,6 +93,28 @@ pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect
             continue;
         }
 
+        // Table rename
+        if (td.rename_from) |old_name| {
+            if (result_idx > 0) try w.writeAll(",\n");
+            try w.writeAll("      {\n");
+            try w.writeAll("        \"ruleId\": \"schema/renamed-table\",\n");
+            try w.writeAll("        \"level\": \"note\",\n");
+            try w.writeAll("        \"message\": {\n");
+            try w.writeAll("          \"text\": \"Table renamed: ");
+            try w.writeByte(q);
+            try jsonEscapeString(w, old_name);
+            try w.writeByte(q);
+            try w.writeAll(" → ");
+            try w.writeByte(q);
+            try jsonEscapeString(w, td.name);
+            try w.writeByte(q);
+            try w.writeAll("\"\n");
+            try w.writeAll("        },\n");
+            try w.writeAll("        \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"schema.ss\"}}}]\n");
+            try w.writeAll("      }");
+            result_idx += 1;
+        }
+
         // Field diffs within altered table
         for (td.field_diffs) |fd| {
             if (result_idx > 0) try w.writeAll(",\n");

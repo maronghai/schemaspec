@@ -66,7 +66,11 @@ pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
         }
 
         // alter
-        var table_has_changes = false;
+        if (td.rename_from) |old_name| {
+            // Table rename: show rename header
+            try writeColorized(w, color_mod.YELLOW, use_color, "-- RENAME TABLE {c}{s}{c} → {c}{s}{c}\n", .{ q, old_name, q, q, td.name, q });
+        }
+        var table_has_changes = td.rename_from != null;
         for (td.field_diffs) |fd| {
             try emitAlterTableHeader(w, td.name, q, use_color, &table_has_changes);
             switch (fd.action) {

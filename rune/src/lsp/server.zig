@@ -41,6 +41,37 @@ pub const Server = struct {
         self.documents.deinit();
     }
 
+    /// Handler function signature for table-driven dispatch.
+    /// Takes server, optional stdout_file, optional id, and optional params.
+    const HandlerFn = *const fn (self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) anyerror!void;
+
+    /// Dispatch table entry: method name → handler function.
+    const DispatchEntry = struct {
+        method: []const u8,
+        handler: HandlerFn,
+    };
+
+    /// Table-driven method dispatch — eliminates the 22-branch if-else chain.
+    /// Adding a new LSP method = one entry here + one handler in handlers.zig.
+    const DISPATCH_TABLE = [_]DispatchEntry{
+        .{ .method = "initialize", .handler = handleInitializeDispatch },
+        .{ .method = "shutdown", .handler = handleShutdownDispatch },
+        .{ .method = "textDocument/didOpen", .handler = handleDidOpenDispatch },
+        .{ .method = "textDocument/didChange", .handler = handleDidChangeDispatch },
+        .{ .method = "textDocument/didClose", .handler = handleDidCloseDispatch },
+        .{ .method = "textDocument/didSave", .handler = handleDidSaveDispatch },
+        .{ .method = "textDocument/documentSymbol", .handler = handlers.handleDocumentSymbol },
+        .{ .method = "textDocument/completion", .handler = handlers.handleCompletion },
+        .{ .method = "textDocument/hover", .handler = handlers.handleHover },
+        .{ .method = "textDocument/definition", .handler = handlers.handleDefinition },
+        .{ .method = "textDocument/codeAction", .handler = handlers.handleCodeAction },
+        .{ .method = "textDocument/formatting", .handler = handlers.handleFormatting },
+        .{ .method = "textDocument/rename", .handler = handlers.handleRename },
+        .{ .method = "textDocument/prepareRename", .handler = handlers.handlePrepareRename },
+        .{ .method = "textDocument/references", .handler = handlers.handleReferences },
+        .{ .method = "textDocument/documentHighlight", .handler = handlers.handleDocumentHighlight },
+    };
+
     /// Run the LSP server main loop.
     /// Reads JSON-RPC messages from stdin, dispatches to handlers,
     /// and writes responses to stdout.
@@ -68,77 +99,60 @@ pub const Server = struct {
             const method = msg.method orelse continue;
             const id = msg.id;
 
-            if (std.mem.eql(u8, method, "initialize")) {
-                try handlers.handleInitialize(self, stdout_file, id, msg.params);
-            } else if (std.mem.eql(u8, method, "initialized")) {
+            // Handle non-request methods outside the dispatch table
+            if (std.mem.eql(u8, method, "initialized")) {
                 self.initialized = true;
-            } else if (std.mem.eql(u8, method, "shutdown")) {
-                try handlers.handleShutdown(self, stdout_file, id);
-                return;
+                continue;
             } else if (std.mem.eql(u8, method, "exit")) {
                 return;
-            } else if (std.mem.eql(u8, method, "textDocument/didOpen")) {
-                if (msg.params) |params| {
-                    try handlers.handleDidOpen(self, params);
+            }
+
+            // Table-driven dispatch for request handlers
+            var handled = false;
+            for (DISPATCH_TABLE) |entry| {
+                if (std.mem.eql(u8, method, entry.method)) {
+                    try entry.handler(self, stdout_file, id, msg.params);
+                    // Shutdown handler signals the server to stop
+                    if (std.mem.eql(u8, method, "shutdown")) return;
+                    handled = true;
+                    break;
                 }
-            } else if (std.mem.eql(u8, method, "textDocument/didChange")) {
-                if (msg.params) |params| {
-                    try handlers.handleDidChange(self, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/didClose")) {
-                if (msg.params) |params| {
-                    try handlers.handleDidClose(self, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/didSave")) {
-                if (msg.params) |params| {
-                    try handlers.handleDidSave(self, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/documentSymbol")) {
-                if (msg.params) |params| {
-                    try handlers.handleDocumentSymbol(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/completion")) {
-                if (msg.params) |params| {
-                    try handlers.handleCompletion(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/hover")) {
-                if (msg.params) |params| {
-                    try handlers.handleHover(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/definition")) {
-                if (msg.params) |params| {
-                    try handlers.handleDefinition(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/codeAction")) {
-                if (msg.params) |params| {
-                    try handlers.handleCodeAction(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/formatting")) {
-                if (msg.params) |params| {
-                    try handlers.handleFormatting(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/rename")) {
-                if (msg.params) |params| {
-                    try handlers.handleRename(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/prepareRename")) {
-                if (msg.params) |params| {
-                    try handlers.handlePrepareRename(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/references")) {
-                if (msg.params) |params| {
-                    try handlers.handleReferences(self, stdout_file, id, params);
-                }
-            } else if (std.mem.eql(u8, method, "textDocument/documentHighlight")) {
-                if (msg.params) |params| {
-                    try handlers.handleDocumentHighlight(self, stdout_file, id, params);
-                }
-            } else if (id != null) {
+            }
+
+            if (!handled and id != null) {
                 // Unknown method with id → respond with method_not_found
                 var w = stdout_file.writerStreaming(self.io, &buf);
                 try lsp_protocol.writeErrorResponse(&w.interface, id, lsp_protocol.ErrorCode.method_not_found, "Method not found");
             }
         }
+    }
+
+    // ─── Dispatch Adapters ──────────────────────────────────────
+    // Adapters normalize handler signatures to match HandlerFn.
+    // Each wraps the corresponding handler from handlers.zig.
+
+    fn handleInitializeDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        try handlers.handleInitialize(self, stdout.?, id, params);
+    }
+
+    fn handleShutdownDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, _: ?std.json.Value) !void {
+        try handlers.handleShutdown(self, stdout.?, id);
+    }
+
+    fn handleDidOpenDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleDidOpen(self, p);
+    }
+
+    fn handleDidChangeDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleDidChange(self, p);
+    }
+
+    fn handleDidCloseDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleDidClose(self, p);
+    }
+
+    fn handleDidSaveDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleDidSave(self, p);
     }
 
     /// Send a JSON-RPC response to stdout.

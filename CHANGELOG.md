@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.186.0] - 2026-08-09
+
+### Changed
+- **Table-driven LSP method dispatch** — Replaced 22-branch if-else chain in `src/lsp/server.zig` with a dispatch table (`DISPATCH_TABLE` array of `{method, handler}` entries). Follows the same pattern used in `cli.zig` with `COMMAND_REGISTRY`. Adding a new LSP method now requires only one entry in the dispatch table and one handler function.
+- **Data-driven lint rule dispatch** — Replaced 22 repetitive guard-then-call blocks in `src/lint/rules.zig:runAll()` with a data-driven dispatch table (`RULES` array of `{rule, handler}` entries). Each handler receives the full AST + config and iterates over relevant entities internally. Reduces `runAll` from ~80 lines to ~15 lines.
+- **PassContext.init() method** — Added `init()` method to `PassContext` in `src/semantic/pass_manager.zig` for explicit, safe initialization. The `undefined` defaults are preserved for backward compatibility with existing code, but `init()` is preferred for new code.
+- **WASM error reporting** — Added `rune_last_error()` export to `src/wasm.zig` that returns the last error message from `rune_compile()`. Host environments can now distinguish between parse errors, semantic errors, and codegen errors instead of receiving null.
+
+### Added
+- **Table-level rename detection** — Added rename detection in `src/diff/engine.zig` that matches dropped tables with created tables when field overlap exceeds 70%. Renamed tables are reported as `RENAME TABLE old → new` instead of `DROP TABLE old` + `CREATE TABLE new`. Added `rename_from` field to `TableDiff` struct.
+- **Rename display in diff formatters** — Updated text, JSON, and SARIF diff formatters to show table rename information. Text format shows `-- RENAME TABLE old → new`, JSON includes `rename_from` field, SARIF includes `schema/renamed-table` rule.
+
 ## [0.185.0] - 2026-08-09
 
 ### Fixed
