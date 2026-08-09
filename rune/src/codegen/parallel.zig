@@ -508,7 +508,7 @@ test "compileParallel: pool-based parallel compilation produces correct output" 
     for (0..12) |i| {
         const cols = try alloc.alloc(typed_ast.TypedColumn, 2);
         cols[0] = .{ .name = "id", .sql_type = .int, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 1, .flags = .{ .primary_key = true } };
-        cols[1] = .{ .name = "name", .sql_type = .{ .varchar_explicit = 255 }, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 2, .flags = .{} };
+        cols[1] = .{ .name = "name", .sql_type = .{ .varchar = 255 }, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 2, .flags = .{} };
         const name = try std.fmt.allocPrint(alloc, "pool_test_{d}", .{i});
         table_list[i] = .{
             .name = name,

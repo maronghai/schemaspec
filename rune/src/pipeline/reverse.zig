@@ -88,6 +88,7 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
     }
 
     if (cfg.check) {
+        std.debug.print("SQL is valid\n", .{});
         return;
     }
 

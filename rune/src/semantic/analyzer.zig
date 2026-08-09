@@ -4,6 +4,7 @@ const resolved_ast = @import("../types/resolved_ast.zig");
 const diag = @import("../semantic/diagnostic.zig");
 const template_mod = @import("../semantic/template.zig");
 const pm = @import("../semantic/pass_manager.zig");
+const symbol_table_mod = @import("../types/symbol_table.zig");
 pub const PassContext = pm.PassContext;
 pub const SemanticPass = pm.SemanticPass;
 pub const DEFAULT_PASSES = pm.DEFAULT_PASSES;
@@ -77,6 +78,7 @@ pub const SemanticAnalyzer = struct {
             .templates = tmpl_map,
             .template_refs = template_refs,
             .diagnostics = diagnostics_ptr,
+            .symbol_table = symbol_table_mod.SymbolTable.init(self.alloc),
         };
         for (DEFAULT_PASSES) |pass| {
             if (self.verbose) {

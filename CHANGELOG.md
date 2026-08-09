@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.185.0] - 2026-08-09
+
+### Fixed
+- **Test compilation errors** — Fixed 2 compilation errors in test code:
+  - `src/codegen/codegen.zig`: Changed `std.Thread.Mutex` to `std.atomic.Mutex` for Zig 0.16 compatibility (std.Thread.Mutex doesn't exist in Zig 0.16.0)
+  - `src/codegen/parallel.zig`: Changed `.varchar_explicit = 255` to `.{ .varchar = 255 }` (varchar_explicit is not a variant of SqlType union)
+- **Fragile `undefined` in PassContext** — Fixed `src/semantic/pass_manager.zig` PassContext by initializing `symbol_table` field with empty `SymbolTable` in analyzer (was `undefined`, could cause garbage data if accessed before resolve_names pass)
+- **`--check` mode in reverse pipeline** — Fixed `src/pipeline/reverse.zig` `--check` mode to produce meaningful output ("SQL is valid") instead of silently returning without output
+
+### Changed
+- **Verified 1362 tests pass** — All unit tests pass after fixes
+
 ## [0.182.0] - 2026-08-09
 
 ### Added

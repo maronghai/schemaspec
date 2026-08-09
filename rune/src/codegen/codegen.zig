@@ -17,7 +17,7 @@ pub const Dialect = dialect_enum.Dialect;
 pub const BufferPool = struct {
     alloc: std.mem.Allocator,
     buffers: std.ArrayList(std.Io.Writer.Allocating),
-    mutex: std.Thread.Mutex = .{},
+    mutex: std.atomic.Mutex = .unlocked,
 
     pub fn init(alloc: std.mem.Allocator) BufferPool {
         return .{
@@ -46,7 +46,7 @@ pub const BufferPool = struct {
     /// Acquire a buffer from the pool (or create a new one).
     /// Thread-safe: protected by mutex for parallel codegen use.
     pub fn acquire(self: *BufferPool) !std.Io.Writer.Allocating {
-        self.mutex.lock();
+        while (!self.mutex.tryLock()) std.Thread.yield() catch {};
         defer self.mutex.unlock();
         if (self.buffers.items.len > 0) {
             return self.buffers.pop() orelse return std.Io.Writer.Allocating.init(self.alloc);
@@ -57,7 +57,7 @@ pub const BufferPool = struct {
     /// Release a buffer back to the pool for reuse.
     /// Thread-safe: protected by mutex for parallel codegen use.
     pub fn release(self: *BufferPool, buf: std.Io.Writer.Allocating) !void {
-        self.mutex.lock();
+        while (!self.mutex.tryLock()) std.Thread.yield() catch {};
         defer self.mutex.unlock();
         var mutable = buf;
         mutable.clearRetainingCapacity();
