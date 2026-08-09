@@ -10,6 +10,7 @@ comptime {
     _ = @import("cli_test.zig");
     _ = @import("cli/lint_cmd_test.zig");
     _ = @import("cli/init_test.zig");
+    _ = @import("cli/parse_test.zig");
     // ── color ────────────────────────────────────────────────────
     _ = @import("color_test.zig");
     // ── completions ──────────────────────────────────────────────
@@ -139,6 +140,7 @@ comptime {
     _ = @import("tune.zig");
     // ── lsp ──────────────────────────────────────────────────────
     _ = @import("lsp/protocol.zig");
+    _ = @import("lsp/protocol_test.zig");
     _ = @import("lsp/server.zig");
     _ = @import("lsp/hover.zig");
     _ = @import("lsp/completions.zig");

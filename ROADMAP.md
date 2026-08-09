@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.196.0 (2026-08-10) — 53,600+ lines production Zig, 1,433+ tests, 33 test suites.
+**Current version**: 0.197.0 (2026-08-10) — 53,600+ lines production Zig, 1,482+ tests, 33 test suites.
 
 ---
 
@@ -155,6 +155,7 @@ Ongoing improvements pursued alongside feature work.
 - [x] Fuzz testing expansion — longer runs, more seed variety (v0.123.0)
 - [x] Production error recovery — graceful handling of OOM, file system errors (v0.184.0)
 - [x] Enhanced test coverage for under-tested modules (v0.190.0)
+- [x] Additional test coverage: cli/parse, lsp/protocol, architecture cleanup (v0.197.0)
 
 ### Platform
 
@@ -243,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.197.0** — Test coverage & architecture cleanup: added 49 new tests for cli/parse (argument parsing, flag detection, suggestions) and lsp/protocol (JSON-RPC message writing), consolidated getInputPath/getInputPath2 into single getInputPaths function, registered new test files in tests.zig
 - **v0.196.0** — Architecture refactoring & quality: extracted docs/format command handlers from main.zig dispatch to pipeline/handlers.zig (reduced dispatch function by 40 lines), fixed parser BlockState memory leak (parents_buf not freed in reset), optimized stripEngineTokens to avoid allocation when no engine token present, eliminated test memory leak (0 leaks now)
 - **v0.195.0** — Bug fixes & quality: fixed SQLite UNSIGNED test assertion (backtick→double-quote), fixed Mermaid docs memory leak (missing defer), fixed parser @if conditional block memory leak (15→1 allocations), fixed parser internal ArrayList buffer leaks (BlockState deinit, stripEngineTokens deinit, parse method cleanup), updated Zig package manager roadmap item
 - **v0.194.0** — Quality & documentation: added tune.zig unit tests (5 new), integrated validate_views.zig into test suite, synced documentation (test counts, pass lists, leaf module paths), added Db2/MSSQL dialect behavior docs

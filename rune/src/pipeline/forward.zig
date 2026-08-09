@@ -270,4 +270,3 @@ pub fn traceAll(pipeline: PipelineResult, typed: typed_ast.TypedAst) void {
 pub const Stats = stats_mod.Stats;
 pub const computeStats = stats_mod.computeStats;
 pub const printStats = stats_mod.printStats;
-

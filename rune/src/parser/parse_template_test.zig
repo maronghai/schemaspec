@@ -104,7 +104,7 @@ test "parseTemplateHeader: anonymous template" {
     const alloc = arena.allocator();
     const line = tk.Line{
         .line_type = .Template,
-        .tokens = &.{ "%" },
+        .tokens = &.{"%"},
         .raw = "%",
         .trimmed = "%",
         .line_no = 1,

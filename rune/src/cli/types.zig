@@ -115,11 +115,11 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
 
 /// Known long flags for edit-distance suggestions.
 pub const KNOWN_FLAGS = [_][]const u8{
-    "--version",        "--help",        "--stats",       "--quiet",         "--check",    "--dry-run",
-    "--dialect",        "--target",      "--format",      "--validate-only", "--strict",   "--json-errors",
-    "--verbose-passes", "--import-path", "--trace",       "--rollback",      "--output",   "--list",
-    "--name",           "--dir",         "--incremental", "--color",         "--init",     "--summary",
-    "--config",         "--template",    "--graph",       "--stream",        "--interval", "--parallel",
-    "--generators",     "--from-sql",    "--fix",         "--rules",        "--output-dir", "--recursive",
+    "--version",        "--help",        "--stats",       "--quiet",         "--check",      "--dry-run",
+    "--dialect",        "--target",      "--format",      "--validate-only", "--strict",     "--json-errors",
+    "--verbose-passes", "--import-path", "--trace",       "--rollback",      "--output",     "--list",
+    "--name",           "--dir",         "--incremental", "--color",         "--init",       "--summary",
+    "--config",         "--template",    "--graph",       "--stream",        "--interval",   "--parallel",
+    "--generators",     "--from-sql",    "--fix",         "--rules",         "--output-dir", "--recursive",
     "--per-table",
 };

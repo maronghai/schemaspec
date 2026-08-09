@@ -187,10 +187,9 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             std.process.exit(1);
         },
         error.FileNotFound => {
-            const input_path = getInputPath(parsed.command);
-            const input_path2 = getInputPath2(parsed.command);
-            if (input_path) |path| {
-                if (input_path2) |path2| {
+            const paths = getInputPaths(parsed.command);
+            if (paths.path1) |path| {
+                if (paths.path2) |path2| {
                     fmt.printError("io", "file not found");
                     std.debug.print("  {s} or {s}\n", .{ path, path2 });
                 } else {
@@ -401,32 +400,30 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
 
 // ─── Error Messages ───────────────────────────────────────────
 
-/// Extract the input file path from a Command for error messages.
-fn getInputPath(command: cli.Command) ?[]const u8 {
-    return switch (command) {
-        .compile => |cmd| cmd.input,
-        .validate => |cmd| cmd.input,
-        .check => |cmd| cmd.input,
-        .stats => |cmd| cmd.input,
-        .diff => |cmd| cmd.old,
-        .migrate => |cmd| cmd.old,
-        .reverse => |cmd| cmd.input,
-        .docs => |cmd| cmd.input,
-        .format_cmd => |cmd| cmd.input,
-        .generate => |cmd| cmd.input,
-        .lint => |cmd| cmd.input,
-        .watch => |cmd| cmd.input,
-        .tune => |cmd| cmd.input,
-        else => null,
-    };
-}
+/// Result of extracting input paths from a Command for error messages.
+const InputPaths = struct {
+    path1: ?[]const u8 = null,
+    path2: ?[]const u8 = null,
+};
 
-/// Extract the second input file path (for diff/migrate) for error messages.
-fn getInputPath2(command: cli.Command) ?[]const u8 {
+/// Extract input file paths from a Command for error messages.
+/// Returns both primary and secondary paths (for diff/migrate commands).
+fn getInputPaths(command: cli.Command) InputPaths {
     return switch (command) {
-        .diff => |cmd| cmd.new,
-        .migrate => |cmd| cmd.new,
-        else => null,
+        .compile => |cmd| .{ .path1 = cmd.input },
+        .validate => |cmd| .{ .path1 = cmd.input },
+        .check => |cmd| .{ .path1 = cmd.input },
+        .stats => |cmd| .{ .path1 = cmd.input },
+        .diff => |cmd| .{ .path1 = cmd.old, .path2 = cmd.new },
+        .migrate => |cmd| .{ .path1 = cmd.old, .path2 = cmd.new },
+        .reverse => |cmd| .{ .path1 = cmd.input },
+        .docs => |cmd| .{ .path1 = cmd.input },
+        .format_cmd => |cmd| .{ .path1 = cmd.input },
+        .generate => |cmd| .{ .path1 = cmd.input },
+        .lint => |cmd| .{ .path1 = cmd.input },
+        .watch => |cmd| .{ .path1 = cmd.input },
+        .tune => |cmd| .{ .path1 = cmd.input },
+        else => .{},
     };
 }
 
