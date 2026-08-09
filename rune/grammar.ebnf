@@ -13,6 +13,8 @@ line            = schema_decl
                 | table_decl
                 | view_decl
                 | import_directive
+                | conditional_if
+                | conditional_end
                 | doc_decl
                 | sql_comment
                 | spec_comment
@@ -52,6 +54,12 @@ set_operator    = "UNION" [ "ALL" ] | "INTERSECT" | "EXCEPT" ;
 (* ─── Import Directive ────────────────────────────────────── *)
 
 import_directive = "@import" file_path ;
+
+(* ─── Conditional Block ──────────────────────────────────── *)
+
+conditional_if   = "@if(" "dialect" "=" dialect_list ")" ;
+conditional_end  = "@endif" ;
+dialect_list     = IDENT { "|" IDENT } ;
 
 (* ─── Documentation Directive ──────────────────────────────── *)
 

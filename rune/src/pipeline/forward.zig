@@ -134,6 +134,7 @@ fn compileInternal(
     // Successfully parsed tables are complete; errored tables are simply absent.
     const resolved = if (cfg.run_semantic) blk: {
         var sa = semantic.SemanticAnalyzer.initWithColor(alloc, cfg.verbose_passes, cfg.color);
+        sa.dialect = cfg.dialect;
         break :blk try sa.analyze(tree);
     } else null;
 

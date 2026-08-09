@@ -13,6 +13,8 @@ pub const LineType = enum {
     Engine,
     TypeDef,
     Import,
+    ConditionalIf,
+    ConditionalEnd,
     Doc,
     SQLComment,
     SpecComment,
@@ -78,6 +80,8 @@ pub const Tokenizer = struct {
         if (line.len >= 3 and line[0] == '.' and line[1] == '.' and line[2] == '.') return .Slot;
         if (line[0] == '~') return .TypeDef;
         if (line.len >= 7 and line[0] == '@' and std.mem.eql(u8, line[0..7], "@import")) return .Import;
+        if (line.len >= 4 and line[0] == '@' and std.mem.eql(u8, line[0..4], "@if(")) return .ConditionalIf;
+        if (line.len >= 6 and line[0] == '@' and std.mem.eql(u8, line[0..6], "@endif")) return .ConditionalEnd;
         if (line[0] == '@') return .Index;
         if (line[0] == '+') return .Doc;
         return .Field;

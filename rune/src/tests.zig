@@ -116,6 +116,7 @@ comptime {
     _ = @import("semantic/pass/validate_index_names.zig");
     _ = @import("semantic/pass/autofk.zig");
     _ = @import("semantic/pass/resolve_names.zig");
+    _ = @import("semantic/pass/resolve_conditionals.zig");
     _ = @import("semantic/pass/suffix_inference.zig");
     _ = @import("semantic/pass/validate.zig");
     _ = @import("semantic/pass/validate_indexes.zig");

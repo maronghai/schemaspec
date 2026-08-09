@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.190.0 (2026-08-09) — 42,500+ lines production Zig, 1392+ tests, 32 test suites.
+**Current version**: 0.191.0 (2026-08-09) — 43,000+ lines production Zig, 1400+ tests, 33 test suites.
 
 ---
 
@@ -59,7 +59,7 @@ Build the community and ecosystem around Rune. **Not started.**
 ### Distribution
 
 - [x] Package managers — `brew install rune`, `scoop install rune`, `apt`/`yum` (v0.150.0)
-- [ ] npm package — `npx rune schema.ss`
+- [x] npm package — `npx rune schema.ss` (v0.191.0)
 - [x] Docker image — `ghcr.io/rune-lang/rune:latest` (v0.150.0)
 - [ ] Zig package manager — `build.zig.zon` for dependency consumption
 
@@ -94,9 +94,9 @@ Extend the LSP foundation into full editor experiences.
 
 ### Neovim Plugin
 
-- [ ] LSP-based setup — `lspconfig` integration
+- [x] LSP-based setup — `lspconfig` integration (v0.191.0)
 - [ ] Treesitter grammar — `.ss` file highlighting
-- [ ] Keybindings — `gd` (go-to-def), `K` (hover), `<leader>rn` (generate)
+- [x] Keybindings — `gd` (go-to-def), `K` (hover), `<leader>rn` (generate) (v0.191.0)
 
 ### JetBrains IDE Plugin
 
@@ -119,13 +119,13 @@ Extend the `.ss` language and pipeline for new use cases.
 
 - [ ] Composite types — reusable field groupings beyond templates
 - [ ] Schema versioning — `@version` directive for forward/backward compatibility
-- [ ] Conditional schemas — `@if(dialect=pg)` blocks for dialect-specific fields
+- [x] Conditional schemas — `@if(dialect=pg)` blocks for dialect-specific fields (v0.191.0)
 - [ ] Schema documentation — `@doc` directive for inline documentation generation
 
 ### Pipeline Extensions
 
 - [ ] SQL formatting — `rune format --dialect pg` for dialect-aware SQL formatting
-- [ ] Schema visualization — generate ER diagrams from `.ss` files
+- [x] Schema visualization — generate ER diagrams from `.ss` files (v0.191.0, Mermaid in docs generator)
 - [ ] Live collaboration — multi-user schema editing via LSP extensions
 
 ---
@@ -190,12 +190,12 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| 6: Ecosystem & Community | 🔲 Planned | 3/9 | 6 |
-| 7: Editor Extensions | 🔲 Planned | 7/10 | 3 |
-| 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
+| 6: Ecosystem & Community | 🔲 In Progress | 4/9 | 5 |
+| 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
+| 8: Language Evolution | 🔲 In Progress | 2/8 | 6 |
 | Architecture Targets | ✅ Complete | 15/15 | 0 |
 | Technical Debt | ✅ Complete | 8/8 | 0 |
-| **Total** | | **92/105** | **16** |
+| **Total** | | **97/105** | **8** |
 
 ---
 
@@ -243,6 +243,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.191.0** — Neovim plugin, conditional schema blocks & docs ER diagrams: created Neovim plugin with LSP integration (lspconfig setup, keybindings for gd/K/rn, commands for Generate/Validate/Lint); added `@if(dialect=pg|sqlite)` conditional schema blocks (parser support, `resolve_conditionals` semantic pass, dialect-aware field filtering); added Mermaid ER diagram generation to docs generator; synced npm package version (0.182.0 → 0.191.0)
 - **v0.190.0** — Test coverage enhancement: added 26 new tests for under-tested modules (codegen/columns, pipeline/handlers, reverse/template_extraction, parser/parse_template); improved test coverage for column rendering defaults, CHECK constraints, template extraction logic, and template header parsing
 - **v0.189.0** — Lint rules & diff engine: added `nullable-column-default` lint rule (warns when nullable non-PK columns have no explicit DEFAULT); added `timestamp-naming` lint rule (warns when datetime columns don't follow `created_at`/`updated_at` naming convention); added custom type diff support (tracks added/dropped/modified custom types in SchemaDiff with text/JSON/SARIF/markdown formatters); fixed VERSION file mismatch (was 0.187.0, should be 0.188.0)
 - **v0.188.0** — Validate enhancement & lint rules: added `--per-table` flag to `rune validate` for per-table field/constraint breakdown; added `column-default-required` lint rule (warns when non-PK, non-nullable columns have no explicit DEFAULT); added `index-naming` lint rule (warns when index names don't follow `<table>_<columns>` convention); fixed `diff/engine.zig` rename detection bug (AutoHashMap key type mismatch); fixed `lint/rules.zig` Zig 0.16 `lowerString` API compatibility; fixed `pipeline/handlers.zig` missing `fmt` import

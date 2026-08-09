@@ -5,6 +5,8 @@ const diag = @import("../semantic/diagnostic.zig");
 const symbol_table_mod = @import("../types/symbol_table.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 const Template = ast_mod.Template;
+const dialect_enum = @import("../dialect/enum.zig");
+const Dialect = dialect_enum.Dialect;
 
 // ─── Pass Manager ──────────────────────────────────────────────
 // Extracted from semantic.zig (was analyzer.zig) for single-responsibility.
@@ -20,6 +22,8 @@ pub const PassContext = struct {
     template_refs: std.StringHashMap(void) = undefined,
     diagnostics: *diag.DiagnosticCollector = undefined,
     symbol_table: symbol_table_mod.SymbolTable = undefined,
+    /// Target dialect for conditional block resolution.
+    dialect: Dialect = .mysql,
 
     /// Create a PassContext with proper initialization of all fields.
     /// Prefer this over struct literal for clarity and safety.
@@ -68,7 +72,8 @@ pub const SemanticPass = struct {
 pub const DEFAULT_PASSES = [_]SemanticPass{
     .{ .name = "validate_template_types", .run = @import("pass/validate_template_types.zig").run, .depends_on = &.{}, .access = .{ .writes_tables = true } },
     .{ .name = "resolve_names", .run = @import("pass/resolve_names.zig").run, .depends_on = &.{"validate_template_types"}, .access = .{ .writes_tables = true } },
-    .{ .name = "autofk", .run = @import("pass/autofk.zig").run, .depends_on = &.{}, .access = .{ .modifies_table_list = true } },
+    .{ .name = "resolve_conditionals", .run = @import("pass/resolve_conditionals.zig").run, .depends_on = &.{"resolve_names"}, .access = .{ .writes_tables = true } },
+    .{ .name = "autofk", .run = @import("pass/autofk.zig").run, .depends_on = &.{"resolve_conditionals"}, .access = .{ .modifies_table_list = true } },
     .{ .name = "suffix_inference", .run = @import("pass/suffix_inference.zig").run, .depends_on = &.{"autofk"}, .access = .{ .writes_types = true } },
     .{ .name = "validate", .run = @import("pass/validate.zig").run, .depends_on = &.{ "autofk", "suffix_inference" }, .access = .{ .reads_tables = true } },
     .{ .name = "validate_type_modifiers", .run = @import("pass/validate_type_modifiers.zig").run, .depends_on = &.{"suffix_inference"}, .access = .{ .reads_tables = true } },

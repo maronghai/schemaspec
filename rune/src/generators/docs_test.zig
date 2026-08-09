@@ -142,3 +142,52 @@ test "docs: CHECK constraints section" {
     try testing.expect(std.mem.indexOf(u8, result, "**CHECK Constraints:**") != null);
     try testing.expect(std.mem.indexOf(u8, result, "age >= 0 AND age <= 150") != null);
 }
+
+test "docs: Mermaid ER diagram present" {
+    const alloc = testing.allocator;
+    const cols = try alloc.dupe(typed_ast.TypedColumn, &.{
+        makeTestColumn("id", .int),
+        makeTestColumn("name", .{ .varchar = 64 }),
+    });
+    defer alloc.free(cols);
+    const table = makeTestTable("users", cols);
+    const tables = try alloc.dupe(typed_ast.TypedTable, &.{table});
+    defer alloc.free(tables);
+    const ast = makeTestAst(tables);
+    const result = try gen.generate(alloc, ast, .mysql);
+    defer alloc.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "## Schema Diagram") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "```mermaid") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "erDiagram") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "    users {") != null);
+}
+
+test "docs: Mermaid diagram with FK relationships" {
+    const alloc = testing.allocator;
+    const cols1 = try alloc.dupe(typed_ast.TypedColumn, &.{
+        makeTestColumn("id", .int),
+        makeTestColumn("user_id", .int),
+    });
+    defer alloc.free(cols1);
+    const fks = try alloc.dupe(ast_mod.FkDecl, &.{
+        .{
+            .fields = &.{"user_id"},
+            .ref_table = "users",
+            .ref_fields = &.{"id"},
+            .actions = &.{},
+            .line_no = 1,
+        },
+    });
+    defer alloc.free(fks);
+    var table = makeTestTable("posts", cols1);
+    table.fks = fks;
+    const tables = try alloc.dupe(typed_ast.TypedTable, &.{
+        makeTestTable("users", try alloc.dupe(typed_ast.TypedColumn, &.{makeTestColumn("id", .int)})),
+        table,
+    });
+    defer alloc.free(tables);
+    const ast = makeTestAst(tables);
+    const result = try gen.generate(alloc, ast, .mysql);
+    defer alloc.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "    posts }|--|| users : \"user_id\"") != null);
+}

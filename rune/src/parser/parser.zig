@@ -71,6 +71,11 @@ pub const Parser = struct {
         fields: std.ArrayList(Field),
         fks: std.ArrayList(FkDecl),
         indexes: std.ArrayList(IndexDecl),
+        conditional_blocks: std.ArrayList(ast_mod.ConditionalBlock),
+        /// Currently open @if block dialects (null if not inside @if).
+        pending_if_dialects: ?[]const []const u8 = null,
+        /// Start field index of the current @if block.
+        pending_if_start: usize = 0,
         line_no: usize = 0,
         loc: ?SourceLocation = null,
         engine: ?[]const u8 = null,
@@ -81,6 +86,7 @@ pub const Parser = struct {
                 .fields = try std.ArrayList(Field).initCapacity(alloc, 16),
                 .fks = try std.ArrayList(FkDecl).initCapacity(alloc, 4),
                 .indexes = try std.ArrayList(IndexDecl).initCapacity(alloc, 4),
+                .conditional_blocks = try std.ArrayList(ast_mod.ConditionalBlock).initCapacity(alloc, 4),
             };
         }
 
@@ -94,6 +100,9 @@ pub const Parser = struct {
             self.fields.clearRetainingCapacity();
             self.fks.clearRetainingCapacity();
             self.indexes.clearRetainingCapacity();
+            self.conditional_blocks.clearRetainingCapacity();
+            self.pending_if_dialects = null;
+            self.pending_if_start = 0;
             self.line_no = 0;
             self.loc = null;
             self.engine = null;
@@ -361,6 +370,59 @@ pub const Parser = struct {
                 .Import => {
                     // @import lines are handled at the pipeline level, not here
                 },
+                .ConditionalIf => {
+                    // @if(dialect=pg|sqlite) — start a conditional block within a table
+                    if (block.mode == .table) {
+                        if (block.pending_if_dialects != null) {
+                            diag.printDiagnostic(self.alloc, .{
+                                .severity = .@"error",
+                                .line_no = line.line_no,
+                                .message = "nested @if blocks are not supported",
+                                .source_line = line.raw,
+                            });
+                            continue;
+                        }
+                        // Parse @if(dialect=pg|sqlite) or @if(dialect=pg)
+                        const dialects = self.parseIfDialects(line) catch |err| {
+                            if (!self.handleParseError(err, line, "failed to parse @if dialect list")) continue;
+                            continue;
+                        };
+                        block.pending_if_dialects = dialects;
+                        block.pending_if_start = block.fields.items.len;
+                    } else {
+                        diag.printDiagnostic(self.alloc, .{
+                            .severity = .warning,
+                            .line_no = line.line_no,
+                            .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
+                            .message = "@if conditional block outside table — ignored",
+                            .source_line = line.raw,
+                        });
+                    }
+                },
+                .ConditionalEnd => {
+                    // @endif — close the current conditional block
+                    if (block.mode == .table and block.pending_if_dialects != null) {
+                        const dialects = block.pending_if_dialects.?;
+                        const start = block.pending_if_start;
+                        const end = block.fields.items.len;
+                        try block.conditional_blocks.append(self.alloc, .{
+                            .dialects = dialects,
+                            .start_field = start,
+                            .end_field = end,
+                            .line_no = line.line_no,
+                        });
+                        block.pending_if_dialects = null;
+                        block.pending_if_start = 0;
+                    } else {
+                        diag.printDiagnostic(self.alloc, .{
+                            .severity = .warning,
+                            .line_no = line.line_no,
+                            .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
+                            .message = "@endif without matching @if — ignored",
+                            .source_line = line.raw,
+                        });
+                    }
+                },
             }
         }
 
@@ -416,11 +478,45 @@ pub const Parser = struct {
         };
     }
 
+    /// Parse @if(dialect=pg|sqlite) → list of dialect names.
+    fn parseIfDialects(self: *Parser, line: tk.Line) ![]const []const u8 {
+        // line.raw should be something like "@if(dialect=pg|sqlite)"
+        const raw = line.raw;
+        // Find the opening paren
+        const paren_start = std.mem.indexOf(u8, raw, "(") orelse return error.MissingParen;
+        // Find the closing paren
+        const paren_end = std.mem.indexOf(u8, raw[paren_start..], ")") orelse return error.MissingParen;
+        const inner = raw[paren_start + 1 .. paren_start + paren_end];
+        // Parse "dialect=pg|sqlite" or "dialect=pg"
+        if (!std.mem.startsWith(u8, inner, "dialect=")) return error.InvalidCondition;
+        const dialect_str = inner[8..]; // skip "dialect="
+        if (dialect_str.len == 0) return error.EmptyDialectList;
+        // Split by |
+        var dialects = try std.ArrayList([]const u8).initCapacity(self.alloc, 4);
+        var it = std.mem.splitScalar(u8, dialect_str, '|');
+        while (it.next()) |d| {
+            if (d.len > 0) {
+                try dialects.append(self.alloc, try self.alloc.dupe(u8, d));
+            }
+        }
+        if (dialects.items.len == 0) return error.EmptyDialectList;
+        return try dialects.toOwnedSlice(self.alloc);
+    }
+
     fn flushCurrentTable(
         self: *Parser,
         tables: *std.ArrayList(Table),
         block: *BlockState,
     ) !void {
+        // If there's an unclosed @if block, close it with a warning
+        if (block.pending_if_dialects != null) {
+            diag.printDiagnostic(self.alloc, .{
+                .severity = .warning,
+                .line_no = block.line_no,
+                .message = "unclosed @if block at end of table — fields included unconditionally",
+            });
+            block.pending_if_dialects = null;
+        }
         try tables.append(self.alloc, .{
             .template_ref = block.template_ref,
             .name = block.name orelse "",
@@ -430,6 +526,7 @@ pub const Parser = struct {
             .fields = try block.fields.toOwnedSlice(self.alloc),
             .fks = try block.fks.toOwnedSlice(self.alloc),
             .indexes = try block.indexes.toOwnedSlice(self.alloc),
+            .conditional_blocks = try block.conditional_blocks.toOwnedSlice(self.alloc),
             .line_no = block.line_no,
             .loc = block.loc,
         });

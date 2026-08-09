@@ -216,7 +216,7 @@ rune/src/
 
 - **FlagRegistry** (`cli/flag_registry.zig`): All 20 global CLI flags defined once in `GLOBAL_FLAG_REGISTRY` array. `matchesFlag()` matches long and short forms. `isKnownGlobalFlag()` provides unknown-flag detection. `parseGlobalFlags` uses `matchesFlag` for boolean flag detection instead of raw `std.mem.eql` chains.
 
-- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (12 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
+- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (13 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
 
 - **ResolvedAst IR** (`types/resolved_ast.zig`): `ResolvedTable` + `ResolvedAst` — output of template resolution + semantic passes. Separated from `types/ast.zig` (parser output) for clean IR boundary. Re-exported from `ast.zig` for backward compatibility.
 
@@ -225,6 +225,8 @@ rune/src/
 - **TypeInfo Methods** (`types/ast.zig`): `TypeInfo` carries embedded `isNumeric()`, `isString()`, `isDatetime()`, `isBoolean()` methods that classify SS type symbols. Collocates type behavior with the type definition — no external lookup tables needed for classification.
 
 - **Template Slot Merging** (`semantic/template.zig`): Template inheritance with `...` slot controls field insertion order. Merge formula: `parent_before + child_before + <concrete> + child_after + parent_after`. Max 4 parents via mixin syntax (`+`).
+
+- **Conditional Schema Blocks** (`parser/parser.zig`, `semantic/pass/resolve_conditionals.zig`): `@if(dialect=pg|sqlite)` ... `@endif` blocks within table definitions allow dialect-specific fields. Fields inside the block are only included when compiling for a matching dialect. The parser records conditional blocks in `Table.conditional_blocks`, and the `resolve_conditionals` semantic pass filters them based on the target dialect. The pass runs after `resolve_names` and before `autofk`.
 
 - **Multi-Error Recovery** (`pipeline/import_resolver.zig`, `types/ast.zig`): Parser records all syntax errors via `DiagnosticCollector` and returns a partial AST with `error_count` field. `tokenizeAndParseWithLines` always returns the tree (even with errors), enabling the pipeline to report all errors in one pass. When `error_count > 0`, the AST is partial (some tables/templates may be missing). Future: semantic analysis on partial ASTs for additional error discovery.
 

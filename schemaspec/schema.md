@@ -14,8 +14,10 @@ A minimal DSL for declaring database schemas using single-character symbols. Bui
 6. [Indexes](#6-indexes)
 7. [CHECK Constraints](#7-check-constraints)
 8. [Templates](#8-templates)
-9. [Grammar & Diagnostics](#9-grammar--diagnostics)
-10. [FAQ](#10-faq)
+9. [Conditional Blocks](#9-conditional-blocks)
+10. [Views](#10-views)
+11. [Grammar & Diagnostics](#11-grammar--diagnostics)
+12. [FAQ](#12-faq)
 
 ---
 
@@ -568,7 +570,49 @@ CREATE TABLE `user` (
 
 ---
 
-## 9. Views
+## 9. Conditional Blocks
+
+Use `@if(dialect=...)` to include fields only for specific SQL dialects.
+
+```asm
+@if(dialect=pg|sqlite)        ; start conditional block
+  field_name type             ; fields inside block
+@endif                        ; end conditional block
+```
+
+| Part | Description |
+|------|-------------|
+| `@if(dialect=...)` | Start conditional block |
+| `dialect_list` | Pipe-separated dialect names: `pg`, `mysql`, `sqlite`, `mssql`, `oracle`, `db2` |
+| `@endif` | End conditional block |
+
+### Example
+
+```asm
+# users
+id n++
+name s100
+
+@if(dialect=pg)
+  bio t
+  avatar b
+@endif
+
+email s@u
+```
+
+When compiling with `-d pg`, the `bio` and `avatar` fields are included. When compiling with `-d mysql`, they are excluded. Fields outside `@if` blocks are always included.
+
+### Notes
+
+- Conditional blocks must be inside a table definition
+- Nested `@if` blocks are not supported
+- Unclosed `@if` blocks produce a warning; all fields are included unconditionally
+- Dialect names must be valid Rune dialect identifiers
+
+---
+
+## 10. Views
 
 Views define virtual tables using SQL SELECT queries.
 
@@ -710,3 +754,4 @@ diff v1.sql v2.sql
 9. **DB-agnostic core** — symbols map to SQL standard; tool handles dialects
 10. **FK actions as postfix** — `-C`/`-N`/`C`/`N` appended to FK reference, no extra syntax
 11. **Lowercase for core, uppercase for variants** — `n`/`s`/`b`/`j`/`d`/`t` are core; `N`/`M`/`S`/`B`/`T`/`U` are variants. `i` and `p` are lowercase exceptions for smallint and serial.
+12. **Dialect-aware** — `@if(dialect=...)` blocks for dialect-specific fields

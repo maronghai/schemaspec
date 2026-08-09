@@ -19,6 +19,8 @@ pub const ResolvedTable = struct {
     fields: []ast_mod.Field,
     fks: []const FkDecl,
     indexes: []const IndexDecl,
+    /// Conditional blocks: fields between @if and @endif that are dialect-specific.
+    conditional_blocks: []const ast_mod.ConditionalBlock = &.{},
     line_no: usize,
 };
 

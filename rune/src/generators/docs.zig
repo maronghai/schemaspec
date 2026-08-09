@@ -64,6 +64,37 @@ fn generateMarkdown(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]cons
         try w.writeAll("\n");
     }
 
+    // Mermaid ER Diagram
+    if (typed.tables.len > 0) {
+        try w.writeAll("## Schema Diagram\n\n");
+        try w.writeAll("```mermaid\nerDiagram\n");
+        for (typed.tables) |table| {
+            try w.print("    {s} {{\n", .{table.name});
+            for (table.columns) |col| {
+                const type_str = try colTypeToMermaid(alloc, col);
+                defer alloc.free(type_str);
+                // Mark primary key
+                const pk_suffix = if (col.flags.primary_key) " PK" else "";
+                try w.print("        {s} {s}{s}\n", .{ type_str, col.name, pk_suffix });
+            }
+            try w.writeAll("    }\n");
+        }
+        // FK relationships
+        for (typed.tables) |table| {
+            for (table.fks) |fk| {
+                // Only render first FK field pair for simplicity
+                if (fk.fields.len > 0 and fk.ref_fields.len > 0) {
+                    try w.print("    {s} }}|--|| {s} : \"{s}\"\n", .{
+                        table.name,
+                        fk.ref_table,
+                        fk.fields[0],
+                    });
+                }
+            }
+        }
+        try w.writeAll("```\n\n");
+    }
+
     // Custom Types
     if (typed.custom_types.len > 0) {
         try w.writeAll("## Custom Types\n\n");
@@ -307,6 +338,15 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable) !void {
     }
 
     try w.writeAll("\n");
+}
+
+/// Convert a TypedColumn's SQL type to a Mermaid-friendly type string.
+fn colTypeToMermaid(alloc: std.mem.Allocator, col: typed_ast.TypedColumn) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+    try writeType(w, col);
+    try w.flush();
+    return try aw.toOwnedSlice();
 }
 
 fn writeType(w: *Writer, col: typed_ast.TypedColumn) !void {

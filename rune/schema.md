@@ -301,6 +301,39 @@ Supported set operators: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT`. Set operat
 
 Imports are resolved at compile time. Circular imports are detected and reported as errors. Max import depth: 8.
 
+## Conditional Blocks
+
+Use `@if(dialect=...)` to include fields only for specific SQL dialects.
+
+```
+@if(dialect=pg|sqlite)
+  field_name type
+@endif
+```
+
+| Part | Description |
+|------|-------------|
+| `@if(dialect=...)` | Start conditional block |
+| `dialect_list` | Pipe-separated dialect names: `pg`, `mysql`, `sqlite`, `mssql`, `oracle`, `db2` |
+| `@endif` | End conditional block |
+
+### Example
+
+```ss
+# users
+id n++
+name s100
+
+@if(dialect=pg)
+  bio t
+  avatar b
+@endif
+
+email s@u
+```
+
+When compiling with `-d pg`, the `bio` and `avatar` fields are included. When compiling with `-d mysql`, they are excluded. Fields outside `@if` blocks are always included.
+
 ## Comments
 
 | Syntax | Behavior |

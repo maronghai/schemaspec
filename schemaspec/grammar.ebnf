@@ -17,6 +17,12 @@ import_decl      = "@import", WS, string_literal, newline ;
 string_literal   = DQUOTE, { char - DQUOTE | DQUOTE DQUOTE }, DQUOTE
                  | SQUOTE, { char - SQUOTE | SQUOTE SQUOTE }, SQUOTE ;
 
+(* ── Conditional Block ── *)
+
+conditional_if   = "@if(", "dialect", "=", dialect_list, ")", newline ;
+conditional_end  = "@endif", newline ;
+dialect_list     = dialect_name, { "|", dialect_name } ;
+
 (* ── Custom Type Definition ── *)
 (* ~ name base_type                                           *)
 (* ~ name base_type mysql=type postgres=type                  *)

@@ -70,6 +70,7 @@ pub fn resolveAndApply(
             .fields = try alloc.dupe(Field, fields),
             .fks = t.fks,
             .indexes = t.indexes,
+            .conditional_blocks = t.conditional_blocks,
             .line_no = t.line_no,
         });
     }

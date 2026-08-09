@@ -232,3 +232,65 @@ test "classifyCheck: comparison" {
     try testing.expectEqual(ast_mod.CheckKind.comparison, Parser.classifyCheck("price > 0", '{', '}'));
     try testing.expectEqual(ast_mod.CheckKind.comparison, Parser.classifyCheck("price > 0 AND price < 10000", '[', ']'));
 }
+
+// ─── Conditional block tests ──────────────────────────────────
+
+test "tokenizer: classify @if line" {
+    try testing.expectEqual(tk.LineType.ConditionalIf, tk.Tokenizer.classifyLine("@if(dialect=pg)"));
+    try testing.expectEqual(tk.LineType.ConditionalIf, tk.Tokenizer.classifyLine("@if(dialect=pg|sqlite)"));
+}
+
+test "tokenizer: classify @endif line" {
+    try testing.expectEqual(tk.LineType.ConditionalEnd, tk.Tokenizer.classifyLine("@endif"));
+}
+
+test "tokenizer: @if not confused with @index" {
+    // @if starts with @ but is classified as ConditionalIf, not Index
+    try testing.expectEqual(tk.LineType.ConditionalIf, tk.Tokenizer.classifyLine("@if(dialect=pg)"));
+}
+
+test "parser: @if creates conditional block" {
+    const alloc = testing.allocator;
+    const source =
+        \\# users
+        \\id N
+        \\name V100
+        \\
+        \\@if(dialect=pg)
+        \\bio T
+        \\@endif
+        \\
+    ;
+    // Split source into lines
+    var line_list = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+    defer line_list.deinit(alloc);
+    var line_it = std.mem.splitScalar(u8, source, '\n');
+    while (line_it.next()) |line| {
+        try line_list.append(alloc, line);
+    }
+    const raw_lines = try line_list.toOwnedSlice(alloc);
+    defer alloc.free(raw_lines);
+    // Tokenize
+    const tokenizer = tk.Tokenizer.init(raw_lines);
+    const lines = try tokenizer.tokenizeAll(alloc);
+    defer alloc.free(lines);
+    var parser_inst = Parser.init(alloc);
+    const tree = try parser_inst.parse(lines);
+    defer {
+        for (tree.tables) |t| {
+            alloc.free(t.name);
+            alloc.free(t.fields);
+            alloc.free(t.fks);
+            alloc.free(t.indexes);
+            alloc.free(t.conditional_blocks);
+        }
+        alloc.free(tree.tables);
+    }
+    try testing.expectEqual(@as(usize, 1), tree.tables.len);
+    const table = tree.tables[0];
+    try testing.expectEqual(@as(usize, 3), table.fields.len); // id, name, bio
+    try testing.expectEqual(@as(usize, 1), table.conditional_blocks.len);
+    try testing.expectEqual(@as(usize, 2), table.conditional_blocks[0].start_field);
+    try testing.expectEqual(@as(usize, 3), table.conditional_blocks[0].end_field);
+    try testing.expectEqualStrings("pg", table.conditional_blocks[0].dialects[0]);
+}

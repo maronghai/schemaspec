@@ -221,8 +221,23 @@ pub const Table = struct {
     fields: []const Field,
     fks: []const FkDecl,
     indexes: []const IndexDecl,
+    /// Conditional blocks: fields between @if and @endif that are dialect-specific.
+    /// Each block specifies which dialects it applies to and the field index range.
+    conditional_blocks: []const ConditionalBlock = &.{},
     line_no: usize,
     loc: ?SourceLocation = null,
+};
+
+/// A conditional block within a table: @if(dialect=pg|sqlite) ... @endif
+/// Fields within the block are only included when compiling for a matching dialect.
+pub const ConditionalBlock = struct {
+    /// List of dialect names this block applies to (e.g., {"pg", "sqlite"}).
+    dialects: []const []const u8,
+    /// Start index in the table's fields array (inclusive).
+    start_field: usize,
+    /// End index in the table's fields array (exclusive).
+    end_field: usize,
+    line_no: usize,
 };
 
 /// Custom type definition: ~ name base_type [dialect=type ...]

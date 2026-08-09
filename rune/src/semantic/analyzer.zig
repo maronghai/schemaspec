@@ -11,6 +11,8 @@ pub const DEFAULT_PASSES = pm.DEFAULT_PASSES;
 const Ast = ast_mod.Ast;
 const ResolvedTable = resolved_ast.ResolvedTable;
 const ResolvedAst = resolved_ast.ResolvedAst;
+const dialect_enum = @import("../dialect/enum.zig");
+const Dialect = dialect_enum.Dialect;
 
 // ─── SemanticAnalyzer ──────────────────────────────────────────
 
@@ -18,6 +20,8 @@ pub const SemanticAnalyzer = struct {
     alloc: std.mem.Allocator,
     verbose: bool,
     use_color: bool = false,
+    /// Target dialect for conditional block resolution.
+    dialect: Dialect = .mysql,
 
     pub fn init(alloc: std.mem.Allocator) SemanticAnalyzer {
         return .{ .alloc = alloc, .verbose = false };
@@ -80,6 +84,7 @@ pub const SemanticAnalyzer = struct {
             diagnostics_ptr,
             symbol_table_mod.SymbolTable.init(self.alloc),
         );
+        ctx.dialect = self.dialect;
         for (DEFAULT_PASSES) |pass| {
             if (self.verbose) {
                 const table_count = ctx.tables.items.len;
