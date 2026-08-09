@@ -67,6 +67,8 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
     var rules: ?[]const u8 = null;
     var fix = false;
     var dry_run = opts.dry_run;
+    var show_rules = false;
+    var init_config = false;
     var positional_count: usize = 0;
     var j: usize = 1;
     while (j < fargs.len) : (j += 1) {
@@ -78,6 +80,10 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
             fix = true;
         } else if (std.mem.eql(u8, fargs[j], "--dry-run")) {
             dry_run = true;
+        } else if (std.mem.eql(u8, fargs[j], "--show-rules")) {
+            show_rules = true;
+        } else if (std.mem.eql(u8, fargs[j], "--init")) {
+            init_config = true;
         } else if (std.mem.eql(u8, fargs[j], "--format") and j + 1 < fargs.len) {
             j += 1;
             if (std.mem.eql(u8, fargs[j], "sarif")) {
@@ -105,6 +111,8 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
         .rules = rules,
         .fix = fix,
         .dry_run = dry_run,
+        .show_rules = show_rules,
+        .init_config = init_config,
     } }, opts);
 }
 

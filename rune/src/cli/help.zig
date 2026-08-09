@@ -134,7 +134,7 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("\nInstall:\n", .{});
                 std.debug.print("  rune hooks pre-commit > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit\n", .{});
             } else if (std.mem.eql(u8, subcommand, "lint")) {
-                std.debug.print("\nChecks schema for quality issues and anti-patterns:\n", .{});
+                std.debug.print("\nChecks schema for quality issues and anti-patterns (30 rules):\n", .{});
                 std.debug.print("  no-pk            Table has no primary key\n", .{});
                 std.debug.print("  naming           Table/column name uses camelCase instead of snake_case\n", .{});
                 std.debug.print("  no-index-fk      Foreign key column has no index\n", .{});
@@ -150,18 +150,26 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  duplicate-index  Multiple indexes with same columns and type\n", .{});
                 std.debug.print("  empty-table      Table has no fields defined\n", .{});
                 std.debug.print("  table-comment    Table lacks a comment/documentation\n", .{});
+                std.debug.print("  cross-dialect-types  MySQL/PG-specific types not portable across dialects\n", .{});
                 std.debug.print("  column-default-required Non-PK, non-nullable column has no DEFAULT\n", .{});
                 std.debug.print("  index-naming     Index name doesn't follow <table>_<columns> convention\n", .{});
                 std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  --json-errors  Output results as JSON (machine-readable)\n", .{});
-                std.debug.print("  --strict       Exit 1 if any warnings found (for CI/CD)\n", .{});
-                std.debug.print("  --format       Output format: text (default), json, sarif\n", .{});
-                std.debug.print("  --rules        Path to rune-lint.toml rules file\n", .{});
+                std.debug.print("  --json-errors   Output results as JSON (machine-readable)\n", .{});
+                std.debug.print("  --strict        Exit 1 if any warnings found (for CI/CD)\n", .{});
+                std.debug.print("  --format        Output format: text (default), json, sarif\n", .{});
+                std.debug.print("  --rules         Path to rune-lint.toml rules file\n", .{});
+                std.debug.print("  --show-rules    List all available rules with descriptions\n", .{});
+                std.debug.print("  --init          Generate starter .rune-lint.toml config file\n", .{});
+                std.debug.print("  --fix           Auto-fix fixable issues (8 rules)\n", .{});
+                std.debug.print("  --dry-run       Preview fixes without writing (with --fix)\n", .{});
                 std.debug.print("\nExamples:\n", .{});
                 std.debug.print("  rune lint schema.ss                # Lint schema\n", .{});
                 std.debug.print("  rune lint schema.ss --json-errors  # Lint as JSON\n", .{});
                 std.debug.print("  rune lint schema.ss --strict       # Lint, exit 1 on warnings\n", .{});
                 std.debug.print("  rune lint old.ss new.ss            # Diff-aware lint (new issues only)\n", .{});
+                std.debug.print("  rune lint --show-rules             # List all available rules\n", .{});
+                std.debug.print("  rune lint --init                   # Generate .rune-lint.toml config\n", .{});
+                std.debug.print("  rune lint schema.ss --fix          # Auto-fix fixable issues\n", .{});
             } else if (std.mem.eql(u8, subcommand, "watch")) {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  --interval      Polling interval in milliseconds (default: 1000)\n", .{});

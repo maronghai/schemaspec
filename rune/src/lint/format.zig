@@ -1,5 +1,6 @@
 const std = @import("std");
 const LintResult = @import("config.zig").LintResult;
+const LintRule = @import("config.zig").LintRule;
 
 // ─── Lint Output Formatters ──────────────────────────────────
 // Human-readable text, machine-readable JSON, and CI/CD SARIF output.
@@ -28,6 +29,7 @@ pub fn formatText(alloc: std.mem.Allocator, results: []const LintResult, use_col
 
     var warnings: usize = 0;
     var infos: usize = 0;
+    var fixable: usize = 0;
     for (results) |r| {
         const severity_str = if (r.severity == .warning) "warning" else "info";
         const prefix = if (use_color) "\x1b[33m" else "";
@@ -36,10 +38,19 @@ pub fn formatText(alloc: std.mem.Allocator, results: []const LintResult, use_col
             prefix, severity_str, suffix, r.rule, r.table, r.message,
         });
         if (r.severity == .warning) warnings += 1 else infos += 1;
+        if (LintRule.fromName(r.rule)) |rule| {
+            if (rule.isFixable()) fixable += 1;
+        }
     }
-    try aw.writer.print("\n{s}Lint summary: {d} warning(s), {d} info(s)\n", .{
-        if (use_color) "\x1b[1m" else "", warnings, infos,
-    });
+    if (fixable > 0) {
+        try aw.writer.print("\n{s}Lint summary: {d} warning(s), {d} info(s), {d} fixable\n", .{
+            if (use_color) "\x1b[1m" else "", warnings, infos, fixable,
+        });
+    } else {
+        try aw.writer.print("\n{s}Lint summary: {d} warning(s), {d} info(s)\n", .{
+            if (use_color) "\x1b[1m" else "", warnings, infos,
+        });
+    }
     if (use_color) try aw.writer.writeAll("\x1b[0m");
 
     return try aw.toOwnedSlice();
@@ -100,6 +111,7 @@ pub fn formatSarif(alloc: std.mem.Allocator, results: []const LintResult, versio
         .{ .id = "orphan-type", .name = "orphan-type", .desc = "Custom type is defined but never used", .level = "note" },
         .{ .id = "index-unused", .name = "index-unused", .desc = "Standalone index may be unnecessary", .level = "note" },
         .{ .id = "duplicate-index", .name = "duplicate-index", .desc = "Multiple indexes with same columns and type", .level = "warning" },
+        .{ .id = "cross-dialect-types", .name = "cross-dialect-types", .desc = "MySQL/PG-specific types not portable across dialects", .level = "warning" },
     };
 
     for (rules, 0..) |rule, i| {

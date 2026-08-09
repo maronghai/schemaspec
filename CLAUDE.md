@@ -99,11 +99,13 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune watch schema.ss --interval 500    # Watch with 500ms polling interval
 ./rune/zig-out/bin/rune watch schema.ss --parallel        # Watch with parallel compilation
 ./rune/zig-out/bin/rune watch schema.ss -s                # Watch with compilation stats
-./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues
+./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues (30 rules)
 ./rune/zig-out/bin/rune lint schema.ss --fix              # Lint and auto-fix issues (8 rules: no-pk, no-timestamps, empty-table, serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing)
 ./rune/zig-out/bin/rune lint schema.ss --fix --dry-run    # Preview fixes without writing
 ./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON
 ./rune/zig-out/bin/rune lint schema.ss --strict           # Lint, exit 1 on warnings
+./rune/zig-out/bin/rune lint --show-rules                 # List all available rules with descriptions
+./rune/zig-out/bin/rune lint --init                       # Generate starter .rune-lint.toml config
 ./rune/zig-out/bin/rune migrate old.ss new.ss             # Migration SQL (auto-lint fixes applied to new schema)
 ./rune/zig-out/bin/rune migrate old.ss new.ss --no-lint   # Migration SQL without auto-lint
 ./rune/zig-out/bin/rune lsp                               # Start LSP language server (stdio)
@@ -322,7 +324,7 @@ rune/src/
 | | `pass/*.zig` | 16 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, template_type_conflict, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_version, rune_reset) |
-| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (29 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum with isFixable(), TOML parsing), `lint/fix.zig` (auto-fix for 8 rules) |
+| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (30 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum with isFixable(), TOML parsing), `lint/fix.zig` (auto-fix for 8 rules) |
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |

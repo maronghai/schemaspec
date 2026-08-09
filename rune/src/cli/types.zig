@@ -27,7 +27,7 @@ pub const Command = union(enum) {
     init: struct { name: ?[]const u8, output: ?[]const u8, output_dir: ?[]const u8 = null, template: ?[]const u8 = null },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },
-    lint: struct { input: ?[]const u8 = null, input2: ?[]const u8 = null, json_errors: bool = false, strict: bool = false, format: LintFormat = .text, rules: ?[]const u8 = null, fix: bool = false, dry_run: bool = false },
+    lint: struct { input: ?[]const u8 = null, input2: ?[]const u8 = null, json_errors: bool = false, strict: bool = false, format: LintFormat = .text, rules: ?[]const u8 = null, fix: bool = false, dry_run: bool = false, show_rules: bool = false, init_config: bool = false },
     watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null, parallel: bool = false, trace: bool = false, stats: bool = false, json_errors: bool = false, recursive: bool = false },
     tune: struct { input: ?[]const u8 = null, dry_run: bool = false },
     lsp,

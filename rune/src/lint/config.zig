@@ -44,6 +44,7 @@ pub const LintRule = enum {
     timestamp_naming,
     enum_value_naming,
     fk_null,
+    cross_dialect_types,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -77,6 +78,7 @@ pub const LintRule = enum {
             .timestamp_naming => cfg.check_timestamp_naming,
             .enum_value_naming => cfg.check_enum_value_naming,
             .fk_null => cfg.check_fk_null,
+            .cross_dialect_types => cfg.check_cross_dialect_types,
         };
     }
 
@@ -112,6 +114,7 @@ pub const LintRule = enum {
             .timestamp_naming => "timestamp-naming",
             .enum_value_naming => "enum-value-naming",
             .fk_null => "fk-null",
+            .cross_dialect_types => "cross-dialect-types",
         };
     }
 
@@ -171,6 +174,7 @@ pub const LintConfig = struct {
     check_timestamp_naming: bool = true,
     check_enum_value_naming: bool = true,
     check_fk_null: bool = true,
+    check_cross_dialect_types: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -362,6 +366,7 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             .check_timestamp_naming = false,
             .check_enum_value_naming = false,
             .check_fk_null = false,
+            .check_cross_dialect_types = false,
             .wide_table_max = base.wide_table_max,
             .count_min = base.count_min,
             .table_name_max = base.table_name_max,
@@ -423,6 +428,7 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .timestamp_naming => c.check_timestamp_naming = enabled,
         .enum_value_naming => c.check_enum_value_naming = enabled,
         .fk_null => c.check_fk_null = enabled,
+        .cross_dialect_types => c.check_cross_dialect_types = enabled,
     }
     return c;
 }
