@@ -38,6 +38,8 @@ pub const LintRule = enum {
     fk_naming,
     bool_default,
     view_no_select,
+    column_default_required,
+    index_naming,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -65,6 +67,8 @@ pub const LintRule = enum {
             .fk_naming => cfg.check_fk_naming,
             .bool_default => cfg.check_bool_default,
             .view_no_select => cfg.check_view_no_select,
+            .column_default_required => cfg.check_column_default_required,
+            .index_naming => cfg.check_index_naming,
         };
     }
 
@@ -94,6 +98,8 @@ pub const LintRule = enum {
             .fk_naming => "fk-naming",
             .bool_default => "bool-default",
             .view_no_select => "view-no-select",
+            .column_default_required => "column-default-required",
+            .index_naming => "index-naming",
         };
     }
 
@@ -132,6 +138,8 @@ pub const LintConfig = struct {
     check_fk_naming: bool = true,
     check_bool_default: bool = true,
     check_view_no_select: bool = true,
+    check_column_default_required: bool = true,
+    check_index_naming: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -317,6 +325,8 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             .check_fk_naming = false,
             .check_bool_default = false,
             .check_view_no_select = false,
+            .check_column_default_required = false,
+            .check_index_naming = false,
             .wide_table_max = base.wide_table_max,
             .count_min = base.count_min,
             .table_name_max = base.table_name_max,
@@ -372,6 +382,8 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .fk_naming => c.check_fk_naming = enabled,
         .bool_default => c.check_bool_default = enabled,
         .view_no_select => c.check_view_no_select = enabled,
+        .column_default_required => c.check_column_default_required = enabled,
+        .index_naming => c.check_index_naming = enabled,
     }
     return c;
 }

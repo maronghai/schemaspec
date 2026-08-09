@@ -140,7 +140,8 @@ test "lint: clean schema passes" {
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
     // Disable column-length rule since test fields use bare 's' type
-    const results = try lintSchema(alloc, test_ast, .{ .check_column_length = false });
+    // Disable column-default-required since test fields have no defaults
+    const results = try lintSchema(alloc, test_ast, .{ .check_column_length = false, .check_column_default_required = false });
     try testing.expectEqual(@as(usize, 0), results.items.len);
 }
 

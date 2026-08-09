@@ -225,9 +225,10 @@ test "multiple tables — mixed changes" {
     }));
     const result = try engine.diff(old, new, alloc);
     try testing.expect(result.hasChanges());
-    try testing.expectEqual(@as(usize, 1), result.dropped_tables.len);
-    try testing.expectEqualStrings("posts", result.dropped_tables[0]);
+    // Rename detection: "posts" → "comments" (same fields, 100% overlap)
     try testing.expectEqual(@as(usize, 1), result.table_diffs.len);
-    try testing.expectEqual(engine.TableAction.create, result.table_diffs[0].action);
+    try testing.expectEqual(engine.TableAction.alter, result.table_diffs[0].action);
     try testing.expectEqualStrings("comments", result.table_diffs[0].name);
+    try testing.expectEqualStrings("posts", result.table_diffs[0].rename_from.?);
+    try testing.expectEqual(@as(usize, 0), result.dropped_tables.len);
 }

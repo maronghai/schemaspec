@@ -14,7 +14,7 @@ pub const DocsFormat = enum { markdown, json };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
-    validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text },
+    validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text, per_table: bool = false },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text },
     stats: struct { input: ?[]const u8, format: StatsFormat = .text, per_table: bool = false },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false, from_sql: ?[]const u8 = null },

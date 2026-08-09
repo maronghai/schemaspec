@@ -86,7 +86,7 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
     // when field overlap exceeds 70%.
     var matched_drops = std.StringHashMap(void).init(alloc);
     defer matched_drops.deinit();
-    var matched_creates = std.StringHashMap(void).init(alloc);
+    var matched_creates = std.AutoHashMap(usize, void).init(alloc);
     defer matched_creates.deinit();
 
     for (pending_drops.items) |old_name| {
@@ -95,7 +95,7 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
         var best_match: ?struct { new_idx: usize, overlap: f64 } = null;
 
         for (pending_creates.items) |new_idx| {
-            if (matched_creates.contains(&new_idx)) continue;
+            if (matched_creates.contains(new_idx)) continue;
             const new_table = new.tables[new_idx];
             const overlap = computeFieldOverlap(old_table.fields, new_table.fields);
             if (overlap >= 0.7) {
@@ -126,13 +126,13 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
                 .rename_from = old_name,
             });
             try matched_drops.put(old_name, {});
-            try matched_creates.put(&bm.new_idx, {});
+            try matched_creates.put(bm.new_idx, {});
         }
     }
 
     // Remaining creates (not matched as renames)
     for (pending_creates.items) |new_idx| {
-        if (!matched_creates.contains(&new_idx)) {
+        if (!matched_creates.contains(new_idx)) {
             const new_table = new.tables[new_idx];
             const field_diffs = try diff_fields.createAllFieldDiffs(alloc, new_table.fields);
             const index_diffs = try diff_indexes.createAllIndexDiffs(alloc, new_table.indexes);

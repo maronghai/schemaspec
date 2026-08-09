@@ -45,6 +45,8 @@ const RULES = [_]RuleEntry{
     .{ .rule = .fk_naming, .handler = checkFkNaming },
     .{ .rule = .bool_default, .handler = checkBoolDefault },
     .{ .rule = .view_no_select, .handler = checkViewNoSelect },
+    .{ .rule = .column_default_required, .handler = checkColumnDefaultRequired },
+    .{ .rule = .index_naming, .handler = checkIndexNaming },
 };
 
 /// Run all enabled lint checks on a resolved schema.
@@ -635,9 +637,7 @@ fn checkViewNoSelect(alloc: std.mem.Allocator, results: *std.ArrayList(LintResul
             continue;
         }
         // Case-insensitive check for SELECT keyword
-        const lower = std.ascii.lowerString(alloc, query) catch continue;
-        defer alloc.free(lower);
-        if (std.mem.indexOf(u8, lower, "select") == null) {
+        if (!containsIgnoreCase(query, "select")) {
             const msg = try std.fmt.allocPrint(alloc, "view '{s}' query does not contain SELECT statement", .{view.name});
             try results.append(alloc, .{
                 .rule = "view-no-select",
@@ -645,6 +645,67 @@ fn checkViewNoSelect(alloc: std.mem.Allocator, results: *std.ArrayList(LintResul
                 .message = msg,
                 .severity = .warning,
             });
+        }
+    }
+}
+
+fn checkColumnDefaultRequired(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Skip PK fields
+            var is_pk = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
+                    is_pk = true;
+                    break;
+                }
+            }
+            if (is_pk) continue;
+
+            // Skip nullable fields
+            var is_nullable = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .nullable) {
+                    is_nullable = true;
+                    break;
+                }
+            }
+            if (is_nullable) continue;
+
+            // Skip fields with explicit default
+            if (field.default_val != null) continue;
+
+            // Non-PK, non-nullable field without default
+            const msg = try std.fmt.allocPrint(alloc, "column '{s}' has no explicit DEFAULT value", .{field.name});
+            try results.append(alloc, .{
+                .rule = "column-default-required",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+fn checkIndexNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.indexes) |idx| {
+            // Skip primary key and unique indexes (they have implicit names)
+            if (idx.kind == .primary_key or idx.kind == .unique) continue;
+
+            // Expected pattern: <table>_<col1>_[<col2>_...]_idx or <table>_<col1>_[<col2>_...]_key
+            const expected_prefix = try std.fmt.allocPrint(alloc, "{s}_", .{table.name});
+            defer alloc.free(expected_prefix);
+
+            if (!std.mem.startsWith(u8, idx.name, expected_prefix)) {
+                const msg = try std.fmt.allocPrint(alloc, "index '{s}' should follow '<table>_<columns>' naming convention", .{idx.name});
+                try results.append(alloc, .{
+                    .rule = "index-naming",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
         }
     }
 }
@@ -672,6 +733,23 @@ fn fieldHasIndex(table: ResolvedTable, field_name: []const u8) bool {
         for (idx.fields) |idx_field| {
             if (std.mem.eql(u8, idx_field, field_name)) return true;
         }
+    }
+    return false;
+}
+
+fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len > haystack.len) return false;
+    const end = haystack.len - needle.len + 1;
+    var i: usize = 0;
+    while (i < end) : (i += 1) {
+        var match = true;
+        for (needle, 0..) |nc, j| {
+            if (std.ascii.toLower(haystack[i + j]) != std.ascii.toLower(nc)) {
+                match = false;
+                break;
+            }
+        }
+        if (match) return true;
     }
     return false;
 }

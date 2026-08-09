@@ -352,11 +352,12 @@ test "diff: table created and dropped simultaneously" {
     }}));
 
     const result = try diff(old_ast, new_ast, alloc);
-    try testing.expectEqual(@as(usize, 1), result.dropped_tables.len);
-    try testing.expectEqualStrings("users", result.dropped_tables[0]);
+    // Rename detection: "users" → "accounts" (same fields, 100% overlap)
+    try testing.expectEqual(@as(usize, 0), result.dropped_tables.len);
     try testing.expectEqual(@as(usize, 1), result.table_diffs.len);
-    try testing.expectEqual(TableAction.create, result.table_diffs[0].action);
+    try testing.expectEqual(TableAction.alter, result.table_diffs[0].action);
     try testing.expectEqualStrings("accounts", result.table_diffs[0].name);
+    try testing.expectEqualStrings("users", result.table_diffs[0].rename_from.?);
 }
 
 test "diff: field type change detected" {

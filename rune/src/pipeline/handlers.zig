@@ -13,6 +13,7 @@ const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const json_schema = @import("../generators/json_schema.zig");
 const stats_mod = @import("stats.zig");
 const StatsFormat = @import("../types/enums.zig").StatsFormat;
+const fmt = @import("../diagnostic/format.zig");
 
 // ─── Output Handlers ───────────────────────────────────────────
 // CLI-level handlers that orchestrate compilation + output.
@@ -100,7 +101,7 @@ pub fn handleCompileRequest(
 /// With strict=false (default validate): always succeeds (exit 0), prints errors but doesn't fail.
 /// With strict=true (check mode): returns error.DiagnosticsError on errors (exit 1).
 /// With json_errors=true or format=.json: outputs JSON result instead of text.
-pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool, format: StatsFormat) !void {
+pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool, format: StatsFormat, per_table: bool) !void {
     const result = compilePipeline(alloc, file_data, .{ .verbose_passes = verbose_passes, .json_errors = json_errors }) catch |err| {
         if (err == error.DiagnosticsError or err == error.SemanticError) {
             if (json_errors or format == .json) {
@@ -120,8 +121,12 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
         const json = try formatValidateResult(alloc, !result.partial, s, if (result.partial) @min(result.tree.error_count, std.math.maxInt(u32)) else 0);
         try io_mod.writeOutput(io, json, null, false);
     } else {
-        if (stats) {
+        if (stats or per_table) {
             printStats(s);
+        }
+        if (per_table) {
+            const table_stats = stats_mod.computePerTableStats(result.resolved);
+            stats_mod.printPerTableStats(table_stats);
         }
         if (result.partial) {
             fmt.printError("schema", "has errors (partial)");
@@ -134,7 +139,7 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
 
 /// Check a .ss file — CI gate mode. Fails on any schema error.
 pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, format: StatsFormat) !void {
-    return handleValidate(io, alloc, file_data, stats, verbose_passes, json_errors, true, format);
+    return handleValidate(io, alloc, file_data, stats, verbose_passes, json_errors, true, format, false);
 }
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.

@@ -15,7 +15,7 @@ const GlobalFlags = types.GlobalFlags;
 fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags, cmd: Command) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
     const final_cmd: Command = switch (cmd) {
-        .validate => |c| .{ .validate = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes, .format = if (opts.format == .json) .json else .text } },
+        .validate => |c| .{ .validate = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes, .format = if (opts.format == .json) .json else .text, .per_table = c.per_table } },
         .check => |c| .{ .check = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes, .format = if (opts.format == .json) .json else .text } },
         .stats => |c| .{ .stats = .{ .input = input orelse c.input, .format = c.format } },
         else => cmd,
@@ -227,7 +227,15 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
 }
 
 pub fn parseValidateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .validate = .{ .input = null, .stats = opts.stats, .verbose_passes = opts.verbose_passes } });
+    // Scan for --per-table flag
+    var per_table = false;
+    for (fargs[1..]) |arg| {
+        if (std.mem.eql(u8, arg, "--per-table")) {
+            per_table = true;
+            break;
+        }
+    }
+    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .validate = .{ .input = null, .stats = opts.stats, .verbose_passes = opts.verbose_passes, .per_table = per_table } });
 }
 
 pub fn parseCheckArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {

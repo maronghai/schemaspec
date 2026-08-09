@@ -78,7 +78,7 @@ test "lint: config toggles work" {
     try testing.expect(all.items.len >= 2); // no-pk + no-timestamps at minimum
 
     // Only PK check
-    const pk_only = try lintSchema(alloc, test_ast, .{ .check_naming = false, .check_fk_index = false, .check_timestamps = false, .check_empty_table = false, .check_table_comment = false, .check_column_length = false });
+    const pk_only = try lintSchema(alloc, test_ast, .{ .check_naming = false, .check_fk_index = false, .check_timestamps = false, .check_empty_table = false, .check_table_comment = false, .check_column_length = false, .check_column_default_required = false });
     var pk_count: usize = 0;
     for (pk_only.items) |r| {
         if (std.mem.eql(u8, r.rule, "no-pk")) pk_count += 1;
@@ -118,6 +118,13 @@ test "lint: config toggles new rules" {
         .check_serial_type = false,
         .check_table_name_length = false,
         .check_column_length = false,
+        .check_index_column_missing = false,
+        .check_naming_prefix = false,
+        .check_fk_naming = false,
+        .check_bool_default = false,
+        .check_view_no_select = false,
+        .check_column_default_required = false,
+        .check_index_naming = false,
     });
     try testing.expectEqual(@as(usize, 0), wide_only.items.len);
 }

@@ -30,6 +30,3 @@ allowed-tools: Bash(git *), Bash(ls *), Read, Glob, Bash(rg *)
 - zig build bench
 - zig build bench -- --check
 
-## 本地部署
-
-- d:\zbin\zb.cmd rune

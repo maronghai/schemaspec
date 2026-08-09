@@ -111,6 +111,7 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
             } else if (std.mem.eql(u8, subcommand, "validate") or std.mem.eql(u8, subcommand, "check")) {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
+                std.debug.print("  --per-table     Show per-table field/constraint breakdown\n", .{});
                 std.debug.print("  --format        Output format: text (default), json\n", .{});
                 std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
             } else if (std.mem.eql(u8, subcommand, "init")) {
@@ -149,6 +150,8 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  duplicate-index  Multiple indexes with same columns and type\n", .{});
                 std.debug.print("  empty-table      Table has no fields defined\n", .{});
                 std.debug.print("  table-comment    Table lacks a comment/documentation\n", .{});
+                std.debug.print("  column-default-required Non-PK, non-nullable column has no DEFAULT\n", .{});
+                std.debug.print("  index-naming     Index name doesn't follow <table>_<columns> convention\n", .{});
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  --json-errors  Output results as JSON (machine-readable)\n", .{});
                 std.debug.print("  --strict       Exit 1 if any warnings found (for CI/CD)\n", .{});
