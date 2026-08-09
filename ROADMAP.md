@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.181.0 (2026-08-09) — 41,800+ lines production Zig, 1299+ tests, 32 test suites.
+**Current version**: 0.182.0 (2026-08-09) — 42,000+ lines production Zig, 1350+ tests, 32 test suites.
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.182.0** — Quality & test infrastructure: enhanced pass_manager tests (5 new tests for access validation, unique names, dependencies), added CLI lint_cmd and init unit tests, added parser sql_parser_helpers tests (35+ tests), fixed build.zig.zon version mismatch, synced npm package version
 - **v0.181.0** — Lint rules & diff enhancements: added `fk-naming` rule (warns when FK columns don't follow `<table>_id` naming convention), added `bool-default` rule (warns when boolean columns have no explicit default value), added `--stat` flag as alias for `--summary` in diff/migrate commands
 - **v0.180.0** — Lint rule enhancements: added `index-column-missing` rule (warns when indexes reference columns not defined in the table), added `naming-prefix` rule (warns about anti-pattern table name prefixes like tbl_, t_, tb_), improved `toCamelSingular` to handle irregular plurals (categories→category, quizzes→quiz, addresses→address, men→man)
 - **v0.179.0** — Validate JSON output & reverse check: added `--format json` to `rune validate` for CI/CD tooling, added `--check` flag to `rune reverse` for CI gate mode (exit 1 on errors), added `column-length` lint rule (warns on string fields without explicit length for cross-dialect compatibility)

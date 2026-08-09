@@ -8,6 +8,8 @@ comptime {
     _ = @import("bench_test.zig");
     // ── cli ──────────────────────────────────────────────────────
     _ = @import("cli_test.zig");
+    _ = @import("cli/lint_cmd_test.zig");
+    _ = @import("cli/init_test.zig");
     // ── color ────────────────────────────────────────────────────
     _ = @import("color_test.zig");
     // ── completions ──────────────────────────────────────────────
@@ -86,6 +88,7 @@ comptime {
     _ = @import("parser/parse_table_test.zig");
     _ = @import("parser/parse_template_test.zig");
     _ = @import("parser/sql_parser_test.zig");
+    _ = @import("parser/sql_parser_helpers_test.zig");
     // ── pipeline ─────────────────────────────────────────────────
     _ = @import("pipeline/diff_test.zig");
     _ = @import("pipeline/forward_test.zig");

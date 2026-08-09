@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.182.0] - 2026-08-09
+
+### Added
+- **Enhanced pass_manager tests** — Added 5 new tests for `validatePassAccess()`, unique pass name validation, dependency validation, writer dependency verification, and access default validation. `pass_manager_test.zig` now covers all pass manager functionality.
+- **CLI lint_cmd unit tests** — Added `cli/lint_cmd_test.zig` with 3 tests covering `LintCmd` struct initialization, default values, and custom value handling.
+- **CLI init unit tests** — Added `cli/init_test.zig` with 9 tests covering template selection (default, blog, ecommerce, rest-api), unknown template handling, and STARTER_SCHEMA content validation.
+- **Parser sql_parser_helpers tests** — Added `parser/sql_parser_helpers_test.zig` with 35+ tests covering word parsing, string literals, default values, expression parsing, comment handling, whitespace skipping, keyword matching, and line/column tracking.
+
+### Changed
+- **Fixed build.zig.zon version** — Updated version from `0.180.0` to `0.182.0` to match VERSION file. This fixes `rune --version` output.
+- **Updated npm package version** — Synced `packaging/npm/package.json` from `0.176.0` to `0.182.0`.
+
 ## [0.180.0] - 2026-08-09
 
 ### Added
