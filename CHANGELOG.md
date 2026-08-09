@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.190.0] - 2026-08-09
+
+### Added
+- **Enhanced codegen/columns tests** — Added 14 new tests for column definition rendering: numeric/string/SQL keyword defaults, nullable columns, auto_increment, comments, dialect-specific rendering (MySQL/PostgreSQL/SQLite), and CHECK constraint expressions (range, in_list, comparison).
+- **Enhanced pipeline/handlers tests** — Added 4 new tests for `formatValidateResult` covering zero errors, many errors, and valid schemas with views.
+- **Enhanced reverse/template_extraction tests** — Added 3 new tests for template extraction: three-table common field detection, partial overlap detection, and empty schema handling.
+- **Enhanced parser/parse_template tests** — Added 5 new tests: empty fields, slot at beginning/end, template header parsing (simple template, template with parent, mixin syntax, anonymous template).
+
 ## [0.186.0] - 2026-08-09
 
 ### Changed

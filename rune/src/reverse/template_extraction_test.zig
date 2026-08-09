@@ -97,3 +97,65 @@ test "findTemplates: no shared fields → no templates" {
     }
     try testing.expectEqual(@as(usize, 0), result.len);
 }
+
+test "findTemplates: three tables with common id/name/email fields" {
+    const alloc = testing.allocator;
+    const users_cols = try makeCols(alloc, &.{ makeSqlCol("id", "INTEGER"), makeSqlCol("name", "TEXT"), makeSqlCol("email", "TEXT") });
+    defer alloc.free(users_cols);
+    const posts_cols = try makeCols(alloc, &.{ makeSqlCol("id", "INTEGER"), makeSqlCol("name", "TEXT"), makeSqlCol("email", "TEXT"), makeSqlCol("title", "TEXT") });
+    defer alloc.free(posts_cols);
+    const comments_cols = try makeCols(alloc, &.{ makeSqlCol("id", "INTEGER"), makeSqlCol("name", "TEXT"), makeSqlCol("email", "TEXT"), makeSqlCol("body", "TEXT") });
+    defer alloc.free(comments_cols);
+    const tables = try alloc.dupe(sp_common.SqlTable, &.{ makeTable("users", users_cols), makeTable("posts", posts_cols), makeTable("comments", comments_cols) });
+    defer alloc.free(tables);
+    const schema = sp.SqlSchema{ .name = null, .charset = null, .tables = tables };
+    const result = try te.findTemplates(alloc, schema);
+    defer {
+        for (result) |tc| {
+            alloc.free(tc.name);
+            alloc.free(tc.table_indices);
+        }
+        alloc.free(result);
+    }
+    try testing.expect(result.len >= 1);
+    try testing.expectEqualStrings("base", result[0].name);
+    try testing.expect(result[0].fields.len >= 3);
+    try testing.expect(result[0].table_indices.len >= 3);
+}
+
+test "findTemplates: partial overlap only" {
+    const alloc = testing.allocator;
+    const t1_cols = try makeCols(alloc, &.{ makeSqlCol("id", "INTEGER"), makeSqlCol("name", "TEXT"), makeSqlCol("email", "TEXT") });
+    defer alloc.free(t1_cols);
+    const t2_cols = try makeCols(alloc, &.{ makeSqlCol("id", "INTEGER"), makeSqlCol("name", "TEXT"), makeSqlCol("address", "TEXT") });
+    defer alloc.free(t2_cols);
+    const tables = try alloc.dupe(sp_common.SqlTable, &.{ makeTable("t1", t1_cols), makeTable("t2", t2_cols) });
+    defer alloc.free(tables);
+    const schema = sp.SqlSchema{ .name = null, .charset = null, .tables = tables };
+    const result = try te.findTemplates(alloc, schema);
+    defer {
+        for (result) |tc| {
+            alloc.free(tc.name);
+            alloc.free(tc.table_indices);
+        }
+        alloc.free(result);
+    }
+    // id + name are shared by both tables (2 fields), so template should exist
+    try testing.expect(result.len >= 1);
+    try testing.expect(result[0].fields.len >= 2);
+}
+
+test "findTemplates: empty schema → no templates" {
+    const alloc = testing.allocator;
+    const tables = try alloc.dupe(sp_common.SqlTable, &.{});
+    defer alloc.free(tables);
+    const schema = sp.SqlSchema{ .name = null, .charset = null, .tables = tables };
+    const result = try te.findTemplates(alloc, schema);
+    if (result.len > 0) {
+        for (result) |tc| {
+            alloc.free(tc.table_indices);
+        }
+        alloc.free(result);
+    }
+    try testing.expectEqual(@as(usize, 0), result.len);
+}

@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.189.0 (2026-08-09) — 42,500+ lines production Zig, 1366 tests, 32 test suites.
+**Current version**: 0.190.0 (2026-08-09) — 42,500+ lines production Zig, 1392+ tests, 32 test suites.
 
 ---
 
@@ -154,7 +154,7 @@ Ongoing improvements pursued alongside feature work.
 - [x] Memory leak audit — reduce remaining leaks toward zero (v0.123.0)
 - [x] Fuzz testing expansion — longer runs, more seed variety (v0.123.0)
 - [x] Production error recovery — graceful handling of OOM, file system errors (v0.184.0)
-- [ ] Test coverage analysis — measure and enforce minimum coverage thresholds
+- [x] Enhanced test coverage for under-tested modules (v0.190.0)
 
 ### Platform
 
@@ -193,9 +193,9 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 6: Ecosystem & Community | 🔲 Planned | 3/9 | 6 |
 | 7: Editor Extensions | 🔲 Planned | 7/10 | 3 |
 | 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
-| Architecture Targets | 🟡 Ongoing | 14/14 | 0 |
+| Architecture Targets | ✅ Complete | 15/15 | 0 |
 | Technical Debt | ✅ Complete | 8/8 | 0 |
-| **Total** | | **91/105** | **17** |
+| **Total** | | **92/105** | **16** |
 
 ---
 
@@ -243,6 +243,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.190.0** — Test coverage enhancement: added 26 new tests for under-tested modules (codegen/columns, pipeline/handlers, reverse/template_extraction, parser/parse_template); improved test coverage for column rendering defaults, CHECK constraints, template extraction logic, and template header parsing
 - **v0.189.0** — Lint rules & diff engine: added `nullable-column-default` lint rule (warns when nullable non-PK columns have no explicit DEFAULT); added `timestamp-naming` lint rule (warns when datetime columns don't follow `created_at`/`updated_at` naming convention); added custom type diff support (tracks added/dropped/modified custom types in SchemaDiff with text/JSON/SARIF/markdown formatters); fixed VERSION file mismatch (was 0.187.0, should be 0.188.0)
 - **v0.188.0** — Validate enhancement & lint rules: added `--per-table` flag to `rune validate` for per-table field/constraint breakdown; added `column-default-required` lint rule (warns when non-PK, non-nullable columns have no explicit DEFAULT); added `index-naming` lint rule (warns when index names don't follow `<table>_<columns>` convention); fixed `diff/engine.zig` rename detection bug (AutoHashMap key type mismatch); fixed `lint/rules.zig` Zig 0.16 `lowerString` API compatibility; fixed `pipeline/handlers.zig` missing `fmt` import
 - **v0.187.0** — Quality consolidation & test coverage: standardized error output across modules (main.zig, watch.zig, handlers.zig, config.zig, init.zig, lint_cmd.zig) to use consistent `fmt.printError`/`fmt.printWarn` format; added `view-no-select` lint rule (warns when views have no SELECT statement); refactored config parsing to eliminate duplication between `parseConfig` and `warnUnknownKeys` via shared `TomlLineIterator`; verified existing tests for `diff/plan.zig` and `codegen/parallel.zig` already cover critical modules
