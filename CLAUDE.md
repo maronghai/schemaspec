@@ -93,6 +93,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune generate json-schema schema.ss   # Generate JSON Schema
 ./rune/zig-out/bin/rune generate --list                  # List available generators
 ./rune/zig-out/bin/rune generate schema.ss --generators prisma,drizzle,openapi  # Batch generation
+./rune/zig-out/bin/rune generate schema.ss --dry-run     # Preview generate output without writing
 ./rune/zig-out/bin/rune watch schema.ss                   # Watch file and recompile on change
 ./rune/zig-out/bin/rune watch schema.ss --interval 500    # Watch with 500ms polling interval
 ./rune/zig-out/bin/rune watch schema.ss --parallel        # Watch with parallel compilation
@@ -241,7 +242,7 @@ rune/src/
 
 - **Migration Plan IR** (`diff/plan.zig`): Explicit intermediate representation between `SchemaDiff` and SQL generation. `MigrationPlan` struct contains `operations: []Operation` where each `Operation` is a tagged union (`drop_table`, `create_table`, `alter_table`, `drop_view`, `create_view`, `modify_view`). `planFromDiff()` converts diffs to plans, `invertPlan()` transforms plans for rollback. The existing `generateFromDiff` and `generateRollback` functions delegate through the plan layer, producing identical output while enabling future dry-run inspection and plan-level validation.
 
-- **Parallel Table Compilation** (`codegen/parallel.zig`): Dependency analysis and concurrent compilation for independent tables using `std.Thread`. `analyzeDependencies()` builds a `DepGraph` from FK references, `topoSort()` produces a valid compilation order, and `compileParallel()` generates SQL in topological order with threaded compilation for independent table groups. Each thread uses its own arena allocator for thread safety. Falls back to sequential for schemas with <10 tables or fully-dependent tables. CLI flag: `--parallel` (used with `--stream`).
+- **Parallel Table Compilation** (`codegen/parallel.zig`): Dependency analysis and concurrent compilation for independent tables using `std.Thread`. `analyzeDependencies()` builds a `DepGraph` from FK references, `topoSort()` produces a valid compilation order, and `compileParallel()` generates SQL in topological order with threaded compilation for independent table groups. Each thread uses its own arena allocator for thread safety. BufferPool provides thread-safe buffer reuse across parallel compilation threads (mutex-protected acquire/release). Falls back to sequential for schemas with <10 tables or fully-dependent tables. CLI flag: `--parallel` (used with `--stream`).
 
 ### Module Roles
 

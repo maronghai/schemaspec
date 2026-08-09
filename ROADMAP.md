@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.183.0 (2026-08-09) — 42,000+ lines production Zig, 1361 tests, 32 test suites.
+**Current version**: 0.184.0 (2026-08-09) — 42,500+ lines production Zig, 1362 tests, 32 test suites.
 
 ---
 
@@ -67,7 +67,7 @@ Build the community and ecosystem around Rune. **Not started.**
 
 - [ ] Interactive tutorial — web-based walkthrough with live examples
 - [x] Migration guide — from SQL DDL, Prisma, Knex to Rune `.ss` (v0.150.0)
-- [ ] Cookbook — common patterns (multi-tenant, soft delete, audit trail)
+- [x] Cookbook — common patterns (multi-tenant, soft delete, audit trail) (v0.184.0)
 - [ ] Video walkthroughs — schema design, migration, CI/CD integration
 
 ### Community
@@ -141,7 +141,7 @@ Ongoing improvements pursued alongside feature work.
 - [x] Memory-mapped file I/O — for large schema files (>10MB) (v0.123.0)
 - [x] Benchmark CI gate — enforce no regressions beyond 10% (v0.82.0)
 - [x] Benchmark dialect parameterization — `rune bench --dialect <d>` supports all 6 dialects (v0.74.0)
-- [~] Zero-allocation codegen path — reuse buffers across compilations (BufferPool extended to default path, v0.166.0)
+- [x] Zero-allocation codegen path — reuse buffers across compilations (BufferPool extended to parallel codegen, v0.184.0)
 - [ ] Incremental compilation — recompile only changed tables
 
 ### Code Quality
@@ -153,7 +153,7 @@ Ongoing improvements pursued alongside feature work.
 - [x] Formalize IR versioning — schema for forward/backward compatibility (v0.108.0)
 - [x] Memory leak audit — reduce remaining leaks toward zero (v0.123.0)
 - [x] Fuzz testing expansion — longer runs, more seed variety (v0.123.0)
-- [ ] Production error recovery — graceful handling of OOM, file system errors
+- [x] Production error recovery — graceful handling of OOM, file system errors (v0.184.0)
 - [ ] Test coverage analysis — measure and enforce minimum coverage thresholds
 
 ### Platform
@@ -187,12 +187,12 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| 6: Ecosystem & Community | 🔲 Planned | 2/9 | 7 |
+| 6: Ecosystem & Community | 🔲 Planned | 3/9 | 6 |
 | 7: Editor Extensions | 🔲 Planned | 7/10 | 3 |
 | 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
-| Architecture Targets | 🟡 Ongoing | 12.5/14 | 1.5 |
+| Architecture Targets | 🟡 Ongoing | 14/14 | 0 |
 | Technical Debt | 🟡 Partial | 3/5 | 2 |
-| **Total** | | **83.5/105** | **21.5** |
+| **Total** | | **86.5/105** | **18.5** |
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.184.0** — BufferPool parallel extension & quality: extended BufferPool to parallel codegen path (mutex-protected acquire/release for thread-safe buffer reuse), added graceful error recovery with actionable suggestions (OOM, file not found, access denied, disk full), added `--dry-run` flag to `rune generate` command for previewing output without writing files, created schema cookbook with common patterns (multi-tenant, soft delete, audit trail, RBAC, polymorphic associations), updated ARCHITECTURE.md with BufferPool and error recovery documentation
 - **v0.183.0** — Quality & code cleanup: fixed SqlParser memory leak (added `deinit()` method with `owns_src` tracking), fixed 3 test compilation errors (`getTemplate` visibility, `StringHashMap.put` API, pass_manager writer-dependency test), fixed 4 incorrect test expectations in `sql_parser_helpers_test.zig`, extracted `lineNoToZeroBased` helper in LSP module (replaced 15+ instances of 1-based to 0-based line conversion), extracted `lintOutput` helper in `lint_cmd.zig` (deduplicated 3-way output format block)
 - **v0.182.0** — Quality & test infrastructure: enhanced pass_manager tests (5 new tests for access validation, unique names, dependencies), added CLI lint_cmd and init unit tests, added parser sql_parser_helpers tests (35+ tests), fixed build.zig.zon version mismatch, synced npm package version
 - **v0.181.0** — Lint rules & diff enhancements: added `fk-naming` rule (warns when FK columns don't follow `<table>_id` naming convention), added `bool-default` rule (warns when boolean columns have no explicit default value), added `--stat` flag as alias for `--summary` in diff/migrate commands

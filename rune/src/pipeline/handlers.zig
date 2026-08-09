@@ -194,6 +194,7 @@ pub fn formatValidateResult(alloc: std.mem.Allocator, valid: bool, s: Stats, err
 /// Compile a schema and run a named generator on it. Handles the full pipeline:
 /// read input → compile → resolve types → lookup generator → generate → write output.
 /// Used by both `rune generate <name>` and `rune docs` (which delegates to the "docs" generator).
+/// When dry_run is true, output is written to stdout instead of the output file.
 pub fn generateFromSchema(
     io: std.Io,
     alloc: std.mem.Allocator,
@@ -202,6 +203,7 @@ pub fn generateFromSchema(
     dialect: codegen.Dialect,
     output_path: ?[]const u8,
     quiet: bool,
+    dry_run: bool,
 ) !void {
     const pipeline = try compilePipeline(alloc, file_data, .{});
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
@@ -209,7 +211,12 @@ pub fn generateFromSchema(
     const generator = @import("../generator.zig");
     if (generator.get(generator_name)) |gen| {
         const output_text = try gen.generate(alloc, typed, dialect);
-        try io_mod.writeOutput(io, output_text, output_path, quiet);
+        if (dry_run) {
+            // Dry run: output to stdout without writing to file
+            try io_mod.writeOutput(io, output_text, null, quiet);
+        } else {
+            try io_mod.writeOutput(io, output_text, output_path, quiet);
+        }
     } else {
         return error.UnknownGenerator;
     }
@@ -219,6 +226,7 @@ pub fn generateFromSchema(
 /// `generators_str` is a comma-separated list of generator names (e.g. "prisma,drizzle,openapi").
 /// Each generator's output is written to a separate file: `<output_dir>/<generator_name>.<ext>`.
 /// When output_path is null, outputs are written to stdout separated by headers.
+/// When dry_run is true, all outputs are written to stdout instead of files.
 pub fn generateFromSchemaBatch(
     io: std.Io,
     alloc: std.mem.Allocator,
@@ -227,6 +235,7 @@ pub fn generateFromSchemaBatch(
     dialect: codegen.Dialect,
     output_path: ?[]const u8,
     quiet: bool,
+    dry_run: bool,
 ) !void {
     const pipeline = try compilePipeline(alloc, file_data, .{});
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
@@ -261,27 +270,35 @@ pub fn generateFromSchemaBatch(
         if (generator.get(gen_name)) |gen| {
             const output_text = try gen.generate(alloc, typed, dialect);
 
-            // Determine output path
-            const file_out = if (output_path) |base_path| blk: {
-                // Write to <base_path>/<generator_name><extension>
-                break :blk try std.fmt.allocPrint(alloc, "{s}/{s}{s}", .{ base_path, gen_name, gen.extension });
-            } else null;
-
-            if (file_out) |path| {
-                // Write to file
-                try std.Io.Dir.cwd().writeFile(io, .{
-                    .sub_path = path,
-                    .data = output_text,
-                });
-                if (!quiet) {
-                    std.debug.print("Written to {s}\n", .{path});
-                }
-            } else {
-                // Write to stdout with header
+            if (dry_run) {
+                // Dry run: output to stdout with header
                 if (!quiet) {
                     std.debug.print("--- {s} ---\n", .{gen_name});
                 }
                 try io_mod.writeOutput(io, output_text, null, quiet);
+            } else {
+                // Determine output path
+                const file_out = if (output_path) |base_path| blk: {
+                    // Write to <base_path>/<generator_name><extension>
+                    break :blk try std.fmt.allocPrint(alloc, "{s}/{s}{s}", .{ base_path, gen_name, gen.extension });
+                } else null;
+
+                if (file_out) |path| {
+                    // Write to file
+                    try std.Io.Dir.cwd().writeFile(io, .{
+                        .sub_path = path,
+                        .data = output_text,
+                    });
+                    if (!quiet) {
+                        std.debug.print("Written to {s}\n", .{path});
+                    }
+                } else {
+                    // Write to stdout with header
+                    if (!quiet) {
+                        std.debug.print("--- {s} ---\n", .{gen_name});
+                    }
+                    try io_mod.writeOutput(io, output_text, null, quiet);
+                }
             }
         }
     }

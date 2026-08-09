@@ -23,7 +23,7 @@ pub const Command = union(enum) {
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat, check: bool = false },
     docs: struct { input: ?[]const u8, output: ?[]const u8, doc_format: DocsFormat = .markdown },
     format_cmd: struct { input: ?[]const u8, output: ?[]const u8, check: bool = false },
-    generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool },
+    generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool, dry_run: bool = false },
     init: struct { name: ?[]const u8, output: ?[]const u8, output_dir: ?[]const u8 = null, template: ?[]const u8 = null },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },

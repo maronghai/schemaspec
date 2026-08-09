@@ -133,6 +133,7 @@ fn resolveOutputFormat(target: cli.Target) handlers.OutputFormat {
 fn handleParseError(err: anyerror, arg_list: []const []const u8) noreturn {
     if (err == error.OutOfMemory) {
         fmt.printErr("out of memory");
+        fmt.printErr("  hint: try reducing schema file size or increasing system memory");
     } else if (err == error.UnknownFlag) {
         if (cli.findUnknownFlag(arg_list)) |flag| {
             if (cli.suggestSimilarFlag(flag)) |suggestion| {
@@ -176,7 +177,10 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             printAvailableGenerators();
             std.process.exit(1);
         },
-        error.OutOfMemory => fmt.printErr("out of memory"),
+        error.OutOfMemory => {
+            fmt.printErr("out of memory");
+            fmt.printErr("  hint: try reducing schema file size, using --import-path for large schemas, or increasing system memory");
+        },
         error.UnknownHookType => {
             fmt.printError("cli", "unknown hook type. Available: pre-commit");
             std.process.exit(1);
@@ -193,8 +197,16 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             } else {
                 fmt.printError("io", "file not found");
             }
+            fmt.printErr("  hint: check the file path and ensure the file exists");
         },
-        error.AccessDenied => fmt.printError("io", "access denied"),
+        error.AccessDenied => {
+            fmt.printError("io", "access denied");
+            fmt.printErr("  hint: check file permissions or run with appropriate user");
+        },
+        error.NoSpaceLeft => {
+            fmt.printError("io", "no space left on device");
+            fmt.printErr("  hint: free disk space or choose a different output path");
+        },
         error.IsDir => fmt.printError("io", "expected a file, got a directory"),
         error.NotDir => fmt.printError("io", "expected a directory, got a file"),
         error.UnknownShell => fmt.printError("cli", "unknown shell. Expected: bash, zsh, fish, powershell"),
@@ -328,9 +340,9 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
             // Batch generation: --generators prisma,drizzle,openapi
             if (cmd.generators_str) |gens_str| {
-                return handlers.generateFromSchemaBatch(io, alloc, file_data, gens_str, parsed.dialect, cmd.output, parsed.quiet);
+                return handlers.generateFromSchemaBatch(io, alloc, file_data, gens_str, parsed.dialect, cmd.output, parsed.quiet, cmd.dry_run);
             }
-            return handlers.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet);
+            return handlers.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet, cmd.dry_run);
         },
         .init => |cmd| {
             return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template);

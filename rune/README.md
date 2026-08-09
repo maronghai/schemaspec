@@ -63,13 +63,13 @@ cd rune && zig build                              # Build
 
 **Note**: Unrecognized `--` flags produce an error with the flag name, instead of being silently treated as file paths.
 
-### Diff / Migrate / Reverse
+### Diff / Migrate / Reverse / Generate
 
 | Flag | Description |
 |------|-------------|
 | `--format text\|json\|sarif` | Output format for diff/migrate/reverse results |
 | `--check` | Exit with code 1 if differences exist (CI gate) |
-| `--dry-run` | Show migration SQL without writing to file |
+| `--dry-run` | Show output without writing to file (migrate, lint, tune, generate) |
 | `--rollback` | Generate rollback SQL instead of forward migration |
 
 ### Reverse Engineering

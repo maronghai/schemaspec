@@ -105,6 +105,8 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  --list, -l      List available generators\n", .{});
                 std.debug.print("  -o, --output    Output file path\n", .{});
+                std.debug.print("  --dry-run       Preview output without writing to file\n", .{});
+                std.debug.print("  --generators    Comma-separated list for batch generation\n", .{});
                 std.debug.print("\nRun 'rune generate --list' to see available generators.\n", .{});
             } else if (std.mem.eql(u8, subcommand, "validate") or std.mem.eql(u8, subcommand, "check")) {
                 std.debug.print("\nOptions:\n", .{});

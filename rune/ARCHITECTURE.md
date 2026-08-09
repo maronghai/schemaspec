@@ -122,6 +122,26 @@ Input (.ss text)
     Output: SQL string
 ```
 
+### BufferPool (Zero-Allocation Codegen)
+
+`BufferPool` (codegen/codegen.zig) provides reusable `Writer.Allocating` buffers to minimize allocation overhead in batch and parallel codegen:
+
+- **Streaming codegen** (streaming.zig): `StreamingCodegen.initWithPool()` acquires/releases buffers per table
+- **Parallel codegen** (parallel.zig): Shared pool across threads with mutex-protected acquire/release
+- **Default codegen** (codegen.zig): `generateFromTypedAstPooled()` uses pool for single-schema generation
+
+Thread safety: `BufferPool.acquire()` and `release()` are mutex-protected for safe concurrent access from parallel compilation threads.
+
+### Error Recovery
+
+The pipeline supports graceful degradation:
+
+- **Partial AST**: Parser records all syntax errors and returns partial AST with `error_count`
+- **Partial compilation**: Tables with errors are skipped; valid tables still produce SQL output
+- **Structured errors**: `DiagnosticCollector` accumulates errors for batch reporting
+- **OOM handling**: User-friendly messages with suggestions for reducing memory usage
+- **I/O errors**: Clear messages for file not found, access denied, disk full
+
 ### IR Boundaries
 
 | IR | Location | Content |

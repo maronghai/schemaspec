@@ -13,9 +13,11 @@ pub const Dialect = dialect_enum.Dialect;
 
 /// Pool of reusable `Writer.Allocating` buffers for batch codegen.
 /// Avoids repeated allocation/deallocation when generating SQL for multiple schemas.
+/// Thread-safe: acquire/release are protected by a mutex for parallel codegen use.
 pub const BufferPool = struct {
     alloc: std.mem.Allocator,
     buffers: std.ArrayList(std.Io.Writer.Allocating),
+    mutex: std.Thread.Mutex = .{},
 
     pub fn init(alloc: std.mem.Allocator) BufferPool {
         return .{
@@ -42,7 +44,10 @@ pub const BufferPool = struct {
     }
 
     /// Acquire a buffer from the pool (or create a new one).
+    /// Thread-safe: protected by mutex for parallel codegen use.
     pub fn acquire(self: *BufferPool) !std.Io.Writer.Allocating {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         if (self.buffers.items.len > 0) {
             return self.buffers.pop() orelse return std.Io.Writer.Allocating.init(self.alloc);
         }
@@ -50,7 +55,10 @@ pub const BufferPool = struct {
     }
 
     /// Release a buffer back to the pool for reuse.
+    /// Thread-safe: protected by mutex for parallel codegen use.
     pub fn release(self: *BufferPool, buf: std.Io.Writer.Allocating) !void {
+        self.mutex.lock();
+        defer self.mutex.unlock();
         var mutable = buf;
         mutable.clearRetainingCapacity();
         try self.buffers.append(self.alloc, mutable);

@@ -36,30 +36,61 @@ const ThreadContext = struct {
     table: typed_ast.TypedTable,
     table_idx: usize,
     out: *?ThreadResult,
+    pool: ?*codegen.BufferPool = null,
 };
 
 fn compileOneTableAsync(ctx: ThreadContext) void {
     var arena = std.heap.ArenaAllocator.init(ctx.alloc);
     errdefer arena.deinit();
     var cg = codegen.Codegen.init(arena.allocator(), ctx.dialect);
-    var aw = std.Io.Writer.Allocating.init(arena.allocator());
-    cg.generateTypedTable(&aw.writer, ctx.table) catch {
-        ctx.out.* = null;
-        return;
-    };
-    aw.writer.flush() catch {
-        ctx.out.* = null;
-        return;
-    };
-    const sql = aw.toOwnedSlice() catch {
-        ctx.out.* = null;
-        return;
-    };
-    ctx.out.* = .{
-        .arena = arena,
-        .sql = sql,
-        .table_idx = ctx.table_idx,
-    };
+
+    // Use pooled buffer when available to reduce allocation overhead
+    if (ctx.pool) |pool| {
+        var aw = pool.acquire() catch {
+            ctx.out.* = null;
+            return;
+        };
+        cg.generateTypedTable(&aw.writer, ctx.table) catch {
+            pool.release(aw) catch {};
+            ctx.out.* = null;
+            return;
+        };
+        aw.writer.flush() catch {
+            pool.release(aw) catch {};
+            ctx.out.* = null;
+            return;
+        };
+        const sql = aw.toOwnedSlice() catch {
+            pool.release(aw) catch {};
+            ctx.out.* = null;
+            return;
+        };
+        pool.release(aw) catch {};
+        ctx.out.* = .{
+            .arena = arena,
+            .sql = sql,
+            .table_idx = ctx.table_idx,
+        };
+    } else {
+        var aw = std.Io.Writer.Allocating.init(arena.allocator());
+        cg.generateTypedTable(&aw.writer, ctx.table) catch {
+            ctx.out.* = null;
+            return;
+        };
+        aw.writer.flush() catch {
+            ctx.out.* = null;
+            return;
+        };
+        const sql = aw.toOwnedSlice() catch {
+            ctx.out.* = null;
+            return;
+        };
+        ctx.out.* = .{
+            .arena = arena,
+            .sql = sql,
+            .table_idx = ctx.table_idx,
+        };
+    }
 }
 
 /// Compile a group of independent tables concurrently using threads.
@@ -80,6 +111,10 @@ fn compileGroupConcurrent(
     defer alloc.free(results);
     @memset(results, null);
 
+    // Create a shared buffer pool for all threads in this group
+    var pool = codegen.BufferPool.initWithCapacity(alloc, group.len);
+    defer pool.deinit();
+
     for (group, 0..) |table_idx, slot| {
         thread_ctxs.appendAssumeCapacity(.{
             .alloc = alloc,
@@ -87,6 +122,7 @@ fn compileGroupConcurrent(
             .table = all_tables[table_idx],
             .table_idx = table_idx,
             .out = &results[slot],
+            .pool = &pool,
         });
     }
 
@@ -460,4 +496,49 @@ test "compileParallel: fully dependent tables fall back to sequential" {
     try testing.expect(comments_idx != null);
     try testing.expect(users_idx.? < posts_idx.?);
     try testing.expect(posts_idx.? < comments_idx.?);
+}
+
+test "compileParallel: pool-based parallel compilation produces correct output" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Create 12 independent tables (exceeds min_tables=10)
+    var table_list: [12]typed_ast.TypedTable = undefined;
+    for (0..12) |i| {
+        const cols = try alloc.alloc(typed_ast.TypedColumn, 2);
+        cols[0] = .{ .name = "id", .sql_type = .int, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 1, .flags = .{ .primary_key = true } };
+        cols[1] = .{ .name = "name", .sql_type = .{ .varchar_explicit = 255 }, .default = null, .check = null, .comment = null, .enum_values = &.{}, .line_no = 2, .flags = .{} };
+        const name = try std.fmt.allocPrint(alloc, "pool_test_{d}", .{i});
+        table_list[i] = .{
+            .name = name,
+            .comment = null,
+            .engine = null,
+            .columns = cols,
+            .fks = &.{},
+            .indexes = &.{},
+            .line_no = @intCast(i + 1),
+        };
+    }
+    const tables = try alloc.dupe(typed_ast.TypedTable, &table_list);
+    const typed = typed_ast.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = tables,
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+
+    // With min_tables=10, 12 tables should use parallel path with pool
+    const result = try compileParallel(alloc, .mysql, typed, .{ .min_tables = 10 });
+    try testing.expectEqual(@as(usize, 12), result.table_count);
+    try testing.expectEqual(@as(usize, 12), result.tables.len);
+
+    // All tables should have CREATE TABLE with both columns
+    for (result.tables) |t| {
+        try testing.expect(std.mem.indexOf(u8, t.sql, "CREATE TABLE") != null);
+        try testing.expect(std.mem.indexOf(u8, t.sql, "id") != null);
+        try testing.expect(std.mem.indexOf(u8, t.sql, "name") != null);
+        try testing.expect(std.mem.indexOf(u8, t.sql, "PRIMARY KEY") != null);
+    }
 }
