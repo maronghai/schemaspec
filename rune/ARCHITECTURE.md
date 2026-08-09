@@ -38,7 +38,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
                              └──────────┘
 ```
 
-**Leaf modules** (zero internal dependencies): `ast.zig`, `dialect/enum.zig`, `diagnostic.zig`, `color.zig`
+**Leaf modules** (zero internal dependencies): `ast.zig`, `dialect/enum.zig`, `diagnostic/format.zig`, `color.zig`
 
 **Key modules**:
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
@@ -103,11 +103,11 @@ Input (.ss text)
     Output: []ResolvedTable (templates applied to each table)
     │
     ▼
-[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 13 pass implementations)
+[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 14 pass implementations)
     Pass manager: validate_template_types, resolve_names, autofk, suffix_inference, validate,
     validate_type_modifiers, validate_indexes, validate_duplicates, validate_circular_fk,
     validate_fk_targets, validate_unused_templates, validate_fk_types, validate_index_names,
-    validate_views
+    resolve_conditionals, validate_views
     Output: ResolvedAst (templates resolved + passes applied)
     │
     ▼
@@ -284,7 +284,7 @@ DEFAULT_PASSES = [_]SemanticPass{
     validate_template_types, resolve_names, autofk, suffix_inference,
     validate, validate_type_modifiers, validate_indexes,
     validate_duplicates, validate_circular_fk, validate_fk_targets, validate_unused_templates,
-    validate_fk_types, validate_index_names, validate_views,
+    validate_fk_types, validate_index_names, resolve_conditionals, validate_views,
 };
 ```
 
@@ -448,7 +448,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 86 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~970+ | Core logic + pipeline + colocated |
+| Unit tests | 93 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,438+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 87 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |

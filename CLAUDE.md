@@ -152,7 +152,7 @@ rune/src/
   lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights)
                 compile_service.zig, server.zig, features.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
-  tests.zig                                                       # colocated test index (81 files)
+  tests.zig                                                       # colocated test index (93 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, handlers.zig, reverse.zig,  # pipeline orchestration + CLI handlers
                stats.zig
@@ -317,7 +317,7 @@ rune/src/
 | | `trace.zig` | Shared AST trace formatting |
 | | `diagnostic.zig` | Multi-error diagnostic collector (printAll, formatJson, formatLsp, formatTerminal) |
 | | `template.zig` | Template inheritance resolution |
-| | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
+| | `pass/*.zig` | 14 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_version, rune_reset) |
 | | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (27 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum, TOML parsing), `lint/fix.zig` (auto-fix) |

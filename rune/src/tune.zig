@@ -291,3 +291,68 @@ fn findBestFieldSet(all_fields: []const []const FieldEntry) !?Template {
 
     return null;
 }
+
+// ─── Tests ──────────────────────────────────────────────────
+
+test "tune extracts common fields into template" {
+    const source =
+        \\# user
+        \\id p
+        \\name s
+        \\email s
+        \\
+        \\# post
+        \\id p
+        \\name s
+        \\email s
+        \\title s
+        \\
+    ;
+    // tune uses page_allocator internally, so we use it for tests too
+    const result = try tune(std.heap.page_allocator, source);
+    // Should contain template definition
+    try std.testing.expect(std.mem.indexOf(u8, result, "% base") != null);
+    // Should contain #base references
+    try std.testing.expect(std.mem.indexOf(u8, result, "#base user") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "#base post") != null);
+}
+
+test "tune returns original when too few tables" {
+    const source =
+        \\# user
+        \\id p
+        \\name s
+        \\
+    ;
+    const result = try tune(std.heap.page_allocator, source);
+    // When no extraction happens, tune returns the original source pointer
+    try std.testing.expectEqual(source.ptr, result.ptr);
+}
+
+test "tune returns original when no common fields" {
+    const source =
+        \\# user
+        \\id p
+        \\name s
+        \\
+        \\# post
+        \\title s
+        \\body S
+        \\
+    ;
+    const result = try tune(std.heap.page_allocator, source);
+    // When no extraction happens, tune returns the original source pointer
+    try std.testing.expectEqual(source.ptr, result.ptr);
+}
+
+test "fieldName extracts first token" {
+    try std.testing.expectEqualStrings("id", fieldName("id p"));
+    try std.testing.expectEqualStrings("name", fieldName("  name s"));
+    try std.testing.expectEqualStrings("email", fieldName("email s128"));
+}
+
+test "tableName extracts table name from header" {
+    try std.testing.expectEqualStrings("user", tableName("# user"));
+    try std.testing.expectEqualStrings("user", tableName("# user : A user table"));
+    try std.testing.expectEqualStrings("user", tableName("# base user"));
+}

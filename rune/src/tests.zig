@@ -123,6 +123,7 @@ comptime {
     _ = @import("semantic/pass/validate_type_modifiers.zig");
     _ = @import("semantic/pass/validate_template_types.zig");
     _ = @import("semantic/pass/validate_fk_types.zig");
+    _ = @import("semantic/pass/validate_views.zig");
     // ── types ────────────────────────────────────────────────────
     _ = @import("types/ast_test.zig");
     _ = @import("types/ir_version.zig");
@@ -134,6 +135,8 @@ comptime {
     _ = @import("types/resolved_ast_test.zig");
     // ── utils ────────────────────────────────────────────────────
     _ = @import("utils/edit_distance_test.zig");
+    // ── tune ─────────────────────────────────────────────────────
+    _ = @import("tune.zig");
     // ── lsp ──────────────────────────────────────────────────────
     _ = @import("lsp/protocol.zig");
     _ = @import("lsp/server.zig");

@@ -154,6 +154,32 @@ SQLite overrides these symbols from the default map:
 - Uses `COMMENT ON` for table/column comments (like PostgreSQL)
 - Supports `GENERATED ALWAYS AS` for generated columns (12c+)
 
+### MSSQL
+- `uuid` → `UNIQUEIDENTIFIER` (native type)
+- `inet` → `NVARCHAR(45)`
+- `blob` → `VARBINARY(MAX)`
+- `jsonb` → `NVARCHAR(MAX)` (no binary JSON)
+- `timestamptz` → `DATETIMEOFFSET` (native type)
+- `serial` → `INT` (uses `IDENTITY(seed, increment)` for auto-increment)
+- `enum_values` → `NVARCHAR(255)` + `CHECK (col IN (...))`
+- No `AUTO_INCREMENT` — uses `IDENTITY` property
+- No `UNSIGNED` — MSSQL doesn't support unsigned integers
+- Uses `sp_addextendedproperty` for table/column comments (not standard SQL)
+- String types use `NVARCHAR` prefix (Unicode support)
+
+### Db2
+- `uuid` → `CHAR(16) FOR BIT DATA` (no native UUID type)
+- `inet` → `VARCHAR(45)`
+- `blob` → `BLOB`
+- `jsonb` → `CLOB` (no binary JSON)
+- `timestamptz` → `TIMESTAMP WITH TIME ZONE` (native type)
+- `serial` → `INTEGER` (uses `GENERATED ALWAYS AS IDENTITY` for auto-increment)
+- `enum_values` → `VARCHAR(255)` + `CHECK (col IN (...))`
+- No `AUTO_INCREMENT` — uses `GENERATED ALWAYS AS IDENTITY`
+- No `UNSIGNED` — Db2 doesn't support unsigned integers
+- Uses `COMMENT ON` for table/column comments (like PostgreSQL)
+- Supports `GENERATED ALWAYS AS` for generated columns
+
 ## JSON Schema Output
 
 The `rune generate json-schema` command produces JSON Schema (draft-07) from `.ss` files. Each `SqlType` maps to JSON Schema properties:

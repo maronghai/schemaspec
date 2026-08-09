@@ -85,7 +85,7 @@ cd rune && zig build                              # Build
 ## Testing
 
 ```bash
-# Run all unit tests (84 colocated test files, 1100+ tests)
+# Run all unit tests (93 colocated test files, 1438+ tests)
 zig build test
 
 # Build only

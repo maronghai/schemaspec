@@ -4,6 +4,16 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.194.0] - 2026-08-10
+
+### Added
+- **`tune.zig` unit tests** — 5 new tests for the tune command: template extraction from common fields, early return for single tables, no-op when no common fields, and helper function tests (`fieldName`, `tableName`).
+- **`validate_views.zig` test integration** — Added missing import to `tests.zig` so the `validate_views` semantic pass tests are discovered by `zig build test`.
+
+### Changed
+- **Documentation sync** — Updated test counts across all documentation to reflect actual state (93 colocated files, 1,438+ tests). Added missing `resolve_conditionals` pass to `DEFAULT_PASSES` in ARCHITECTURE.md. Fixed leaf module path (`diagnostic.zig` → `diagnostic/format.zig`).
+- **Type system docs** — Added Db2 and MSSQL dialect behavior sections to `type.md` (UUID handling, auto-increment, comment syntax, unsigned support).
+
 ## [0.180.0] - 2026-08-09
 
 ### Added
