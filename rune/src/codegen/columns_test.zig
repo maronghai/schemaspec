@@ -194,7 +194,7 @@ test "emitColumnDef: SQLite renders without UNSIGNED" {
     defer alloc.free(result);
 
     try testing.expect(std.mem.indexOf(u8, result, "UNSIGNED") == null);
-    try testing.expect(std.mem.indexOf(u8, result, "`amount`") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "\"amount\"") != null);
 }
 
 test "emitCheckExpr: range constraint" {

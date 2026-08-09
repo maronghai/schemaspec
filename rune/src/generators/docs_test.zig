@@ -181,8 +181,10 @@ test "docs: Mermaid diagram with FK relationships" {
     defer alloc.free(fks);
     var table = makeTestTable("posts", cols1);
     table.fks = fks;
+    const users_cols = try alloc.dupe(typed_ast.TypedColumn, &.{makeTestColumn("id", .int)});
+    defer alloc.free(users_cols);
     const tables = try alloc.dupe(typed_ast.TypedTable, &.{
-        makeTestTable("users", try alloc.dupe(typed_ast.TypedColumn, &.{makeTestColumn("id", .int)})),
+        makeTestTable("users", users_cols),
         table,
     });
     defer alloc.free(tables);

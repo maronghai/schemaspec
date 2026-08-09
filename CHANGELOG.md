@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.195.0] - 2026-08-10
+
+### Fixed
+- **SQLite UNSIGNED test assertion** — Fixed `codegen/columns_test.zig` test that used MySQL backtick quoting (`` `amount` ``) instead of SQLite double-quote quoting (`"amount"`). SQLite uses double quotes for identifiers, not backticks.
+- **Mermaid docs memory leak** — Fixed `generators/docs_test.zig` test that leaked 1 allocation from an inner `alloc.dupe` call for test table columns. Added proper `defer alloc.free()`.
+- **Parser @if conditional block memory leak** — Fixed `parser/parser_test.zig` test that leaked 15 allocations. Added proper cleanup for field names, modifiers, comments, docs, default values, check constraints, FK declarations, conditional block dialects, and schema-level fields.
+- **Parser internal ArrayList buffer leaks** — Added `BlockState.deinit()` method to free ArrayList internal buffers (fields, fks, indexes, conditional_blocks, parents_buf). Added `deinit` calls for parse method's ArrayLists (templates, tables, views, sql_comments, custom_types) after `toOwnedSlice`.
+- **stripEngineTokens ArrayList leak** — Added `deinit` call after `toOwnedSlice` in `parse_table.zig` to free ArrayList internal buffer.
+
+### Changed
+- **Updated Zig package manager roadmap item** — Marked `build.zig.zon` for dependency consumption as done (v0.195.0).
+
 ## [0.193.0] - 2026-08-10
 
 ### Fixed

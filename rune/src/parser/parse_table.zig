@@ -96,7 +96,9 @@ pub fn stripEngineTokens(alloc: std.mem.Allocator, tokens: []const []const u8) !
         }
         try stripped.append(alloc, tok);
     }
-    return .{ .stripped = try stripped.toOwnedSlice(alloc), .engine = engine };
+    const result = try stripped.toOwnedSlice(alloc);
+    stripped.deinit(alloc);
+    return .{ .stripped = result, .engine = engine };
 }
 
 /// Parse a view line into a View AST node.

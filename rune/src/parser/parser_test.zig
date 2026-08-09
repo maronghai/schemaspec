@@ -254,7 +254,7 @@ test "parser: @if creates conditional block" {
     const source =
         \\# users
         \\id N
-        \\name V100
+        \\name s100
         \\
         \\@if(dialect=pg)
         \\bio T
@@ -273,18 +273,55 @@ test "parser: @if creates conditional block" {
     // Tokenize
     const tokenizer = tk.Tokenizer.init(raw_lines);
     const lines = try tokenizer.tokenizeAll(alloc);
-    defer alloc.free(lines);
+    defer {
+        for (lines) |line| {
+            if (line.tokens.len > 0) alloc.free(line.tokens);
+        }
+        alloc.free(lines);
+    }
     var parser_inst = Parser.init(alloc);
     const tree = try parser_inst.parse(lines);
     defer {
         for (tree.tables) |t| {
             alloc.free(t.name);
+            for (t.fields) |*f| {
+                alloc.free(f.name);
+                alloc.free(f.modifiers);
+                if (f.comment) |c| alloc.free(c);
+                if (f.doc) |d| alloc.free(d);
+                if (f.default_val) |dv| alloc.free(dv.value);
+                if (f.check) |ck| alloc.free(ck.expr);
+                // Note: type_info.simple strings from known type symbols (N, T, etc.) are
+                // slices of the original line and should NOT be freed. Only custom type names
+                // allocated via alloc.dupe should be freed, but we can't distinguish them here.
+                if (f.fk) |*fk| {
+                    alloc.free(fk.fields);
+                    alloc.free(fk.ref_fields);
+                    alloc.free(fk.actions);
+                }
+                if (f.generated_expr) |ge| alloc.free(ge);
+            }
             alloc.free(t.fields);
             alloc.free(t.fks);
             alloc.free(t.indexes);
+            for (t.conditional_blocks) |cb| {
+                for (cb.dialects) |d| alloc.free(d);
+                alloc.free(cb.dialects);
+            }
             alloc.free(t.conditional_blocks);
+            if (t.template_ref) |tr| alloc.free(tr);
+            if (t.comment) |c| alloc.free(c);
+            if (t.doc) |d| alloc.free(d);
+            if (t.engine) |e| alloc.free(e);
         }
         alloc.free(tree.tables);
+        if (tree.schema) |s| {
+            alloc.free(s.name);
+            alloc.free(s.custom_types);
+        }
+        alloc.free(tree.templates);
+        alloc.free(tree.views);
+        alloc.free(tree.sql_comments);
     }
     try testing.expectEqual(@as(usize, 1), tree.tables.len);
     const table = tree.tables[0];

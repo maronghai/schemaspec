@@ -107,6 +107,14 @@ pub const Parser = struct {
             self.loc = null;
             self.engine = null;
         }
+
+        fn deinit(self: *BlockState, alloc: std.mem.Allocator) void {
+            self.fields.deinit(alloc);
+            self.fks.deinit(alloc);
+            self.indexes.deinit(alloc);
+            self.conditional_blocks.deinit(alloc);
+            if (self.parents_buf.len > 0) alloc.free(self.parents_buf);
+        }
     };
 
     // ─── Parse ──────────────────────────────────────────────────
@@ -469,12 +477,28 @@ pub const Parser = struct {
             };
         } else null;
 
+        // Clean up block state (frees ArrayList internal buffers)
+        block.deinit(self.alloc);
+
+        // Convert ArrayLists to owned slices
+        const templates_slice = try templates.toOwnedSlice(self.alloc);
+        const tables_slice = try tables.toOwnedSlice(self.alloc);
+        const views_slice = try views.toOwnedSlice(self.alloc);
+        const sql_comments_slice = try sql_comments.toOwnedSlice(self.alloc);
+
+        // Free ArrayList internal buffers (toOwnedSlice transfers ownership of items)
+        templates.deinit(self.alloc);
+        tables.deinit(self.alloc);
+        views.deinit(self.alloc);
+        sql_comments.deinit(self.alloc);
+        custom_types.deinit(self.alloc);
+
         return .{
             .schema = final_schema,
-            .templates = try templates.toOwnedSlice(self.alloc),
-            .tables = try tables.toOwnedSlice(self.alloc),
-            .views = try views.toOwnedSlice(self.alloc),
-            .sql_comments = try sql_comments.toOwnedSlice(self.alloc),
+            .templates = templates_slice,
+            .tables = tables_slice,
+            .views = views_slice,
+            .sql_comments = sql_comments_slice,
         };
     }
 
