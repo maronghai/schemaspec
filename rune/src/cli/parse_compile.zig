@@ -15,8 +15,8 @@ const GlobalFlags = types.GlobalFlags;
 fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags, cmd: Command) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
     const final_cmd: Command = switch (cmd) {
-        .validate => |c| .{ .validate = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes } },
-        .check => |c| .{ .check = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes } },
+        .validate => |c| .{ .validate = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes, .format = if (opts.format == .json) .json else .text } },
+        .check => |c| .{ .check = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes, .format = if (opts.format == .json) .json else .text } },
         .stats => |c| .{ .stats = .{ .input = input orelse c.input, .format = c.format } },
         else => cmd,
     };
@@ -152,6 +152,7 @@ pub fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
             .stats = opts.stats,
             .validate_only = opts.validate_only,
             .format = opts.format,
+            .check = opts.check,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,

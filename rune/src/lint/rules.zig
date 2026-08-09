@@ -68,6 +68,11 @@ pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.
             try tableNameLength(alloc, &results, table, cfg.table_name_max);
         }
     }
+    if (LintRule.column_length.isEnabled(cfg)) {
+        for (ast.tables) |table| {
+            try columnLength(alloc, &results, table);
+        }
+    }
 
     return results;
 }
@@ -440,6 +445,36 @@ fn tableNameLength(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult)
             .message = msg,
             .severity = .warning,
         });
+    }
+}
+
+fn columnLength(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    for (table.fields) |field| {
+        switch (field.type_info) {
+            .varchar_explicit => |len| {
+                if (len == 0) {
+                    const msg = try std.fmt.allocPrint(alloc, "string column '{s}' has no explicit length — consider adding length (e.g., s64) for cross-dialect compatibility", .{field.name});
+                    try results.append(alloc, .{
+                        .rule = "column-length",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .info,
+                    });
+                }
+            },
+            .simple => |s| {
+                if (std.mem.eql(u8, s, "S")) {
+                    const msg = try std.fmt.allocPrint(alloc, "string column '{s}' has no explicit length — consider adding length (e.g., s64) for cross-dialect compatibility", .{field.name});
+                    try results.append(alloc, .{
+                        .rule = "column-length",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .info,
+                    });
+                }
+            },
+            else => {},
+        }
     }
 }
 

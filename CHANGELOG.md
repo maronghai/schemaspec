@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.179.0] - 2026-08-09
+
+### Added
+- **`rune validate --format json`** — Machine-readable JSON output for CI/CD pipelines. Outputs `{"valid":bool,"errors":int,"tables":int,"fields":int,"views":int}` for both valid and invalid schemas.
+- **`rune reverse --check`** — CI gate mode for SQL schema validation. Exits silently with code 0 on valid SQL, exits with code 1 on parse errors. Aligns with `rune diff --check` and `rune migrate --check` patterns.
+- **`rune check --format json`** — JSON output support for the check command (CI gate mode).
+- **`column-length` lint rule** — Warns when string fields (`s`, `S`) lack explicit length specification. Helps catch cross-dialect compatibility issues (MySQL TEXT vs PostgreSQL unlimited VARCHAR). Configurable via `rune-lint.toml`.
+
+### Changed
+- **Extended validate command** — Added `--format` flag (text, json) to `rune validate` and `rune check` commands for structured output.
+- **Extended reverse command** — Added `--check` flag to `rune reverse` for validation-only CI gate mode.
+
 ## [0.178.0] - 2026-08-09
 
 ### Changed

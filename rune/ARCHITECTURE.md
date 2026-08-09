@@ -456,7 +456,7 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 
 | File | Lines | Responsibility |
 |------|-------|---------------|
-| `lint/rules.zig` | ~429 | 17 lint rules (no-pk, naming, no-index-fk, no-timestamps, wide-table, enum-case, count, fk-cascade, nullable-pk, orphan-type, index-unused, circular-fk, duplicate-index, empty-table, table-comment, naming_conventions, and table_count) |
+| `lint/rules.zig` | ~450 | 18 lint rules (no-pk, naming, no-index-fk, no-timestamps, wide-table, enum-case, count, fk-cascade, nullable-pk, orphan-type, index-unused, circular-fk, duplicate-index, empty-table, table-comment, serial-type, table-name-length, column-length) |
 | `lint/config.zig` | ~239 | `LintConfig` struct with toggle flags, `LintRule` enum (single source of truth for rule names + enable/disable), `LintRules` TOML config parsing, severity/threshold configuration |
 | `lint/format.zig` | ~150 | Output formatters: text (human-readable), JSON (machine-readable), SARIF (CI/CD integration) |
 | `lint/fix.zig` | ~180 | Auto-fix logic for fixable rules (no-pk, no-timestamps, empty-table) |
@@ -481,6 +481,9 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 | `duplicate-index` | Duplicate index on same columns | No |
 | `empty-table` | Table has zero columns | Yes |
 | `table-comment` | Table has no comment | No |
+| `serial-type` | PostgreSQL-specific serial type used | No |
+| `table-name-length` | Table name exceeds max length (default 64) | No |
+| `column-length` | String column has no explicit length | No |
 
 ### Diff-Aware Lint
 

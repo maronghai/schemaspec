@@ -19,6 +19,7 @@ pub const ReverseConfig = struct {
     trace: bool = false,
     stats: bool = false,
     validate_only: bool = false,
+    check: bool = false,
 };
 
 /// Handle the `rune reverse` command: parse SQL DDL and generate .ss schema output.
@@ -83,6 +84,10 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
 
     if (cfg.validate_only) {
         std.debug.print("SQL is valid\n", .{});
+        return;
+    }
+
+    if (cfg.check) {
         return;
     }
 

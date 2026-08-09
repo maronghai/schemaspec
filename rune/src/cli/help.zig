@@ -109,6 +109,7 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
             } else if (std.mem.eql(u8, subcommand, "validate") or std.mem.eql(u8, subcommand, "check")) {
                 std.debug.print("\nOptions:\n", .{});
                 std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
+                std.debug.print("  --format        Output format: text (default), json\n", .{});
                 std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
             } else if (std.mem.eql(u8, subcommand, "init")) {
                 std.debug.print("\nOptions:\n", .{});

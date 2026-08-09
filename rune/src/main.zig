@@ -247,11 +247,11 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .validate => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return handlers.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors, parsed.strict);
+            return handlers.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors, parsed.strict, cmd.format);
         },
         .check => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return handlers.handleCheck(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors);
+            return handlers.handleCheck(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors, cmd.format);
         },
         .stats => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
@@ -305,6 +305,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .trace = cmd.trace,
                 .stats = cmd.stats,
                 .validate_only = cmd.validate_only,
+                .check = cmd.check,
             });
         },
         .docs => |cmd| {

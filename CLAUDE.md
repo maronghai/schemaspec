@@ -64,6 +64,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune schema.ss -d db2                 # Db2 output
 ./rune/zig-out/bin/rune validate schema.ss               # Validate schema (no output)
 ./rune/zig-out/bin/rune validate schema.ss -s            # Validate with stats
+./rune/zig-out/bin/rune validate schema.ss --format json # Validate as JSON
 ./rune/zig-out/bin/rune stats schema.ss                  # Print schema statistics
 ./rune/zig-out/bin/rune stats schema.ss --format json    # Stats as JSON
 ./rune/zig-out/bin/rune stats schema.ss --per-table      # Per-table breakdown
@@ -78,6 +79,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune migrate --graph migrations/      # Migration dependency graph
 ./rune/zig-out/bin/rune reverse schema.sql -t             # Reverse-engineer with template extraction
 ./rune/zig-out/bin/rune reverse schema.sql --format json  # Reverse-engineer to JSON
+./rune/zig-out/bin/rune reverse schema.sql --check        # CI gate (exit 1 on errors)
 ./rune/zig-out/bin/rune docs schema.ss                   # Generate Markdown documentation
 ./rune/zig-out/bin/rune format schema.ss                    # Auto-format .ss file
 ./rune/zig-out/bin/rune tune schema.ss                      # Extract common fields into templates

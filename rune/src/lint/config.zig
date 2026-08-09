@@ -32,6 +32,7 @@ pub const LintRule = enum {
     table_comment,
     serial_type,
     table_name_length,
+    column_length,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -53,6 +54,7 @@ pub const LintRule = enum {
             .table_comment => cfg.check_table_comment,
             .serial_type => cfg.check_serial_type,
             .table_name_length => cfg.check_table_name_length,
+            .column_length => cfg.check_column_length,
         };
     }
 
@@ -76,6 +78,7 @@ pub const LintRule = enum {
             .table_comment => "table-comment",
             .serial_type => "serial-type",
             .table_name_length => "table-name-length",
+            .column_length => "column-length",
         };
     }
 
@@ -108,6 +111,7 @@ pub const LintConfig = struct {
     check_table_comment: bool = true,
     check_serial_type: bool = true,
     check_table_name_length: bool = true,
+    check_column_length: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -287,6 +291,7 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             .check_table_comment = false,
             .check_serial_type = false,
             .check_table_name_length = false,
+            .check_column_length = false,
             .wide_table_max = base.wide_table_max,
             .count_min = base.count_min,
             .table_name_max = base.table_name_max,
@@ -336,6 +341,7 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .table_comment => c.check_table_comment = enabled,
         .serial_type => c.check_serial_type = enabled,
         .table_name_length => c.check_table_name_length = enabled,
+        .column_length => c.check_column_length = enabled,
     }
     return c;
 }

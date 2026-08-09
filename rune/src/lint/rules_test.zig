@@ -139,7 +139,8 @@ test "lint: clean schema passes" {
     table.comment = "User accounts";
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
-    const results = try lintSchema(alloc, test_ast, .{});
+    // Disable column-length rule since test fields use bare 's' type
+    const results = try lintSchema(alloc, test_ast, .{ .check_column_length = false });
     try testing.expectEqual(@as(usize, 0), results.items.len);
 }
 
@@ -911,6 +912,66 @@ test "lint: short table name passes" {
     const results = try lintSchema(alloc, test_ast, .{});
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "table-name-length")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Column Length Tests ─────────────────────────────────────
+
+test "lint: bare string type detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        // s is parsed as .varchar_explicit = 0 (no explicit length)
+        makeField("name", .{ .varchar_explicit = 0 }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-length")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: explicit varchar length passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("name", .{ .varchar_explicit = 64 }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-length")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: column-length rule can be disabled" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("name", .{ .varchar_explicit = 0 }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{ .check_column_length = false });
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-length")) {
             try testing.expect(false);
         }
     }

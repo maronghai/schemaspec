@@ -98,11 +98,11 @@ pub fn handleCompileRequest(
 /// Validate a .ss file — runs the full semantic pipeline and reports diagnostics.
 /// With strict=false (default validate): always succeeds (exit 0), prints errors but doesn't fail.
 /// With strict=true (check mode): returns error.DiagnosticsError on errors (exit 1).
-/// With json_errors=true: outputs JSON result instead of text.
-pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool) !void {
+/// With json_errors=true or format=.json: outputs JSON result instead of text.
+pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool, format: StatsFormat) !void {
     const result = compilePipeline(alloc, file_data, .{ .verbose_passes = verbose_passes, .json_errors = json_errors }) catch |err| {
         if (err == error.DiagnosticsError or err == error.SemanticError) {
-            if (json_errors) {
+            if (json_errors or format == .json) {
                 const s = Stats{ .tables = 0, .fields = 0, .views = 0, .not_null_fields = 0, .numeric_fields = 0, .string_fields = 0, .datetime_fields = 0, .boolean_fields = 0, .other_fields = 0, .foreign_keys = 0, .indexes = 0, .check_constraints = 0, .custom_types = 0 };
                 const json = try formatValidateResult(alloc, false, s, 1);
                 try io_mod.writeOutput(io, json, null, false);
@@ -115,7 +115,7 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
         return err;
     };
     const s = computeStats(result.resolved);
-    if (json_errors) {
+    if (json_errors or format == .json) {
         const json = try formatValidateResult(alloc, !result.partial, s, if (result.partial) @min(result.tree.error_count, std.math.maxInt(u32)) else 0);
         try io_mod.writeOutput(io, json, null, false);
     } else {
@@ -132,8 +132,8 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
 }
 
 /// Check a .ss file — CI gate mode. Fails on any schema error.
-pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool) !void {
-    return handleValidate(io, alloc, file_data, stats, verbose_passes, json_errors, true);
+pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, format: StatsFormat) !void {
+    return handleValidate(io, alloc, file_data, stats, verbose_passes, json_errors, true, format);
 }
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.
