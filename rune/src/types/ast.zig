@@ -130,6 +130,8 @@ pub const CheckConstraint = struct {
 
 pub const Field = struct {
     name: []const u8,
+    /// Inline documentation from `+` directive lines.
+    doc: ?[]const u8 = null,
     type_info: TypeInfo,
     modifiers: []const Modifier,
     default_val: ?DefaultVal,
@@ -187,6 +189,8 @@ pub const IndexDecl = struct {
 pub const Template = struct {
     name: ?[]const u8,
     parents: []const []const u8,
+    /// Inline documentation from `+` directive lines.
+    doc: ?[]const u8 = null,
     fields: []const Field,
     slot_index: ?usize,
     line_no: usize,
@@ -197,6 +201,8 @@ pub const Table = struct {
     template_ref: ?[]const u8,
     name: []const u8,
     comment: ?[]const u8,
+    /// Inline documentation from `+` directive lines.
+    doc: ?[]const u8 = null,
     engine: ?[]const u8,
     fields: []const Field,
     fks: []const FkDecl,
@@ -246,6 +252,8 @@ pub const View = struct {
     name: []const u8,
     query: []const u8,
     comment: ?[]const u8,
+    /// Inline documentation from `+` directive lines.
+    doc: ?[]const u8 = null,
     line_no: usize,
     loc: ?SourceLocation = null,
     /// UNION/INTERSECT/EXCEPT operator (null if no set operation).

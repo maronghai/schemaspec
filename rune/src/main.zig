@@ -1,6 +1,7 @@
 const std = @import("std");
 const cli = @import("cli.zig");
 const handlers = @import("pipeline/handlers.zig");
+const forward = @import("pipeline/forward.zig");
 const diff_pipe = @import("pipeline/diff.zig");
 const reverse_pipe = @import("pipeline/reverse.zig");
 const io_mod = @import("io.zig");
@@ -307,9 +308,16 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             });
         },
         .docs => |cmd| {
-            // Shortcut for `rune generate docs` — both route through the same generator registry
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return handlers.generateFromSchema(io, alloc, file_data, "docs", parsed.dialect, cmd.output, parsed.quiet);
+            const pipeline = try forward.compilePipeline(alloc, file_data, .{});
+            const docs_mod = @import("generators/docs.zig");
+            const typed = try @import("types/type_resolver.zig").TypeResolver.resolve(alloc, pipeline.resolved, parsed.dialect);
+            const doc_format: docs_mod.DocFormat = switch (cmd.doc_format) {
+                .markdown => .markdown,
+                .json => .json,
+            };
+            const output_text = try docs_mod.generateWithFormat(alloc, typed, doc_format);
+            try io_mod.writeOutput(io, output_text, cmd.output, parsed.quiet);
         },
         .generate => |cmd| {
             if (cmd.list) {

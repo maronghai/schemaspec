@@ -105,6 +105,7 @@ pub fn AstVisitor(comptime Context: type) type {
                         .name = table.name,
                         .template_ref = null,
                         .comment = table.comment,
+                        .doc = table.doc,
                         .engine = table.engine,
                         .fields = table.fields,
                         .fks = table.fks,

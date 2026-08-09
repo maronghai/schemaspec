@@ -68,6 +68,7 @@ pub fn run(ctx: *PassContext) !void {
         try new_tables.append(ctx.alloc, .{
             .name = table.name,
             .comment = table.comment,
+            .doc = table.doc,
             .engine = table.engine,
             .fields = try new_fields.toOwnedSlice(ctx.alloc),
             .fks = table.fks,

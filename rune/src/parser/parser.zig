@@ -35,6 +35,8 @@ const SourceLocation = ast_mod.SourceLocation;
 pub const Parser = struct {
     alloc: std.mem.Allocator,
     diagnostics: ?*diag.DiagnosticCollector,
+    /// Pending documentation from `+` doc lines (attached to next construct).
+    pending_doc: ?[]const u8 = null,
 
     pub fn init(alloc: std.mem.Allocator) Parser {
         return .{ .alloc = alloc, .diagnostics = null };
@@ -62,6 +64,7 @@ pub const Parser = struct {
     const BlockState = struct {
         name: ?[]const u8 = null,
         comment: ?[]const u8 = null,
+        doc: ?[]const u8 = null,
         template_ref: ?[]const u8 = null,
         parents_buf: [][]const u8 = &.{},
         parents_len: usize = 0,
@@ -84,6 +87,7 @@ pub const Parser = struct {
         fn reset(self: *BlockState, alloc: std.mem.Allocator) !void {
             self.name = null;
             self.comment = null;
+            self.doc = null;
             self.template_ref = null;
             self.parents_buf = try alloc.alloc([]const u8, 4);
             self.parents_len = 0;
@@ -113,6 +117,17 @@ pub const Parser = struct {
             const line = lines[line_idx];
             switch (line.line_type) {
                 .Empty, .SpecComment => {},
+                .Doc => {
+                    // Collect `+` doc lines; attach to the next construct.
+                    const text = if (line.trimmed.len > 1) std.mem.trim(u8, line.trimmed[1..], " ") else "";
+                    if (text.len > 0) {
+                        if (self.pending_doc) |existing| {
+                            self.pending_doc = try std.fmt.allocPrint(self.alloc, "{s}\n{s}", .{ existing, text });
+                        } else {
+                            self.pending_doc = try self.alloc.dupe(u8, text);
+                        }
+                    }
+                },
                 .Schema => {
                     if (line.tokens.len >= 2) {
                         var charset: ?[]const u8 = null;
@@ -162,7 +177,10 @@ pub const Parser = struct {
                         continue;
                     };
                     try block.reset(self.alloc);
+                    const captured_doc = self.pending_doc;
+                    self.pending_doc = null;
                     block.name = tmpl.name;
+                    block.doc = captured_doc;
                     for (tmpl.parents) |p| {
                         if (block.parents_len < block.parents_buf.len) {
                             block.parents_buf[block.parents_len] = p;
@@ -183,6 +201,8 @@ pub const Parser = struct {
                     const pending_engine = block.engine;
                     const result = try parse_table.stripEngineTokens(self.alloc, line.tokens);
                     try block.reset(self.alloc);
+                    const captured_doc = self.pending_doc;
+                    self.pending_doc = null;
                     block.engine = if (result.engine) |e| e else pending_engine;
                     const stripped_line = tk.Line{
                         .line_type = line.line_type,
@@ -203,6 +223,7 @@ pub const Parser = struct {
                     };
                     block.name = hdr.name;
                     block.comment = hdr.comment;
+                    block.doc = captured_doc;
                     block.template_ref = hdr.template_ref;
                     block.line_no = hdr.line_no;
                     block.loc = hdr.loc;
@@ -216,15 +237,24 @@ pub const Parser = struct {
                     }
                     block.mode = .none;
                     if (line.tokens.len >= 2) {
-                        views.append(self.alloc, parse_table.processViewLine(self.alloc, line.tokens, line.line_no) catch continue) catch continue;
+                        var view = parse_table.processViewLine(self.alloc, line.tokens, line.line_no) catch continue;
+                        if (self.pending_doc) |d| {
+                            view.doc = d;
+                            self.pending_doc = null;
+                        }
+                        views.append(self.alloc, view) catch continue;
                     }
                 },
                 .Field => {
                     if (block.mode != .none) {
-                        const fld = parse_field.parseField(self.alloc, line) catch |err| {
+                        var fld = parse_field.parseField(self.alloc, line) catch |err| {
                             if (!self.handleParseError(err, line, "failed to parse field")) return err;
                             continue;
                         };
+                        if (self.pending_doc) |d| {
+                            fld.doc = d;
+                            self.pending_doc = null;
+                        }
                         try block.fields.append(self.alloc, fld);
                     } else {
                         diag.printDiagnostic(self.alloc, .{
@@ -238,8 +268,11 @@ pub const Parser = struct {
                 },
                 .Slot => {
                     if (block.mode != .none) {
+                        const slot_doc = self.pending_doc;
+                        self.pending_doc = null;
                         try block.fields.append(self.alloc, .{
                             .name = "...",
+                            .doc = slot_doc,
                             .type_info = .none,
                             .modifiers = &.{},
                             .default_val = null,
@@ -392,6 +425,7 @@ pub const Parser = struct {
             .template_ref = block.template_ref,
             .name = block.name orelse "",
             .comment = block.comment,
+            .doc = block.doc,
             .engine = block.engine,
             .fields = try block.fields.toOwnedSlice(self.alloc),
             .fks = try block.fks.toOwnedSlice(self.alloc),
@@ -406,7 +440,7 @@ pub const Parser = struct {
         templates: *std.ArrayList(Template),
         block: *BlockState,
     ) !void {
-        try parse_template.flushTemplate(self.alloc, templates, block.name, block.parents_buf, block.parents_len, &block.fields, block.line_no, block.loc);
+        try parse_template.flushTemplate(self.alloc, templates, block.name, block.parents_buf, block.parents_len, &block.fields, block.doc, block.line_no, block.loc);
     }
 
     // ─── Public API: delegated functions ────────────────────

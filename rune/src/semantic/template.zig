@@ -65,6 +65,7 @@ pub fn resolveAndApply(
         try tables.append(alloc, .{
             .name = t.name,
             .comment = t.comment,
+            .doc = t.doc,
             .engine = t.engine,
             .fields = try alloc.dupe(Field, fields),
             .fks = t.fks,

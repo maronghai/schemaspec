@@ -54,6 +54,8 @@ pub const TypedView = struct {
     name: []const u8,
     query: []const u8,
     comment: ?[]const u8,
+    /// Inline documentation from `+` directive lines.
+    doc: ?[]const u8 = null,
     line_no: usize,
     /// UNION/INTERSECT/EXCEPT operator (null if no set operation).
     union_op: ?ast_mod.ViewUnionOp = null,
@@ -64,6 +66,8 @@ pub const TypedView = struct {
 pub const TypedTable = struct {
     name: []const u8,
     comment: ?[]const u8,
+    /// Inline documentation from `+` directive lines.
+    doc: ?[]const u8 = null,
     engine: ?[]const u8,
     columns: []const TypedColumn,
     fks: []const FkDecl,
@@ -73,6 +77,8 @@ pub const TypedTable = struct {
 
 pub const TypedColumn = struct {
     name: []const u8,
+    /// Inline documentation from `+` directive lines.
+    doc: ?[]const u8 = null,
     sql_type: sql_type_mod.SqlType,
     /// Original SS symbol string for roundtrip preservation (SQLite only).
     /// Used to emit `-- @sym col_name symbol` comments that the reverse

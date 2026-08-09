@@ -10,6 +10,7 @@ pub const StatsFormat = enums.StatsFormat;
 pub const ColorMode = enums.ColorMode;
 
 pub const LintFormat = enum { text, json, sarif };
+pub const DocsFormat = enum { markdown, json };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
@@ -20,7 +21,7 @@ pub const Command = union(enum) {
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false, graph: bool = false },
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat },
-    docs: struct { input: ?[]const u8, output: ?[]const u8 },
+    docs: struct { input: ?[]const u8, output: ?[]const u8, doc_format: DocsFormat = .markdown },
     format_cmd: struct { input: ?[]const u8, output: ?[]const u8, check: bool = false },
     generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool },
     init: struct { name: ?[]const u8, output: ?[]const u8, output_dir: ?[]const u8 = null, template: ?[]const u8 = null },

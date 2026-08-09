@@ -28,6 +28,7 @@ pub fn run(ctx: *PassContext) !void {
         try ti_tables.append(ctx.alloc, .{
             .name = table.name,
             .comment = table.comment,
+            .doc = table.doc,
             .engine = table.engine,
             .fields = try ti_fields.toOwnedSlice(ctx.alloc),
             .fks = table.fks,

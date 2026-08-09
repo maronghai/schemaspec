@@ -13,6 +13,8 @@ const ir_version = @import("ir_version.zig");
 pub const ResolvedTable = struct {
     name: []const u8,
     comment: ?[]const u8,
+    /// Inline documentation from `+` directive lines.
+    doc: ?[]const u8 = null,
     engine: ?[]const u8,
     fields: []ast_mod.Field,
     fks: []const FkDecl,

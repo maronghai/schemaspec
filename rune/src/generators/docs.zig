@@ -4,15 +4,27 @@ const dialect_enum = @import("../dialect/enum.zig");
 const Dialect = dialect_enum.Dialect;
 const Writer = std.Io.Writer;
 
-// ─── Markdown Documentation Generator ────────────────────────
-// Generates Markdown documentation from TypedAst.
-// Output: structured Markdown with tables, fields, FKs, and stats.
-//
-// Architecture: TypedAst → Markdown string
-//   Schema overview (table/field/view counts)
-//   Per-table: columns table, FKs, indexes
+// ─── Documentation Generator ─────────────────────────────────
+// Generates Markdown or JSON documentation from TypedAst.
+// Supports `+` doc directive for structured documentation.
+
+pub const DocFormat = enum {
+    markdown,
+    json,
+};
 
 pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect) ![]const u8 {
+    return generateWithFormat(alloc, typed, .markdown);
+}
+
+pub fn generateWithFormat(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, format: DocFormat) ![]const u8 {
+    return switch (format) {
+        .markdown => generateMarkdown(alloc, typed),
+        .json => generateJson(alloc, typed),
+    };
+}
+
+fn generateMarkdown(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
@@ -42,6 +54,15 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
         try w.print("- **Indexes:** {d}\n", .{total_indexes});
     }
     try w.print("- **Views:** {d}\n\n", .{typed.views.len});
+
+    // Table of Contents
+    if (typed.tables.len > 0) {
+        try w.writeAll("## Table of Contents\n\n");
+        for (typed.tables) |table| {
+            try w.print("- [`{s}`](#{s})\n", .{ table.name, table.name });
+        }
+        try w.writeAll("\n");
+    }
 
     // Custom Types
     if (typed.custom_types.len > 0) {
@@ -74,7 +95,8 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
         try w.writeAll("## Views\n\n");
         for (typed.views) |view| {
             try w.print("### `{s}`\n\n", .{view.name});
-            if (view.comment) |c| {
+            const desc = view.doc orelse view.comment;
+            if (desc) |c| {
                 if (c.len > 0) {
                     try w.print("{s}\n\n", .{c});
                 }
@@ -140,9 +162,87 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
     return try aw.toOwnedSlice();
 }
 
+fn generateJson(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+
+    try w.writeAll("{\n");
+
+    // Schema metadata
+    if (typed.schema_name) |name| {
+        try w.print("  \"schema\": \"{s}\",\n", .{name});
+    } else {
+        try w.writeAll("  \"schema\": null,\n");
+    }
+
+    // Counts
+    var total_fields: usize = 0;
+    var total_fks: usize = 0;
+    var total_indexes: usize = 0;
+    for (typed.tables) |table| {
+        total_fields += table.columns.len;
+        total_fks += table.fks.len;
+        total_indexes += table.indexes.len;
+    }
+    try w.print("  \"tables\": {d},\n", .{typed.tables.len});
+    try w.print("  \"fields\": {d},\n", .{total_fields});
+    try w.print("  \"foreign_keys\": {d},\n", .{total_fks});
+    try w.print("  \"indexes\": {d},\n", .{total_indexes});
+    try w.print("  \"views\": {d},\n", .{typed.views.len});
+
+    // Custom types
+    if (typed.custom_types.len > 0) {
+        try w.writeAll("  \"custom_types\": [\n");
+        for (typed.custom_types, 0..) |ct, i| {
+            if (i > 0) try w.writeAll(",\n");
+            try w.print("    {{ \"name\": \"{s}\"", .{ct.name});
+            if (ct.base == .enum_type) {
+                try w.writeAll(", \"values\": [");
+                for (ct.base.enum_type, 0..) |v, vi| {
+                    if (vi > 0) try w.writeAll(", ");
+                    try w.print("\"{s}\"", .{v});
+                }
+                try w.writeAll("]");
+            }
+            try w.writeAll("}");
+        }
+        try w.writeAll("\n  ],\n");
+    }
+
+    // Tables
+    try w.writeAll("  \"table_list\": [\n");
+    for (typed.tables, 0..) |table, ti| {
+        if (ti > 0) try w.writeAll(",\n");
+        try w.print("    {{ \"name\": \"{s}\"", .{table.name});
+        if (table.doc) |doc| {
+            try w.print(", \"doc\": \"{s}\"", .{doc});
+        } else if (table.comment) |c| {
+            try w.print(", \"description\": \"{s}\"", .{c});
+        }
+        try w.writeAll(", \"columns\": [");
+        for (table.columns, 0..) |col, ci| {
+            if (ci > 0) try w.writeAll(", ");
+            try w.print("{{ \"name\": \"{s}\"", .{col.name});
+            if (col.doc) |doc| {
+                try w.print(", \"doc\": \"{s}\"", .{doc});
+            } else if (col.comment) |c| {
+                try w.print(", \"description\": \"{s}\"", .{c});
+            }
+            try w.writeAll(" }");
+        }
+        try w.writeAll("] }");
+    }
+    try w.writeAll("\n  ]\n");
+
+    try w.writeAll("}\n");
+    try w.flush();
+    return try aw.toOwnedSlice();
+}
+
 fn writeTable(w: *Writer, table: typed_ast.TypedTable) !void {
     try w.print("### `{s}`\n\n", .{table.name});
-    if (table.comment) |c| {
+    const desc = table.doc orelse table.comment;
+    if (desc) |c| {
         if (c.len > 0) {
             try w.print("{s}\n\n", .{c});
         }
@@ -168,7 +268,8 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable) !void {
             }
         }
         try w.writeAll(" | ");
-        if (col.comment) |c| {
+        const col_desc = col.doc orelse col.comment;
+        if (col_desc) |c| {
             try w.writeAll(c);
         }
         try w.writeAll(" |\n");

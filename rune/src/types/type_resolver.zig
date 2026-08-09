@@ -41,6 +41,7 @@ pub const TypeResolver = struct {
             try tables.append(alloc, .{
                 .name = table.name,
                 .comment = table.comment,
+                .doc = table.doc,
                 .engine = table.engine,
                 .columns = try columns.toOwnedSlice(alloc),
                 .fks = try all_fks.toOwnedSlice(alloc),
@@ -65,6 +66,7 @@ pub const TypeResolver = struct {
                 .name = v.name,
                 .query = v.query,
                 .comment = v.comment,
+                .doc = v.doc,
                 .line_no = v.line_no,
                 .union_op = v.union_op,
                 .second_query = v.second_query,
@@ -88,6 +90,7 @@ pub const TypeResolver = struct {
                 // Recursively resolve the custom type's base info
                 return resolveColumnInner(alloc, ast_mod.Field{
                     .name = field.name,
+                    .doc = field.doc,
                     .type_info = ct_info,
                     .modifiers = field.modifiers,
                     .default_val = field.default_val,
@@ -113,6 +116,7 @@ pub const TypeResolver = struct {
 
         return .{
             .name = field.name,
+            .doc = field.doc,
             .sql_type = sql_type,
             .ss_symbol = ss_symbol,
             .flags = .{

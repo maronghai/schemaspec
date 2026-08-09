@@ -74,6 +74,7 @@ pub fn flushTemplate(
     parents_buf: []const []const u8,
     parents_len: usize,
     fields: *std.ArrayList(Field),
+    doc: ?[]const u8,
     line_no: usize,
     loc: ?SourceLocation,
 ) !void {
@@ -81,6 +82,7 @@ pub fn flushTemplate(
     try templates.append(alloc, .{
         .name = name,
         .parents = parents_buf[0..parents_len],
+        .doc = doc,
         .fields = try fields.toOwnedSlice(alloc),
         .slot_index = slot_idx,
         .line_no = line_no,

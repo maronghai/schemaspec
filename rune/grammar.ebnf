@@ -13,6 +13,7 @@ line            = schema_decl
                 | table_decl
                 | view_decl
                 | import_directive
+                | doc_decl
                 | sql_comment
                 | spec_comment
                 | field_decl
@@ -51,6 +52,10 @@ set_operator    = "UNION" [ "ALL" ] | "INTERSECT" | "EXCEPT" ;
 (* ─── Import Directive ────────────────────────────────────── *)
 
 import_directive = "@import" file_path ;
+
+(* ─── Documentation Directive ──────────────────────────────── *)
+
+doc_decl        = "+" { any_char } ;
 
 (* ─── Comments ────────────────────────────────────────────── *)
 

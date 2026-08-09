@@ -12,7 +12,12 @@ const GlobalFlags = types.GlobalFlags;
 
 pub fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    return shared.parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1) } }, opts);
+    // Map global --format flag to docs format
+    const doc_format: types.DocsFormat = switch (opts.format) {
+        .json => .json,
+        else => .markdown,
+    };
+    return shared.parseSimpleSubcommand(dialect, target, .{ .docs = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1), .doc_format = doc_format } }, opts);
 }
 
 pub fn parseFormatArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
