@@ -784,9 +784,21 @@ fn checkTimestampNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintRe
 }
 
 fn isSnakeCase(name: []const u8) bool {
+    if (name.len == 0) return false;
+    // Must start with a lowercase letter
+    if (!std.ascii.isLower(name[0])) return false;
+    var prev_underscore = false;
     for (name) |c| {
         if (std.ascii.isUpper(c)) return false;
+        if (c == '_') {
+            if (prev_underscore) return false; // no consecutive underscores
+            prev_underscore = true;
+        } else {
+            prev_underscore = false;
+        }
     }
+    // Must not end with underscore
+    if (name[name.len - 1] == '_') return false;
     return true;
 }
 
@@ -823,4 +835,30 @@ fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
         if (match) return true;
     }
     return false;
+}
+
+// ─── Tests ──────────────────────────────────────────────────
+
+test "isSnakeCase valid" {
+    try std.testing.expect(isSnakeCase("hello"));
+    try std.testing.expect(isSnakeCase("snake_case"));
+    try std.testing.expect(isSnakeCase("a"));
+    try std.testing.expect(isSnakeCase("my_table_name"));
+    try std.testing.expect(isSnakeCase("field1"));
+}
+
+test "isSnakeCase invalid" {
+    // Consecutive underscores
+    try std.testing.expect(!isSnakeCase("a__b"));
+    // Starts with digit
+    try std.testing.expect(!isSnakeCase("123abc"));
+    // Leading underscore
+    try std.testing.expect(!isSnakeCase("_leading"));
+    // Trailing underscore
+    try std.testing.expect(!isSnakeCase("trailing_"));
+    // Uppercase
+    try std.testing.expect(!isSnakeCase("CamelCase"));
+    try std.testing.expect(!isSnakeCase("UPPER"));
+    // Empty
+    try std.testing.expect(!isSnakeCase(""));
 }

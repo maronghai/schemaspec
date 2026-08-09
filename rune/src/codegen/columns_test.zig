@@ -202,7 +202,7 @@ test "emitCheckExpr: range constraint" {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    const ck = ast_mod.CheckConstraint{ .kind = .range, .expr = "1, 100" };
+    const ck = ast_mod.CheckConstraint{ .kind = .range, .expr = "1, 100", .line_no = 1 };
     try columns.emitCheckExpr(w, "age", ck);
     try w.flush();
 
@@ -217,7 +217,7 @@ test "emitCheckExpr: in_list constraint" {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    const ck = ast_mod.CheckConstraint{ .kind = .in_list, .expr = "'active', 'inactive'" };
+    const ck = ast_mod.CheckConstraint{ .kind = .in_list, .expr = "'active', 'inactive'", .line_no = 1 };
     try columns.emitCheckExpr(w, "status", ck);
     try w.flush();
 
@@ -233,7 +233,7 @@ test "emitCheckExpr: comparison >= constraint" {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    const ck = ast_mod.CheckConstraint{ .kind = .comparison, .expr = ">=18" };
+    const ck = ast_mod.CheckConstraint{ .kind = .comparison, .expr = ">=18", .line_no = 1 };
     try columns.emitCheckExpr(w, "age", ck);
     try w.flush();
 
@@ -248,7 +248,7 @@ test "emitCheckExpr: comparison < constraint" {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
-    const ck = ast_mod.CheckConstraint{ .kind = .comparison, .expr = "<150" };
+    const ck = ast_mod.CheckConstraint{ .kind = .comparison, .expr = "<150", .line_no = 1 };
     try columns.emitCheckExpr(w, "age", ck);
     try w.flush();
 

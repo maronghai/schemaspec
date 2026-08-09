@@ -18,6 +18,7 @@ test "migrate_json: empty diff" {
         .table_diffs = &.{},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -36,6 +37,7 @@ test "migrate_json: drop table" {
         .table_diffs = &.{},
         .dropped_tables = dropped,
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
 
     try testing.expect(std.mem.indexOf(u8, result, "\"type\": \"drop_table\"") != null);
@@ -53,6 +55,7 @@ test "migrate_json: create table" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -77,6 +80,7 @@ test "migrate_json: add column" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -101,6 +105,7 @@ test "migrate_json: drop column" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -125,6 +130,7 @@ test "migrate_json: modify column" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -148,6 +154,7 @@ test "migrate_json: rename column" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -172,6 +179,7 @@ test "migrate_json: add index" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -195,6 +203,7 @@ test "migrate_json: drop index" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -216,6 +225,7 @@ test "migrate_json: add fk" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -237,6 +247,7 @@ test "migrate_json: drop fk" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -258,6 +269,7 @@ test "migrate_json: modify fk" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -273,6 +285,7 @@ test "migrate_json: view diffs" {
             .{ .name = "v_old", .action = .drop },
             .{ .name = "v_changed", .action = .modify },
         },
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -299,6 +312,7 @@ test "migrate_json: metadata diff with changes" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -322,6 +336,7 @@ test "migrate_json: metadata diff no changes" {
         }},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .mysql);
     defer testing.allocator.free(result);
 
@@ -350,6 +365,7 @@ test "migrate_json: mixed operations" {
         }},
         .dropped_tables = dropped,
         .view_diffs = &[_]diff_types.ViewDiff{.{ .name = "v1", .action = .create }},
+        .custom_type_diffs = &.{},
     }, .pg);
 
     try testing.expect(std.mem.indexOf(u8, result, "\"type\": \"drop_table\"") != null);
@@ -363,6 +379,7 @@ test "migrate_json: dialect sqlite" {
         .table_diffs = &.{},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     }, .sqlite);
     defer testing.allocator.free(result);
 

@@ -46,36 +46,34 @@ test "findSlot: slot at end" {
 }
 
 test "parseTemplateHeader: simple template" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const line = tk.Line{
+        .line_type = .Template,
         .tokens = &.{ "%", "base" },
+        .raw = "% base",
+        .trimmed = "% base",
         .line_no = 1,
-        .indent = 0,
     };
     const header = try parse_template.parseTemplateHeader(alloc, line);
-    defer {
-        if (header.name) |n| alloc.free(n);
-        for (header.parents) |p| alloc.free(p);
-        alloc.free(header.parents.ptr[0..4]);
-    }
     try testing.expect(header.name != null);
     try testing.expectEqualStrings("base", header.name.?);
     try testing.expectEqual(@as(usize, 0), header.parents.len);
 }
 
 test "parseTemplateHeader: template with parent" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const line = tk.Line{
+        .line_type = .Template,
         .tokens = &.{ "%", "user", ">", "base" },
+        .raw = "% user > base",
+        .trimmed = "% user > base",
         .line_no = 5,
-        .indent = 0,
     };
     const header = try parse_template.parseTemplateHeader(alloc, line);
-    defer {
-        if (header.name) |n| alloc.free(n);
-        for (header.parents) |p| alloc.free(p);
-        alloc.free(header.parents.ptr[0..4]);
-    }
     try testing.expect(header.name != null);
     try testing.expectEqualStrings("user", header.name.?);
     try testing.expectEqual(@as(usize, 1), header.parents.len);
@@ -83,18 +81,17 @@ test "parseTemplateHeader: template with parent" {
 }
 
 test "parseTemplateHeader: mixin syntax" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const line = tk.Line{
+        .line_type = .Template,
         .tokens = &.{ "%", "user", "+", "timestamp" },
+        .raw = "% user + timestamp",
+        .trimmed = "% user + timestamp",
         .line_no = 10,
-        .indent = 0,
     };
     const header = try parse_template.parseTemplateHeader(alloc, line);
-    defer {
-        if (header.name) |n| alloc.free(n);
-        for (header.parents) |p| alloc.free(p);
-        alloc.free(header.parents.ptr[0..4]);
-    }
     try testing.expect(header.name != null);
     try testing.expectEqualStrings("user", header.name.?);
     try testing.expectEqual(@as(usize, 1), header.parents.len);
@@ -102,18 +99,17 @@ test "parseTemplateHeader: mixin syntax" {
 }
 
 test "parseTemplateHeader: anonymous template" {
-    const alloc = testing.allocator;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const line = tk.Line{
+        .line_type = .Template,
         .tokens = &.{ "%" },
+        .raw = "%",
+        .trimmed = "%",
         .line_no = 1,
-        .indent = 0,
     };
     const header = try parse_template.parseTemplateHeader(alloc, line);
-    defer {
-        if (header.name) |n| alloc.free(n);
-        for (header.parents) |p| alloc.free(p);
-        alloc.free(header.parents.ptr[0..4]);
-    }
     try testing.expect(header.name == null);
     try testing.expectEqual(@as(usize, 0), header.parents.len);
 }

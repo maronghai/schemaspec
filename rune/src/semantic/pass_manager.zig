@@ -24,6 +24,8 @@ pub const PassContext = struct {
     symbol_table: symbol_table_mod.SymbolTable = undefined,
     /// Target dialect for conditional block resolution.
     dialect: Dialect = .mysql,
+    /// Views from the AST — available for view validation passes.
+    views: []const ast_mod.View = &.{},
 
     /// Create a PassContext with proper initialization of all fields.
     /// Prefer this over struct literal for clarity and safety.
@@ -44,6 +46,7 @@ pub const PassContext = struct {
             .template_refs = template_refs,
             .diagnostics = diagnostics,
             .symbol_table = symbol_table,
+            .views = &.{},
         };
     }
 };
@@ -87,6 +90,8 @@ pub const DEFAULT_PASSES = [_]SemanticPass{
     .{ .name = "validate_fk_types", .run = @import("pass/validate_fk_types.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
     // Cross-table index name collision detection (v0.125.0):
     .{ .name = "validate_index_names", .run = @import("pass/validate_index_names.zig").run, .depends_on = &.{"validate"}, .access = .{ .reads_tables = true } },
+    // View validation (v0.192.0):
+    .{ .name = "validate_views", .run = @import("pass/validate_views.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
 };
 
 /// Validate dependency ordering at runtime (comptime safety check).
@@ -106,10 +111,24 @@ pub fn validateDependencyOrder(alloc: std.mem.Allocator) void {
     }
 }
 
+/// Check if pass `a` transitively depends on pass `b` (directly or indirectly).
+fn transitivelyDependsOn(a_name: []const u8, b_name: []const u8) bool {
+    if (std.mem.eql(u8, a_name, b_name)) return true;
+    for (DEFAULT_PASSES) |pass| {
+        if (std.mem.eql(u8, pass.name, a_name)) {
+            for (pass.depends_on) |dep| {
+                if (transitivelyDependsOn(dep, b_name)) return true;
+            }
+            return false;
+        }
+    }
+    return false;
+}
+
 /// Validate that sequential passes don't have conflicting access patterns.
 /// Two passes conflict if:
 /// - Both write to tables (write-write conflict)
-/// - One writes tables and the other reads but doesn't depend on the writer
+/// - One writes tables and the other reads but doesn't transitively depend on the writer
 pub fn validatePassAccess(alloc: std.mem.Allocator) void {
     if (comptime std.debug.runtime_safety) {
         var arena = std.heap.ArenaAllocator.init(alloc);

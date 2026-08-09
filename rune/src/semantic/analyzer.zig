@@ -85,6 +85,7 @@ pub const SemanticAnalyzer = struct {
             symbol_table_mod.SymbolTable.init(self.alloc),
         );
         ctx.dialect = self.dialect;
+        ctx.views = tree.views;
         for (DEFAULT_PASSES) |pass| {
             if (self.verbose) {
                 const table_count = ctx.tables.items.len;

@@ -60,16 +60,16 @@ pub const Server = struct {
         .{ .method = "textDocument/didChange", .handler = handleDidChangeDispatch },
         .{ .method = "textDocument/didClose", .handler = handleDidCloseDispatch },
         .{ .method = "textDocument/didSave", .handler = handleDidSaveDispatch },
-        .{ .method = "textDocument/documentSymbol", .handler = handlers.handleDocumentSymbol },
-        .{ .method = "textDocument/completion", .handler = handlers.handleCompletion },
-        .{ .method = "textDocument/hover", .handler = handlers.handleHover },
-        .{ .method = "textDocument/definition", .handler = handlers.handleDefinition },
-        .{ .method = "textDocument/codeAction", .handler = handlers.handleCodeAction },
-        .{ .method = "textDocument/formatting", .handler = handlers.handleFormatting },
-        .{ .method = "textDocument/rename", .handler = handlers.handleRename },
-        .{ .method = "textDocument/prepareRename", .handler = handlers.handlePrepareRename },
-        .{ .method = "textDocument/references", .handler = handlers.handleReferences },
-        .{ .method = "textDocument/documentHighlight", .handler = handlers.handleDocumentHighlight },
+        .{ .method = "textDocument/documentSymbol", .handler = handleDocumentSymbolDispatch },
+        .{ .method = "textDocument/completion", .handler = handleCompletionDispatch },
+        .{ .method = "textDocument/hover", .handler = handleHoverDispatch },
+        .{ .method = "textDocument/definition", .handler = handleDefinitionDispatch },
+        .{ .method = "textDocument/codeAction", .handler = handleCodeActionDispatch },
+        .{ .method = "textDocument/formatting", .handler = handleFormattingDispatch },
+        .{ .method = "textDocument/rename", .handler = handleRenameDispatch },
+        .{ .method = "textDocument/prepareRename", .handler = handlePrepareRenameDispatch },
+        .{ .method = "textDocument/references", .handler = handleReferencesDispatch },
+        .{ .method = "textDocument/documentHighlight", .handler = handleDocumentHighlightDispatch },
     };
 
     /// Run the LSP server main loop.
@@ -153,6 +153,46 @@ pub const Server = struct {
 
     fn handleDidSaveDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
         if (params) |p| try handlers.handleDidSave(self, p);
+    }
+
+    fn handleDocumentSymbolDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleDocumentSymbol(self, stdout.?, id, p);
+    }
+
+    fn handleCompletionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleCompletion(self, stdout.?, id, p);
+    }
+
+    fn handleHoverDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleHover(self, stdout.?, id, p);
+    }
+
+    fn handleDefinitionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleDefinition(self, stdout.?, id, p);
+    }
+
+    fn handleCodeActionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleCodeAction(self, stdout.?, id, p);
+    }
+
+    fn handleFormattingDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleFormatting(self, stdout.?, id, p);
+    }
+
+    fn handleRenameDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleRename(self, stdout.?, id, p);
+    }
+
+    fn handlePrepareRenameDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handlePrepareRename(self, stdout.?, id, p);
+    }
+
+    fn handleReferencesDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleReferences(self, stdout.?, id, p);
+    }
+
+    fn handleDocumentHighlightDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleDocumentHighlight(self, stdout.?, id, p);
     }
 
     /// Send a JSON-RPC response to stdout.

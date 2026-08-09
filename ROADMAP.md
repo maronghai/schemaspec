@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.191.0 (2026-08-09) — 43,000+ lines production Zig, 1400+ tests, 33 test suites.
+**Current version**: 0.192.0 (2026-08-10) — 43,000+ lines production Zig, 1400+ tests, 33 test suites.
 
 ---
 
@@ -243,6 +243,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.192.0** — Quality & API completeness: fixed `isSnakeCase` lint helper (rejects consecutive underscores, leading digits, leading/trailing underscores); expanded WASM API with `rune_diff`, `rune_migrate`, `rune_reverse`, `rune_lint` exports; added `validate_views` semantic pass (duplicate view detection, FK table reference validation); fixed LSP dispatch table type mismatches (10 request handlers now use adapter pattern); added inline tests for `isSnakeCase` and WASM exports
 - **v0.191.0** — Neovim plugin, conditional schema blocks & docs ER diagrams: created Neovim plugin with LSP integration (lspconfig setup, keybindings for gd/K/rn, commands for Generate/Validate/Lint); added `@if(dialect=pg|sqlite)` conditional schema blocks (parser support, `resolve_conditionals` semantic pass, dialect-aware field filtering); added Mermaid ER diagram generation to docs generator; synced npm package version (0.182.0 → 0.191.0)
 - **v0.190.0** — Test coverage enhancement: added 26 new tests for under-tested modules (codegen/columns, pipeline/handlers, reverse/template_extraction, parser/parse_template); improved test coverage for column rendering defaults, CHECK constraints, template extraction logic, and template header parsing
 - **v0.189.0** — Lint rules & diff engine: added `nullable-column-default` lint rule (warns when nullable non-PK columns have no explicit DEFAULT); added `timestamp-naming` lint rule (warns when datetime columns don't follow `created_at`/`updated_at` naming convention); added custom type diff support (tracks added/dropped/modified custom types in SchemaDiff with text/JSON/SARIF/markdown formatters); fixed VERSION file mismatch (was 0.187.0, should be 0.188.0)
