@@ -126,6 +126,8 @@ comptime {
     _ = @import("types/type_registry_test.zig");
     _ = @import("types/sql_type_test.zig");
     _ = @import("types/symbol_table_test.zig");
+    _ = @import("types/typed_ast_test.zig");
+    _ = @import("types/resolved_ast_test.zig");
     // ── utils ────────────────────────────────────────────────────
     _ = @import("utils/edit_distance_test.zig");
     // ── lsp ──────────────────────────────────────────────────────

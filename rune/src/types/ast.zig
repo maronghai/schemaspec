@@ -10,6 +10,34 @@ pub const SourceLocation = struct {
     offset: usize, // 0-based byte offset from start of file
 };
 
+// ─── Type Category ────────────────────────────────────────────
+
+/// Semantic category of an SS type symbol. Used by both forward pipeline
+/// (TypeInfo) and reverse mapping (REVERSE_MAP) to avoid duplicated logic.
+pub const TypeCategory = enum {
+    numeric,
+    string,
+    datetime,
+    boolean,
+    blob,
+    other,
+};
+
+/// Get the TypeCategory for a raw SS symbol string.
+/// Used by REVERSE_MAP entries and TypeInfo.category().
+pub fn categoryFromSym(sym: []const u8) TypeCategory {
+    if (sym.len == 1) return switch (sym[0]) {
+        'n', 'N', 'i', 'm', 'M', 'p' => .numeric,
+        's', 'S', 'j', 'J', 'I', 'U' => .string,
+        'd', 't', 'T' => .datetime,
+        'b' => .boolean,
+        'B' => .blob,
+        else => .other,
+    };
+    // Multi-char symbols are passthrough (string)
+    return .string;
+}
+
 // ─── AST Types ───────────────────────────────────────────────
 
 pub const TypeInfo = union(enum) {
@@ -43,50 +71,36 @@ pub const TypeInfo = union(enum) {
         };
     }
 
+    /// Semantic category of this type. Single source of truth for type classification.
+    /// Used by both forward pipeline (TypeInfo) and reverse mapping (REVERSE_MAP).
+    pub fn category(self: TypeInfo) TypeCategory {
+        return switch (self) {
+            .none => .other,
+            .int_explicit, .decimal_explicit => .numeric,
+            .varchar_explicit, .enum_type => .string,
+            .raw_sql => .other,
+            .simple => |s| categoryFromSym(s),
+        };
+    }
+
     /// True if the SS symbol maps to a numeric SQL type (int, bigint, decimal, etc.).
     pub fn isNumeric(self: TypeInfo) bool {
-        return switch (self) {
-            .none => false,
-            .simple => |s| if (s.len == 1) switch (s[0]) {
-                'n', 'N', 'i', 'm', 'M', 'p' => true,
-                else => false,
-            } else false,
-            .int_explicit, .decimal_explicit => true,
-            .varchar_explicit, .enum_type, .raw_sql => false,
-        };
+        return self.category() == .numeric;
     }
 
     /// True if the SS symbol maps to a string/text SQL type (varchar, char, json, etc.).
     pub fn isString(self: TypeInfo) bool {
-        return switch (self) {
-            .none => false,
-            .simple => |s| if (s.len == 1) switch (s[0]) {
-                's', 'S', 'j', 'J', 'I', 'U', 'B' => true,
-                else => false,
-            } else true, // multi-char simple types are passthrough (string)
-            .varchar_explicit, .enum_type, .raw_sql => true,
-            .int_explicit, .decimal_explicit => false,
-        };
+        return self.category() == .string;
     }
 
     /// True if the SS symbol maps to a datetime/date/time SQL type.
     pub fn isDatetime(self: TypeInfo) bool {
-        return switch (self) {
-            .none => false,
-            .simple => |s| if (s.len == 1) switch (s[0]) {
-                'd', 't', 'T' => true,
-                else => false,
-            } else false,
-            else => false,
-        };
+        return self.category() == .datetime;
     }
 
     /// True if the SS symbol maps to a boolean SQL type.
     pub fn isBoolean(self: TypeInfo) bool {
-        return switch (self) {
-            .simple => |s| s.len == 1 and s[0] == 'b',
-            else => false,
-        };
+        return self.category() == .boolean;
     }
 };
 

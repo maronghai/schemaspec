@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.176.0 (2026-08-09) — 31,800+ lines production Zig, 1253+ tests, 32 test suites.
+**Current version**: 0.178.0 (2026-08-09) — 31,800+ lines production Zig, 1253+ tests, 32 test suites.
 
 ---
 
@@ -240,6 +240,8 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.178.0** — io.zig cleanup & IR type tests: simplified file reading (removed mmap duplicate copy), fixed mmap resource leak on Linux, added 28 unit tests for TypedAst and ResolvedAst IRs (was zero coverage), documented tune.zig and watch.zig in ARCHITECTURE.md
+- **v0.177.0** — Type system unification: added `TypeCategory` enum and `category()` method to `TypeInfo`, added `categoryFromSym()` for raw symbol classification, added `rev()` helper for auto-computing category in REVERSE_MAP, fixed blob/raw_sql classification
 - **v0.176.0** — Doc directive & enhanced documentation: added `+` doc directive for structured multi-line documentation on tables, fields, templates, and views; enhanced docs generator with table of contents, cross-references, and `doc` field priority over `: comment`; added `--format json` output for `rune docs`; updated EBNF grammar with `doc_decl` production
 - **v0.175.0** — Code quality & deduplication: extracted `shouldEmitDefault` shared helper, removed 4 redundant `writeDefault` wrappers across ORM generators, extracted shared `findNameInLine` into LSP helpers, removed `map_data.zig` shim, fixed TypeORM duplicate index branch, fixed Windows file URI handling
 - **v0.174.0** — LSP precision & quality: precise column ranges for references/highlights (FK field names instead of full lines), dialect-aware hover SQL types (respects server dialect instead of hardcoded MySQL), multi-column FK go-to-definition support, precise column selection ranges in document symbols, 4 new FK-related LSP feature tests

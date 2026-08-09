@@ -106,7 +106,7 @@ test "TypeInfo.isString: string simple types" {
     try testing.expect(TypeInfo.isString(.{ .simple = "J" })); // jsonb
     try testing.expect(TypeInfo.isString(.{ .simple = "I" })); // inet
     try testing.expect(TypeInfo.isString(.{ .simple = "U" })); // uuid
-    try testing.expect(TypeInfo.isString(.{ .simple = "B" })); // blob
+    try testing.expect(!TypeInfo.isString(.{ .simple = "B" })); // blob → .blob category, not .string
 }
 
 test "TypeInfo.isString: non-string simple types → false" {
@@ -121,7 +121,7 @@ test "TypeInfo.isString: multi-char simple types → true (passthrough)" {
 test "TypeInfo.isString: explicit types" {
     try testing.expect(TypeInfo.isString(.{ .varchar_explicit = 255 }));
     try testing.expect(TypeInfo.isString(.{ .enum_type = &.{ "a", "b" } }));
-    try testing.expect(TypeInfo.isString(.{ .raw_sql = "GEOMETRY" }));
+    try testing.expect(!TypeInfo.isString(.{ .raw_sql = "GEOMETRY" })); // raw_sql → .other category
     try testing.expect(!TypeInfo.isString(.{ .int_explicit = 4 }));
 }
 

@@ -24,13 +24,20 @@ pub const MmapResult = struct {
 
     /// Release memory-mapped region.
     pub fn deinit(self: MmapResult) void {
-        if (self.is_heap and self.data.len > 0) {
-            std.heap.page_allocator.free(self.data);
+        if (self.is_heap) {
+            if (self.data.len > 0) {
+                std.heap.page_allocator.free(self.data);
+            }
+        } else if (comptime @import("builtin").os.tag != .windows and @import("builtin").os.tag != .wasi) {
+            // Properly unmap the memory-mapped region on Linux.
+            // Use the page-aligned base address for munmap.
+            if (self.data.len > 0) {
+                const page_size = std.mem.page_size;
+                const aligned_len = (self.data.len + page_size - 1) & ~(page_size - 1);
+                const aligned_ptr: [*]align(page_size) u8 = @alignCast(@constCast(self.data.ptr));
+                std.posix.munmap(@alignCast(aligned_ptr[0..aligned_len]));
+            }
         }
-        // Non-heap mmap data is intentionally not freed here — it will be
-        // released when the process exits. Full mmap lifecycle management
-        // requires storing the aligned slice from std.posix.mmap, which is
-        // a future optimization.
     }
 };
 
@@ -49,7 +56,6 @@ pub fn mmapFile(io: std.Io, path: []const u8) !MmapResult {
 
     if (comptime @import("builtin").os.tag == .windows or @import("builtin").os.tag == .wasi) {
         // Windows and WASM: fall back to regular read (no POSIX mmap)
-        // Use .unlimited — .limited(size) triggers StreamTooLong on Windows
         const data = try std.Io.Dir.cwd().readFileAlloc(io, path, std.heap.page_allocator, .unlimited);
         return .{ .data = data, .size = data.len, .is_heap = true };
     } else {
@@ -82,30 +88,13 @@ pub fn readStdin(io: std.Io, alloc: std.mem.Allocator) ![]const u8 {
 }
 
 /// Read a file by path, or stdin if path is "-".
-/// For files larger than 1MB, uses memory-mapped I/O for efficiency.
-/// For smaller files, uses traditional read.
+/// Uses standard file read for all sizes — mmap is available as a separate
+/// public utility (mmapFile) for callers that need it directly.
 pub fn readFileOrStdin(io: std.Io, alloc: std.mem.Allocator, path: []const u8) ![]const u8 {
     if (std.mem.eql(u8, path, STDIN_PATH)) {
         return readStdin(io, alloc);
     }
-
-    // Check file size to decide between mmap and traditional read
-    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
-    defer file.close(io);
-    const stat = try file.stat(io);
-
-    if (stat.size > MMAP_THRESHOLD) {
-        // Use memory-mapped I/O for large files
-        const mmap_result = try mmapFile(io, path);
-        // For now, copy to owned slice since callers expect allocated memory
-        // Future optimization: use mmap directly throughout the pipeline
-        const owned = try alloc.dupe(u8, mmap_result.data);
-        mmap_result.deinit();
-        return owned;
-    } else {
-        // Traditional read for small files
-        return try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited);
-    }
+    return try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited);
 }
 
 /// Write data to a file or stdout. If output_path is null, writes to stdout.

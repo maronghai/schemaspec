@@ -2,6 +2,28 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.178.0] - 2026-08-09
+
+### Changed
+- **Simplified io.zig file reading** — Removed mmap-based large file optimization from `readFileOrStdin` that was duplicating memory (mmap → alloc.dupe). All file reads now use `readFileAlloc` directly, eliminating the unnecessary copy. The mmap utility (`mmapFile`) remains available as a public API for callers that need it directly.
+- **Proper mmap cleanup on Linux** — `MmapResult.deinit()` now calls `munmap` on Linux for proper resource cleanup, fixing a memory leak in long-running processes (LSP server).
+
+### Added
+- **TypedAst IR unit tests** — Added 17 tests for `ColumnFlags` packed struct, `TypedColumn`, `TypedTable`, `TypedView`, and `TypedAst` initialization (was zero coverage).
+- **ResolvedAst IR unit tests** — Added 11 tests for `ResolvedTable` and `ResolvedAst` initialization (was zero coverage).
+- **Architecture docs** — Added `tune.zig` and `watch.zig` module documentation to ARCHITECTURE.md (shipped in v0.172.0 and v0.163.0 respectively).
+
+## [0.177.0] - 2026-08-09
+
+### Changed
+- **Unified type classification** — Added `TypeCategory` enum (`numeric`, `string`, `datetime`, `boolean`, `blob`, `other`) to `types/ast.zig`. `TypeInfo.category()` method consolidates the 4 `is*` methods into a single source of truth. `categoryFromSym()` function provides raw symbol classification for both forward and reverse pipelines.
+- **REVERSE_MAP category auto-computation** — Added `rev()` helper function to `types/reverse_map.zig` that auto-computes `category` from `sym` at comptime. All 80+ REVERSE_MAP entries now use `rev()` instead of raw struct literals, eliminating manual category maintenance.
+- **ReverseMapping.category field** — Added `category: TypeCategory` field to `ReverseMapping` struct, enabling category-based queries on reverse mapping entries.
+
+### Fixed
+- **TypeInfo blob classification** — `B` (blob) is now correctly classified as `.blob` category instead of `.string`. The old `isString()` method incorrectly treated blob types as string types.
+- **TypeInfo raw_sql classification** — `raw_sql` passthrough types are now classified as `.other` instead of `.string`, since their semantic category depends on the actual SQL type string.
+
 ## [0.175.0] - 2026-08-09
 
 ### Fixed

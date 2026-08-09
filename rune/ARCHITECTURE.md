@@ -526,6 +526,39 @@ Editor → JSON-RPC → server.zig dispatch → handlers.zig
   └── textDocument/formatting → formatting.zig → TextEdit[]
 ```
 
+## Watch Mode
+
+`rune watch` monitors `.ss` files and recompiles on change.
+
+### Implementation
+
+`src/watch.zig` uses polling-based file monitoring with per-file hash tracking. On each poll cycle:
+1. Recursively scan the directory for `.ss` files (if `--recursive`)
+2. Compute file modification hashes
+3. Recompile only files that changed
+4. Track error streaks (suppress repeated errors for the same file)
+
+### Options
+
+- `--interval <ms>` — Polling interval (default: 1000ms)
+- `--parallel` — Compile multiple changed files concurrently
+- `-s` — Show compilation stats on each recompile
+
+## Tune Command
+
+`rune tune` auto-extracts common field sequences into reusable templates.
+
+### Implementation
+
+`src/tune.zig` analyzes a schema file and identifies fields that co-occur across multiple tables. It then:
+1. Scores field sequences by frequency × field_count × log₂(field_count)
+2. Greedily selects the highest-scoring sequences as templates
+3. Rewrites the `.ss` file with `#base table` references
+
+### Options
+
+- `--dry-run` — Preview template extraction without writing
+
 ## Platform Support
 
 Rune supports multiple platforms via Zig's cross-compilation:
