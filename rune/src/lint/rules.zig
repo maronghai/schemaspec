@@ -44,6 +44,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .naming_prefix, .handler = checkNamingPrefix },
     .{ .rule = .fk_naming, .handler = checkFkNaming },
     .{ .rule = .bool_default, .handler = checkBoolDefault },
+    .{ .rule = .view_no_select, .handler = checkViewNoSelect },
 };
 
 /// Run all enabled lint checks on a resolved schema.
@@ -617,6 +618,35 @@ fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
         if (!std.mem.eql(u8, field_a, b.fields[idx])) return false;
     }
     return true;
+}
+
+fn checkViewNoSelect(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.views) |view| {
+        // Check if view query is empty or doesn't contain SELECT
+        const query = view.query;
+        if (query.len == 0) {
+            const msg = try std.fmt.allocPrint(alloc, "view '{s}' has empty query", .{view.name});
+            try results.append(alloc, .{
+                .rule = "view-no-select",
+                .table = view.name,
+                .message = msg,
+                .severity = .warning,
+            });
+            continue;
+        }
+        // Case-insensitive check for SELECT keyword
+        const lower = std.ascii.lowerString(alloc, query) catch continue;
+        defer alloc.free(lower);
+        if (std.mem.indexOf(u8, lower, "select") == null) {
+            const msg = try std.fmt.allocPrint(alloc, "view '{s}' query does not contain SELECT statement", .{view.name});
+            try results.append(alloc, .{
+                .rule = "view-no-select",
+                .table = view.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
 }
 
 // ─── Helpers ──────────────────────────────────────────────────

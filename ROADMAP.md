@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.186.0 (2026-08-09) — 42,500+ lines production Zig, 1362 tests, 32 test suites.
+**Current version**: 0.187.0 (2026-08-09) — 42,500+ lines production Zig, 1362 tests, 32 test suites.
 
 ---
 
@@ -177,6 +177,7 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 - [x] Expand golden test automation — currently 25 suites, some generators lack golden tests (typeorm, sqlalchemy, knex) (v0.147.0)
 - [x] Table-driven LSP method dispatch — replace if-else chain with dispatch table (v0.186.0)
 - [x] Data-driven lint rule dispatch — replace repetitive guard-then-call blocks (v0.186.0)
+- [x] Standardize error output — unified all modules to use diagnostic/format.zig (v0.187.0)
 
 ---
 
@@ -193,8 +194,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 7: Editor Extensions | 🔲 Planned | 7/10 | 3 |
 | 8: Language Evolution | 🔲 Planned | 0/8 | 8 |
 | Architecture Targets | 🟡 Ongoing | 14/14 | 0 |
-| Technical Debt | 🟡 Partial | 3/5 | 2 |
-| **Total** | | **86.5/105** | **18.5** |
+| Technical Debt | ✅ Complete | 8/8 | 0 |
+| **Total** | | **91/105** | **17** |
 
 ---
 
@@ -242,6 +243,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.187.0** — Quality consolidation & test coverage: standardized error output across modules (main.zig, watch.zig, handlers.zig, config.zig, init.zig, lint_cmd.zig) to use consistent `fmt.printError`/`fmt.printWarn` format; added `view-no-select` lint rule (warns when views have no SELECT statement); refactored config parsing to eliminate duplication between `parseConfig` and `warnUnknownKeys` via shared `TomlLineIterator`; verified existing tests for `diff/plan.zig` and `codegen/parallel.zig` already cover critical modules
 - **v0.186.0** — Architecture refactoring & quality: table-driven LSP method dispatch (replaced 22-branch if-else chain with dispatch table), data-driven lint rule dispatch (replaced 22 repetitive guard-then-call blocks with dispatch table), PassContext.init() method for explicit initialization, WASM error reporting (rune_last_error() export), table-level rename detection in diff engine (70% field overlap threshold), rename display in text/JSON/SARIF diff formatters
 - **v0.185.0** — Quality & compilation fixes: fixed 2 test compilation errors (std.Thread.Mutex → std.atomic.Mutex for Zig 0.16 compatibility, varchar_explicit → varchar field name mismatch), fixed fragile `undefined` in PassContext by initializing symbol_table with empty SymbolTable, improved `--check` mode in reverse pipeline to produce meaningful output (was silently returning), verified all 1362 tests pass
 - **v0.184.0** — BufferPool parallel extension & quality: extended BufferPool to parallel codegen path (mutex-protected acquire/release for thread-safe buffer reuse), added graceful error recovery with actionable suggestions (OOM, file not found, access denied, disk full), added `--dry-run` flag to `rune generate` command for previewing output without writing files, created schema cookbook with common patterns (multi-tenant, soft delete, audit trail, RBAC, polymorphic associations), updated ARCHITECTURE.md with BufferPool and error recovery documentation

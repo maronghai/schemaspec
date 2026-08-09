@@ -76,18 +76,19 @@ pub fn handleCompileRequest(
     }
 
     if (pipeline.partial and !cfg.quiet) {
-        std.debug.print("warning: schema has parse errors — {d} table(s) skipped, emitting SQL for valid tables only\n", .{pipeline.skipped_tables});
+        fmt.printWarn("schema has parse errors");
+        std.debug.print("  {d} table(s) skipped, emitting SQL for valid tables only\n", .{pipeline.skipped_tables});
     }
 
     if (cfg.check) {
         if (pipeline.partial) {
             if (!cfg.quiet) {
-                std.debug.print("schema has errors (partial output)\n", .{});
+                fmt.printError("schema", "has errors (partial output)");
             }
             return error.DiagnosticsError;
         }
         if (!cfg.quiet) {
-            std.debug.print("schema is valid\n", .{});
+            fmt.printOk("schema is valid");
         }
         return;
     }
@@ -107,7 +108,7 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
                 const json = try formatValidateResult(alloc, false, s, 1);
                 try io_mod.writeOutput(io, json, null, false);
             } else {
-                std.debug.print("schema has errors\n", .{});
+                fmt.printError("schema", "has errors");
             }
             if (strict) return err;
             return;
@@ -123,11 +124,11 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
             printStats(s);
         }
         if (result.partial) {
-            std.debug.print("schema has errors (partial)\n", .{});
+            fmt.printError("schema", "has errors (partial)");
             if (strict) return error.DiagnosticsError;
             return;
         }
-        std.debug.print("schema is valid\n", .{});
+        fmt.printOk("schema is valid");
     }
 }
 

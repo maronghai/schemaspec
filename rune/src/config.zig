@@ -1,5 +1,6 @@
 const std = @import("std");
 const dialect_enum = @import("dialect/enum.zig");
+const fmt = @import("diagnostic/format.zig");
 
 // ─── Minimal TOML Parser ─────────────────────────────────────
 // Handles: [section] headers, key = "string", key = true/false, key = integer.
@@ -36,14 +37,44 @@ const Section = enum {
     unknown,
 };
 
-/// Parse a rune.toml config file from disk.
-pub fn loadConfig(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !Config {
-    const data = std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited) catch |err| {
-        if (err == error.FileNotFound) return Config{};
-        return err;
-    };
-    return try parseConfig(alloc, data);
-}
+/// A parsed TOML line — either a section header or a key-value pair.
+const ParsedLine = union(enum) {
+    section: []const u8,
+    key_value: struct { key: []const u8, value: []const u8 },
+    empty,
+};
+
+/// Shared line iterator for TOML parsing.
+/// Eliminates duplication between parseConfig and warnUnknownKeys.
+const TomlLineIterator = struct {
+    lines: std.mem.SplitIterator(u8, .scalar),
+
+    fn init(data: []const u8) TomlLineIterator {
+        return .{ .lines = std.mem.splitScalar(u8, data, '\n') };
+    }
+
+    fn next(self: *TomlLineIterator) ?ParsedLine {
+        while (self.lines.next()) |raw_line| {
+            const line = trimComment(raw_line);
+            const trimmed = std.mem.trim(u8, line, " \t\r");
+            if (trimmed.len == 0) continue;
+
+            // Section header: [name]
+            if (trimmed[0] == '[' and trimmed[trimmed.len - 1] == ']') {
+                const section_name = std.mem.trim(u8, trimmed[1 .. trimmed.len - 1], " \t");
+                return .{ .section = section_name };
+            }
+
+            // Key-value pair: key = value
+            if (std.mem.indexOfScalar(u8, trimmed, '=')) |eq_pos| {
+                const key = std.mem.trim(u8, trimmed[0..eq_pos], " \t");
+                const value_raw = std.mem.trim(u8, trimmed[eq_pos + 1 ..], " \t\r");
+                return .{ .key_value = .{ .key = key, .value = value_raw } };
+            }
+        }
+        return null;
+    }
+};
 
 /// Load config with parent-directory discovery and unknown-key warnings.
 /// Searches upward from cwd for rune.toml, parses it, and warns about unknown keys.
@@ -90,68 +121,59 @@ pub fn loadConfigWithDiscoveryAndWarnings(io: std.Io, alloc: std.mem.Allocator) 
 pub fn parseConfig(_: std.mem.Allocator, data: []const u8) !Config {
     var config = Config{};
     var current_section: Section = .unknown;
+    var iter = TomlLineIterator.init(data);
 
-    var lines = std.mem.splitScalar(u8, data, '\n');
-    while (lines.next()) |raw_line| {
-        const line = trimComment(raw_line);
-        const trimmed = std.mem.trim(u8, line, " \t\r");
-        if (trimmed.len == 0) continue;
-
-        // Section header: [name]
-        if (trimmed[0] == '[' and trimmed[trimmed.len - 1] == ']') {
-            const section_name = std.mem.trim(u8, trimmed[1 .. trimmed.len - 1], " \t");
-            current_section = if (std.mem.eql(u8, section_name, "project"))
-                .project
-            else if (std.mem.eql(u8, section_name, "dialect"))
-                .dialect
-            else if (std.mem.eql(u8, section_name, "output"))
-                .output
-            else
-                .unknown;
-            continue;
-        }
-
-        // Key-value pair: key = value
-        if (std.mem.indexOfScalar(u8, trimmed, '=')) |eq_pos| {
-            const key = std.mem.trim(u8, trimmed[0..eq_pos], " \t");
-            const value_raw = std.mem.trim(u8, trimmed[eq_pos + 1 ..], " \t\r");
-
-            switch (current_section) {
-                .project => {
-                    if (std.mem.eql(u8, key, "name")) {
-                        config.project_name = try parseString(value_raw);
-                    }
-                },
-                .dialect => {
-                    if (std.mem.eql(u8, key, "default")) {
-                        config.dialect = try parseString(value_raw);
-                    }
-                },
-                .output => {
-                    if (std.mem.eql(u8, key, "color")) {
-                        config.color = try parseString(value_raw);
-                    } else if (std.mem.eql(u8, key, "quiet")) {
-                        config.quiet = try parseBool(value_raw);
-                    } else if (std.mem.eql(u8, key, "json_errors")) {
-                        config.json_errors = try parseBool(value_raw);
-                    } else if (std.mem.eql(u8, key, "stats")) {
-                        config.stats = try parseBool(value_raw);
-                    } else if (std.mem.eql(u8, key, "strict")) {
-                        config.strict = try parseBool(value_raw);
-                    } else if (std.mem.eql(u8, key, "verbose_passes")) {
-                        config.verbose_passes = try parseBool(value_raw);
-                    } else if (std.mem.eql(u8, key, "stream")) {
-                        config.stream = try parseBool(value_raw);
-                    } else if (std.mem.eql(u8, key, "parallel")) {
-                        config.parallel = try parseBool(value_raw);
-                    } else if (std.mem.eql(u8, key, "target")) {
-                        config.target = try parseString(value_raw);
-                    } else if (std.mem.eql(u8, key, "format")) {
-                        config.format = try parseString(value_raw);
-                    }
-                },
-                .unknown => {},
-            }
+    while (iter.next()) |line| {
+        switch (line) {
+            .section => |section_name| {
+                current_section = if (std.mem.eql(u8, section_name, "project"))
+                    .project
+                else if (std.mem.eql(u8, section_name, "dialect"))
+                    .dialect
+                else if (std.mem.eql(u8, section_name, "output"))
+                    .output
+                else
+                    .unknown;
+            },
+            .key_value => |kv| {
+                switch (current_section) {
+                    .project => {
+                        if (std.mem.eql(u8, kv.key, "name")) {
+                            config.project_name = try parseString(kv.value);
+                        }
+                    },
+                    .dialect => {
+                        if (std.mem.eql(u8, kv.key, "default")) {
+                            config.dialect = try parseString(kv.value);
+                        }
+                    },
+                    .output => {
+                        if (std.mem.eql(u8, kv.key, "color")) {
+                            config.color = try parseString(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "quiet")) {
+                            config.quiet = try parseBool(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "json_errors")) {
+                            config.json_errors = try parseBool(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "stats")) {
+                            config.stats = try parseBool(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "strict")) {
+                            config.strict = try parseBool(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "verbose_passes")) {
+                            config.verbose_passes = try parseBool(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "stream")) {
+                            config.stream = try parseBool(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "parallel")) {
+                            config.parallel = try parseBool(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "target")) {
+                            config.target = try parseString(kv.value);
+                        } else if (std.mem.eql(u8, kv.key, "format")) {
+                            config.format = try parseString(kv.value);
+                        }
+                    },
+                    .unknown => {},
+                }
+            },
+            .empty => {},
         }
     }
 
@@ -229,54 +251,53 @@ const VALID_OUTPUT_KEYS = [_][]const u8{ "color", "quiet", "json_errors", "stats
 /// Called after parseConfig to alert users about typos.
 pub fn warnUnknownKeys(data: []const u8, emit_warnings: bool) void {
     var current_section: Section = .unknown;
+    var iter = TomlLineIterator.init(data);
 
-    var lines = std.mem.splitScalar(u8, data, '\n');
-    while (lines.next()) |raw_line| {
-        const line = trimComment(raw_line);
-        const trimmed = std.mem.trim(u8, line, " \t\r");
-        if (trimmed.len == 0) continue;
-
-        // Section header
-        if (trimmed[0] == '[' and trimmed[trimmed.len - 1] == ']') {
-            const section_name = std.mem.trim(u8, trimmed[1 .. trimmed.len - 1], " \t");
-            current_section = if (std.mem.eql(u8, section_name, "project"))
-                .project
-            else if (std.mem.eql(u8, section_name, "dialect"))
-                .dialect
-            else if (std.mem.eql(u8, section_name, "output"))
-                .output
-            else blk: {
-                if (emit_warnings) std.debug.print("warning: unknown config section '[{s}]'\n", .{section_name});
-                break :blk .unknown;
-            };
-            continue;
-        }
-
-        // Key-value pair
-        if (std.mem.indexOfScalar(u8, trimmed, '=')) |eq_pos| {
-            const key = std.mem.trim(u8, trimmed[0..eq_pos], " \t");
-            var found = false;
-            switch (current_section) {
-                .project => {
-                    for (VALID_PROJECT_KEYS) |vk| {
-                        if (std.mem.eql(u8, key, vk)) found = true;
+    while (iter.next()) |line| {
+        switch (line) {
+            .section => |section_name| {
+                current_section = if (std.mem.eql(u8, section_name, "project"))
+                    .project
+                else if (std.mem.eql(u8, section_name, "dialect"))
+                    .dialect
+                else if (std.mem.eql(u8, section_name, "output"))
+                    .output
+                else blk: {
+                    if (emit_warnings) {
+                        fmt.printWarn("unknown config section");
+                        std.debug.print("  [{s}]\n", .{section_name});
                     }
-                },
-                .dialect => {
-                    for (VALID_DIALECT_KEYS) |vk| {
-                        if (std.mem.eql(u8, key, vk)) found = true;
+                    break :blk .unknown;
+                };
+            },
+            .key_value => |kv| {
+                var found = false;
+                switch (current_section) {
+                    .project => {
+                        for (VALID_PROJECT_KEYS) |vk| {
+                            if (std.mem.eql(u8, kv.key, vk)) found = true;
+                        }
+                    },
+                    .dialect => {
+                        for (VALID_DIALECT_KEYS) |vk| {
+                            if (std.mem.eql(u8, kv.key, vk)) found = true;
+                        }
+                    },
+                    .output => {
+                        for (VALID_OUTPUT_KEYS) |vk| {
+                            if (std.mem.eql(u8, kv.key, vk)) found = true;
+                        }
+                    },
+                    .unknown => {},
+                }
+                if (!found and current_section != .unknown) {
+                    if (emit_warnings) {
+                        fmt.printWarn("unknown config key");
+                        std.debug.print("  {s} in section\n", .{kv.key});
                     }
-                },
-                .output => {
-                    for (VALID_OUTPUT_KEYS) |vk| {
-                        if (std.mem.eql(u8, key, vk)) found = true;
-                    }
-                },
-                .unknown => {},
-            }
-            if (!found and current_section != .unknown) {
-                if (emit_warnings) std.debug.print("warning: unknown config key '{s}' in section\n", .{key});
-            }
+                }
+            },
+            .empty => {},
         }
     }
 }

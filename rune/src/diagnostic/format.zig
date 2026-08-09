@@ -62,6 +62,11 @@ pub fn printWarn(message: []const u8) void {
     std.debug.print("warning: {s}\n", .{message});
 }
 
+/// Print a success message to stderr.
+pub fn printOk(message: []const u8) void {
+    std.debug.print("{s}\n", .{message});
+}
+
 // ─── Tests ────────────────────────────────────────────────────
 
 test "ErrorFormatter.formatError" {

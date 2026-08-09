@@ -1,6 +1,7 @@
 const std = @import("std");
 const io_mod = @import("../io.zig");
 const dialect_enum = @import("../dialect/enum.zig");
+const fmt = @import("../diagnostic/format.zig");
 
 // ─── `rune init` ──────────────────────────────────────────────
 // Supports --template flag to choose from preset schemas.
@@ -208,7 +209,8 @@ pub fn handleInit(io: std.Io, alloc: std.mem.Allocator, name: ?[]const u8, outpu
     // Resolve template
     const tpl_name = template orelse "default";
     const schema = getTemplate(tpl_name) orelse {
-        std.debug.print("error: unknown template '{s}'. Available: default, blog, ecommerce, rest-api\n", .{tpl_name});
+        fmt.printError("init", "unknown template");
+        std.debug.print("  Available: default, blog, ecommerce, rest-api\n", .{});
         return error.UnknownTemplate;
     };
 

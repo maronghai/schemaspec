@@ -37,6 +37,7 @@ pub const LintRule = enum {
     naming_prefix,
     fk_naming,
     bool_default,
+    view_no_select,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -63,6 +64,7 @@ pub const LintRule = enum {
             .naming_prefix => cfg.check_naming_prefix,
             .fk_naming => cfg.check_fk_naming,
             .bool_default => cfg.check_bool_default,
+            .view_no_select => cfg.check_view_no_select,
         };
     }
 
@@ -91,6 +93,7 @@ pub const LintRule = enum {
             .naming_prefix => "naming-prefix",
             .fk_naming => "fk-naming",
             .bool_default => "bool-default",
+            .view_no_select => "view-no-select",
         };
     }
 
@@ -128,6 +131,7 @@ pub const LintConfig = struct {
     check_naming_prefix: bool = true,
     check_fk_naming: bool = true,
     check_bool_default: bool = true,
+    check_view_no_select: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -312,6 +316,7 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             .check_naming_prefix = false,
             .check_fk_naming = false,
             .check_bool_default = false,
+            .check_view_no_select = false,
             .wide_table_max = base.wide_table_max,
             .count_min = base.count_min,
             .table_name_max = base.table_name_max,
@@ -366,6 +371,7 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .naming_prefix => c.check_naming_prefix = enabled,
         .fk_naming => c.check_fk_naming = enabled,
         .bool_default => c.check_bool_default = enabled,
+        .view_no_select => c.check_view_no_select = enabled,
     }
     return c;
 }

@@ -2,6 +2,7 @@ const std = @import("std");
 const handlers = @import("pipeline/handlers.zig");
 const io_mod = @import("io.zig");
 const dialect_enum = @import("dialect/enum.zig");
+const fmt = @import("diagnostic/format.zig");
 
 // ─── Watch Mode ───────────────────────────────────────────────
 // Polls .ss files for changes and recompiles automatically.
@@ -56,7 +57,8 @@ fn compileOnce(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig, input: []
         .parallel = cfg.parallel,
     }) catch |err| {
         if (!cfg.quiet) {
-            std.debug.print("error: compilation failed ({s}): {s}\n", .{ input, @errorName(err) });
+            fmt.printError("compile", "compilation failed");
+            std.debug.print("  {s}: {s}\n", .{ input, @errorName(err) });
         }
         return false;
     };
@@ -115,7 +117,8 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
 
     if (files.items.len == 0) {
         if (!cfg.quiet) {
-            std.debug.print("error: no .ss files found in {s}\n", .{cfg.input});
+            fmt.printError("io", "no .ss files found");
+            std.debug.print("  {s}\n", .{cfg.input});
         }
         return error.FileNotFound;
     }
@@ -197,7 +200,8 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
             if (current_hash == null) {
                 // File disappeared
                 if (!cfg.quiet) {
-                    std.debug.print("warning: file disappeared: {s}\n", .{entry.key_ptr.*});
+                    fmt.printWarn("file disappeared");
+                    std.debug.print("  {s}\n", .{entry.key_ptr.*});
                 }
                 continue;
             }

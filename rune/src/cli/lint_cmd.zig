@@ -56,7 +56,8 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
             const rules_cfg = try lint_mod.parseLintRules(alloc, rules_data);
             lint_cfg = lint_mod.applyLintRules(lint_cfg, rules_cfg);
         } else |err| {
-            std.debug.print("warning: failed to load rules file {s}: {s}\n", .{ rules_path, @errorName(err) });
+            fmt.printWarn("failed to load rules file");
+            std.debug.print("  {s}: {s}\n", .{ rules_path, @errorName(err) });
         }
     }
 

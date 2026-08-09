@@ -137,9 +137,10 @@ fn handleParseError(err: anyerror, arg_list: []const []const u8) noreturn {
     } else if (err == error.UnknownFlag) {
         if (cli.findUnknownFlag(arg_list)) |flag| {
             if (cli.suggestSimilarFlag(flag)) |suggestion| {
-                std.debug.print("error[cli]: unknown flag '{s}'. Did you mean '{s}'?\n", .{ flag, suggestion });
+                fmt.printError("cli", "unknown flag. Did you mean?");
+                std.debug.print("  {s}\n", .{suggestion});
             } else {
-                std.debug.print("error[cli]: unknown flag '{s}'. Run 'rune --help' for usage.\n", .{flag});
+                fmt.printError("cli", "unknown flag. Run 'rune --help' for usage.");
             }
         } else {
             fmt.printError("cli", "unknown flag. Run 'rune --help' for usage.");
@@ -190,9 +191,11 @@ fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             const input_path2 = getInputPath2(parsed.command);
             if (input_path) |path| {
                 if (input_path2) |path2| {
-                    std.debug.print("error[io]: file not found: {s} or {s}\n", .{ path, path2 });
+                    fmt.printError("io", "file not found");
+                    std.debug.print("  {s} or {s}\n", .{ path, path2 });
                 } else {
-                    std.debug.print("error[io]: file not found: {s}\n", .{path});
+                    fmt.printError("io", "file not found");
+                    std.debug.print("  {s}\n", .{path});
                 }
             } else {
                 fmt.printError("io", "file not found");
