@@ -8,7 +8,7 @@ test "DEFAULT_PASSES: dependency order is valid" {
 }
 
 test "DEFAULT_PASSES: expected count" {
-    try testing.expectEqual(@as(usize, 13), pm.DEFAULT_PASSES.len);
+    try testing.expectEqual(@as(usize, 15), pm.DEFAULT_PASSES.len);
 }
 
 test "DEFAULT_PASSES: access conflict detection passes" {
@@ -44,26 +44,20 @@ test "DEFAULT_PASSES: all dependency names reference existing passes" {
 }
 
 test "DEFAULT_PASSES: writers depend on earlier writers" {
-    // Verify that passes with writes_tables access depend on earlier writers
+    // Verify that passes with writes_tables access transitively depend on earlier writers
     // to prevent write-write conflicts (matches validatePassAccess logic)
     for (pm.DEFAULT_PASSES) |pass| {
         if (!pass.access.writes_tables) {
             continue; // Only check table writers, not modifies_table_list or writes_types
         }
-        // Check that this pass depends on all earlier writers
+        // Check that this pass transitively depends on all earlier writers
         for (pm.DEFAULT_PASSES) |prev| {
             if (std.mem.eql(u8, prev.name, pass.name)) break; // Reached self
             if (!prev.access.writes_tables) {
                 continue; // Previous pass is not a table writer
             }
-            // Previous pass is a table writer - check if current pass depends on it
-            var depends = false;
-            for (pass.depends_on) |dep| {
-                if (std.mem.eql(u8, dep, prev.name)) {
-                    depends = true;
-                    break;
-                }
-            }
+            // Previous pass is a table writer - check if current pass transitively depends on it
+            const depends = pm.transitivelyDependsOn(pass.name, prev.name);
             // Current pass should depend on previous writer
             try testing.expect(depends);
         }

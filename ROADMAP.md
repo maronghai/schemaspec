@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.192.0 (2026-08-10) — 43,000+ lines production Zig, 1400+ tests, 33 test suites.
+**Current version**: 0.193.0 (2026-08-10) — 49,000+ lines production Zig, 1400+ tests, 33 test suites.
 
 ---
 
@@ -190,12 +190,12 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| 6: Ecosystem & Community | 🔲 In Progress | 4/9 | 5 |
+| 6: Ecosystem & Community | 🔲 In Progress | 3/8 | 5 |
 | 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
-| 8: Language Evolution | 🔲 In Progress | 2/8 | 6 |
+| 8: Language Evolution | 🔲 In Progress | 2/10 | 8 |
 | Architecture Targets | ✅ Complete | 15/15 | 0 |
 | Technical Debt | ✅ Complete | 8/8 | 0 |
-| **Total** | | **97/105** | **8** |
+| **Total** | | **96/105** | **9** |
 
 ---
 
@@ -243,6 +243,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.193.0** — WASM fixes & formatter enhancement: fixed `rune_diff` and `rune_migrate` WASM compilation bug (called non-existent `computeDiff` instead of `diff`, wrong argument order); enhanced .ss formatter with proper `@if`/`@endif` block handling (root-level, not indented), `+` doc directive indentation, and block boundary detection; added 5 formatter golden tests and 15 unit tests
 - **v0.192.0** — Quality & API completeness: fixed `isSnakeCase` lint helper (rejects consecutive underscores, leading digits, leading/trailing underscores); expanded WASM API with `rune_diff`, `rune_migrate`, `rune_reverse`, `rune_lint` exports; added `validate_views` semantic pass (duplicate view detection, FK table reference validation); fixed LSP dispatch table type mismatches (10 request handlers now use adapter pattern); added inline tests for `isSnakeCase` and WASM exports
 - **v0.191.0** — Neovim plugin, conditional schema blocks & docs ER diagrams: created Neovim plugin with LSP integration (lspconfig setup, keybindings for gd/K/rn, commands for Generate/Validate/Lint); added `@if(dialect=pg|sqlite)` conditional schema blocks (parser support, `resolve_conditionals` semantic pass, dialect-aware field filtering); added Mermaid ER diagram generation to docs generator; synced npm package version (0.182.0 → 0.191.0)
 - **v0.190.0** — Test coverage enhancement: added 26 new tests for under-tested modules (codegen/columns, pipeline/handlers, reverse/template_extraction, parser/parse_template); improved test coverage for column rendering defaults, CHECK constraints, template extraction logic, and template header parsing

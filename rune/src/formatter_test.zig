@@ -45,7 +45,7 @@ test "formatter: comments not indented" {
     const input = "; comment\n# users\n; another\nid n++\n";
     const result = try formatter.format(alloc, input);
     defer alloc.free(result);
-    try std.testing.expectEqualStrings("; comment\n# users\n; another\n  id n++\n", result);
+    try std.testing.expectEqualStrings("; comment\n# users\n  ; another\n  id n++\n", result);
 }
 
 test "formatter: schema declaration not indented" {
@@ -77,6 +77,62 @@ test "formatter: full example" {
     const input = "$ mydb\n\n\n; Users table\n# users\nid       n++\nemail    s128\nname     s64\n\n\n; Posts table\n# posts\nid         n++\ntitle      s256\nauthor_id  n\n@ author_id\n";
     const result = try formatter.format(alloc, input);
     defer alloc.free(result);
-    const expected = "$ mydb\n\n; Users table\n# users\n  id       n++\n  email    s128\n  name     s64\n\n; Posts table\n# posts\n  id         n++\n  title      s256\n  author_id  n\n  @ author_id\n";
+    const expected = "$ mydb\n\n; Users table\n# users\n  id       n++\n  email    s128\n  name     s64\n\n  ; Posts table\n# posts\n  id         n++\n  title      s256\n  author_id  n\n  @ author_id\n";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+// ─── v0.193.0: @if and doc directive tests ──────────────────
+
+test "formatter: @if block not indented" {
+    const alloc = std.testing.allocator;
+    const input = "# users\nid n pk\n\n@if(dialect=pg)\nbio T\n@endif\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    const expected = "# users\n  id n pk\n\n@if(dialect=pg)\n  bio T\n@endif\n";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "formatter: @endif not indented even inside block" {
+    const alloc = std.testing.allocator;
+    const input = "# users\nid n pk\n@if(dialect=pg)\n  bio T\n@endif\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    const expected = "# users\n  id n pk\n@if(dialect=pg)\n  bio T\n@endif\n";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "formatter: doc directive indented inside block" {
+    const alloc = std.testing.allocator;
+    const input = "# users\n+ User table\nid n pk\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    const expected = "# users\n  + User table\n  id n pk\n";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "formatter: doc directive not indented outside block" {
+    const alloc = std.testing.allocator;
+    const input = "+ Schema doc\n$ mydb\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    const expected = "+ Schema doc\n$ mydb\n";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "formatter: template with @if and doc" {
+    const alloc = std.testing.allocator;
+    const input = "~ base\n+ Base template\nid n pk\n\n@if(dialect=pg)\nseq_id i\n@endif\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    const expected = "~ base\n  + Base template\n  id n pk\n\n@if(dialect=pg)\n  seq_id i\n@endif\n";
+    try std.testing.expectEqualStrings(expected, result);
+}
+
+test "formatter: multiple tables with blank line" {
+    const alloc = std.testing.allocator;
+    const input = "# users\nid n pk\n\n# posts\nid n pk\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    const expected = "# users\n  id n pk\n\n# posts\n  id n pk\n";
     try std.testing.expectEqualStrings(expected, result);
 }

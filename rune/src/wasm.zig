@@ -138,7 +138,7 @@ export fn rune_diff(schema1_ptr: [*]const u8, schema1_len: usize, schema2_ptr: [
     };
 
     // Compute diff
-    const schema_diff = diff_engine.computeDiff(alloc, old_result.resolved, new_result.resolved) catch |err| {
+    const schema_diff = diff_engine.diff(old_result.resolved, new_result.resolved, alloc) catch |err| {
         storeError(alloc, @errorName(err));
         return null;
     };
@@ -178,7 +178,7 @@ export fn rune_migrate(schema1_ptr: [*]const u8, schema1_len: usize, schema2_ptr
     };
 
     // Compute diff
-    const schema_diff = diff_engine.computeDiff(alloc, old_result.resolved, new_result.resolved) catch |err| {
+    const schema_diff = diff_engine.diff(old_result.resolved, new_result.resolved, alloc) catch |err| {
         storeError(alloc, @errorName(err));
         return null;
     };

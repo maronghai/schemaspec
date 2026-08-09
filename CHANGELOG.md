@@ -2,6 +2,23 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.193.0] - 2026-08-10
+
+### Fixed
+- **WASM diff/migrate compilation bug** — Fixed `rune_diff` and `rune_migrate` in `src/wasm.zig` that called non-existent `diff_engine.computeDiff()` instead of `diff_engine.diff()`. Also fixed argument order mismatch (was `computeDiff(alloc, old, new)`, correct is `diff(old, new, alloc)`). This was a latent compilation error that only manifested under `wasm32-wasi` target.
+
+### Changed
+- **Enhanced .ss formatter** — Improved `src/formatter.zig` to properly handle:
+  - `@if(dialect=pg|sqlite)` / `@endif` blocks at root level (not indented)
+  - `+` doc directives indented at field level inside blocks
+  - Block boundary detection when multiple `#` headers appear in sequence
+  - Comments inside blocks are now properly indented at field level
+- **Fixed formatter test expectations** — Updated `formatter_test.zig` to match correct indentation behavior for comments inside blocks (previously incorrectly expected unindented).
+
+### Added
+- **Formatter golden tests** — Added `tests/test_format.sh` with 5 test cases covering basic table formatting, `@if` block formatting, doc directive formatting, template with doc directives, and multiple tables. Also includes `--check` mode tests.
+- **Formatter unit tests** — Added 15 inline tests in `src/formatter.zig` covering edge cases for `@if`/`@endif`, doc directives, template syntax, comments, indexes, and blank line handling.
+
 ## [0.190.0] - 2026-08-09
 
 ### Added

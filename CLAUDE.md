@@ -47,6 +47,7 @@ bash tests/test_init.sh             # Init & completions (12 tests)
 bash tests/test_color.sh            # Color output (5 tests)
 bash tests/test_validate.sh         # Validate command (4 tests)
 bash tests/test_stats_json.sh       # Stats JSON output (3 tests)
+bash tests/test_format.sh           # Formatter golden tests (10 tests)
 bash tests/test_coverage.sh         # Full test suite runner (all 25 suites)
 ```
 

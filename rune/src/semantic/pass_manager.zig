@@ -112,7 +112,7 @@ pub fn validateDependencyOrder(alloc: std.mem.Allocator) void {
 }
 
 /// Check if pass `a` transitively depends on pass `b` (directly or indirectly).
-fn transitivelyDependsOn(a_name: []const u8, b_name: []const u8) bool {
+pub fn transitivelyDependsOn(a_name: []const u8, b_name: []const u8) bool {
     if (std.mem.eql(u8, a_name, b_name)) return true;
     for (DEFAULT_PASSES) |pass| {
         if (std.mem.eql(u8, pass.name, a_name)) {
@@ -141,14 +141,8 @@ pub fn validatePassAccess(alloc: std.mem.Allocator) void {
                 while (it.next()) |entry| {
                     const prev_name = entry.key_ptr.*;
                     const prev_access = entry.value_ptr.*;
-                    // Check if current pass depends on the previous writer
-                    var depends = false;
-                    for (pass.depends_on) |dep| {
-                        if (std.mem.eql(u8, dep, prev_name)) {
-                            depends = true;
-                            break;
-                        }
-                    }
+                    // Check if current pass transitively depends on the previous writer
+                    const depends = transitivelyDependsOn(pass.name, prev_name);
                     if (!depends and (prev_access.writes_tables and pass.access.writes_tables)) {
                         std.debug.panic(
                             "SemanticPass '{s}' writes tables but does not depend on '{s}' which also writes tables",
