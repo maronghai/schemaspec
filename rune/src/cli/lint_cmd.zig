@@ -22,6 +22,30 @@ pub const LintCmd = struct {
     dry_run: bool = false,
 };
 
+/// Format and output lint results in the requested format (sarif/json/text).
+fn lintOutput(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    results: anytype,
+    format: LintFormat,
+    json_errors: bool,
+    input_path: ?[]const u8,
+    use_color: bool,
+    quiet: bool,
+) !void {
+    const lint_mod = @import("../lint.zig");
+    if (format == .sarif) {
+        const sarif = try lint_mod.formatLintSarif(alloc, results, version.VERSION, input_path);
+        try io_mod.writeOutput(io, sarif, null, quiet);
+    } else if (json_errors or format == .json) {
+        const json = try lint_mod.formatLintJson(alloc, results);
+        try io_mod.writeOutput(io, json, null, quiet);
+    } else {
+        const text = try lint_mod.formatLintResults(alloc, results, use_color);
+        try io_mod.writeOutput(io, text, null, quiet);
+    }
+}
+
 pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cli.ParsedArgs) !void {
     const lint_mod = @import("../lint.zig");
 
@@ -50,6 +74,7 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
 
     // When --fix is active, skip normal output (fix summary goes to stderr)
     if (!cmd.fix) {
+        const use_color = parsed.color.shouldUseColor(io);
         // Diff-aware lint: if second file provided, compare results
         if (cmd.input2) |input2_path| {
             const file_data2 = try io_mod.readFileOrStdin(io, alloc, input2_path);
@@ -63,29 +88,9 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
             };
             const results2 = try lint_mod.lintSchema(alloc, pipeline2.resolved, lint_cfg);
             const diff = try lint_mod.lintDiff(results.items, results2.items, alloc);
-            const use_color = parsed.color.shouldUseColor(io);
-            if (cmd.format == .sarif) {
-                const sarif = try lint_mod.formatLintSarif(alloc, diff.added, version.VERSION, cmd.input2);
-                try io_mod.writeOutput(io, sarif, null, parsed.quiet);
-            } else if (cmd.json_errors or cmd.format == .json) {
-                const json = try lint_mod.formatLintJson(alloc, diff.added);
-                try io_mod.writeOutput(io, json, null, parsed.quiet);
-            } else {
-                const text = try lint_mod.formatLintResults(alloc, diff.added, use_color);
-                try io_mod.writeOutput(io, text, null, parsed.quiet);
-            }
+            try lintOutput(io, alloc, diff.added, cmd.format, cmd.json_errors, cmd.input2, use_color, parsed.quiet);
         } else {
-            const use_color = parsed.color.shouldUseColor(io);
-            if (cmd.format == .sarif) {
-                const sarif = try lint_mod.formatLintSarif(alloc, results.items, version.VERSION, cmd.input);
-                try io_mod.writeOutput(io, sarif, null, parsed.quiet);
-            } else if (cmd.json_errors or cmd.format == .json) {
-                const json = try lint_mod.formatLintJson(alloc, results.items);
-                try io_mod.writeOutput(io, json, null, parsed.quiet);
-            } else {
-                const text = try lint_mod.formatLintResults(alloc, results.items, use_color);
-                try io_mod.writeOutput(io, text, null, parsed.quiet);
-            }
+            try lintOutput(io, alloc, results.items, cmd.format, cmd.json_errors, cmd.input, use_color, parsed.quiet);
         }
     }
 

@@ -153,6 +153,10 @@ pub const DiagnosticCollector = struct {
         };
     }
 
+    pub fn deinit(self: *DiagnosticCollector) void {
+        self.diagnostics.deinit(self.alloc);
+    }
+
     /// Record a diagnostic (warning, error, or note).
     /// Stops recording when max_errors is exceeded.
     /// Sets `oom` flag if allocation fails — callers can check `hadOom()`.

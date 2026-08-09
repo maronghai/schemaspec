@@ -2,8 +2,10 @@ const std = @import("std");
 const TypedAst = @import("../types/typed_ast.zig").TypedAst;
 const lsp_protocol = @import("protocol.zig");
 const Range = lsp_protocol.Range;
-const getLineText = @import("helpers.zig").getLineText;
-const findNameInLine = @import("helpers.zig").findNameInLine;
+const helpers = @import("helpers.zig");
+const getLineText = helpers.getLineText;
+const findNameInLine = helpers.findNameInLine;
+const lineNoToZeroBased = helpers.lineNoToZeroBased;
 
 // ─── LSP Document Highlights ─────────────────────────────────
 // Highlights all occurrences of the symbol under the cursor.
@@ -28,7 +30,7 @@ pub fn getDocumentHighlights(alloc: std.mem.Allocator, typed: TypedAst, line: u3
 
     // Try to match a table name at the cursor position
     for (typed.tables) |table| {
-        const table_line = @as(u32, @intCast(table.line_no -| 1));
+        const table_line = lineNoToZeroBased(table.line_no);
         if (line == table_line) {
             const name_start: u32 = 2; // After "# "
             const name_end = name_start + @as(u32, @intCast(table.name.len));
@@ -46,7 +48,7 @@ pub fn getDocumentHighlights(alloc: std.mem.Allocator, typed: TypedAst, line: u3
                 for (typed.tables) |other_table| {
                     for (other_table.fks) |fk| {
                         if (std.mem.eql(u8, fk.ref_table, table.name)) {
-                            const fk_line = @as(u32, @intCast(other_table.line_no -| 1));
+                            const fk_line = lineNoToZeroBased(other_table.line_no);
                             if (fk.fields.len > 0) {
                                 if (findNameInLine(doc_text, fk_line, fk.fields[0])) |range| {
                                     highlights.append(alloc, .{
@@ -66,7 +68,7 @@ pub fn getDocumentHighlights(alloc: std.mem.Allocator, typed: TypedAst, line: u3
         // Check columns for name match
         for (table.columns) |col| {
             if (std.mem.eql(u8, col.name, "")) continue;
-            const col_line = @as(u32, @intCast(table.line_no -| 1));
+            const col_line = lineNoToZeroBased(table.line_no);
             if (line == col_line) {
                 const line_len = @as(u32, @intCast(getLineText(doc_text, col_line).len));
                 highlights.append(alloc, .{
@@ -83,7 +85,7 @@ pub fn getDocumentHighlights(alloc: std.mem.Allocator, typed: TypedAst, line: u3
                         if (std.mem.eql(u8, fk.ref_table, table.name)) {
                             // Check if this FK references this specific column
                             if (fk.ref_fields.len > 0 and std.mem.eql(u8, fk.ref_fields[0], col.name)) {
-                                const fk_line = @as(u32, @intCast(fk_table.line_no -| 1));
+                                const fk_line = lineNoToZeroBased(fk_table.line_no);
                                 if (fk.fields.len > 0) {
                                     if (findNameInLine(doc_text, fk_line, fk.fields[0])) |range| {
                                         highlights.append(alloc, .{

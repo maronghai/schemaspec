@@ -2,6 +2,12 @@ const std = @import("std");
 const protocol = @import("protocol.zig");
 const Range = protocol.Range;
 
+/// Convert 1-based line number to 0-based for LSP protocol.
+/// Returns 0 if line_no is 0 (undefined).
+pub fn lineNoToZeroBased(line_no: anytype) u32 {
+    return if (line_no > 0) @intCast(line_no - 1) else 0;
+}
+
 pub fn makeRange(start_line: u32, start_char: u32, end_line: u32, end_char: u32) Range {
     return .{
         .start = .{ .line = start_line, .character = start_char },

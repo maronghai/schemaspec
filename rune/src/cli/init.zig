@@ -186,7 +186,7 @@ const REST_API_SCHEMA =
 ;
 
 /// Get template content by name. Returns null for unknown names.
-fn getTemplate(name: []const u8) ?[]const u8 {
+pub fn getTemplate(name: []const u8) ?[]const u8 {
     if (std.mem.eql(u8, name, "default") or std.mem.eql(u8, name, "")) return STARTER_SCHEMA;
     if (std.mem.eql(u8, name, "blog")) return BLOG_SCHEMA;
     if (std.mem.eql(u8, name, "ecommerce")) return ECOMMERCE_SCHEMA;

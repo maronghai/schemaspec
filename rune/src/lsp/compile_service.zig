@@ -12,6 +12,8 @@ const Diagnostic = lsp_protocol.Diagnostic;
 const DiagnosticSeverity = lsp_protocol.DiagnosticSeverity;
 const dialect_enum = @import("../dialect/enum.zig");
 const Dialect = dialect_enum.Dialect;
+const helpers = @import("helpers.zig");
+const lineNoToZeroBased = helpers.lineNoToZeroBased;
 
 // ─── LSP Compile Service ───────────────────────────────────────
 // Wraps the Rune compilation pipeline for LSP use.
@@ -63,8 +65,8 @@ pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8
         const first_loc: usize = if (tree.tables.len > 0) tree.tables[0].line_no else 1;
         diagnostics.append(alloc, .{
             .range = .{
-                .start = .{ .line = @intCast(first_loc -| 1), .character = 0 },
-                .end = .{ .line = @intCast(first_loc -| 1), .character = 100 },
+                .start = .{ .line = lineNoToZeroBased(first_loc), .character = 0 },
+                .end = .{ .line = lineNoToZeroBased(first_loc), .character = 100 },
             },
             .severity = .error_sev,
             .message = "Schema has parse errors",
@@ -91,7 +93,7 @@ pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8
             .warning => .warning,
             .note => .information,
         };
-        const line: u32 = if (d.line_no > 0) @intCast(d.line_no - 1) else 0;
+        const line = lineNoToZeroBased(d.line_no);
         const col: u32 = if (d.col) |c| @intCast(c -| 1) else 0;
         diagnostics.append(alloc, .{
             .range = .{

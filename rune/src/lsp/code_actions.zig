@@ -5,7 +5,9 @@ const Range = protocol.Range;
 const CodeAction = protocol.CodeAction;
 const Diagnostic = protocol.Diagnostic;
 const TextEdit = protocol.TextEdit;
-const makeRange = @import("helpers.zig").makeRange;
+const helpers = @import("helpers.zig");
+const makeRange = helpers.makeRange;
+const lineNoToZeroBased = helpers.lineNoToZeroBased;
 
 // ─── Code Actions ──────────────────────────────────────────
 
@@ -24,10 +26,10 @@ pub fn getCodeActions(
         // Missing PK suggestion
         if (std.mem.indexOf(u8, diag.message, "no primary key") != null) {
             for (ast.tables) |table| {
-                const table_line: u32 = if (table.line_no > 0) @intCast(table.line_no - 1) else 0;
+                const table_line = lineNoToZeroBased(table.line_no);
                 if (table_line == diag.range.start.line and table.columns.len > 0) {
                     const first_col = table.columns[0];
-                    const col_line: u32 = if (first_col.line_no > 0) @intCast(first_col.line_no - 1) else table_line;
+                    const col_line = lineNoToZeroBased(first_col.line_no);
                     var new_text_buf = std.Io.Writer.Allocating.init(alloc);
                     new_text_buf.writer.print("{s} ++", .{first_col.name}) catch continue;
                     const new_text = new_text_buf.toOwnedSlice() catch continue;
@@ -51,7 +53,7 @@ pub fn getCodeActions(
             std.mem.indexOf(u8, diag.message, "lacks a comment") != null)
         {
             for (ast.tables) |table| {
-                const table_line: u32 = if (table.line_no > 0) @intCast(table.line_no - 1) else 0;
+                const table_line = lineNoToZeroBased(table.line_no);
                 if (table_line == diag.range.start.line) {
                     const name_end: u32 = @intCast(table.name.len);
                     actions.append(alloc, .{
@@ -117,7 +119,7 @@ pub fn getCodeActions(
             if (!has_index) {
                 for (table.columns) |col| {
                     if (std.mem.eql(u8, col.name, fk_col)) {
-                        const col_line: u32 = if (col.line_no > 0) @intCast(col.line_no - 1) else 0;
+                        const col_line = lineNoToZeroBased(col.line_no);
                         const col_name_end: u32 = @intCast(col.name.len);
                         actions.append(alloc, .{
                             .title = "Add index for FK column",

@@ -37,6 +37,8 @@ pub const SqlParser = struct {
     line_offsets: []const usize,
     /// Whether input uses GO as batch separator (MSSQL).
     uses_go_separator: bool,
+    /// Whether the parser owns the src slice (true when GO normalization allocated a new copy).
+    owns_src: bool,
 
     pub fn init(alloc: std.mem.Allocator, src: []const u8, dialect: Dialect) !SqlParser {
         // Build line offset table: line_offsets[i] = byte offset where line (i+1) starts
@@ -79,7 +81,16 @@ pub const SqlParser = struct {
             .dialect = dialect,
             .line_offsets = try offsets.toOwnedSlice(alloc),
             .uses_go_separator = uses_go,
+            .owns_src = uses_go,
         };
+    }
+
+    pub fn deinit(self: *SqlParser) void {
+        self.alloc.free(self.line_offsets);
+        self.diagnostics.deinit();
+        if (self.owns_src) {
+            self.alloc.free(self.src);
+        }
     }
 
     pub fn lineColAt(self: *SqlParser, pos: usize) struct { line: usize, col: usize } {

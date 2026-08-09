@@ -8,7 +8,9 @@ const protocol = @import("protocol.zig");
 const DocumentSymbol = protocol.DocumentSymbol;
 const SymbolKind = protocol.SymbolKind;
 
-pub const makeRange = @import("helpers.zig").makeRange;
+const helpers = @import("helpers.zig");
+pub const makeRange = helpers.makeRange;
+const lineNoToZeroBased = helpers.lineNoToZeroBased;
 
 // ─── Document Symbols ───────────────────────────────────────
 
@@ -17,14 +19,14 @@ pub fn getDocumentSymbols(alloc: std.mem.Allocator, ast: TypedAst) []DocumentSym
     var symbols = std.ArrayList(DocumentSymbol).initCapacity(alloc, ast.tables.len + ast.views.len) catch return &.{};
 
     for (ast.tables) |table| {
-        const line_no: u32 = if (table.line_no > 0) @intCast(table.line_no - 1) else 0;
+        const line_no = lineNoToZeroBased(table.line_no);
         const end_line: u32 = line_no + 1;
 
         var children = std.ArrayList(DocumentSymbol).initCapacity(alloc, table.columns.len + table.fks.len + table.indexes.len) catch null;
 
         if (children) |*ch| {
             for (table.columns) |col| {
-                const col_line: u32 = if (col.line_no > 0) @intCast(col.line_no - 1) else line_no;
+                const col_line = lineNoToZeroBased(col.line_no);
                 ch.append(alloc, .{
                     .name = col.name,
                     .detail = formatColumnDetail(alloc, col),
@@ -35,7 +37,7 @@ pub fn getDocumentSymbols(alloc: std.mem.Allocator, ast: TypedAst) []DocumentSym
             }
 
             for (table.fks) |fk| {
-                const fk_line: u32 = if (fk.line_no > 0) @intCast(fk.line_no - 1) else line_no;
+                const fk_line = lineNoToZeroBased(fk.line_no);
                 ch.append(alloc, .{
                     .name = if (fk.fields.len > 0) fk.fields[0] else "FK",
                     .detail = formatFkDetail(alloc, fk),
@@ -46,7 +48,7 @@ pub fn getDocumentSymbols(alloc: std.mem.Allocator, ast: TypedAst) []DocumentSym
             }
 
             for (table.indexes) |idx| {
-                const idx_line: u32 = if (idx.line_no > 0) @intCast(idx.line_no - 1) else line_no;
+                const idx_line = lineNoToZeroBased(idx.line_no);
                 ch.append(alloc, .{
                     .name = idx.name,
                     .detail = formatIndexDetail(alloc, idx),

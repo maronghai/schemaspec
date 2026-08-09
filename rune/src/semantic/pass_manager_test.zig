@@ -20,8 +20,8 @@ test "DEFAULT_PASSES: all pass names are unique" {
     var seen = std.StringHashMap(void).init(testing.allocator);
     defer seen.deinit();
     for (pm.DEFAULT_PASSES) |pass| {
-        const result = try seen.put(pass.name, {});
-        if (result != null) {
+        const result = try seen.getOrPut(pass.name);
+        if (result.found_existing) {
             try testing.expect(false); // Duplicate pass name found
         }
     }
@@ -45,19 +45,18 @@ test "DEFAULT_PASSES: all dependency names reference existing passes" {
 
 test "DEFAULT_PASSES: writers depend on earlier writers" {
     // Verify that passes with writes_tables access depend on earlier writers
-    // to prevent write-write conflicts
+    // to prevent write-write conflicts (matches validatePassAccess logic)
     for (pm.DEFAULT_PASSES) |pass| {
-        if (!pass.access.writes_tables and !pass.access.modifies_table_list and !pass.access.writes_types) {
-            continue; // Not a writer, skip
+        if (!pass.access.writes_tables) {
+            continue; // Only check table writers, not modifies_table_list or writes_types
         }
         // Check that this pass depends on all earlier writers
-        // (validatePassAccess already checks this, but we verify independently)
         for (pm.DEFAULT_PASSES) |prev| {
             if (std.mem.eql(u8, prev.name, pass.name)) break; // Reached self
-            if (!prev.access.writes_tables and !prev.access.modifies_table_list and !prev.access.writes_types) {
-                continue; // Previous pass is not a writer
+            if (!prev.access.writes_tables) {
+                continue; // Previous pass is not a table writer
             }
-            // Previous pass is a writer - check if current pass depends on it
+            // Previous pass is a table writer - check if current pass depends on it
             var depends = false;
             for (pass.depends_on) |dep| {
                 if (std.mem.eql(u8, dep, prev.name)) {
