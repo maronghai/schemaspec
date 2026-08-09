@@ -51,6 +51,9 @@ pub const MigrateConfig = struct {
     summary: bool = false,
     color: enums.ColorMode = .auto,
     graph: bool = false,
+    /// When true (default), auto-lint and fix the new schema before migration.
+    /// Set to false with --no-lint to skip auto-fix.
+    auto_lint: bool = true,
 };
 
 const DiffResult = struct {
@@ -164,7 +167,42 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
         return;
     }
 
-    const result = try prepareDiff(io, alloc, cfg.old_path, cfg.new_path);
+    // Auto-lint: apply lint fixes to the new schema before migration
+    var actual_new_path = cfg.new_path;
+    if (cfg.auto_lint) {
+        const lint_mod = @import("../lint.zig");
+        const lint_config = @import("../lint/config.zig");
+        const new_source = try io_mod.readFileOrStdin(io, alloc, cfg.new_path);
+        const new_ast = try pipeline_forward.compileToAst(io, alloc, cfg.new_path);
+        const lint_results = try lint_mod.lintSchema(alloc, new_ast, .{});
+
+        // Check if any fixable issues exist
+        var has_fixable = false;
+        for (lint_results.items) |r| {
+            if (lint_config.LintRule.fromName(r.rule)) |rule| {
+                if (rule.isFixable()) {
+                    has_fixable = true;
+                    break;
+                }
+            }
+        }
+
+        if (has_fixable) {
+            const fix_result = try lint_mod.lintFix(alloc, new_source, lint_results.items);
+            if (fix_result.fixes.len > 0) {
+                // Write fixed source to a temp file and use it for migration
+                const tmp_path = try std.fmt.allocPrint(alloc, "{s}.lint-fixed.ss", .{cfg.new_path});
+                try io_mod.writeOutput(io, fix_result.source, tmp_path, true);
+                actual_new_path = tmp_path;
+                // Report fixes to stderr
+                for (fix_result.fixes) |fx| {
+                    try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "fixed: [{s}] {s} — {s}\n", .{ fx.rule, fx.table, fx.description }), null, true);
+                }
+            }
+        }
+    }
+
+    const result = try prepareDiff(io, alloc, cfg.old_path, actual_new_path);
     emitTraceAndStats(result, cfg.trace, cfg.stats);
 
     if (cfg.check) {

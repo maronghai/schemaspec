@@ -18,7 +18,7 @@ pub const Command = union(enum) {
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text },
     stats: struct { input: ?[]const u8, format: StatsFormat = .text, per_table: bool = false },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false, from_sql: ?[]const u8 = null },
-    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false, graph: bool = false },
+    migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false, graph: bool = false, no_lint: bool = false },
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat, check: bool = false },
     docs: struct { input: ?[]const u8, output: ?[]const u8, doc_format: DocsFormat = .markdown },

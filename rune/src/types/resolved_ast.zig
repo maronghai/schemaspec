@@ -22,6 +22,8 @@ pub const ResolvedTable = struct {
     /// Conditional blocks: fields between @if and @endif that are dialect-specific.
     conditional_blocks: []const ast_mod.ConditionalBlock = &.{},
     line_no: usize,
+    /// Template reference: the name of the template applied to this table (if any).
+    template_ref: ?[]const u8 = null,
 };
 
 pub const ResolvedAst = struct {

@@ -100,10 +100,12 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune watch schema.ss --parallel        # Watch with parallel compilation
 ./rune/zig-out/bin/rune watch schema.ss -s                # Watch with compilation stats
 ./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues
-./rune/zig-out/bin/rune lint schema.ss --fix              # Lint and auto-fix issues (no-pk, no-timestamps)
+./rune/zig-out/bin/rune lint schema.ss --fix              # Lint and auto-fix issues (8 rules: no-pk, no-timestamps, empty-table, serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing)
 ./rune/zig-out/bin/rune lint schema.ss --fix --dry-run    # Preview fixes without writing
 ./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON
 ./rune/zig-out/bin/rune lint schema.ss --strict           # Lint, exit 1 on warnings
+./rune/zig-out/bin/rune migrate old.ss new.ss             # Migration SQL (auto-lint fixes applied to new schema)
+./rune/zig-out/bin/rune migrate old.ss new.ss --no-lint   # Migration SQL without auto-lint
 ./rune/zig-out/bin/rune lsp                               # Start LSP language server (stdio)
 ```
 
@@ -217,9 +219,9 @@ rune/src/
 
 - **FlagRegistry** (`cli/flag_registry.zig`): All 20 global CLI flags defined once in `GLOBAL_FLAG_REGISTRY` array. `matchesFlag()` matches long and short forms. `isKnownGlobalFlag()` provides unknown-flag detection. `parseGlobalFlags` uses `matchesFlag` for boolean flag detection instead of raw `std.mem.eql` chains.
 
-- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (14 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
+- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (16 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
 
-- **ResolvedAst IR** (`types/resolved_ast.zig`): `ResolvedTable` + `ResolvedAst` — output of template resolution + semantic passes. Separated from `types/ast.zig` (parser output) for clean IR boundary. Re-exported from `ast.zig` for backward compatibility.
+- **ResolvedAst IR** (`types/resolved_ast.zig`): `ResolvedTable` + `ResolvedAst` — output of template resolution + semantic passes. `ResolvedTable` includes `template_ref` for tracking which template was applied. Separated from `types/ast.zig` (parser output) for clean IR boundary. Re-exported from `ast.zig` for backward compatibility.
 
 - **TypedAst IR** (`types/typed_ast.zig`): Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 
@@ -317,10 +319,10 @@ rune/src/
 | | `trace.zig` | Shared AST trace formatting |
 | | `diagnostic.zig` | Multi-error diagnostic collector (printAll, formatJson, formatLsp, formatTerminal) |
 | | `template.zig` | Template inheritance resolution |
-| | `pass/*.zig` | 14 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, etc.) |
+| | `pass/*.zig` | 16 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, template_type_conflict, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_version, rune_reset) |
-| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (27 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum, TOML parsing), `lint/fix.zig` (auto-fix) |
+| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (27 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum with isFixable(), TOML parsing), `lint/fix.zig` (auto-fix for 8 rules) |
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |

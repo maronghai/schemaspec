@@ -118,6 +118,21 @@ pub const LintRule = enum {
         }
         return null;
     }
+
+    /// Check if this rule supports auto-fix via `rune lint --fix`.
+    pub fn isFixable(self: LintRule) bool {
+        return switch (self) {
+            .no_pk => true,
+            .no_timestamps => true,
+            .empty_table => true,
+            .serial_type => true,
+            .bool_default => true,
+            .nullable_column_default => true,
+            .duplicate_index => true,
+            .index_column_missing => true,
+            else => false,
+        };
+    }
 };
 
 pub const LintConfig = struct {

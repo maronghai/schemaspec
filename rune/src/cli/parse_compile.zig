@@ -86,6 +86,7 @@ pub fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
     var dir: ?[]const u8 = null;
     var incremental = false;
     var graph = false;
+    var no_lint = false;
     var j: usize = 3;
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--name") and j + 1 < fargs.len) {
@@ -98,6 +99,8 @@ pub fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
             incremental = true;
         } else if (std.mem.eql(u8, fargs[j], "--graph")) {
             graph = true;
+        } else if (std.mem.eql(u8, fargs[j], "--no-lint")) {
+            no_lint = true;
         }
     }
     return .{
@@ -119,6 +122,7 @@ pub fn parseMigrateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
             .incremental = incremental,
             .summary = opts.summary,
             .graph = graph,
+            .no_lint = no_lint,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,

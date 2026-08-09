@@ -72,6 +72,7 @@ pub fn resolveAndApply(
             .indexes = t.indexes,
             .conditional_blocks = t.conditional_blocks,
             .line_no = t.line_no,
+            .template_ref = t.template_ref,
         });
     }
 

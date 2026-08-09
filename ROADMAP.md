@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.197.0 (2026-08-10) — 53,600+ lines production Zig, 1,482+ tests, 33 test suites.
+**Current version**: 0.198.0 (2026-08-10) — 54,200+ lines production Zig, 1,492+ tests, 33 test suites.
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.198.0** — Lint auto-fix expansion & migrate integration: expanded `rune lint --fix` from 3 to 8 fixable rules (added serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing); added `LintRule.isFixable()` method for rule introspection; added `template_type_conflict` semantic pass for table-to-template type mismatch detection; integrated auto-lint into `rune migrate` pipeline (auto-fixes applied to new schema before migration, disable with `--no-lint`); added `template_ref` field to ResolvedTable for template tracking; fixed pre-existing empty-table fix test bug; 10 new unit tests (1492 total)
 - **v0.197.0** — Test coverage & architecture cleanup: added 49 new tests for cli/parse (argument parsing, flag detection, suggestions) and lsp/protocol (JSON-RPC message writing), consolidated getInputPath/getInputPath2 into single getInputPaths function, registered new test files in tests.zig
 - **v0.196.0** — Architecture refactoring & quality: extracted docs/format command handlers from main.zig dispatch to pipeline/handlers.zig (reduced dispatch function by 40 lines), fixed parser BlockState memory leak (parents_buf not freed in reset), optimized stripEngineTokens to avoid allocation when no engine token present, eliminated test memory leak (0 leaks now)
 - **v0.195.0** — Bug fixes & quality: fixed SQLite UNSIGNED test assertion (backtick→double-quote), fixed Mermaid docs memory leak (missing defer), fixed parser @if conditional block memory leak (15→1 allocations), fixed parser internal ArrayList buffer leaks (BlockState deinit, stripEngineTokens deinit, parse method cleanup), updated Zig package manager roadmap item

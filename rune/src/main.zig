@@ -303,6 +303,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .summary = cmd.summary,
                 .color = parsed.color,
                 .graph = cmd.graph,
+                .auto_lint = !cmd.no_lint,
             });
         },
         .migrate_status => |cmd| {

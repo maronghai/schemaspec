@@ -79,6 +79,7 @@ comptime {
     _ = @import("lint/rules_test.zig");
     _ = @import("lint/format_test.zig");
     _ = @import("lint/config_test.zig");
+    _ = @import("lint/fix.zig");
     // ── parser ───────────────────────────────────────────────────
     _ = @import("parser/tokenizer_test.zig");
     _ = @import("parser/parser_test.zig");
@@ -125,6 +126,7 @@ comptime {
     _ = @import("semantic/pass/validate_template_types.zig");
     _ = @import("semantic/pass/validate_fk_types.zig");
     _ = @import("semantic/pass/validate_views.zig");
+    _ = @import("semantic/pass/template_type_conflict.zig");
     // ── types ────────────────────────────────────────────────────
     _ = @import("types/ast_test.zig");
     _ = @import("types/ir_version.zig");
