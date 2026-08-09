@@ -142,6 +142,42 @@ pub const LintRule = enum {
             else => false,
         };
     }
+
+    /// Human-readable description for `--show-rules` and config generation.
+    pub fn description(self: LintRule) []const u8 {
+        return switch (self) {
+            .no_pk => "Table has no primary key",
+            .naming => "Table names should be singular (CamelCase → snake_case)",
+            .no_index_fk => "Foreign key columns without an index",
+            .no_timestamps => "Table missing create_at/update_at timestamps",
+            .wide_table => "Table has more than 30 columns",
+            .enum_case => "Custom type enum values should be UPPER_CASE",
+            .count => "Table has more than 50 columns",
+            .fk_cascade => "Foreign key without explicit ON DELETE/UPDATE actions",
+            .nullable_pk => "Primary key column is nullable",
+            .orphan_type => "Custom type defined but not used by any table",
+            .index_unused => "Index on column not used in any FK",
+            .circular_fk => "Circular foreign key dependency between tables",
+            .duplicate_index => "Duplicate index on the same column(s)",
+            .empty_table => "Table has no columns",
+            .table_comment => "Table missing comment/description",
+            .serial_type => "PostgreSQL-specific serial type (use n++ for portability)",
+            .table_name_length => "Table name exceeds max length (default: 64)",
+            .column_length => "String column without explicit length",
+            .index_column_missing => "Index references column not in table",
+            .naming_prefix => "Table name uses anti-pattern prefix (tbl_, t_, tb_)",
+            .fk_naming => "FK column doesn't follow <table>_id convention",
+            .bool_default => "Boolean column without explicit default",
+            .view_no_select => "View has no SELECT statement",
+            .column_default_required => "Non-PK non-nullable column without DEFAULT",
+            .index_naming => "Index name doesn't follow <table>_<columns> convention",
+            .nullable_column_default => "Nullable non-PK column without DEFAULT",
+            .timestamp_naming => "Datetime column should be created_at/updated_at",
+            .enum_value_naming => "Enum values should be UPPER_CASE",
+            .fk_null => "Foreign key column is nullable",
+            .cross_dialect_types => "MySQL-specific types not portable to other dialects",
+        };
+    }
 };
 
 pub const LintConfig = struct {

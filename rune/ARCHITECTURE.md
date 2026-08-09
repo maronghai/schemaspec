@@ -478,7 +478,7 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 | File | Lines | Responsibility |
 |------|-------|---------------|
 | `lint/rules.zig` | ~500 | 30 lint rules (no-pk, naming, no-index-fk, no-timestamps, wide-table, enum-case, count, fk-cascade, nullable-pk, orphan-type, index-unused, circular-fk, duplicate-index, empty-table, table-comment, serial-type, table-name-length, column-length, index-column-missing, naming-prefix, fk-naming, bool-default, view-no-select, column-default-required, index-naming, nullable-column-default, timestamp-naming, enum-value-naming, fk-null, cross-dialect-types) |
-| `lint/config.zig` | ~250 | `LintConfig` struct with toggle flags, `LintRule` enum (single source of truth for rule names + enable/disable), `LintRules` TOML config parsing, severity/threshold configuration |
+| `lint/config.zig` | ~300 | `LintConfig` struct with toggle flags, `LintRule` enum (single source of truth for rule names + descriptions + enable/disable), `LintRules` TOML config parsing, severity/threshold configuration |
 | `lint/format.zig` | ~160 | Output formatters: text (human-readable with summary line), JSON (machine-readable), SARIF (CI/CD integration) |
 | `lint/fix.zig` | ~180 | Auto-fix logic for fixable rules (no-pk, no-timestamps, empty-table) |
 | `lint.zig` | ~33 | Re-export barrel module |

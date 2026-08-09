@@ -60,7 +60,7 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
 
     // --init: generate starter .rune-lint.toml config and exit
     if (cmd.init_config) {
-        try initLintConfig(io);
+        try initLintConfig(io, alloc);
         return;
     }
 
@@ -159,9 +159,7 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
 // ─── --show-rules: List all available lint rules ─────────────
 
 fn showAllRules(alloc: std.mem.Allocator, io: std.Io, quiet: bool) !void {
-    const lint_mod = @import("../lint.zig");
-    const LintRule = lint_mod.LintConfig; // We need the rule enum
-    _ = alloc;
+    const rules_mod = @import("../lint/rules.zig");
 
     var buf = std.Io.Writer.Allocating.init(alloc);
     const w = &buf.writer;
@@ -170,44 +168,11 @@ fn showAllRules(alloc: std.mem.Allocator, io: std.Io, quiet: bool) !void {
     try w.writeAll("Rule                       Fixable  Description\n");
     try w.writeAll("─────────────────────────  ───────  ─────────────────────────────────────\n");
 
-    const rules_info = [_]struct { name: []const u8, fixable: bool, desc: []const u8 }{
-        .{ .name = "no-pk", .fixable = true, .desc = "Table has no primary key" },
-        .{ .name = "naming", .fixable = false, .desc = "Table names should be singular (CamelCase → snake_case)" },
-        .{ .name = "no-index-fk", .fixable = false, .desc = "Foreign key columns without an index" },
-        .{ .name = "no-timestamps", .fixable = true, .desc = "Table missing create_at/update_at timestamps" },
-        .{ .name = "wide-table", .fixable = false, .desc = "Table has more than 30 columns" },
-        .{ .name = "enum-case", .fixable = false, .desc = "Custom type enum values should be UPPER_CASE" },
-        .{ .name = "count", .fixable = false, .desc = "Table has more than 50 columns" },
-        .{ .name = "fk-cascade", .fixable = false, .desc = "Foreign key without explicit ON DELETE/UPDATE actions" },
-        .{ .name = "nullable-pk", .fixable = false, .desc = "Primary key column is nullable" },
-        .{ .name = "orphan-type", .fixable = false, .desc = "Custom type defined but not used by any table" },
-        .{ .name = "index-unused", .fixable = false, .desc = "Index on column not used in any FK" },
-        .{ .name = "circular-fk", .fixable = false, .desc = "Circular foreign key dependency between tables" },
-        .{ .name = "duplicate-index", .fixable = true, .desc = "Duplicate index on the same column(s)" },
-        .{ .name = "empty-table", .fixable = true, .desc = "Table has no columns" },
-        .{ .name = "table-comment", .fixable = false, .desc = "Table missing comment/description" },
-        .{ .name = "serial-type", .fixable = false, .desc = "PostgreSQL-specific serial type (use n++ for portability)" },
-        .{ .name = "table-name-length", .fixable = false, .desc = "Table name exceeds max length (default: 64)" },
-        .{ .name = "column-length", .fixable = false, .desc = "String column without explicit length" },
-        .{ .name = "index-column-missing", .fixable = false, .desc = "Index references column not in table" },
-        .{ .name = "naming-prefix", .fixable = false, .desc = "Table name uses anti-pattern prefix (tbl_, t_, tb_)" },
-        .{ .name = "fk-naming", .fixable = false, .desc = "FK column doesn't follow <table>_id convention" },
-        .{ .name = "bool-default", .fixable = false, .desc = "Boolean column without explicit default" },
-        .{ .name = "view-no-select", .fixable = false, .desc = "View has no SELECT statement" },
-        .{ .name = "column-default-required", .fixable = false, .desc = "Non-PK non-nullable column without DEFAULT" },
-        .{ .name = "index-naming", .fixable = false, .desc = "Index name doesn't follow <table>_<columns> convention" },
-        .{ .name = "nullable-column-default", .fixable = false, .desc = "Nullable non-PK column without DEFAULT" },
-        .{ .name = "timestamp-naming", .fixable = false, .desc = "Datetime column should be created_at/updated_at" },
-        .{ .name = "enum-value-naming", .fixable = false, .desc = "Enum values should be UPPER_CASE" },
-        .{ .name = "fk-null", .fixable = false, .desc = "Foreign key column is nullable" },
-        .{ .name = "cross-dialect-types", .fixable = false, .desc = "MySQL-specific types not portable to other dialects" },
-    };
-
-    for (rules_info) |r| {
-        try w.print("  {s:<26} {s:<9} {s}\n", .{ r.name, if (r.fixable) "yes" else "no", r.desc });
+    for (rules_mod.RULE_INFO) |r| {
+        try w.print("  {s:<26} {s:<9} {s}\n", .{ r.rule.name(), if (r.fixable) "yes" else "no", r.description });
     }
 
-    try w.print("\n{d} rules available. Use --rules <file> to customize.\n", .{rules_info.len});
+    try w.print("\n{d} rules available. Use --rules <file> to customize.\n", .{rules_mod.RULE_INFO.len});
 
     try w.flush();
     const output = try buf.toOwnedSlice();
@@ -216,52 +181,27 @@ fn showAllRules(alloc: std.mem.Allocator, io: std.Io, quiet: bool) !void {
 
 // ─── --init: Generate starter .rune-lint.toml config ────────
 
-fn initLintConfig(io: std.Io) !void {
-    const config_content =
-        \\# Rune lint configuration
-        \\# All rules enabled by default. Disable specific rules below.
-        \\# Use: rune lint schema.ss --rules .rune-lint.toml
-        \\
-        \\[rules]
-        \\no-pk = true
-        \\naming = true
-        \\no-index-fk = true
-        \\no-timestamps = true
-        \\wide-table = true
-        \\enum-case = true
-        \\count = true
-        \\fk-cascade = true
-        \\nullable-pk = true
-        \\orphan-type = true
-        \\index-unused = true
-        \\circular-fk = true
-        \\duplicate-index = true
-        \\empty-table = true
-        \\table-comment = true
-        \\serial-type = true
-        \\table-name-length = true
-        \\column-length = true
-        \\index-column-missing = true
-        \\naming-prefix = true
-        \\fk-naming = true
-        \\bool-default = true
-        \\view-no-select = true
-        \\column-default-required = true
-        \\index-naming = true
-        \\nullable-column-default = true
-        \\timestamp-naming = true
-        \\enum-value-naming = true
-        \\fk-null = true
-        \\cross-dialect-types = true
-        \\
-        \\# Set to false to disable a rule
-        \\# Example: no-pk = false
-        \\
-    ;
+fn initLintConfig(io: std.Io, alloc: std.mem.Allocator) !void {
+    const rules_mod = @import("../lint/rules.zig");
 
+    var buf = std.Io.Writer.Allocating.init(alloc);
+    defer buf.deinit();
+    const w = &buf.writer;
+
+    try w.writeAll("# Rune lint configuration\n");
+    try w.writeAll("# All rules enabled by default. Disable specific rules below.\n");
+    try w.writeAll("# Use: rune lint schema.ss --rules .rune-lint.toml\n\n");
+    try w.writeAll("[rules]\n");
+    for (rules_mod.RULE_INFO) |r| {
+        try w.print("{s} = true\n", .{r.rule.name()});
+    }
+    try w.writeAll("\n# Set to false to disable a rule\n");
+    try w.writeAll("# Example: no-pk = false\n\n");
+
+    const content = try buf.toOwnedSlice();
     std.Io.Dir.cwd().writeFile(io, .{
         .sub_path = ".rune-lint.toml",
-        .data = config_content,
+        .data = content,
     }) catch {
         fmt.printError("io", "failed to write .rune-lint.toml");
         std.process.exit(1);

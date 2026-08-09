@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.201.0 (2026-08-10) — 55,200+ lines production Zig, 1,502+ tests, 33 test suites.
+**Current version**: 0.202.0 (2026-08-10) — 55,200+ lines production Zig, 1,502+ tests, 33 test suites.
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.202.0** — Lint rule metadata consolidation: added `description()` method to `LintRule` enum (single source of truth for rule descriptions); added `RuleInfo` struct and `RULE_INFO` constant in `lint/rules.zig` (derives name, description, fixable from `LintRule`); refactored `showAllRules` and `initLintConfig` in `lint_cmd.zig` to iterate `RULE_INFO` instead of maintaining hardcoded lists; added 4 unit tests for `RULE_INFO` consistency; 1502 tests pass, benchmarks show no regressions
 - **v0.201.0** — Lint UX & rule infrastructure: added `--show-rules` flag to list all 30 rules with descriptions and fixability status; added `--init` flag to generate starter `.rune-lint.toml` config file; added `cross-dialect-types` lint rule (warns about MySQL-specific types like UNSIGNED, TINYINT, MEDIUMTEXT that don't port to other dialects); enhanced lint summary line to show fixable count; updated help text with all 30 rules; 4 new unit tests
 - **v0.200.0** — Architecture hardening: fixed ARCHITECTURE.md stale pass list (added `template_type_conflict`, fixed `resolve_conditionals` position, updated count from 14 to 16); fixed main.zig `std.io.getStdErr()` API incompatibility (Zig 0.16 uses `std.Io.File.stderr()`); all 1498 tests pass, benchmarks show no regressions
 - **v0.199.0** — LSP doc hover & lint rules expansion: added `+` doc content to LSP hover popups (tables, columns, views show doc as markdown blockquote); added `enum-value-naming` lint rule (warns when custom type enum values use lowercase instead of UPPER_CASE); added `fk-null` lint rule (warns when foreign key columns are nullable); added 4 new unit tests (1498 total)

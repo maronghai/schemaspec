@@ -10,6 +10,29 @@ const LintRule = @import("config.zig").LintRule;
 // Individual lint rule implementations. Each rule checks one
 // specific schema anti-pattern and appends results if found.
 
+/// Metadata for a lint rule — single source of truth for `--show-rules` and `--init`.
+pub const RuleInfo = struct {
+    rule: LintRule,
+    description: []const u8,
+    fixable: bool,
+};
+
+/// All rule metadata, derived from LintRule enum. Use this instead of hardcoded lists.
+pub const RULE_INFO = initRuleInfo();
+
+fn initRuleInfo() [std.meta.fields(LintRule).len]RuleInfo {
+    var info: [std.meta.fields(LintRule).len]RuleInfo = undefined;
+    inline for (std.meta.fields(LintRule), 0..) |field, i| {
+        const r: LintRule = @enumFromInt(field.value);
+        info[i] = .{
+            .rule = r,
+            .description = r.description(),
+            .fixable = r.isFixable(),
+        };
+    }
+    return info;
+}
+
 /// Handler function signature for data-driven dispatch.
 const RuleHandler = *const fn (alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) anyerror!void;
 
@@ -1000,4 +1023,30 @@ test "isSnakeCase invalid" {
     try std.testing.expect(!isSnakeCase("UPPER"));
     // Empty
     try std.testing.expect(!isSnakeCase(""));
+}
+
+// ─── RULE_INFO Consistency Tests ──────────────────────────────
+
+test "RULE_INFO covers all LintRule enum values" {
+    // RULE_INFO length must match enum field count
+    try std.testing.expectEqual(std.meta.fields(LintRule).len, RULE_INFO.len);
+}
+
+test "RULE_INFO entries have non-empty descriptions" {
+    for (RULE_INFO) |info| {
+        try std.testing.expect(info.description.len > 0);
+        try std.testing.expect(info.rule.name().len > 0);
+    }
+}
+
+test "RULE_INFO fixable flags match LintRule.isFixable" {
+    for (RULE_INFO) |info| {
+        try std.testing.expectEqual(info.rule.isFixable(), info.fixable);
+    }
+}
+
+test "RULE_INFO descriptions match LintRule.description" {
+    for (RULE_INFO) |info| {
+        try std.testing.expectEqualStrings(info.rule.description(), info.description);
+    }
 }
