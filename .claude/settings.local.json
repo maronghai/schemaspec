@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(zig build *)",
+      "Bash(bash tests/test.sh)",
+      "Bash(bash tests/test.sh 102)",
+      "Bash(bash tests/test_reverse.sh)"
+    ]
+  }
+}
