@@ -12,6 +12,10 @@ const Dialect = dialect_enum.Dialect;
 // Extracted from semantic.zig (was analyzer.zig) for single-responsibility.
 
 /// Shared mutable context passed to each semantic pass.
+///
+/// IMPORTANT: Always use `init()` to construct PassContext. Fields marked
+/// `= undefined` are only present for backward-compatible struct literals
+/// in test code; using them in production will cause undefined behavior.
 pub const PassContext = struct {
     alloc: std.mem.Allocator,
     tables: *std.ArrayList(ResolvedTable),

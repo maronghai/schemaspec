@@ -98,10 +98,10 @@ pub fn get(name: []const u8) ?Generator {
     return null;
 }
 
-/// Print all available generators to stderr.
-pub fn listAll() void {
-    std.debug.print("Available generators:\n", .{});
+/// Print all available generators to the given writer.
+pub fn listAll(writer: anytype) !void {
+    try writer.print("Available generators:\n", .{});
     for (REGISTRY) |gen| {
-        std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
+        try writer.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
     }
 }

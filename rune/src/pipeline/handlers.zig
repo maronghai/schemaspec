@@ -19,6 +19,17 @@ const fmt = @import("../diagnostic/format.zig");
 // CLI-level handlers that orchestrate compilation + output.
 // Extracted from forward.zig for single-responsibility.
 
+/// Configuration for `handleValidate` and `handleCheck`.
+/// Replaces 9 positional parameters with a named struct.
+pub const ValidateConfig = struct {
+    stats: bool = false,
+    verbose_passes: bool = false,
+    json_errors: bool = false,
+    strict: bool = false,
+    format: StatsFormat = .text,
+    per_table: bool = false,
+};
+
 /// Unified compile handler for all combinations of input (stdin/file) and output (sql/json).
 pub fn handleCompileRequest(
     io: std.Io,
@@ -101,36 +112,36 @@ pub fn handleCompileRequest(
 /// With strict=false (default validate): always succeeds (exit 0), prints errors but doesn't fail.
 /// With strict=true (check mode): returns error.DiagnosticsError on errors (exit 1).
 /// With json_errors=true or format=.json: outputs JSON result instead of text.
-pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, strict: bool, format: StatsFormat, per_table: bool) !void {
-    const result = compilePipeline(alloc, file_data, .{ .verbose_passes = verbose_passes, .json_errors = json_errors }) catch |err| {
+pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, cfg: ValidateConfig) !void {
+    const result = compilePipeline(alloc, file_data, .{ .verbose_passes = cfg.verbose_passes, .json_errors = cfg.json_errors }) catch |err| {
         if (err == error.DiagnosticsError or err == error.SemanticError) {
-            if (json_errors or format == .json) {
+            if (cfg.json_errors or cfg.format == .json) {
                 const s = Stats{ .tables = 0, .fields = 0, .views = 0, .not_null_fields = 0, .numeric_fields = 0, .string_fields = 0, .datetime_fields = 0, .boolean_fields = 0, .other_fields = 0, .foreign_keys = 0, .indexes = 0, .check_constraints = 0, .custom_types = 0 };
                 const json = try formatValidateResult(alloc, false, s, 1);
                 try io_mod.writeOutput(io, json, null, false);
             } else {
                 fmt.printError("schema", "has errors");
             }
-            if (strict) return err;
+            if (cfg.strict) return err;
             return;
         }
         return err;
     };
     const s = computeStats(result.resolved);
-    if (json_errors or format == .json) {
+    if (cfg.json_errors or cfg.format == .json) {
         const json = try formatValidateResult(alloc, !result.partial, s, if (result.partial) @min(result.tree.error_count, std.math.maxInt(u32)) else 0);
         try io_mod.writeOutput(io, json, null, false);
     } else {
-        if (stats or per_table) {
+        if (cfg.stats or cfg.per_table) {
             printStats(s);
         }
-        if (per_table) {
+        if (cfg.per_table) {
             const table_stats = stats_mod.computePerTableStats(result.resolved);
             stats_mod.printPerTableStats(table_stats);
         }
         if (result.partial) {
             fmt.printError("schema", "has errors (partial)");
-            if (strict) return error.DiagnosticsError;
+            if (cfg.strict) return error.DiagnosticsError;
             return;
         }
         fmt.printOk("schema is valid");
@@ -138,8 +149,8 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
 }
 
 /// Check a .ss file — CI gate mode. Fails on any schema error.
-pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, stats: bool, verbose_passes: bool, json_errors: bool, format: StatsFormat) !void {
-    return handleValidate(io, alloc, file_data, stats, verbose_passes, json_errors, true, format, false);
+pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, cfg: ValidateConfig) !void {
+    return handleValidate(io, alloc, file_data, .{ .stats = cfg.stats, .verbose_passes = cfg.verbose_passes, .json_errors = cfg.json_errors, .strict = true, .format = cfg.format, .per_table = false });
 }
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.

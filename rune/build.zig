@@ -86,7 +86,9 @@ pub fn build(b: *std.Build) void {
     const run_golden = b.addRunArtifact(exe);
     run_golden.step.dependOn(b.getInstallStep());
     // The golden tests are shell scripts in tests/ — run them via bash
-    const run_golden_sh = b.addSystemCommand(&.{ "bash", "-c", "cd .. && for t in tests/test_*.sh; do echo \"Running $t...\"; bash \"$t\" || exit 1; done" });
+    // Use b.pathFromRoot to construct the correct path relative to the build file's directory
+    const parent_dir = b.pathFromRoot("..");
+    const run_golden_sh = b.addSystemCommand(&.{ "bash", "-c", b.fmt("cd {s} && for t in tests/test_*.sh; do echo \"Running $t...\"; bash \"$t\" || exit 1; done", .{parent_dir}) });
     run_golden_sh.step.dependOn(b.getInstallStep());
     golden_step.dependOn(&run_golden_sh.step);
 
@@ -112,13 +114,15 @@ pub fn build(b: *std.Build) void {
     bench_step.dependOn(&run_bench.step);
 
     // ─── Fuzzing ───────────────────────────────────────────────────
+    const fuzz_mod = b.createModule(.{
+        .root_source_file = b.path("fuzz.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    fuzz_mod.addOptions("build_options", options);
     const fuzz_exe = b.addExecutable(.{
         .name = "fuzz",
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("fuzz.zig"),
-            .target = target,
-            .optimize = optimize,
-        }),
+        .root_module = fuzz_mod,
     });
 
     const run_fuzz = b.addRunArtifact(fuzz_exe);

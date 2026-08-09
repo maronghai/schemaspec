@@ -261,11 +261,11 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .validate => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return handlers.handleValidate(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors, parsed.strict, cmd.format, cmd.per_table);
+            return handlers.handleValidate(io, alloc, file_data, .{ .stats = cmd.stats, .verbose_passes = cmd.verbose_passes, .json_errors = parsed.json_errors, .strict = parsed.strict, .format = cmd.format, .per_table = cmd.per_table });
         },
         .check => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            return handlers.handleCheck(io, alloc, file_data, cmd.stats, cmd.verbose_passes, parsed.json_errors, cmd.format);
+            return handlers.handleCheck(io, alloc, file_data, .{ .stats = cmd.stats, .verbose_passes = cmd.verbose_passes, .json_errors = parsed.json_errors, .format = cmd.format });
         },
         .stats => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
@@ -333,7 +333,9 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .generate => |cmd| {
             if (cmd.list) {
-                generator.listAll();
+                for (generator.REGISTRY) |gen| {
+                    std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
+                }
                 return;
             }
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);

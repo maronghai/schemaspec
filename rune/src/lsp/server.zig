@@ -78,7 +78,7 @@ pub const Server = struct {
     pub fn run(self: *Server) !void {
         const stdin_file = std.Io.File.stdin();
         const stdout_file = std.Io.File.stdout();
-        var buf: [4096]u8 = undefined;
+        var buf: [16384]u8 = undefined;
         var r = stdin_file.readerStreaming(self.io, &buf);
 
         while (true) {

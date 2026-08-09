@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.199.0 (2026-08-10) — 54,600+ lines production Zig, 1,498+ tests, 33 test suites.
+**Current version**: 0.200.0 (2026-08-10) — 54,600+ lines production Zig, 1,498+ tests, 33 test suites.
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.200.0** — Architecture hardening: fixed ARCHITECTURE.md stale pass list (added `template_type_conflict`, fixed `resolve_conditionals` position, updated count from 14 to 16); fixed main.zig `std.io.getStdErr()` API incompatibility (Zig 0.16 uses `std.Io.File.stderr()`); all 1498 tests pass, benchmarks show no regressions
 - **v0.199.0** — LSP doc hover & lint rules expansion: added `+` doc content to LSP hover popups (tables, columns, views show doc as markdown blockquote); added `enum-value-naming` lint rule (warns when custom type enum values use lowercase instead of UPPER_CASE); added `fk-null` lint rule (warns when foreign key columns are nullable); added 4 new unit tests (1498 total)
 - **v0.198.0** — Lint auto-fix expansion & migrate integration: expanded `rune lint --fix` from 3 to 8 fixable rules (added serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing); added `LintRule.isFixable()` method for rule introspection; added `template_type_conflict` semantic pass for table-to-template type mismatch detection; integrated auto-lint into `rune migrate` pipeline (auto-fixes applied to new schema before migration, disable with `--no-lint`); added `template_ref` field to ResolvedTable for template tracking; fixed pre-existing empty-table fix test bug; 10 new unit tests (1492 total)
 - **v0.197.0** — Test coverage & architecture cleanup: added 49 new tests for cli/parse (argument parsing, flag detection, suggestions) and lsp/protocol (JSON-RPC message writing), consolidated getInputPath/getInputPath2 into single getInputPaths function, registered new test files in tests.zig

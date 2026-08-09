@@ -1467,7 +1467,8 @@ test "lint: non-nullable FK column passes" {
     const table = try makeTestTableWithFkDecls(alloc, "orders", &.{
         makePkField("id"),
         fk_field,
-    }, &.{fk_decl});    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    }, &.{fk_decl});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
     const results = try lintSchema(alloc, test_ast, .{});
     for (results.items) |r| {

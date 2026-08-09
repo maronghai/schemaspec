@@ -103,11 +103,11 @@ Input (.ss text)
     Output: []ResolvedTable (templates applied to each table)
     │
     ▼
-[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 14 pass implementations)
-    Pass manager: validate_template_types, resolve_names, autofk, suffix_inference, validate,
-    validate_type_modifiers, validate_indexes, validate_duplicates, validate_circular_fk,
-    validate_fk_targets, validate_unused_templates, validate_fk_types, validate_index_names,
-    resolve_conditionals, validate_views
+[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 16 pass implementations)
+    Pass manager: validate_template_types, resolve_names, resolve_conditionals, autofk,
+    suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_duplicates,
+    validate_circular_fk, validate_fk_targets, validate_unused_templates, validate_fk_types,
+    validate_index_names, validate_views, template_type_conflict
     Output: ResolvedAst (templates resolved + passes applied)
     │
     ▼
@@ -281,10 +281,10 @@ PG and SQLite share 7 method implementations (via `common.zig`: `emitIndex`, `em
 ```zig
 SemanticPass = struct { name: []const u8, run: fn(*PassContext) !void, depends_on: []const []const u8, access: PassAccess };
 DEFAULT_PASSES = [_]SemanticPass{
-    validate_template_types, resolve_names, autofk, suffix_inference,
+    validate_template_types, resolve_names, resolve_conditionals, autofk, suffix_inference,
     validate, validate_type_modifiers, validate_indexes,
     validate_duplicates, validate_circular_fk, validate_fk_targets, validate_unused_templates,
-    validate_fk_types, validate_index_names, resolve_conditionals, validate_views,
+    validate_fk_types, validate_index_names, validate_views, template_type_conflict,
 };
 ```
 
