@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.198.0 (2026-08-10) — 54,200+ lines production Zig, 1,492+ tests, 33 test suites.
+**Current version**: 0.199.0 (2026-08-10) — 54,600+ lines production Zig, 1,498+ tests, 33 test suites.
 
 ---
 
@@ -120,7 +120,7 @@ Extend the `.ss` language and pipeline for new use cases.
 - [ ] Composite types — reusable field groupings beyond templates
 - [ ] Schema versioning — `@version` directive for forward/backward compatibility
 - [x] Conditional schemas — `@if(dialect=pg)` blocks for dialect-specific fields (v0.191.0)
-- [ ] Schema documentation — `@doc` directive for inline documentation generation
+- [x] Schema documentation — `+` doc directive for inline documentation generation (v0.199.0)
 
 ### Pipeline Extensions
 
@@ -193,10 +193,10 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
 | 6: Ecosystem & Community | 🔲 In Progress | 3/8 | 5 |
 | 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
-| 8: Language Evolution | 🔲 In Progress | 2/10 | 8 |
+| 8: Language Evolution | 🔲 In Progress | 3/10 | 7 |
 | Architecture Targets | ✅ Complete | 15/15 | 0 |
 | Technical Debt | ✅ Complete | 8/8 | 0 |
-| **Total** | | **96/105** | **9** |
+| **Total** | | **97/105** | **8** |
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.199.0** — LSP doc hover & lint rules expansion: added `+` doc content to LSP hover popups (tables, columns, views show doc as markdown blockquote); added `enum-value-naming` lint rule (warns when custom type enum values use lowercase instead of UPPER_CASE); added `fk-null` lint rule (warns when foreign key columns are nullable); added 4 new unit tests (1498 total)
 - **v0.198.0** — Lint auto-fix expansion & migrate integration: expanded `rune lint --fix` from 3 to 8 fixable rules (added serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing); added `LintRule.isFixable()` method for rule introspection; added `template_type_conflict` semantic pass for table-to-template type mismatch detection; integrated auto-lint into `rune migrate` pipeline (auto-fixes applied to new schema before migration, disable with `--no-lint`); added `template_ref` field to ResolvedTable for template tracking; fixed pre-existing empty-table fix test bug; 10 new unit tests (1492 total)
 - **v0.197.0** — Test coverage & architecture cleanup: added 49 new tests for cli/parse (argument parsing, flag detection, suggestions) and lsp/protocol (JSON-RPC message writing), consolidated getInputPath/getInputPath2 into single getInputPaths function, registered new test files in tests.zig
 - **v0.196.0** — Architecture refactoring & quality: extracted docs/format command handlers from main.zig dispatch to pipeline/handlers.zig (reduced dispatch function by 40 lines), fixed parser BlockState memory leak (parents_buf not freed in reset), optimized stripEngineTokens to avoid allocation when no engine token present, eliminated test memory leak (0 leaks now)

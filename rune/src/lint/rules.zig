@@ -49,6 +49,8 @@ const RULES = [_]RuleEntry{
     .{ .rule = .index_naming, .handler = checkIndexNaming },
     .{ .rule = .nullable_column_default, .handler = checkNullableColumnDefault },
     .{ .rule = .timestamp_naming, .handler = checkTimestampNaming },
+    .{ .rule = .enum_value_naming, .handler = checkEnumValueNaming },
+    .{ .rule = .fk_null, .handler = checkFkNull },
 };
 
 /// Run all enabled lint checks on a resolved schema.
@@ -778,6 +780,69 @@ fn checkTimestampNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintRe
                     .message = msg,
                     .severity = .info,
                 });
+            }
+        }
+    }
+}
+
+fn checkEnumValueNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        // Only check enum types (those with enum_type values)
+        switch (ct.base) {
+            .enum_type => |values| {
+                for (values) |val| {
+                    // Check if value contains lowercase characters
+                    var has_lower = false;
+                    for (val) |c| {
+                        if (std.ascii.isLower(c)) {
+                            has_lower = true;
+                            break;
+                        }
+                    }
+                    if (has_lower) {
+                        const msg = try std.fmt.allocPrint(alloc, "enum value '{s}' in type '{s}' should use UPPER_CASE", .{ val, ct.name });
+                        try results.append(alloc, .{
+                            .rule = "enum-value-naming",
+                            .table = ct.name,
+                            .message = msg,
+                            .severity = .info,
+                        });
+                    }
+                }
+            },
+            else => {},
+        }
+    }
+}
+
+fn checkFkNull(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Check if field has a FK reference
+            var has_fk = false;
+            for (table.fks) |fk| {
+                for (fk.fields) |col| {
+                    if (std.mem.eql(u8, col, field.name)) {
+                        has_fk = true;
+                        break;
+                    }
+                }
+                if (has_fk) break;
+            }
+            if (!has_fk) continue;
+
+            // Check if FK column is nullable
+            for (field.modifiers) |mod| {
+                if (mod.kind == .nullable) {
+                    const msg = try std.fmt.allocPrint(alloc, "foreign key column '{s}' is nullable — FK columns should typically be NOT NULL", .{field.name});
+                    try results.append(alloc, .{
+                        .rule = "fk-null",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .info,
+                    });
+                    break;
+                }
             }
         }
     }

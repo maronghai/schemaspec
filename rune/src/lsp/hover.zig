@@ -28,7 +28,9 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position, dia
             var aw = std.Io.Writer.Allocating.init(alloc);
             defer aw.deinit();
             aw.writer.print("**{s}**", .{table.name}) catch return null;
-            if (table.comment) |c| {
+            if (table.doc) |d| {
+                aw.writer.print("\n\n> {s}", .{d}) catch {};
+            } else if (table.comment) |c| {
                 aw.writer.print("\n\n{s}", .{c}) catch {};
             }
             aw.writer.print("\n\n| Property | Value |", .{}) catch {};
@@ -103,7 +105,9 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position, dia
                     aw.writer.print("\n**Default:** `{s}`", .{dflt}) catch {};
                 }
 
-                if (col.comment) |c| {
+                if (col.doc) |d| {
+                    aw.writer.print("\n\n> {s}", .{d}) catch {};
+                } else if (col.comment) |c| {
                     aw.writer.print("\n\n{s}", .{c}) catch {};
                 }
 
@@ -174,7 +178,9 @@ pub fn getHover(alloc: std.mem.Allocator, ast: TypedAst, position: Position, dia
             var aw = std.Io.Writer.Allocating.init(alloc);
             defer aw.deinit();
             aw.writer.print("**View: {s}**", .{view.name}) catch return null;
-            if (view.comment) |c| {
+            if (view.doc) |d| {
+                aw.writer.print("\n\n> {s}", .{d}) catch {};
+            } else if (view.comment) |c| {
                 aw.writer.print("\n\n{s}", .{c}) catch {};
             }
             aw.writer.writeAll("\n\n```sql\n") catch {};
@@ -228,7 +234,46 @@ test "Hover: table hover" {
     }
 }
 
-test "Hover: column hover" {
+test "Hover: table hover with doc" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{
+            .{
+                .name = "users",
+                .comment = "Regular comment",
+                .doc = "Detailed documentation for the users table",
+                .engine = null,
+                .columns = &.{.{
+                    .name = "id",
+                    .sql_type = .int,
+                    .flags = .{ .primary_key = true },
+                    .default = null,
+                    .check = null,
+                    .doc = null,
+                    .comment = null,
+                    .enum_values = &.{},
+                    .line_no = 2,
+                }},
+                .fks = &.{},
+                .indexes = &.{},
+                .line_no = 1,
+            },
+        },
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const result = getHover(std.testing.allocator, ast, .{ .line = 0, .character = 0 }, .mysql);
+    try std.testing.expect(result != null);
+    if (result) |h| {
+        defer std.testing.allocator.free(h.contents.value);
+        // Doc should be shown as blockquote, not the comment
+        try std.testing.expect(std.mem.indexOf(u8, h.contents.value, "> Detailed documentation") != null);
+        try std.testing.expect(std.mem.indexOf(u8, h.contents.value, "Regular comment") == null);
+    }
+}
+
+test "Hover: column hover with doc" {
     const ast = TypedAst{
         .schema_name = null,
         .schema_charset = null,
@@ -236,6 +281,7 @@ test "Hover: column hover" {
             .{
                 .name = "users",
                 .comment = null,
+                .doc = null,
                 .engine = null,
                 .columns = &.{
                     .{
@@ -244,7 +290,8 @@ test "Hover: column hover" {
                         .flags = .{ .inline_unique = true },
                         .default = null,
                         .check = null,
-                        .comment = null,
+                        .doc = "User email address",
+                        .comment = "old comment",
                         .enum_values = &.{},
                         .line_no = 3,
                     },
@@ -261,6 +308,33 @@ test "Hover: column hover" {
     try std.testing.expect(result != null);
     if (result) |r| {
         defer std.testing.allocator.free(r.contents.value);
-        try std.testing.expect(std.mem.indexOf(u8, r.contents.value, "email") != null);
+        // Doc should be shown as blockquote
+        try std.testing.expect(std.mem.indexOf(u8, r.contents.value, "> User email address") != null);
+        try std.testing.expect(std.mem.indexOf(u8, r.contents.value, "old comment") == null);
+    }
+}
+
+test "Hover: view hover with doc" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = &.{
+            .{
+                .name = "active_users",
+                .query = "SELECT * FROM users WHERE active = 1",
+                .comment = null,
+                .doc = "Active users view",
+                .line_no = 1,
+            },
+        },
+        .sql_comments = &.{},
+    };
+    const result = getHover(std.testing.allocator, ast, .{ .line = 0, .character = 0 }, .mysql);
+    try std.testing.expect(result != null);
+    if (result) |h| {
+        defer std.testing.allocator.free(h.contents.value);
+        // Doc should be shown as blockquote
+        try std.testing.expect(std.mem.indexOf(u8, h.contents.value, "> Active users view") != null);
     }
 }

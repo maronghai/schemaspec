@@ -20,6 +20,18 @@ fn makeTestTable(alloc: std.mem.Allocator, name: []const u8, fields: []const ast
     };
 }
 
+fn makeTestTableWithFkDecls(alloc: std.mem.Allocator, name: []const u8, fields: []const ast_mod.Field, fks: []const ast_mod.FkDecl) !ResolvedTable {
+    return .{
+        .name = name,
+        .comment = null,
+        .engine = null,
+        .fields = try alloc.dupe(ast_mod.Field, fields),
+        .fks = try alloc.dupe(ast_mod.FkDecl, fks),
+        .indexes = &.{},
+        .line_no = 1,
+    };
+}
+
 fn makeField(name: []const u8, type_info: ast_mod.TypeInfo, modifiers: []const ast_mod.Modifier, fk: ?ast_mod.FkDecl) ast_mod.Field {
     return .{
         .name = name,
@@ -1309,6 +1321,157 @@ test "lint: datetime column with custom _at suffix passes" {
     const results = try lintSchema(alloc, test_ast, .{});
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "timestamp-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── enum-value-naming tests ───────────────────────────────────
+
+test "lint: enum value with lowercase detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = ast_mod.CustomType{
+        .name = "STATUS",
+        .base = .{ .enum_type = &.{ "active", "inactive" } },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAstWithCustomTypes(tables, custom_types);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "enum-value-naming")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: enum value in UPPER_CASE passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = ast_mod.CustomType{
+        .name = "STATUS",
+        .base = .{ .enum_type = &.{ "ACTIVE", "INACTIVE" } },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAstWithCustomTypes(tables, custom_types);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "enum-value-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── fk-null tests ─────────────────────────────────────────────
+
+test "lint: nullable FK column detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Create a field with both FK reference and nullable modifier
+    const fk_field = ast_mod.Field{
+        .name = "user_id",
+        .type_info = .{ .simple = "n" },
+        .modifiers = &.{.{ .kind = .nullable, .line_no = 1 }},
+        .default_val = null,
+        .check = null,
+        .fk = .{
+            .fields = &.{"user_id"},
+            .ref_table = "users",
+            .ref_fields = &.{"id"},
+            .actions = &.{},
+            .line_no = 1,
+        },
+        .comment = null,
+        .line_no = 1,
+    };
+
+    const fk_decl = ast_mod.FkDecl{
+        .fields = &.{"user_id"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 1,
+    };
+
+    const table = try makeTestTableWithFkDecls(alloc, "orders", &.{
+        makePkField("id"),
+        fk_field,
+    }, &.{fk_decl});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-null")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: non-nullable FK column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Create a field with FK reference but no nullable modifier
+    const fk_field = ast_mod.Field{
+        .name = "user_id",
+        .type_info = .{ .simple = "n" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = .{
+            .fields = &.{"user_id"},
+            .ref_table = "users",
+            .ref_fields = &.{"id"},
+            .actions = &.{},
+            .line_no = 1,
+        },
+        .comment = null,
+        .line_no = 1,
+    };
+
+    const fk_decl = ast_mod.FkDecl{
+        .fields = &.{"user_id"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 1,
+    };
+
+    const table = try makeTestTableWithFkDecls(alloc, "orders", &.{
+        makePkField("id"),
+        fk_field,
+    }, &.{fk_decl});    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-null")) {
             try testing.expect(false);
         }
     }

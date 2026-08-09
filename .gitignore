@@ -61,3 +61,6 @@ CHANGELOG.md
 plans/
 
 000.sspackaging/vscode/*.vsix
+
+rune/.zig-cache/
+rune/rune
