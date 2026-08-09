@@ -13,6 +13,7 @@ test "markdown format: empty diff" {
         .dropped_tables = &.{},
         .table_diffs = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
 
     const result = try markdown.formatDiffMarkdown(alloc, empty_diff, .mysql);
@@ -33,6 +34,7 @@ test "markdown format: dropped table" {
         .dropped_tables = &dropped_buf,
         .table_diffs = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
 
     const result = try markdown.formatDiffMarkdown(alloc, d, .mysql);
@@ -65,6 +67,7 @@ test "markdown format: creates table with field add" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
 
     const result = try markdown.formatDiffMarkdown(alloc, d, .mysql);
@@ -85,6 +88,7 @@ test "markdown format: multiple dropped tables" {
         .dropped_tables = &dropped_buf,
         .table_diffs = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
 
     const result = try markdown.formatDiffMarkdown(alloc, d, .mysql);
@@ -118,6 +122,7 @@ test "markdown format: altered table with field modify" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
 
     const result = try markdown.formatDiffMarkdown(alloc, d, .mysql);
@@ -140,6 +145,7 @@ test "markdown format: view diff" {
         .dropped_tables = &.{},
         .table_diffs = &.{},
         .view_diffs = &.{vd},
+        .custom_type_diffs = &.{},
     };
 
     const result = try markdown.formatDiffMarkdown(alloc, d, .mysql);

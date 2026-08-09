@@ -15,6 +15,7 @@ test "formatDiffSarif: produces valid SARIF structure" {
         .dropped_tables = dropped,
         .view_diffs = &.{},
         .table_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try sarif.formatDiffSarif(alloc, d, .mysql);
     defer alloc.free(result);
@@ -29,6 +30,7 @@ test "formatDiffSarif: empty diff produces valid structure" {
         .dropped_tables = &.{},
         .view_diffs = &.{},
         .table_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try sarif.formatDiffSarif(alloc, d, .mysql);
     defer alloc.free(result);
@@ -56,6 +58,7 @@ test "formatDiffSarif: field add produces result" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try sarif.formatDiffSarif(alloc, d, .mysql);
     defer alloc.free(result);
@@ -71,6 +74,7 @@ test "formatDiffSarif: multiple dropped tables" {
         .dropped_tables = dropped,
         .view_diffs = &.{},
         .table_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try sarif.formatDiffSarif(alloc, d, .mysql);
     defer alloc.free(result);
@@ -90,6 +94,7 @@ test "formatDiffSarif: view diff produces result" {
         .dropped_tables = &.{},
         .table_diffs = &.{},
         .view_diffs = &.{vd},
+        .custom_type_diffs = &.{},
     };
     const result = try sarif.formatDiffSarif(alloc, d, .mysql);
     defer alloc.free(result);
@@ -116,6 +121,7 @@ test "formatDiffSarif: metadata comment change produces result" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try sarif.formatDiffSarif(alloc, d, .mysql);
     defer alloc.free(result);
@@ -141,6 +147,7 @@ test "formatDiffSarif: no metadata result when no changes" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try sarif.formatDiffSarif(alloc, d, .mysql);
     defer alloc.free(result);

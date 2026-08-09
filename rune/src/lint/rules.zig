@@ -47,6 +47,8 @@ const RULES = [_]RuleEntry{
     .{ .rule = .view_no_select, .handler = checkViewNoSelect },
     .{ .rule = .column_default_required, .handler = checkColumnDefaultRequired },
     .{ .rule = .index_naming, .handler = checkIndexNaming },
+    .{ .rule = .nullable_column_default, .handler = checkNullableColumnDefault },
+    .{ .rule = .timestamp_naming, .handler = checkTimestampNaming },
 };
 
 /// Run all enabled lint checks on a resolved schema.
@@ -711,6 +713,75 @@ fn checkIndexNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult
 }
 
 // ─── Helpers ──────────────────────────────────────────────────
+
+fn checkNullableColumnDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Skip PK fields
+            var is_pk = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
+                    is_pk = true;
+                    break;
+                }
+            }
+            if (is_pk) continue;
+
+            // Only check nullable fields
+            var is_nullable = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .nullable) {
+                    is_nullable = true;
+                    break;
+                }
+            }
+            if (!is_nullable) continue;
+
+            // Skip fields with explicit default
+            if (field.default_val != null) continue;
+
+            // Nullable field without explicit default — suggest adding NULL default for clarity
+            const msg = try std.fmt.allocPrint(alloc, "nullable column '{s}' has no explicit DEFAULT — consider adding `= null` for clarity", .{field.name});
+            try results.append(alloc, .{
+                .rule = "nullable-column-default",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+fn checkTimestampNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (!field.type_info.isDatetime()) continue;
+
+            // Acceptable timestamp column names
+            const valid_names = [_][]const u8{ "created_at", "updated_at", "deleted_at", "expires_at", "started_at", "ended_at", "verified_at", "last_login_at" };
+            var valid = false;
+            for (valid_names) |vn| {
+                if (std.mem.eql(u8, field.name, vn)) {
+                    valid = true;
+                    break;
+                }
+            }
+            if (!valid) {
+                // Check if it ends with _at or _date — these are acceptable
+                if (std.mem.endsWith(u8, field.name, "_at") or std.mem.endsWith(u8, field.name, "_date")) {
+                    continue;
+                }
+                const msg = try std.fmt.allocPrint(alloc, "datetime column '{s}' should follow '<event>_at' or '<event>_date' naming convention", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "timestamp-naming",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
 
 fn isSnakeCase(name: []const u8) bool {
     for (name) |c| {

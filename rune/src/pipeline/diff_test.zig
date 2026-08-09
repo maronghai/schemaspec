@@ -56,6 +56,7 @@ test "filter incremental: keeps structural diffs" {
                 .metadata_diff = null,
             },
         },
+        .custom_type_diffs = &.{},
     };
     const filtered = try pipeline_diff.filterIncrementalChanges(alloc, sd);
     try testing.expectEqual(@as(usize, 1), filtered.table_diffs.len);
@@ -85,6 +86,7 @@ test "filter incremental: removes metadata-only diffs" {
                 },
             },
         },
+        .custom_type_diffs = &.{},
     };
     const filtered = try pipeline_diff.filterIncrementalChanges(alloc, sd);
     try testing.expectEqual(@as(usize, 0), filtered.table_diffs.len);
@@ -111,6 +113,7 @@ test "filter incremental: keeps create tables" {
                 .metadata_diff = null,
             },
         },
+        .custom_type_diffs = &.{},
     };
     const filtered = try pipeline_diff.filterIncrementalChanges(alloc, sd);
     try testing.expectEqual(@as(usize, 1), filtered.table_diffs.len);
@@ -137,6 +140,7 @@ test "filter incremental: keeps table with index changes" {
                 .metadata_diff = null,
             },
         },
+        .custom_type_diffs = &.{},
     };
     const filtered = try pipeline_diff.filterIncrementalChanges(alloc, sd);
     try testing.expectEqual(@as(usize, 1), filtered.table_diffs.len);
@@ -252,6 +256,7 @@ test "diff format json: produces valid JSON structure" {
     try testing.expect(std.mem.indexOf(u8, json, "\"dropped_tables\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"table_diffs\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"view_diffs\"") != null);
+    try testing.expect(std.mem.indexOf(u8, json, "\"custom_type_diffs\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"name\": \"post\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"action\": \"create\"") != null);
 }

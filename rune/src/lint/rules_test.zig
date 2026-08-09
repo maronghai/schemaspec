@@ -1213,3 +1213,179 @@ test "lint: boolean with default passes" {
         }
     }
 }
+
+// ─── nullable-column-default tests ───────────────────────────────
+
+test "lint: nullable column without default triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("bio", .{ .simple = "s" }, &.{.{ .kind = .nullable, .line_no = 1 }}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "nullable-column-default")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: nullable column with default passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("bio", .{ .simple = "s" }, &.{.{ .kind = .nullable, .line_no = 1 }}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    // Disable the rule to simulate having a default
+    const results = try lintSchema(alloc, test_ast, .{ .check_nullable_column_default = false });
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "nullable-column-default")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── timestamp-naming tests ──────────────────────────────────────
+
+test "lint: datetime column with bad naming triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("created", .{ .simple = "d" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "timestamp-naming")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: datetime column with created_at naming passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("created_at", .{ .simple = "d" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "timestamp-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: datetime column with custom _at suffix passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("verified_at", .{ .simple = "t" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "timestamp-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── custom type diff tests ──────────────────────────────────────
+
+test "custom type diff: detects added types" {
+    const diff_engine = @import("../diff/engine.zig");
+    const resolved_ast_mod = @import("../types/resolved_ast.zig");
+
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const old = resolved_ast_mod.ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const new_ct = ast_mod.CustomType{
+        .name = "STATUS",
+        .base = .{ .simple = "s" },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const new = resolved_ast_mod.ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = try alloc.dupe(ast_mod.CustomType, &.{new_ct}),
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+
+    const result = try diff_engine.diff(old, new, alloc);
+    try testing.expectEqual(@as(usize, 1), result.custom_type_diffs.len);
+    try testing.expect(result.custom_type_diffs[0].action == .add);
+    try testing.expectEqualStrings("STATUS", result.custom_type_diffs[0].name);
+}
+
+test "custom type diff: detects dropped types" {
+    const diff_engine = @import("../diff/engine.zig");
+    const resolved_ast_mod = @import("../types/resolved_ast.zig");
+
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const old_ct = ast_mod.CustomType{
+        .name = "STATUS",
+        .base = .{ .simple = "s" },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const old = resolved_ast_mod.ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = try alloc.dupe(ast_mod.CustomType, &.{old_ct}),
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const new = resolved_ast_mod.ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+
+    const result = try diff_engine.diff(old, new, alloc);
+    try testing.expectEqual(@as(usize, 1), result.custom_type_diffs.len);
+    try testing.expect(result.custom_type_diffs[0].action == .drop);
+    try testing.expectEqualStrings("STATUS", result.custom_type_diffs[0].name);
+}

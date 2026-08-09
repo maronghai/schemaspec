@@ -48,10 +48,20 @@ pub const DiffStats = struct {
     modified_tables: usize = 0,
     added_fields: usize = 0,
     dropped_fields: usize = 0,
+    added_custom_types: usize = 0,
+    dropped_custom_types: usize = 0,
+    modified_custom_types: usize = 0,
 
     pub fn compute(d: SchemaDiff) DiffStats {
         var stats = DiffStats{};
         stats.dropped_tables = d.dropped_tables.len;
+        for (d.custom_type_diffs) |ctd| {
+            switch (ctd.action) {
+                .add => stats.added_custom_types += 1,
+                .drop => stats.dropped_custom_types += 1,
+                .modify => stats.modified_custom_types += 1,
+            }
+        }
         for (d.table_diffs) |td| {
             switch (td.action) {
                 .create => stats.added_tables += 1,
@@ -82,34 +92,64 @@ pub const DiffStats = struct {
 /// Write the summary statistics line to a writer with optional color.
 /// Used by both `formatDiff` and `formatDiffSummary` in text.zig.
 pub fn formatSummaryStats(w: anytype, stats: DiffStats, use_color: bool) !void {
-    const total = stats.dropped_tables + stats.added_tables + stats.modified_tables;
+    const total_tables = stats.dropped_tables + stats.added_tables + stats.modified_tables;
+    const total_ct = stats.added_custom_types + stats.dropped_custom_types + stats.modified_custom_types;
+    const total = total_tables + total_ct;
     if (total == 0) {
         try w.writeAll("no changes\n");
         return;
     }
     if (use_color) try w.writeAll(color_mod.BOLD);
-    try w.print("{d} table{s} changed", .{ total, if (total != 1) "s" else "" });
-    var parts: usize = 0;
-    if (stats.added_tables > 0) {
-        if (use_color) try w.writeAll(color_mod.GREEN);
-        if (parts > 0) try w.writeAll(", ");
-        try w.print("{d} added", .{stats.added_tables});
-        if (use_color) try w.writeAll(color_mod.RESET);
-        parts += 1;
+    if (total_tables > 0) {
+        try w.print("{d} table{s} changed", .{ total_tables, if (total_tables != 1) "s" else "" });
+        var parts: usize = 0;
+        if (stats.added_tables > 0) {
+            if (use_color) try w.writeAll(color_mod.GREEN);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} added", .{stats.added_tables});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
+        if (stats.dropped_tables > 0) {
+            if (use_color) try w.writeAll(color_mod.RED);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} dropped", .{stats.dropped_tables});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
+        if (stats.modified_tables > 0) {
+            if (use_color) try w.writeAll(color_mod.YELLOW);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} modified", .{stats.modified_tables});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
     }
-    if (stats.dropped_tables > 0) {
-        if (use_color) try w.writeAll(color_mod.RED);
-        if (parts > 0) try w.writeAll(", ");
-        try w.print("{d} dropped", .{stats.dropped_tables});
-        if (use_color) try w.writeAll(color_mod.RESET);
-        parts += 1;
-    }
-    if (stats.modified_tables > 0) {
-        if (use_color) try w.writeAll(color_mod.YELLOW);
-        if (parts > 0) try w.writeAll(", ");
-        try w.print("{d} modified", .{stats.modified_tables});
-        if (use_color) try w.writeAll(color_mod.RESET);
-        parts += 1;
+    if (total_ct > 0) {
+        if (total_tables > 0) try w.writeAll(", ");
+        try w.print("{d} type{s} changed", .{ total_ct, if (total_ct != 1) "s" else "" });
+        var parts: usize = 0;
+        if (stats.added_custom_types > 0) {
+            if (use_color) try w.writeAll(color_mod.GREEN);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} added", .{stats.added_custom_types});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
+        if (stats.dropped_custom_types > 0) {
+            if (use_color) try w.writeAll(color_mod.RED);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} dropped", .{stats.dropped_custom_types});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
+        if (stats.modified_custom_types > 0) {
+            if (use_color) try w.writeAll(color_mod.YELLOW);
+            if (parts > 0) try w.writeAll(", ");
+            try w.print("{d} modified", .{stats.modified_custom_types});
+            if (use_color) try w.writeAll(color_mod.RESET);
+            parts += 1;
+        }
     }
     if (use_color) try w.writeAll(color_mod.RESET);
     try w.writeAll("\n");

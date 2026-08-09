@@ -11,6 +11,7 @@ test "hasChanges: empty diff returns false" {
         .table_diffs = &.{},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     try testing.expect(!diff.hasChanges());
 }
@@ -27,6 +28,7 @@ test "hasChanges: table diffs returns true" {
         .table_diffs = &table_diffs,
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     try testing.expect(diff.hasChanges());
 }
@@ -40,6 +42,7 @@ test "hasChanges: view diffs returns true" {
         .table_diffs = &.{},
         .dropped_tables = &.{},
         .view_diffs = &view_diffs,
+        .custom_type_diffs = &.{},
     };
     try testing.expect(diff.hasChanges());
 }

@@ -15,6 +15,7 @@ test "formatDiffJson: produces valid structure" {
         .dropped_tables = dropped,
         .view_diffs = &.{},
         .table_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try json.formatDiffJson(alloc, d);
     defer alloc.free(result);
@@ -29,6 +30,7 @@ test "formatDiffJson: empty diff has empty arrays" {
         .dropped_tables = &.{},
         .view_diffs = &.{},
         .table_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try json.formatDiffJson(testing.allocator, d);
     defer testing.allocator.free(result);
@@ -56,6 +58,7 @@ test "formatDiffJson: created table with field" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try json.formatDiffJson(testing.allocator, d);
     defer testing.allocator.free(result);
@@ -83,6 +86,7 @@ test "formatDiffJson: field modify shows old and new" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try json.formatDiffJson(testing.allocator, d);
     defer testing.allocator.free(result);
@@ -99,6 +103,7 @@ test "formatDiffJson: view diff" {
         .dropped_tables = &.{},
         .table_diffs = &.{},
         .view_diffs = &.{vd},
+        .custom_type_diffs = &.{},
     };
     const result = try json.formatDiffJson(testing.allocator, d);
     defer testing.allocator.free(result);
@@ -124,6 +129,7 @@ test "formatDiffJson: metadata comment change" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try json.formatDiffJson(testing.allocator, d);
     defer testing.allocator.free(result);
@@ -151,6 +157,7 @@ test "formatDiffJson: metadata engine change" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try json.formatDiffJson(testing.allocator, d);
     defer testing.allocator.free(result);
@@ -178,6 +185,7 @@ test "formatDiffJson: no metadata when no changes" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const result = try json.formatDiffJson(testing.allocator, d);
     defer testing.allocator.free(result);

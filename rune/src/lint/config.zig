@@ -40,6 +40,8 @@ pub const LintRule = enum {
     view_no_select,
     column_default_required,
     index_naming,
+    nullable_column_default,
+    timestamp_naming,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -69,6 +71,8 @@ pub const LintRule = enum {
             .view_no_select => cfg.check_view_no_select,
             .column_default_required => cfg.check_column_default_required,
             .index_naming => cfg.check_index_naming,
+            .nullable_column_default => cfg.check_nullable_column_default,
+            .timestamp_naming => cfg.check_timestamp_naming,
         };
     }
 
@@ -100,6 +104,8 @@ pub const LintRule = enum {
             .view_no_select => "view-no-select",
             .column_default_required => "column-default-required",
             .index_naming => "index-naming",
+            .nullable_column_default => "nullable-column-default",
+            .timestamp_naming => "timestamp-naming",
         };
     }
 
@@ -140,6 +146,8 @@ pub const LintConfig = struct {
     check_view_no_select: bool = true,
     check_column_default_required: bool = true,
     check_index_naming: bool = true,
+    check_nullable_column_default: bool = true,
+    check_timestamp_naming: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -327,6 +335,8 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             .check_view_no_select = false,
             .check_column_default_required = false,
             .check_index_naming = false,
+            .check_nullable_column_default = false,
+            .check_timestamp_naming = false,
             .wide_table_max = base.wide_table_max,
             .count_min = base.count_min,
             .table_name_max = base.table_name_max,
@@ -384,6 +394,8 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .view_no_select => c.check_view_no_select = enabled,
         .column_default_required => c.check_column_default_required = enabled,
         .index_naming => c.check_index_naming = enabled,
+        .nullable_column_default => c.check_nullable_column_default = enabled,
+        .timestamp_naming => c.check_timestamp_naming = enabled,
     }
     return c;
 }

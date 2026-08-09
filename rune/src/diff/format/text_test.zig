@@ -12,6 +12,7 @@ test "writeDiffTo: empty schema produces no output" {
         .dropped_tables = &.{},
         .view_diffs = &.{},
         .table_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     var aw = std.Io.Writer.Allocating.init(testing.allocator);
     defer aw.deinit();
@@ -30,6 +31,7 @@ test "writeDiffTo: dropped table renders DROP TABLE" {
         .dropped_tables = dropped,
         .view_diffs = &.{},
         .table_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     var aw = std.Io.Writer.Allocating.init(alloc);
     defer aw.deinit();
@@ -48,6 +50,7 @@ test "writeDiffTo: multiple dropped tables" {
         .dropped_tables = dropped,
         .view_diffs = &.{},
         .table_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     var aw = std.Io.Writer.Allocating.init(alloc);
     defer aw.deinit();
@@ -78,6 +81,7 @@ test "writeDiffTo: created table renders CREATE TABLE" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     var aw = std.Io.Writer.Allocating.init(testing.allocator);
     defer aw.deinit();
@@ -116,6 +120,7 @@ test "writeDiffTo: altered table with field add and drop" {
         .dropped_tables = &.{},
         .table_diffs = &.{td},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     var aw = std.Io.Writer.Allocating.init(alloc);
     defer aw.deinit();

@@ -287,7 +287,7 @@ rune/src/
 | | `fk.zig`, `check.zig` | FK/Check constraint reverse engineering |
 | | `template_extraction.zig` | Template extraction from SQL |
 | `diff/` | `engine.zig` | Table-level diff engine |
-| | `types.zig` | SchemaDiff, TableDiff, FieldDiff data structures |
+| | `types.zig` | SchemaDiff, TableDiff, FieldDiff, CustomTypeDiff data structures |
 | | `plan.zig` | Migration Plan IR — intermediate representation between diff and SQL |
 | | `fields.zig` | Field-level diffing + rename detection |
 | | `fks.zig` | FK diffing — two-pass matching |
@@ -317,7 +317,7 @@ rune/src/
 | | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_version, rune_reset) |
-| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (20 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum, TOML parsing), `lint/fix.zig` (auto-fix) |
+| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (27 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum, TOML parsing), `lint/fix.zig` (auto-fix) |
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |

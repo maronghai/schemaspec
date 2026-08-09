@@ -34,6 +34,11 @@ pub fn formatDiffMarkdown(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dial
     try w.print("| Modifications | {d} |\n", .{stats.modified_tables});
     try w.print("| Fields added | {d} |\n", .{stats.added_fields});
     try w.print("| Fields dropped | {d} |\n", .{stats.dropped_fields});
+    if (stats.added_custom_types > 0 or stats.dropped_custom_types > 0 or stats.modified_custom_types > 0) {
+        try w.print("| Types added | {d} |\n", .{stats.added_custom_types});
+        try w.print("| Types dropped | {d} |\n", .{stats.dropped_custom_types});
+        try w.print("| Types modified | {d} |\n", .{stats.modified_custom_types});
+    }
     try w.writeAll("\n");
 
     // Detailed changes per table

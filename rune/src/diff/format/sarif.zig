@@ -73,6 +73,28 @@ pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect
         result_idx += 1;
     }
 
+    // Custom type diffs
+    for (d.custom_type_diffs) |ctd| {
+        if (result_idx > 0) try w.writeAll(",\n");
+        try w.writeAll("      {\n");
+        try w.writeAll("        \"ruleId\": \"schema/type-");
+        try w.writeAll(@tagName(ctd.action));
+        try w.writeAll("\",\n");
+        try w.writeAll("        \"level\": \"note\",\n");
+        try w.writeAll("        \"message\": {\n");
+        try w.writeAll("          \"text\": \"Type ");
+        try w.writeAll(@tagName(ctd.action));
+        try w.writeAll(": ");
+        try w.writeByte(q);
+        try jsonEscapeString(w, ctd.name);
+        try w.writeByte(q);
+        try w.writeAll("\"\n");
+        try w.writeAll("        },\n");
+        try w.writeAll("        \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"schema.ss\"}}}]\n");
+        try w.writeAll("      }");
+        result_idx += 1;
+    }
+
     // Table diffs
     for (d.table_diffs) |td| {
         if (td.action == .create) {

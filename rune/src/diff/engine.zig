@@ -25,6 +25,8 @@ pub const TableMetadataDiff = diff_types.TableMetadataDiff;
 pub const FieldDiff = diff_types.FieldDiff;
 pub const ViewAction = diff_types.ViewAction;
 pub const ViewDiff = diff_types.ViewDiff;
+pub const CustomTypeAction = diff_types.CustomTypeAction;
+pub const CustomTypeDiff = diff_types.CustomTypeDiff;
 pub const SchemaDiff = diff_types.SchemaDiff;
 pub const TableDiff = diff_types.TableDiff;
 
@@ -200,10 +202,61 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
     const dropped_tables_slice = try dropped_tables.toOwnedSlice(alloc);
     const view_diffs_slice = try view_diffs.toOwnedSlice(alloc);
 
+    // Custom types: diff between old and new custom type definitions
+    var custom_type_diffs = try std.ArrayList(diff_types.CustomTypeDiff).initCapacity(alloc, 4);
+    errdefer custom_type_diffs.deinit(alloc);
+
+    var old_ct_map = std.StringHashMap(usize).init(alloc);
+    defer old_ct_map.deinit();
+    for (old.custom_types, 0..) |ct, i| try old_ct_map.put(ct.name, i);
+    var new_ct_map = std.StringHashMap(usize).init(alloc);
+    defer new_ct_map.deinit();
+    for (new.custom_types, 0..) |ct, i| try new_ct_map.put(ct.name, i);
+
+    // Custom types in new but not old → added
+    for (new.custom_types) |new_ct| {
+        if (!old_ct_map.contains(new_ct.name)) {
+            try custom_type_diffs.append(alloc, .{
+                .name = new_ct.name,
+                .action = .add,
+                .old_type = null,
+                .new_type = new_ct,
+            });
+        }
+    }
+    // Custom types in old but not new → dropped
+    for (old.custom_types) |old_ct| {
+        if (!new_ct_map.contains(old_ct.name)) {
+            try custom_type_diffs.append(alloc, .{
+                .name = old_ct.name,
+                .action = .drop,
+                .old_type = old_ct,
+                .new_type = null,
+            });
+        }
+    }
+    // Custom types in both → check for changes
+    for (old.custom_types) |old_ct| {
+        if (new_ct_map.get(old_ct.name)) |new_idx| {
+            const new_ct = new.custom_types[new_idx];
+            if (!customTypesEql(old_ct, new_ct)) {
+                try custom_type_diffs.append(alloc, .{
+                    .name = old_ct.name,
+                    .action = .modify,
+                    .old_type = old_ct,
+                    .new_type = new_ct,
+                });
+            }
+        }
+    }
+
+    const custom_type_diffs_slice = try custom_type_diffs.toOwnedSlice(alloc);
+
     return .{
         .table_diffs = table_diffs_slice,
         .dropped_tables = dropped_tables_slice,
         .view_diffs = view_diffs_slice,
+        .custom_type_diffs = custom_type_diffs_slice,
     };
 }
 
@@ -239,6 +292,17 @@ fn computeFieldOverlap(old_fields: []const ast_mod.Field, new_fields: []const as
     // Jaccard-like similarity: intersection / union
     const max_fields = @max(old_fields.len, new_fields.len);
     return @as(f64, @floatFromInt(match_count)) / @as(f64, @floatFromInt(max_fields));
+}
+
+/// Compare two custom types for equality (base type + dialect overrides).
+fn customTypesEql(a: ast_mod.CustomType, b: ast_mod.CustomType) bool {
+    if (!a.base.eql(b.base)) return false;
+    if (a.dialect_overrides.len != b.dialect_overrides.len) return false;
+    for (a.dialect_overrides, 0..) |ao, i| {
+        if (ao.dialect != b.dialect_overrides[i].dialect) return false;
+        if (!ao.type_info.eql(b.dialect_overrides[i].type_info)) return false;
+    }
+    return true;
 }
 
 fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: resolved_ast.ResolvedTable) !TableDiff {

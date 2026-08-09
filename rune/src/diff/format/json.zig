@@ -32,6 +32,16 @@ pub fn formatDiffJson(alloc: std.mem.Allocator, d: SchemaDiff) ![]const u8 {
     }
     try w.writeAll("],\n");
 
+    // custom_type_diffs
+    try w.writeAll("  \"custom_type_diffs\": [");
+    for (d.custom_type_diffs, 0..) |ctd, i| {
+        if (i > 0) try w.writeAll(", ");
+        try w.writeAll("{\"name\": \"");
+        try jsonEscapeString(w, ctd.name);
+        try w.print("\", \"action\": \"{s}\"}}", .{@tagName(ctd.action)});
+    }
+    try w.writeAll("],\n");
+
     // table_diffs
     try w.writeAll("  \"table_diffs\": [");
     for (d.table_diffs, 0..) |td, ti| {

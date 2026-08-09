@@ -35,6 +35,7 @@ test "migrate: empty diff produces BEGIN/COMMIT wrapper" {
         .table_diffs = &.{},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try generateFromDiff(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -50,6 +51,7 @@ test "migrate: dropped table generates DROP TABLE" {
         .table_diffs = &.{},
         .dropped_tables = dropped,
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try generateFromDiff(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -65,6 +67,7 @@ test "migrate: dropped table with PG dialect uses double quotes" {
         .table_diffs = &.{},
         .dropped_tables = dropped,
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try generateFromDiff(alloc, d, emptyTypedAst(), emptyResolvedAst(), .pg);
     defer alloc.free(sql);
@@ -79,6 +82,7 @@ test "migrate: dropped table with SQLite dialect uses double quotes" {
         .table_diffs = &.{},
         .dropped_tables = dropped,
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try generateFromDiff(alloc, d, emptyTypedAst(), emptyResolvedAst(), .sqlite);
     defer alloc.free(sql);
@@ -91,6 +95,7 @@ test "migrate: migration header present" {
         .table_diffs = &.{},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try generateFromDiff(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -106,6 +111,7 @@ test "migrate: multiple dropped tables" {
         .table_diffs = &.{},
         .dropped_tables = dropped,
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try generateFromDiff(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -126,6 +132,7 @@ test "rollback: empty diff produces BEGIN/COMMIT wrapper" {
         .table_diffs = &.{},
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -151,6 +158,7 @@ test "rollback: created table generates DROP TABLE" {
         .table_diffs = table_diffs,
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -167,6 +175,7 @@ test "rollback: dropped table generates CREATE TABLE" {
         .table_diffs = &.{},
         .dropped_tables = dropped,
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     // Rollback of DROP TABLE should be CREATE TABLE
     // Note: This requires old_resolved to have the table definition
@@ -215,6 +224,7 @@ test "rollback: add field becomes drop field" {
         .table_diffs = table_diffs,
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -261,6 +271,7 @@ test "rollback: drop field becomes add field" {
         .table_diffs = table_diffs,
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -300,6 +311,7 @@ test "rollback: add index becomes drop index" {
         .table_diffs = table_diffs,
         .dropped_tables = &.{},
         .view_diffs = &.{},
+        .custom_type_diffs = &.{},
     };
     const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);
@@ -321,6 +333,7 @@ test "rollback: create view becomes drop view" {
         .table_diffs = &.{},
         .dropped_tables = &.{},
         .view_diffs = view_diffs,
+        .custom_type_diffs = &.{},
     };
     const sql = try migrate_mod.generateRollback(alloc, d, emptyTypedAst(), emptyResolvedAst(), .mysql);
     defer alloc.free(sql);

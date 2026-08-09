@@ -197,6 +197,7 @@ test "planFromDiff: empty diff" {
         .table_diffs = &[_]types.TableDiff{},
         .dropped_tables = &[_][]const u8{},
         .view_diffs = &[_]types.ViewDiff{},
+        .custom_type_diffs = &[_]types.CustomTypeDiff{},
     };
     const plan = try planFromDiff(testing.allocator, d);
     defer {
@@ -238,6 +239,7 @@ test "planFromDiff: drop + create + alter" {
         .table_diffs = &[_]types.TableDiff{ td_create, td_alter },
         .dropped_tables = &[_][]const u8{"logs"},
         .view_diffs = &[_]types.ViewDiff{},
+        .custom_type_diffs = &[_]types.CustomTypeDiff{},
     };
     const plan = try planFromDiff(testing.allocator, d);
     defer testing.allocator.free(plan.operations);
@@ -358,6 +360,7 @@ test "invertPlan: roundtrip operations" {
         },
         .dropped_tables = &[_][]const u8{"logs"},
         .view_diffs = &[_]types.ViewDiff{},
+        .custom_type_diffs = &[_]types.CustomTypeDiff{},
     };
     const plan = try planFromDiff(testing.allocator, d);
     defer testing.allocator.free(plan.operations);

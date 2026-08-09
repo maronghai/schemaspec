@@ -48,6 +48,20 @@ pub fn writeDiffTo(w: anytype, d: SchemaDiff, q: u8, use_color: bool) !void {
         try writeColorized(w, color, use_color, "-- {s} {c}{s}{c}{s}\n", .{ label, q, vd.name, q, suffix });
     }
 
+    for (d.custom_type_diffs) |ctd| {
+        const color = switch (ctd.action) {
+            .add => color_mod.GREEN,
+            .drop => color_mod.RED,
+            .modify => color_mod.YELLOW,
+        };
+        const label = switch (ctd.action) {
+            .add => "CREATE TYPE",
+            .drop => "DROP TYPE",
+            .modify => "ALTER TYPE",
+        };
+        try writeColorized(w, color, use_color, "-- {s} {c}{s}{c}\n", .{ label, q, ctd.name, q });
+    }
+
     for (d.table_diffs) |td| {
         if (td.action == .create) {
             try writeColorized(w, color_mod.GREEN, use_color, "-- CREATE TABLE {c}{s}{c}\n", .{ q, td.name, q });
