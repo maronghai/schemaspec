@@ -73,6 +73,16 @@ pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.
             try columnLength(alloc, &results, table);
         }
     }
+    if (LintRule.index_column_missing.isEnabled(cfg)) {
+        for (ast.tables) |table| {
+            try indexColumnMissing(alloc, &results, table);
+        }
+    }
+    if (LintRule.naming_prefix.isEnabled(cfg)) {
+        for (ast.tables) |table| {
+            try namingPrefix(alloc, &results, table);
+        }
+    }
 
     return results;
 }
@@ -479,6 +489,45 @@ fn columnLength(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), t
 }
 
 // ─── Helpers ──────────────────────────────────────────────────
+
+fn indexColumnMissing(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    for (table.indexes) |idx| {
+        for (idx.fields) |idx_field| {
+            var found = false;
+            for (table.fields) |field| {
+                if (std.mem.eql(u8, field.name, idx_field)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                const msg = try std.fmt.allocPrint(alloc, "index '{s}' references column '{s}' which does not exist in table", .{ idx.name, idx_field });
+                try results.append(alloc, .{
+                    .rule = "index-column-missing",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
+fn namingPrefix(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    const prefixes = [_][]const u8{ "tbl_", "t_", "tb_", "table_" };
+    for (prefixes) |prefix| {
+        if (table.name.len > prefix.len and std.mem.startsWith(u8, table.name, prefix)) {
+            const msg = try std.fmt.allocPrint(alloc, "table name '{s}' uses anti-pattern prefix '{s}'", .{ table.name, prefix });
+            try results.append(alloc, .{
+                .rule = "naming-prefix",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+            return;
+        }
+    }
+}
 
 fn isSnakeCase(name: []const u8) bool {
     for (name) |c| {

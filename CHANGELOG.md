@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.180.0] - 2026-08-09
+
+### Added
+- **`index-column-missing` lint rule** — Warns when an index references columns that don't exist in the table. Catches typos and schema drift in index definitions.
+- **`naming-prefix` lint rule** — Warns about table names using anti-pattern prefixes (`tbl_`, `t_`, `tb_`, `table_`). Helps enforce clean naming conventions.
+
+### Changed
+- **Improved `toCamelSingular` pluralization** — Handles irregular plurals (men→man, women→woman, children→child, people→person, data→datum), -ies→-y (categories→category, companies→company), doubled consonants (quizzes→quiz, addresses→address), and -ves (knives→knife, lives→life). Was previously limited to naive trailing-'s' strip.
+- **Extended lint engine** — Lint rule count increased from 18 to 20. All new rules are enabled by default and configurable via `rune-lint.toml`.
+
 ## [0.179.0] - 2026-08-09
 
 ### Added

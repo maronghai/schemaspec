@@ -311,7 +311,7 @@ rune/src/
 | | `pass/*.zig` | 13 semantic passes (autofk, resolve_names, suffix_inference, validate, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_version, rune_reset) |
-| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (15 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum, TOML parsing), `lint/fix.zig` (auto-fix) |
+| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (20 rules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum, TOML parsing), `lint/fix.zig` (auto-fix) |
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |

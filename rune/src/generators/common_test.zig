@@ -137,20 +137,74 @@ test "findFkRefTable: no FK returns null" {
 }
 
 test "toCamelSingular: strips trailing s" {
-    try testing.expectEqualStrings("user", common.toCamelSingular("users"));
-    try testing.expectEqualStrings("categorie", common.toCamelSingular("categories"));
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    try testing.expectEqualStrings("user", try common.toCamelSingular(alloc, "users"));
+    try testing.expectEqualStrings("category", try common.toCamelSingular(alloc, "categories"));
+}
+
+test "toCamelSingular: -ies → -y" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    try testing.expectEqualStrings("category", try common.toCamelSingular(alloc, "categories"));
+    try testing.expectEqualStrings("company", try common.toCamelSingular(alloc, "companies"));
+    try testing.expectEqualStrings("city", try common.toCamelSingular(alloc, "cities"));
+}
+
+test "toCamelSingular: -ses/-xes/-zes/-ches/-shes → strip es" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    try testing.expectEqualStrings("address", try common.toCamelSingular(alloc, "addresses"));
+    try testing.expectEqualStrings("box", try common.toCamelSingular(alloc, "boxes"));
+    try testing.expectEqualStrings("quiz", try common.toCamelSingular(alloc, "quizzes"));
+    try testing.expectEqualStrings("church", try common.toCamelSingular(alloc, "churches"));
+    try testing.expectEqualStrings("dish", try common.toCamelSingular(alloc, "dishes"));
+    try testing.expectEqualStrings("status", try common.toCamelSingular(alloc, "statuses"));
+}
+
+test "toCamelSingular: irregular plurals" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    try testing.expectEqualStrings("man", try common.toCamelSingular(alloc, "men"));
+    try testing.expectEqualStrings("woman", try common.toCamelSingular(alloc, "women"));
+    try testing.expectEqualStrings("child", try common.toCamelSingular(alloc, "children"));
+    try testing.expectEqualStrings("person", try common.toCamelSingular(alloc, "people"));
+    try testing.expectEqualStrings("mouse", try common.toCamelSingular(alloc, "mice"));
+    try testing.expectEqualStrings("datum", try common.toCamelSingular(alloc, "data"));
+}
+
+test "toCamelSingular: regular plurals" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    try testing.expectEqualStrings("table", try common.toCamelSingular(alloc, "tables"));
+    try testing.expectEqualStrings("order", try common.toCamelSingular(alloc, "orders"));
+    try testing.expectEqualStrings("product", try common.toCamelSingular(alloc, "products"));
 }
 
 test "toCamelSingular: single char stays" {
-    try testing.expectEqualStrings("s", common.toCamelSingular("s"));
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    try testing.expectEqualStrings("s", try common.toCamelSingular(alloc, "s"));
 }
 
 test "toCamelSingular: no trailing s stays" {
-    try testing.expectEqualStrings("user", common.toCamelSingular("user"));
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    try testing.expectEqualStrings("user", try common.toCamelSingular(alloc, "user"));
 }
 
 test "toCamelSingular: empty string" {
-    try testing.expectEqualStrings("", common.toCamelSingular(""));
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    try testing.expectEqualStrings("", try common.toCamelSingular(alloc, ""));
 }
 
 test "tableHasNonPkIndexes: returns true for non-PK index" {

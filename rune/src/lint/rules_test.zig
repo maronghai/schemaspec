@@ -976,3 +976,141 @@ test "lint: column-length rule can be disabled" {
         }
     }
 }
+
+// ─── Index Column Missing Tests ─────────────────────────────
+
+test "lint: index referencing non-existent column detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const idx = makeIndex("idx_bad", .regular, &.{"nonexistent_col"});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{idx});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-column-missing")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: index referencing valid column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const idx = makeIndex("idx_name", .regular, &.{"name"});
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{idx});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-column-missing")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: composite index with missing column detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const idx = makeIndex("idx_composite", .regular, &.{ "name", "missing_col" });
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{idx});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-column-missing")) found = true;
+    }
+    try testing.expect(found);
+}
+
+// ─── Naming Prefix Tests ────────────────────────────────────
+
+test "lint: tbl_ prefix detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "tbl_users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "naming-prefix")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: t_ prefix detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "t_config", &.{
+        makePkField("id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "naming-prefix")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: table_ prefix detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "table_data", &.{
+        makePkField("id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "naming-prefix")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: clean table name passes naming-prefix" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "naming-prefix")) {
+            try testing.expect(false);
+        }
+    }
+}

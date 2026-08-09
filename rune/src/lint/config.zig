@@ -33,6 +33,8 @@ pub const LintRule = enum {
     serial_type,
     table_name_length,
     column_length,
+    index_column_missing,
+    naming_prefix,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -55,6 +57,8 @@ pub const LintRule = enum {
             .serial_type => cfg.check_serial_type,
             .table_name_length => cfg.check_table_name_length,
             .column_length => cfg.check_column_length,
+            .index_column_missing => cfg.check_index_column_missing,
+            .naming_prefix => cfg.check_naming_prefix,
         };
     }
 
@@ -79,6 +83,8 @@ pub const LintRule = enum {
             .serial_type => "serial-type",
             .table_name_length => "table-name-length",
             .column_length => "column-length",
+            .index_column_missing => "index-column-missing",
+            .naming_prefix => "naming-prefix",
         };
     }
 
@@ -112,6 +118,8 @@ pub const LintConfig = struct {
     check_serial_type: bool = true,
     check_table_name_length: bool = true,
     check_column_length: bool = true,
+    check_index_column_missing: bool = true,
+    check_naming_prefix: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -292,6 +300,8 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             .check_serial_type = false,
             .check_table_name_length = false,
             .check_column_length = false,
+            .check_index_column_missing = false,
+            .check_naming_prefix = false,
             .wide_table_max = base.wide_table_max,
             .count_min = base.count_min,
             .table_name_max = base.table_name_max,
@@ -342,6 +352,8 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .serial_type => c.check_serial_type = enabled,
         .table_name_length => c.check_table_name_length = enabled,
         .column_length => c.check_column_length = enabled,
+        .index_column_missing => c.check_index_column_missing = enabled,
+        .naming_prefix => c.check_naming_prefix = enabled,
     }
     return c;
 }

@@ -89,7 +89,7 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import(
         try w.writeAll("\ntype Query {\n");
         for (typed.tables) |table| {
             try w.print("  \"\"\"Fetch a {s} by ID.\"\"\"\n", .{table.name});
-            try w.print("  {s}(id: ID!): {s}\n", .{ common.toCamelSingular(table.name), table.name });
+            try w.print("  {s}(id: ID!): {s}\n", .{ try common.toCamelSingular(alloc, table.name), table.name });
             try w.print("  \"\"\"List all {s} records.\"\"\"\n", .{table.name});
             try w.print("  {s}List(limit: Int, offset: Int): [{s}!]!\n", .{ table.name, table.name });
         }
@@ -106,21 +106,21 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import(
         for (typed.tables) |table| {
             try w.print("  \"\"\"Create a new {s}.\"\"\"\n", .{table.name});
             try w.writeAll("  create");
-            try writePascalSingular(w, table.name);
+            try writePascalSingular(alloc, w, table.name);
             try w.print("(input: {s}Input!): ", .{table.name});
-            try writePascalSingular(w, table.name);
+            try writePascalSingular(alloc, w, table.name);
             try w.writeAll("!\n");
 
             try w.print("  \"\"\"Update an existing {s}.\"\"\"\n", .{table.name});
             try w.writeAll("  update");
-            try writePascalSingular(w, table.name);
+            try writePascalSingular(alloc, w, table.name);
             try w.print("(id: ID!, input: {s}Input!): ", .{table.name});
-            try writePascalSingular(w, table.name);
+            try writePascalSingular(alloc, w, table.name);
             try w.writeAll("!\n");
 
             try w.print("  \"\"\"Delete a {s}.\"\"\"\n", .{table.name});
             try w.writeAll("  delete");
-            try writePascalSingular(w, table.name);
+            try writePascalSingular(alloc, w, table.name);
             try w.writeAll("(id: ID!): Boolean!\n");
         }
         try w.writeAll("}\n");
@@ -161,7 +161,7 @@ fn writeObjectType(w: *Writer, table: typed_ast.TypedTable, alloc: std.mem.Alloc
     for (table.fks) |fk| {
         if (fk.fields.len == 1) {
             try w.print("  \"\"\"Reference to {s}\"\"\"\n", .{fk.ref_table});
-            try w.print("  {s}: {s}\n", .{ common.toCamelSingular(fk.ref_table), fk.ref_table });
+            try w.print("  {s}: {s}\n", .{ try common.toCamelSingular(alloc, fk.ref_table), fk.ref_table });
         }
     }
 
@@ -266,8 +266,8 @@ fn mapType(col: typed_ast.TypedColumn, table: ?typed_ast.TypedTable, alloc: std.
 // ─── Name Helpers ──────────────────────────────────────────────
 
 /// Write PascalCase singular form directly to writer. Avoids allocation.
-fn writePascalSingular(w: *Writer, name: []const u8) !void {
-    const singular = common.toCamelSingular(name);
+fn writePascalSingular(alloc: std.mem.Allocator, w: *Writer, name: []const u8) !void {
+    const singular = try common.toCamelSingular(alloc, name);
     if (singular.len == 0) return;
     try w.writeByte(std.ascii.toUpper(singular[0]));
     if (singular.len > 1) {

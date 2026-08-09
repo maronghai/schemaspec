@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.179.0 (2026-08-09) — 31,800+ lines production Zig, 1253+ tests, 32 test suites.
+**Current version**: 0.180.0 (2026-08-09) — 31,800+ lines production Zig, 1295+ tests, 32 test suites.
 
 ---
 
@@ -240,6 +240,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.180.0** — Lint rule enhancements: added `index-column-missing` rule (warns when indexes reference columns not defined in the table), added `naming-prefix` rule (warns about anti-pattern table name prefixes like tbl_, t_, tb_), improved `toCamelSingular` to handle irregular plurals (categories→category, quizzes→quiz, addresses→address, men→man)
 - **v0.179.0** — Validate JSON output & reverse check: added `--format json` to `rune validate` for CI/CD tooling, added `--check` flag to `rune reverse` for CI gate mode (exit 1 on errors), added `column-length` lint rule (warns on string fields without explicit length for cross-dialect compatibility)
 - **v0.178.0** — io.zig cleanup & IR type tests: simplified file reading (removed mmap duplicate copy), fixed mmap resource leak on Linux, added 28 unit tests for TypedAst and ResolvedAst IRs (was zero coverage), documented tune.zig and watch.zig in ARCHITECTURE.md
 - **v0.177.0** — Type system unification: added `TypeCategory` enum and `category()` method to `TypeInfo`, added `categoryFromSym()` for raw symbol classification, added `rev()` helper for auto-computing category in REVERSE_MAP, fixed blob/raw_sql classification

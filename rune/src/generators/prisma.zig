@@ -53,7 +53,7 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
         // Inline relations from FK targets (owned side)
         for (table.fks) |fk| {
             try w.print("  {s} {s}? @relation(\"{s}_{s}\", fields: [{s}], references: [{s}])\n", .{
-                common.toCamelSingular(fk.ref_table),
+                try common.toCamelSingular(alloc, fk.ref_table),
                 fk.ref_table,
                 table.name,
                 fk.ref_table,

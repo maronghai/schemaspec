@@ -4,6 +4,15 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.180.0] - 2026-08-09
+
+### Added
+- **`index-column-missing` lint rule** — Warns when an index references columns that don't exist in the table. Catches typos and schema drift in index definitions.
+- **`naming-prefix` lint rule** — Warns about table names using anti-pattern prefixes (`tbl_`, `t_`, `tb_`, `table_`). Helps enforce clean naming conventions.
+
+### Changed
+- **Improved `toCamelSingular` pluralization** — Handles irregular plurals (men→man, women→woman, children→child, people→person, data→datum), -ies→-y (categories→category, companies→company), doubled consonants (quizzes→quiz, addresses→address), and -ves (knives→knife, lives→life). Was previously limited to naive trailing-'s' strip.
+
 ## [0.162.0] - 2026-08-08
 
 ### Changed

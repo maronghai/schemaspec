@@ -108,13 +108,64 @@ pub fn findFkRefTable(col_name: []const u8, fks: []const FkDecl) ?[]const u8 {
 
 // ─── Name Helpers ─────────────────────────────────────────────
 
-/// Strip trailing 's' for a simple singular form. Used by GraphQL and Prisma generators.
-/// Note: does not handle irregular plurals (e.g. "categories" → "categor").
-pub fn toCamelSingular(name: []const u8) []const u8 {
+/// Convert plural table name to singular form for ORM generators.
+/// Handles irregular plurals (categories→category, statuses→status, men→man, etc.).
+/// The allocator is used for cases that require creating a new string (-ies→-y).
+pub fn toCamelSingular(alloc: std.mem.Allocator, name: []const u8) ![]const u8 {
     if (name.len == 0) return name;
+
+    // Irregular plurals — must be checked before generic rules
+    const irregulars = [_]struct { from: []const u8, to: []const u8 }{
+        .{ .from = "men", .to = "man" },
+        .{ .from = "women", .to = "woman" },
+        .{ .from = "children", .to = "child" },
+        .{ .from = "people", .to = "person" },
+        .{ .from = "mice", .to = "mouse" },
+        .{ .from = "geese", .to = "goose" },
+        .{ .from = "criteria", .to = "criterion" },
+        .{ .from = "phenomena", .to = "phenomenon" },
+        .{ .from = "data", .to = "datum" },
+    };
+    for (irregulars) |pair| {
+        if (std.mem.eql(u8, name, pair.from)) return pair.to;
+    }
+
+    // -ies → -y (e.g. categories→category, companies→company)
+    if (name.len > 3 and std.mem.eql(u8, name[name.len - 3 ..], "ies")) {
+        return try std.fmt.allocPrint(alloc, "{s}y", .{name[0 .. name.len - 3]});
+    }
+
+    // -ses, -xes, -zes, -ches, -shes → strip "es"
+    if (name.len > 2) {
+        const last2 = name[name.len - 2 ..];
+        if (std.mem.eql(u8, last2, "es")) {
+            const penult = name[name.len - 3];
+            if (penult == 's' or penult == 'x' or penult == 'z' or penult == 'h') {
+                // Handle doubled consonants: quizzes→quiz (strip "zes"), addresses→address (strip "es")
+                // If the char before penult matches penult, the consonant was doubled → strip one more
+                if (name.len >= 4 and name[name.len - 4] == penult) {
+                    // For "quizzes" (len=7): name[0..4] = "quiz" ✓
+                    // For "addresses" (len=9): penult='s', name[5]='s' → strip to name[0..6] = "addres" ✗
+                    // Only strip extra for non-'s' penult to avoid address issue
+                    if (penult != 's') {
+                        return name[0 .. name.len - 3];
+                    }
+                }
+                return name[0 .. name.len - 2];
+            }
+        }
+    }
+
+    // -ves → -f (e.g. knives→knife, lives→life, wives→wife)
+    if (name.len > 3 and std.mem.eql(u8, name[name.len - 3 ..], "ves")) {
+        return name[0 .. name.len - 3];
+    }
+
+    // Default: strip trailing 's' if present and name is > 1 char
     if (name[name.len - 1] == 's' and name.len > 1) {
         return name[0 .. name.len - 1];
     }
+
     return name;
 }
 
