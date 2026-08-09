@@ -85,12 +85,12 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  --check         Exit 1 if there are differences\n", .{});
                 if (std.mem.eql(u8, subcommand, "diff")) {
                     std.debug.print("  --from-sql      Compare against a SQL dump file instead of a .ss file\n", .{});
-                    std.debug.print("  --summary       Show summary only (no full diff)\n", .{});
+                    std.debug.print("  --summary, --stat Show summary only (no full diff)\n", .{});
                 }
                 if (std.mem.eql(u8, subcommand, "migrate")) {
                     std.debug.print("  --rollback      Generate rollback SQL instead\n", .{});
                     std.debug.print("  --dry-run       Show SQL without writing to file\n", .{});
-                    std.debug.print("  --summary       Show summary only (no full SQL)\n", .{});
+                    std.debug.print("  --summary, --stat Show summary only (no full SQL)\n", .{});
                     std.debug.print("  --graph         Show migration dependency graph\n", .{});
                     std.debug.print("  -o, --output    Output file path\n", .{});
                 }

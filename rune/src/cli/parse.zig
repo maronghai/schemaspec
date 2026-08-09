@@ -221,6 +221,8 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             want_verbose_passes = true;
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--summary" })) {
             want_summary = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--stat" })) {
+            want_summary = true;
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--stream" })) {
             want_stream = true;
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--parallel" })) {

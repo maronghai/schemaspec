@@ -49,6 +49,7 @@ pub const GLOBAL_FLAG_REGISTRY = [_]FlagEntry{
     .{ .long = "--json-errors", .description = "Machine-readable error output" },
     .{ .long = "--verbose-passes", .description = "Print semantic pass execution details" },
     .{ .long = "--summary", .description = "Print summary only" },
+    .{ .long = "--stat", .description = "Print summary only (alias for --summary)" },
     .{ .long = "--stream", .description = "Streaming compilation" },
     .{ .long = "--parallel", .description = "Parallel table compilation" },
     .{ .long = "--config", .kind = .value, .description = "Path to rune.toml config" },
@@ -83,8 +84,8 @@ test "isKnownGlobalFlag matches long forms" {
     try std.testing.expect(isKnownGlobalFlag("--stats"));
     try std.testing.expect(isKnownGlobalFlag("--dialect"));
     try std.testing.expect(isKnownGlobalFlag("--output"));
+    try std.testing.expect(isKnownGlobalFlag("--stat")); // alias for --summary
     try std.testing.expect(!isKnownGlobalFlag("--unknown-flag"));
-    try std.testing.expect(!isKnownGlobalFlag("--stat")); // typo
 }
 
 test "isKnownGlobalFlag matches short forms" {

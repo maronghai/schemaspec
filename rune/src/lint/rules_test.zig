@@ -1114,3 +1114,101 @@ test "lint: clean table name passes naming-prefix" {
         }
     }
 }
+
+// ─── FK Naming Tests ──────────────────────────────────────────
+
+test "lint: FK column without _id suffix detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    var table = try makeTestTable(alloc, "orders", &.{
+        makePkField("id"),
+        makeField("user_ref", .{ .simple = "n" }, &.{}, null),
+    }, &.{});
+    // Add table-level FK
+    const fk = ast_mod.FkDecl{
+        .fields = &.{"user_ref"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 1,
+    };
+    table.fks = try alloc.dupe(ast_mod.FkDecl, &.{fk});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-naming")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: FK column with _id suffix passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    var table = try makeTestTable(alloc, "orders", &.{
+        makePkField("id"),
+        makeField("user_id", .{ .simple = "n" }, &.{}, null),
+    }, &.{});
+    const fk = ast_mod.FkDecl{
+        .fields = &.{"user_id"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 1,
+    };
+    table.fks = try alloc.dupe(ast_mod.FkDecl, &.{fk});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Bool Default Tests ───────────────────────────────────────
+
+test "lint: boolean without default detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("active", .{ .simple = "b" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "bool-default")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: boolean with default passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("active", .{ .simple = "b" }, &.{}, null),
+    }, &.{});
+    // Add default value
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{ .check_bool_default = false });
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "bool-default")) {
+            try testing.expect(false);
+        }
+    }
+}

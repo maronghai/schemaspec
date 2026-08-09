@@ -35,6 +35,8 @@ pub const LintRule = enum {
     column_length,
     index_column_missing,
     naming_prefix,
+    fk_naming,
+    bool_default,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -59,6 +61,8 @@ pub const LintRule = enum {
             .column_length => cfg.check_column_length,
             .index_column_missing => cfg.check_index_column_missing,
             .naming_prefix => cfg.check_naming_prefix,
+            .fk_naming => cfg.check_fk_naming,
+            .bool_default => cfg.check_bool_default,
         };
     }
 
@@ -85,6 +89,8 @@ pub const LintRule = enum {
             .column_length => "column-length",
             .index_column_missing => "index-column-missing",
             .naming_prefix => "naming-prefix",
+            .fk_naming => "fk-naming",
+            .bool_default => "bool-default",
         };
     }
 
@@ -120,6 +126,8 @@ pub const LintConfig = struct {
     check_column_length: bool = true,
     check_index_column_missing: bool = true,
     check_naming_prefix: bool = true,
+    check_fk_naming: bool = true,
+    check_bool_default: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -302,6 +310,8 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
             .check_column_length = false,
             .check_index_column_missing = false,
             .check_naming_prefix = false,
+            .check_fk_naming = false,
+            .check_bool_default = false,
             .wide_table_max = base.wide_table_max,
             .count_min = base.count_min,
             .table_name_max = base.table_name_max,
@@ -354,6 +364,8 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .column_length => c.check_column_length = enabled,
         .index_column_missing => c.check_index_column_missing = enabled,
         .naming_prefix => c.check_naming_prefix = enabled,
+        .fk_naming => c.check_fk_naming = enabled,
+        .bool_default => c.check_bool_default = enabled,
     }
     return c;
 }

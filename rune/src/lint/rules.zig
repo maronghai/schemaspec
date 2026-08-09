@@ -83,6 +83,16 @@ pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.
             try namingPrefix(alloc, &results, table);
         }
     }
+    if (LintRule.fk_naming.isEnabled(cfg)) {
+        for (ast.tables) |table| {
+            try fkNaming(alloc, &results, table);
+        }
+    }
+    if (LintRule.bool_default.isEnabled(cfg)) {
+        for (ast.tables) |table| {
+            try boolDefault(alloc, &results, table);
+        }
+    }
 
     return results;
 }
@@ -525,6 +535,55 @@ fn namingPrefix(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), t
                 .severity = .info,
             });
             return;
+        }
+    }
+}
+
+fn fkNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    for (table.fields) |field| {
+        // Check if field has a FK reference
+        var has_fk = false;
+        for (table.fks) |fk| {
+            for (fk.fields) |col| {
+                if (std.mem.eql(u8, col, field.name)) {
+                    has_fk = true;
+                    break;
+                }
+            }
+            if (has_fk) break;
+        }
+        if (!has_fk) continue;
+
+        // FK columns should end with _id
+        if (!std.mem.endsWith(u8, field.name, "_id")) {
+            const msg = try std.fmt.allocPrint(alloc, "FK column '{s}' should follow '<table>_id' naming convention", .{field.name});
+            try results.append(alloc, .{
+                .rule = "fk-naming",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+fn boolDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable) !void {
+    for (table.fields) |field| {
+        // Check if field is boolean type using type_info
+        const is_bool = field.type_info.isBoolean();
+        if (!is_bool) continue;
+
+        // Check if field has an explicit default value
+        const has_default = field.default_val != null;
+
+        if (!has_default) {
+            const msg = try std.fmt.allocPrint(alloc, "boolean column '{s}' has no explicit default value", .{field.name});
+            try results.append(alloc, .{
+                .rule = "bool-default",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
         }
     }
 }

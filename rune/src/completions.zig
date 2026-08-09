@@ -30,7 +30,7 @@ pub const COMPLETIONS_BASH =
     \\    commands="init validate check stats diff migrate reverse docs format generate completions hooks lint watch lsp"
     \\
     \\    if [[ ${cur} == -* ]]; then
-    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --config --name --dir --incremental --graph --from-sql --generators" -- ${cur}) )
+    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --stat --config --name --dir --incremental --graph --from-sql --generators" -- ${cur}) )
     \\        return 0
     \\    fi
     \\
@@ -141,6 +141,8 @@ pub const COMPLETIONS_ZSH =
     \\                        '*/-t[Print compilation trace]' \
     \\                        '*/-s[Print compilation stats]' \
     \\                        '--json-errors[Emit diagnostics in JSON]' \
+    \\                        '--summary[Show summary only]' \
+    \\                        '--stat[Show summary only (alias for --summary)]' \
     \\                        '*/-d[Target SQL dialect]:dialect:(mysql pg postgres sqlite mssql oracle db2)' \
     \\                        '--target[Output format]:target:(sql json-schema)' \
     \\                        '--generators[Generators to run]' \
@@ -197,6 +199,7 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -l interval -r -d 'Watch polling interval in ms'
     \\complete -c rune -l stream -d 'Streaming compilation'
     \\complete -c rune -l summary -d 'Show summary only'
+    \\complete -c rune -l stat -d 'Show summary only (alias for --summary)'
     \\complete -c rune -l config -r -d 'Path to config file'
     \\complete -c rune -l name -r -d 'Migration label'
     \\complete -c rune -l dir -r -d 'Migration output directory'
@@ -269,7 +272,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('powershell', 'powershell', 'ParameterValue', 'PowerShell')
     \\    )
     \\
-    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--config', '--name', '--dir', '--incremental', '--graph', '--from-sql', '--generators', '-h', '-v', '-d', '-t', '-s', '-q')
+    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--stat', '--config', '--name', '--dir', '--incremental', '--graph', '--from-sql', '--generators', '-h', '-v', '-d', '-t', '-s', '-q')
     \\
     \\    $cursorToken = $commandAst.CommandElements[-1].Value
     \\    $tokens = $commandAst.CommandElements | ForEach-Object { $_.Value }
