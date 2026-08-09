@@ -325,15 +325,11 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .docs => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            const pipeline = try forward.compilePipeline(alloc, file_data, .{});
-            const docs_mod = @import("generators/docs.zig");
-            const typed = try @import("types/type_resolver.zig").TypeResolver.resolve(alloc, pipeline.resolved, parsed.dialect);
-            const doc_format: docs_mod.DocFormat = switch (cmd.doc_format) {
+            const doc_format: handlers.DocsFormat = switch (cmd.doc_format) {
                 .markdown => .markdown,
                 .json => .json,
             };
-            const output_text = try docs_mod.generateWithFormat(alloc, typed, doc_format);
-            try io_mod.writeOutput(io, output_text, cmd.output, parsed.quiet);
+            return handlers.handleDocs(io, alloc, file_data, cmd.output, doc_format, parsed.quiet, parsed.dialect);
         },
         .generate => |cmd| {
             if (cmd.list) {
@@ -352,15 +348,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .format_cmd => |cmd| {
             const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            const formatter = @import("formatter.zig");
-            const formatted = try formatter.format(alloc, file_data);
-            if (cmd.check) {
-                if (!std.mem.eql(u8, formatted, file_data)) {
-                    return error.FormatCheckFailed;
-                }
-                return;
-            }
-            try io_mod.writeOutput(io, formatted, cmd.output, parsed.quiet);
+            return handlers.handleFormat(io, alloc, file_data, cmd.output, cmd.check, parsed.quiet);
         },
         .completions => |cmd| {
             return completions.handleCompletions(io, alloc, cmd.shell);

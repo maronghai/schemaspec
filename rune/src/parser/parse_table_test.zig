@@ -99,9 +99,13 @@ test "stripEngineTokens: ^MyISAM" {
 test "stripEngineTokens: no engine token" {
     const alloc = std.testing.allocator;
     const tokens = [_][]const u8{ "#", "users" };
-    const result = try parse_table.stripEngineTokens(alloc, &tokens);
+    const tokens_slice: []const []const u8 = &tokens;
+    const result = try parse_table.stripEngineTokens(alloc, tokens_slice);
     defer {
-        alloc.free(result.stripped);
+        // When no engine token is found, result.stripped is the original tokens (not allocated)
+        if (result.stripped.ptr != tokens_slice.ptr) {
+            alloc.free(result.stripped);
+        }
         if (result.engine) |e| alloc.free(e);
     }
     try std.testing.expect(result.engine == null);

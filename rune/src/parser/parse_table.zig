@@ -77,6 +77,19 @@ pub fn parseTableHeader(alloc: std.mem.Allocator, line: tk.Line) !TableHeader {
 /// Strip engine tokens (^ or ^EngineName) from a table line's tokens.
 pub fn stripEngineTokens(alloc: std.mem.Allocator, tokens: []const []const u8) !struct { stripped: []const []const u8, engine: ?[]const u8 } {
     var engine: ?[]const u8 = null;
+
+    // Quick check: if no '^' tokens exist, return original (no allocation needed)
+    var has_engine = false;
+    for (tokens) |tok| {
+        if (tok.len > 0 and tok[0] == '^') {
+            has_engine = true;
+            break;
+        }
+    }
+    if (!has_engine) {
+        return .{ .stripped = tokens, .engine = null };
+    }
+
     var stripped = try std.ArrayList([]const u8).initCapacity(alloc, tokens.len);
     var ti: usize = 0;
     while (ti < tokens.len) : (ti += 1) {

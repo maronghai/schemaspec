@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.195.0 (2026-08-10) — 53,600+ lines production Zig, 1,438+ tests, 33 test suites.
+**Current version**: 0.196.0 (2026-08-10) — 53,600+ lines production Zig, 1,433+ tests, 33 test suites.
 
 ---
 
@@ -243,6 +243,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.196.0** — Architecture refactoring & quality: extracted docs/format command handlers from main.zig dispatch to pipeline/handlers.zig (reduced dispatch function by 40 lines), fixed parser BlockState memory leak (parents_buf not freed in reset), optimized stripEngineTokens to avoid allocation when no engine token present, eliminated test memory leak (0 leaks now)
 - **v0.195.0** — Bug fixes & quality: fixed SQLite UNSIGNED test assertion (backtick→double-quote), fixed Mermaid docs memory leak (missing defer), fixed parser @if conditional block memory leak (15→1 allocations), fixed parser internal ArrayList buffer leaks (BlockState deinit, stripEngineTokens deinit, parse method cleanup), updated Zig package manager roadmap item
 - **v0.194.0** — Quality & documentation: added tune.zig unit tests (5 new), integrated validate_views.zig into test suite, synced documentation (test counts, pass lists, leaf module paths), added Db2/MSSQL dialect behavior docs
 - **v0.193.0** — WASM fixes & formatter enhancement: fixed `rune_diff` and `rune_migrate` WASM compilation bug (called non-existent `computeDiff` instead of `diff`, wrong argument order); enhanced .ss formatter with proper `@if`/`@endif` block handling (root-level, not indented), `+` doc directive indentation, and block boundary detection; added 5 formatter golden tests and 15 unit tests

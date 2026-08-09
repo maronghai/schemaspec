@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.196.0] - 2026-08-10
+
+### Fixed
+- **Parser BlockState memory leak** — Fixed `parser/parser.zig` `BlockState.reset()` method that allocated new `parents_buf` without freeing the old one, causing a memory leak on every table/template parse.
+- **stripEngineTokens allocation optimization** — Optimized `parser/parse_table.zig` `stripEngineTokens()` to return original tokens when no engine token (`^`) is present, avoiding unnecessary allocation. This eliminated a memory leak in parser tests.
+
+### Changed
+- **Extracted docs/format handlers** — Refactored `main.zig` dispatch function by extracting inline `docs` and `format_cmd` command logic into `pipeline/handlers.zig` (`handleDocs`, `handleFormat` functions). Reduced dispatch function by 40 lines while maintaining consistent handler delegation pattern.
+
 ## [0.195.0] - 2026-08-10
 
 ### Fixed

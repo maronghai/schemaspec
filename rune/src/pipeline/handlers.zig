@@ -309,3 +309,46 @@ pub fn generateFromSchemaBatch(
         }
     }
 }
+
+/// Generate documentation from a .ss schema file.
+pub fn handleDocs(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    file_data: []const u8,
+    output_path: ?[]const u8,
+    doc_format: DocsFormat,
+    quiet: bool,
+    dialect: @import("../dialect/enum.zig").Dialect,
+) !void {
+    const pipeline = try compilePipeline(alloc, file_data, .{});
+    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+    const docs_mod = @import("../generators/docs.zig");
+    const fmt_enum: docs_mod.DocFormat = switch (doc_format) {
+        .markdown => .markdown,
+        .json => .json,
+    };
+    const output_text = try docs_mod.generateWithFormat(alloc, typed, fmt_enum);
+    try io_mod.writeOutput(io, output_text, output_path, quiet);
+}
+
+pub const DocsFormat = enum { markdown, json };
+
+/// Format a .ss file.
+pub fn handleFormat(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    file_data: []const u8,
+    output_path: ?[]const u8,
+    check: bool,
+    quiet: bool,
+) !void {
+    const formatter = @import("../formatter.zig");
+    const formatted = try formatter.format(alloc, file_data);
+    if (check) {
+        if (!std.mem.eql(u8, formatted, file_data)) {
+            return error.FormatCheckFailed;
+        }
+        return;
+    }
+    try io_mod.writeOutput(io, formatted, output_path, quiet);
+}

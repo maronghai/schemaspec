@@ -95,6 +95,8 @@ pub const Parser = struct {
             self.comment = null;
             self.doc = null;
             self.template_ref = null;
+            // Free old parents_buf before allocating new one to avoid memory leak
+            if (self.parents_buf.len > 0) alloc.free(self.parents_buf);
             self.parents_buf = try alloc.alloc([]const u8, 4);
             self.parents_len = 0;
             self.fields.clearRetainingCapacity();
