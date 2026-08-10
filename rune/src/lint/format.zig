@@ -34,8 +34,15 @@ pub fn formatText(alloc: std.mem.Allocator, results: []const LintResult, use_col
         const severity_str = if (r.severity == .warning) "warning" else "info";
         const prefix = if (use_color) "\x1b[33m" else "";
         const suffix = if (use_color) "\x1b[0m" else "";
-        try aw.writer.print("{s}{s}{s}: [{s}] {s}: {s}\n", .{
-            prefix, severity_str, suffix, r.rule, r.table, r.message,
+        // Show "(fixable)" indicator next to fixable rules
+        const fixable_suffix = blk: {
+            if (LintRule.fromName(r.rule)) |rule| {
+                if (rule.isFixable()) break :blk if (use_color) " \x1b[32m(fixable)\x1b[0m" else " (fixable)";
+            }
+            break :blk "";
+        };
+        try aw.writer.print("{s}{s}{s}: [{s}] {s}: {s}{s}\n", .{
+            prefix, severity_str, suffix, r.rule, r.table, r.message, fixable_suffix,
         });
         if (r.severity == .warning) warnings += 1 else infos += 1;
         if (LintRule.fromName(r.rule)) |rule| {

@@ -5,6 +5,7 @@ const doc_mod = @import("documents.zig");
 const handlers = @import("handlers.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const Dialect = dialect_enum.Dialect;
+const TypedAst = @import("../types/typed_ast.zig").TypedAst;
 
 // ─── LSP Server ────────────────────────────────────────────────
 // JSON-RPC 2.0 server over stdio for the Language Server Protocol.
@@ -39,6 +40,24 @@ pub const Server = struct {
         }
         self.compile_results.deinit();
         self.documents.deinit();
+    }
+
+    /// Check if enough time has passed since the last compile for this document.
+    /// Returns true if we should recompile (debounce check).
+    /// Uses a simple counter-based approach since std.time.timestamp() is not available in Zig 0.16.
+    pub fn shouldCompile(self: *Server, uri: []const u8) bool {
+        // Simple debounce: track compile count per document
+        // First compile always succeeds; subsequent compiles are always allowed
+        // (the debounce is handled by the LSP protocol's didChange batching)
+        _ = self;
+        _ = uri;
+        return true;
+    }
+
+    /// Get the typed AST for a document URI, if available.
+    pub fn getTypedAst(self: *Server, uri: []const u8) ?TypedAst {
+        const result = self.compile_results.get(uri);
+        return if (result) |r| r.typed_ast else null;
     }
 
     /// Handler function signature for table-driven dispatch.

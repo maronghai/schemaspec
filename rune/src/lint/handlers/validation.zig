@@ -5,6 +5,29 @@ const ast_mod = @import("../../types/ast.zig");
 const LintConfig = @import("../config.zig").LintConfig;
 const LintResult = @import("../config.zig").LintResult;
 
+// ─── Shared Field Helpers ──────────────────────────────────────
+
+/// Check if a field has a primary key modifier (auto_inc_pk or primary_key).
+pub fn isPrimaryKey(field: ast_mod.Field) bool {
+    for (field.modifiers) |mod| {
+        if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) return true;
+    }
+    return false;
+}
+
+/// Check if a field has the nullable modifier.
+pub fn isNullable(field: ast_mod.Field) bool {
+    for (field.modifiers) |mod| {
+        if (mod.kind == .nullable) return true;
+    }
+    return false;
+}
+
+/// Check if a field has an explicit default value.
+pub fn hasExplicitDefault(field: ast_mod.Field) bool {
+    return field.default_val != null;
+}
+
 // ─── Validation Rules ──────────────────────────────────────────
 // Rules that validate schema integrity: FK references, indexes,
 // cascades, duplicates, views, and default values.
@@ -57,13 +80,7 @@ pub fn checkFkCascade(alloc: std.mem.Allocator, results: *std.ArrayList(LintResu
 pub fn checkNullablePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.tables) |table| {
         for (table.fields) |field| {
-            var is_pk = false;
-            var is_nullable = false;
-            for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) is_pk = true;
-                if (mod.kind == .nullable) is_nullable = true;
-            }
-            if (is_pk and is_nullable) {
+            if (isPrimaryKey(field) and isNullable(field)) {
                 const msg = try std.fmt.allocPrint(alloc, "primary key column '{s}' should not be nullable", .{field.name});
                 try results.append(alloc, .{
                     .rule = "nullable-pk",
@@ -232,27 +249,22 @@ pub fn checkIndexColumnMissing(alloc: std.mem.Allocator, results: *std.ArrayList
 pub fn checkBoolDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.tables) |table| {
         for (table.fields) |field| {
-            // Check if field is boolean type using type_info
-            const is_bool = field.type_info.isBoolean();
-            if (!is_bool) continue;
+            if (!field.type_info.isBoolean()) continue;
+            if (hasExplicitDefault(field)) continue;
 
-            // Check if field has an explicit default value
-            const has_default = field.default_val != null;
-
-            if (!has_default) {
-                const msg = try std.fmt.allocPrint(alloc, "boolean column '{s}' has no explicit default value", .{field.name});
-                try results.append(alloc, .{
-                    .rule = "bool-default",
-                    .table = table.name,
-                    .message = msg,
-                    .severity = .info,
-                });
-            }
+            const msg = try std.fmt.allocPrint(alloc, "boolean column '{s}' has no explicit default value", .{field.name});
+            try results.append(alloc, .{
+                .rule = "bool-default",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
         }
     }
 }
 
-pub fn checkViewNoSelect(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+pub fn checkViewNoSelect(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    if (!cfg.include_views) return;
     for (ast.views) |view| {
         // Check if view query is empty or doesn't contain SELECT
         const query = view.query;
@@ -282,30 +294,10 @@ pub fn checkViewNoSelect(alloc: std.mem.Allocator, results: *std.ArrayList(LintR
 pub fn checkColumnDefaultRequired(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.tables) |table| {
         for (table.fields) |field| {
-            // Skip PK fields
-            var is_pk = false;
-            for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
-                    is_pk = true;
-                    break;
-                }
-            }
-            if (is_pk) continue;
+            if (isPrimaryKey(field)) continue;
+            if (isNullable(field)) continue;
+            if (hasExplicitDefault(field)) continue;
 
-            // Skip nullable fields
-            var is_nullable = false;
-            for (field.modifiers) |mod| {
-                if (mod.kind == .nullable) {
-                    is_nullable = true;
-                    break;
-                }
-            }
-            if (is_nullable) continue;
-
-            // Skip fields with explicit default
-            if (field.default_val != null) continue;
-
-            // Non-PK, non-nullable field without default
             const msg = try std.fmt.allocPrint(alloc, "column '{s}' has no explicit DEFAULT value", .{field.name});
             try results.append(alloc, .{
                 .rule = "column-default-required",
@@ -320,30 +312,10 @@ pub fn checkColumnDefaultRequired(alloc: std.mem.Allocator, results: *std.ArrayL
 pub fn checkNullableColumnDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.tables) |table| {
         for (table.fields) |field| {
-            // Skip PK fields
-            var is_pk = false;
-            for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
-                    is_pk = true;
-                    break;
-                }
-            }
-            if (is_pk) continue;
+            if (isPrimaryKey(field)) continue;
+            if (!isNullable(field)) continue;
+            if (hasExplicitDefault(field)) continue;
 
-            // Only check nullable fields
-            var is_nullable = false;
-            for (field.modifiers) |mod| {
-                if (mod.kind == .nullable) {
-                    is_nullable = true;
-                    break;
-                }
-            }
-            if (!is_nullable) continue;
-
-            // Skip fields with explicit default
-            if (field.default_val != null) continue;
-
-            // Nullable field without explicit default — suggest adding NULL default for clarity
             const msg = try std.fmt.allocPrint(alloc, "nullable column '{s}' has no explicit DEFAULT — consider adding `= null` for clarity", .{field.name});
             try results.append(alloc, .{
                 .rule = "nullable-column-default",
@@ -388,7 +360,8 @@ pub fn checkFkNull(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult)
     }
 }
 
-pub fn checkViewNoAlias(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+pub fn checkViewNoAlias(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    if (!cfg.include_views) return;
     for (ast.views) |view| {
         // Check if view has SELECT with expressions that lack aliases
         // This is a heuristic: if SELECT contains function calls or arithmetic without AS, warn

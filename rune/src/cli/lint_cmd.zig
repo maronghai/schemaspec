@@ -23,6 +23,7 @@ pub const LintCmd = struct {
     dry_run: bool = false,
     show_rules: bool = false,
     init_config: bool = false,
+    include_views: bool = false,
 };
 
 /// Format and output lint results in the requested format (sarif/json/text).
@@ -66,6 +67,7 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
 
     // Load lint rules config if --rules specified
     var lint_cfg = lint_mod.LintConfig{};
+    lint_cfg.include_views = cmd.include_views;
     if (cmd.rules) |rules_path| {
         if (std.Io.Dir.cwd().readFileAlloc(io, rules_path, alloc, .unlimited)) |rules_data| {
             const rules_cfg = try lint_mod.parseLintRules(alloc, rules_data);

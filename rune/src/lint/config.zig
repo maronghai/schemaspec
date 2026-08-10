@@ -63,6 +63,7 @@ pub const LintConfig = struct {
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
+    include_views: bool = false,
 };
 
 // ─── Diff-aware Lint ─────────────────────────────────────────

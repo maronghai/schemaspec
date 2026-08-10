@@ -341,6 +341,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .rules = cmd.rules,
                 .fix = cmd.fix,
                 .dry_run = cmd.dry_run,
+                .include_views = cmd.include_views,
             }, parsed);
         },
         .watch => |cmd| {

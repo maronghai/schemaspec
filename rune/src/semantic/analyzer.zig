@@ -207,3 +207,28 @@ pub fn diagnosticTrace(resolved: ResolvedAst) void {
         std.debug.print("\n", .{});
     }
 }
+
+// ─── Tests ──────────────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "SemanticAnalyzer: init defaults" {
+    const alloc = testing.allocator;
+    const sa = SemanticAnalyzer.init(alloc);
+    try testing.expect(!sa.verbose);
+    try testing.expectEqual(Dialect.mysql, sa.dialect);
+}
+
+test "SemanticAnalyzer: initWithColor" {
+    const alloc = testing.allocator;
+    const sa = SemanticAnalyzer.initWithColor(alloc, true, false);
+    try testing.expect(sa.verbose);
+    try testing.expectEqual(Dialect.mysql, sa.dialect);
+}
+
+test "SemanticAnalyzer: initWithColor and dialect" {
+    const alloc = testing.allocator;
+    var sa = SemanticAnalyzer.initWithColor(alloc, false, true);
+    sa.dialect = .pg;
+    try testing.expectEqual(Dialect.pg, sa.dialect);
+}

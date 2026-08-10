@@ -1,6 +1,7 @@
 const std = @import("std");
 const diff_mod = @import("engine.zig");
 const types = @import("types.zig");
+const ast_mod = @import("../types/ast.zig");
 
 // ─── Migration Plan IR ─────────────────────────────────────────
 // Explicit intermediate representation between SchemaDiff and SQL generation.
@@ -246,7 +247,6 @@ fn invertFkDiff(fk: types.FkDiff) types.FkDiff {
 // ─── Tests ──────────────────────────────────────────────────────
 
 const testing = std.testing;
-const ast_mod = @import("../types/ast.zig");
 
 test "planFromDiff: empty diff" {
     const d = types.SchemaDiff{

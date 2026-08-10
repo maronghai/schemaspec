@@ -107,7 +107,7 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
         for (pending_creates.items) |new_idx| {
             if (matched_creates.contains(new_idx)) continue;
             const new_table = new.tables[new_idx];
-            const overlap = computeFieldOverlap(old_table.fields, new_table.fields);
+            const overlap = computeFieldOverlap(alloc, old_table.fields, new_table.fields);
             if (overlap >= RENAME_OVERLAP_THRESHOLD) {
                 if (best_match == null or overlap > best_match.?.overlap) {
                     best_match = .{ .new_idx = new_idx, .overlap = overlap };
@@ -283,13 +283,13 @@ fn viewQueriesEql(old: ast_mod.View, new: ast_mod.View) bool {
 /// Returns a value between 0.0 (no overlap) and 1.0 (identical fields).
 /// Used for table-level rename detection.
 /// Optimized: O(n+m) via hash set instead of O(n*m) nested loop.
-fn computeFieldOverlap(old_fields: []const ast_mod.Field, new_fields: []const ast_mod.Field) f64 {
+fn computeFieldOverlap(alloc: std.mem.Allocator, old_fields: []const ast_mod.Field, new_fields: []const ast_mod.Field) f64 {
     if (old_fields.len == 0 and new_fields.len == 0) return 1.0;
     if (old_fields.len == 0 or new_fields.len == 0) return 0.0;
 
     // Build a hash set of old field names, then probe with new field names.
     // This is O(n+m) instead of O(n*m).
-    var old_names = std.StringHashMap(void).init(std.heap.page_allocator);
+    var old_names = std.StringHashMap(void).init(alloc);
     defer old_names.deinit();
     for (old_fields) |old_field| {
         old_names.put(old_field.name, {}) catch continue;
@@ -339,4 +339,34 @@ fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: res
         .fk_diffs = fk_diffs,
         .metadata_diff = if (metadata_diff.hasChanges()) metadata_diff else null,
     };
+}
+
+// ─── Tests ──────────────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "diff: empty schemas" {
+    const alloc = testing.allocator;
+    const old = resolved_ast.ResolvedAst{
+        .ir_version = 1,
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const new = resolved_ast.ResolvedAst{
+        .ir_version = 1,
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const result = try diff(old, new, alloc);
+    try testing.expectEqual(@as(usize, 0), result.table_diffs.len);
+    try testing.expectEqual(@as(usize, 0), result.dropped_tables.len);
+    try testing.expectEqual(@as(usize, 0), result.view_diffs.len);
 }

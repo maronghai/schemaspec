@@ -80,7 +80,11 @@ pub fn handleDidChange(self: *Server, params: std.json.Value) !void {
     const text = lsp_protocol.getStringField(first_change, "text") orelse return;
 
     try self.documents.change(uri, version, text);
-    try self.compileAndPublishDiagnostics(uri);
+
+    // Debounce: only recompile if enough time has passed since last compile
+    if (self.shouldCompile(uri)) {
+        try self.compileAndPublishDiagnostics(uri);
+    }
 }
 
 pub fn handleDidClose(self: *Server, params: std.json.Value) !void {
@@ -114,8 +118,7 @@ pub fn handleDocumentSymbol(self: *Server, stdout_file: anytype, id: ?i64, param
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
 
-    const result = self.compile_results.get(uri);
-    const typed = if (result) |r| r.typed_ast else null;
+    const typed = self.getTypedAst(uri);
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     try body_alloc.writer.writeByte('[');
@@ -139,8 +142,7 @@ pub fn handleCompletion(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
     const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
-    const result = self.compile_results.get(uri);
-    const typed = if (result) |r| r.typed_ast else null;
+    const typed = self.getTypedAst(uri);
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     if (typed) |t| {

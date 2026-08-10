@@ -162,6 +162,7 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
                 std.debug.print("  --init          Generate starter .rune-lint.toml config file\n", .{});
                 std.debug.print("  --fix           Auto-fix fixable issues (8 rules)\n", .{});
                 std.debug.print("  --dry-run       Preview fixes without writing (with --fix)\n", .{});
+                std.debug.print("  --include-views Enable view-related lint rules (view-no-select, view-no-alias)\n", .{});
                 std.debug.print("\nExamples:\n", .{});
                 std.debug.print("  rune lint schema.ss                # Lint schema\n", .{});
                 std.debug.print("  rune lint schema.ss --json-errors  # Lint as JSON\n", .{});

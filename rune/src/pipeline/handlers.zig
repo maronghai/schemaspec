@@ -10,6 +10,7 @@ const printStats = forward.printStats;
 const io_mod = @import("../io.zig");
 const codegen = @import("../codegen/codegen.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
+const TypedAst = @import("../types/typed_ast.zig").TypedAst;
 const json_schema = @import("../generators/json_schema.zig");
 const stats_mod = @import("stats.zig");
 const StatsFormat = @import("../types/enums.zig").StatsFormat;
@@ -22,6 +23,14 @@ pub const formatValidateSarif = export_mod.formatValidateSarif;
 // ─── Output Handlers ───────────────────────────────────────────
 // CLI-level handlers that orchestrate compilation + output.
 // Extracted from forward.zig for single-responsibility.
+
+/// Compile schema text to a TypedAst for use by generators.
+/// Single entry point for the compile → resolve pattern used by
+/// generateFromSchema, generateFromSchemaBatch, and handleDocs.
+pub fn compileToTypedAst(alloc: std.mem.Allocator, file_data: []const u8, dialect: codegen.Dialect) !TypedAst {
+    const pipeline = try compilePipeline(alloc, file_data, .{});
+    return TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+}
 
 /// Configuration for `handleValidate` and `handleCheck`.
 /// Replaces 9 positional parameters with a named struct.
@@ -221,8 +230,7 @@ pub fn generateFromSchema(
     quiet: bool,
     dry_run: bool,
 ) !void {
-    const pipeline = try compilePipeline(alloc, file_data, .{});
-    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+    const typed = try compileToTypedAst(alloc, file_data, dialect);
 
     const generator = @import("../generator.zig");
     if (generator.get(generator_name)) |gen| {
@@ -253,8 +261,7 @@ pub fn generateFromSchemaBatch(
     quiet: bool,
     dry_run: bool,
 ) !void {
-    const pipeline = try compilePipeline(alloc, file_data, .{});
-    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+    const typed = try compileToTypedAst(alloc, file_data, dialect);
 
     const generator = @import("../generator.zig");
 
@@ -330,8 +337,7 @@ pub fn handleDocs(
     quiet: bool,
     dialect: @import("../dialect/enum.zig").Dialect,
 ) !void {
-    const pipeline = try compilePipeline(alloc, file_data, .{});
-    const typed = try TypeResolver.resolve(alloc, pipeline.resolved, dialect);
+    const typed = try compileToTypedAst(alloc, file_data, dialect);
     const docs_mod = @import("../generators/docs.zig");
     const fmt_enum: docs_mod.DocFormat = switch (doc_format) {
         .markdown => .markdown,
