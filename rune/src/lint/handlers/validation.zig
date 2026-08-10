@@ -524,6 +524,50 @@ fn fieldHasIndex(table: ResolvedTable, field_name: []const u8) bool {
     return false;
 }
 
+pub fn checkViewSelectStar(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    if (!cfg.include_views) return;
+    for (ast.views) |view| {
+        const query = view.query;
+        if (query.len == 0) continue;
+        // Check for SELECT * pattern (case-insensitive)
+        if (containsIgnoreCase(query, "select *") or containsIgnoreCase(query, "select\t*") or containsIgnoreCase(query, "select\n*")) {
+            const msg = try std.fmt.allocPrint(alloc, "view '{s}' uses SELECT * — prefer explicit column list for portability and schema evolution", .{view.name});
+            try results.append(alloc, .{
+                .rule = "view-select-star",
+                .table = view.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+pub fn checkEnumValueDuplicate(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        switch (ct.base) {
+            .enum_type => |values| {
+                var seen = std.StringHashMap(u32).init(alloc);
+                defer seen.deinit();
+                for (values, 0..) |val, idx| {
+                    const gop = try seen.getOrPut(val);
+                    if (gop.found_existing) {
+                        const msg = try std.fmt.allocPrint(alloc, "enum value '{s}' in type '{s}' is duplicated (first at position {d})", .{ val, ct.name, gop.value_ptr.* });
+                        try results.append(alloc, .{
+                            .rule = "enum-value-duplicate",
+                            .table = ct.name,
+                            .message = msg,
+                            .severity = .warning,
+                        });
+                    } else {
+                        gop.value_ptr.* = @intCast(idx);
+                    }
+                }
+            },
+            else => {},
+        }
+    }
+}
+
 fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     if (needle.len > haystack.len) return false;
     const end = haystack.len - needle.len + 1;

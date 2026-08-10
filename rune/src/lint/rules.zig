@@ -91,6 +91,9 @@ const RULES = [_]RuleEntry{
     .{ .rule = .duplicate_column, .handler = validation.checkDuplicateColumn },
     // Naming rules (continued)
     .{ .rule = .view_naming, .handler = naming.checkViewNaming },
+    // Additional validation rules (continued)
+    .{ .rule = .view_select_star, .handler = validation.checkViewSelectStar },
+    .{ .rule = .enum_value_duplicate, .handler = validation.checkEnumValueDuplicate },
 };
 
 /// Run all enabled lint checks on a resolved schema.

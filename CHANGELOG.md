@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.228.0] - 2026-08-11
+
+### Added
+- **`view-select-star` lint rule** — Warns when views use SELECT * instead of explicit column lists. Helps catch portability and schema evolution issues early.
+- **`enum-value-duplicate` lint rule** — Warns when a custom type has duplicate enum values. Helps catch copy-paste errors in type definitions.
+
+### Changed
+- **Lint rule count** — Expanded from 35 to 37 rules.
+
 ## [0.224.0] - 2026-08-11
 
 ### Changed

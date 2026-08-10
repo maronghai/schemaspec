@@ -42,6 +42,8 @@ pub const LintRule = enum {
     enum_empty,
     view_naming,
     duplicate_column,
+    view_select_star,
+    enum_value_duplicate,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -81,6 +83,8 @@ pub const LintRule = enum {
             .enum_empty => "enum-empty",
             .view_naming => "view-naming",
             .duplicate_column => "duplicate-column",
+            .view_select_star => "view-select-star",
+            .enum_value_duplicate => "enum-value-duplicate",
         };
     }
 
@@ -107,6 +111,8 @@ pub const LintRule = enum {
             .column_default_required => true,
             .no_index_fk => true,
             .duplicate_column => true,
+            .view_select_star => false,
+            .enum_value_duplicate => false,
             else => false,
         };
     }
@@ -149,6 +155,8 @@ pub const LintRule = enum {
             .enum_empty => "Custom type enum has no values",
             .view_naming => "View name doesn't follow <entity>_view or v_<entity> convention",
             .duplicate_column => "Table has columns with the same name",
+            .view_select_star => "View uses SELECT * (prefer explicit columns for portability)",
+            .enum_value_duplicate => "Custom type has duplicate enum values",
         };
     }
 };

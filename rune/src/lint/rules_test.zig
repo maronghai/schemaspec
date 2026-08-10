@@ -1715,3 +1715,139 @@ test "lint: no duplicate column names passes" {
         }
     }
 }
+
+// ─── view-select-star tests ─────────────────────────────────────
+
+test "lint: view with SELECT * triggers info" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = ast_mod.View{
+        .name = "user_view",
+        .query = "SELECT * FROM users",
+        .comment = null,
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lintSchema(alloc, test_ast, cfg);
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-select-star")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: view with explicit columns passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = ast_mod.View{
+        .name = "user_view",
+        .query = "SELECT id, name FROM users",
+        .comment = null,
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lintSchema(alloc, test_ast, cfg);
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-select-star")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: view with lowercase select * triggers info" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = ast_mod.View{
+        .name = "user_view",
+        .query = "select * from users",
+        .comment = null,
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lintSchema(alloc, test_ast, cfg);
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-select-star")) found = true;
+    }
+    try testing.expect(found);
+}
+
+// ─── enum-value-duplicate tests ─────────────────────────────────
+
+test "lint: duplicate enum values triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = ast_mod.CustomType{
+        .name = "STATUS",
+        .base = .{ .enum_type = &.{ "ACTIVE", "INACTIVE", "ACTIVE" } },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "enum-value-duplicate")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: unique enum values passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = ast_mod.CustomType{
+        .name = "STATUS",
+        .base = .{ .enum_type = &.{ "ACTIVE", "INACTIVE", "PENDING" } },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "enum-value-duplicate")) {
+            try testing.expect(false);
+        }
+    }
+}
