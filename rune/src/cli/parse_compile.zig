@@ -174,6 +174,7 @@ pub fn parseReverseArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
 pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) !ParsedArgs {
     var want_list = false;
     var want_dry_run = false;
+    var want_check = false;
     var generators_str: ?[]const u8 = null;
 
     // First pass: scan for flags
@@ -183,6 +184,8 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
             want_list = true;
         } else if (std.mem.eql(u8, fargs[j], "--dry-run")) {
             want_dry_run = true;
+        } else if (std.mem.eql(u8, fargs[j], "--check")) {
+            want_check = true;
         } else if (std.mem.eql(u8, fargs[j], "--generators") and j + 1 < fargs.len) {
             j += 1;
             generators_str = fargs[j];
@@ -195,7 +198,8 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
     j = 1;
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--list") or std.mem.eql(u8, fargs[j], "-l") or
-            std.mem.eql(u8, fargs[j], "--generators") or std.mem.eql(u8, fargs[j], "--dry-run"))
+            std.mem.eql(u8, fargs[j], "--generators") or std.mem.eql(u8, fargs[j], "--dry-run") or
+            std.mem.eql(u8, fargs[j], "--check"))
         {
             // Skip flags and their values
             if (std.mem.eql(u8, fargs[j], "--generators")) j += 1;
@@ -223,6 +227,7 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
             .input = input,
             .output = shared.parseOutputFlag(fargs, 1),
             .list = want_list,
+            .check = want_check,
             .dry_run = want_dry_run,
         } },
         .quiet = opts.quiet,

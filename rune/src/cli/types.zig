@@ -25,7 +25,7 @@ pub const Command = union(enum) {
     docs: struct { input: ?[]const u8, output: ?[]const u8, doc_format: DocsFormat = .markdown },
     export_cmd: struct { input: ?[]const u8, output: ?[]const u8, format: ExportFormat = .json },
     format_cmd: struct { input: ?[]const u8, output: ?[]const u8, check: bool = false },
-    generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool, dry_run: bool = false },
+    generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool, check: bool = false, dry_run: bool = false },
     init: struct { name: ?[]const u8, output: ?[]const u8, output_dir: ?[]const u8 = null, template: ?[]const u8 = null },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },

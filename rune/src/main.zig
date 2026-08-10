@@ -304,8 +304,15 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .generate => |cmd| {
             if (cmd.list) {
-                for (generator.REGISTRY) |gen| {
-                    std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
+                generator.listDetailedStderr();
+                return;
+            }
+            if (cmd.check) {
+                if (generator.check(alloc)) |err_msg| {
+                    std.debug.print("Generator health check failed: {s}\n", .{err_msg});
+                    std.process.exit(1);
+                } else {
+                    std.debug.print("All generators OK\n", .{});
                 }
                 return;
             }

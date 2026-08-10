@@ -153,7 +153,10 @@ test "lint: clean schema passes" {
     const test_ast = makeAst(tables);
     // Disable column-length rule since test fields use bare 's' type
     // Disable column-default-required since test fields have no defaults
-    const results = try lintSchema(alloc, test_ast, .{ .check_column_length = false, .check_column_default_required = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.column_length, false);
+    cfg.rules.setEnabled(.column_default_required, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     try testing.expectEqual(@as(usize, 0), results.items.len);
 }
 
@@ -341,7 +344,12 @@ test "lint: narrow table passes wide check" {
     }, &.{});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
-    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.no_pk, false);
+    cfg.rules.setEnabled(.naming, false);
+    cfg.rules.setEnabled(.no_index_fk, false);
+    cfg.rules.setEnabled(.no_timestamps, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "wide-table")) {
             try testing.expect(false);
@@ -359,7 +367,12 @@ test "lint: non-UPPER_CASE custom type detected" {
     const ct = makeCustomType("statusType");
     const cts = try alloc.dupe(ast_mod.CustomType, &.{ct});
     const test_ast = makeAstWithCustomTypes(&.{}, cts);
-    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.no_pk, false);
+    cfg.rules.setEnabled(.naming, false);
+    cfg.rules.setEnabled(.no_index_fk, false);
+    cfg.rules.setEnabled(.no_timestamps, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     var found = false;
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "enum-case")) found = true;
@@ -375,7 +388,12 @@ test "lint: UPPER_CASE custom type passes" {
     const ct = makeCustomType("STATUS_TYPE");
     const cts = try alloc.dupe(ast_mod.CustomType, &.{ct});
     const test_ast = makeAstWithCustomTypes(&.{}, cts);
-    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.no_pk, false);
+    cfg.rules.setEnabled(.naming, false);
+    cfg.rules.setEnabled(.no_index_fk, false);
+    cfg.rules.setEnabled(.no_timestamps, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "enum-case")) {
             try testing.expect(false);
@@ -395,7 +413,12 @@ test "lint: low field count detected" {
     }, &.{});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
-    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.no_pk, false);
+    cfg.rules.setEnabled(.naming, false);
+    cfg.rules.setEnabled(.no_index_fk, false);
+    cfg.rules.setEnabled(.no_timestamps, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     var found = false;
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "count")) found = true;
@@ -415,7 +438,12 @@ test "lint: sufficient field count passes" {
     }, &.{});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
-    const results = try lintSchema(alloc, test_ast, .{ .check_pk = false, .check_naming = false, .check_fk_index = false, .check_timestamps = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.no_pk, false);
+    cfg.rules.setEnabled(.naming, false);
+    cfg.rules.setEnabled(.no_index_fk, false);
+    cfg.rules.setEnabled(.no_timestamps, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "count")) {
             try testing.expect(false);
@@ -982,7 +1010,9 @@ test "lint: column-length rule can be disabled" {
     }, &.{});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
-    const results = try lintSchema(alloc, test_ast, .{ .check_column_length = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.column_length, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "column-length")) {
             try testing.expect(false);
@@ -1218,7 +1248,9 @@ test "lint: boolean with default passes" {
     // Add default value
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
-    const results = try lintSchema(alloc, test_ast, .{ .check_bool_default = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.bool_default, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "bool-default")) {
             try testing.expect(false);
@@ -1259,7 +1291,9 @@ test "lint: nullable column with default passes" {
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
     // Disable the rule to simulate having a default
-    const results = try lintSchema(alloc, test_ast, .{ .check_nullable_column_default = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.nullable_column_default, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "nullable-column-default")) {
             try testing.expect(false);

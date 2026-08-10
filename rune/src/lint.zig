@@ -17,6 +17,7 @@ const fix_mod = @import("lint/fix.zig");
 pub const LintSeverity = config.LintSeverity;
 pub const LintResult = config.LintResult;
 pub const LintConfig = config.LintConfig;
+pub const RuleSet = config.RuleSet;
 pub const LintDiffResult = config.LintDiffResult;
 pub const LintFix = fix_mod.LintFix;
 pub const LintRulesConfig = config.LintRulesConfig;

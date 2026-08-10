@@ -99,7 +99,10 @@ test "lint: SARIF empty results" {
     table.comment = "User accounts";
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const test_ast = makeAst(tables);
-    const results = try lintSchema(alloc, test_ast, .{ .check_column_length = false, .check_column_default_required = false });
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.column_length, false);
+    cfg.rules.setEnabled(.column_default_required, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
     const sarif = try lint_mod.formatLintSarif(alloc, results.items, "0.137.0", null);
     try testing.expect(std.mem.indexOf(u8, sarif, "\"results\":[]") != null);
 }

@@ -4,6 +4,10 @@ pub const LintRule = rule_enum.LintRule;
 
 // ─── Lint Config ─────────────────────────────────────────────
 // Configuration types and TOML config file parsing.
+//
+// Adding a new lint rule requires ONLY adding the variant to LintRule enum.
+// No changes needed in config.zig — RuleSet, isRuleEnabled, applyLintRules,
+// and setRuleEnabled are all data-driven via @intFromEnum(LintRule).
 
 pub const LintSeverity = enum { warning, info };
 
@@ -14,79 +18,48 @@ pub const LintResult = struct {
     severity: LintSeverity,
 };
 
+// ─── RuleSet: data-driven rule enable/disable ────────────────
+
+const RULE_COUNT = @typeInfo(LintRule).@"enum".fields.len;
+
+/// Data-driven set of enabled/disabled lint rules.
+/// Indexed by LintRule enum ordinal — no per-rule boolean fields.
+pub const RuleSet = struct {
+    enabled: [RULE_COUNT]bool = initAllEnabled(),
+
+    fn initAllEnabled() [RULE_COUNT]bool {
+        return [_]bool{true} ** RULE_COUNT;
+    }
+
+    /// Check if a rule is enabled.
+    pub fn isEnabled(self: RuleSet, rule: LintRule) bool {
+        return self.enabled[@intFromEnum(rule)];
+    }
+
+    /// Set a rule's enabled state.
+    pub fn setEnabled(self: *RuleSet, rule: LintRule, val: bool) void {
+        self.enabled[@intFromEnum(rule)] = val;
+    }
+
+    /// Disable all rules.
+    pub fn disableAll(self: *RuleSet) void {
+        self.enabled = [_]bool{false} ** RULE_COUNT;
+    }
+
+    /// Disable all rules except the specified one.
+    pub fn disableAllExcept(self: *RuleSet, except: LintRule) void {
+        self.disableAll();
+        self.setEnabled(except, true);
+    }
+};
+
 /// Check if a lint rule is enabled in the given config.
 pub fn isRuleEnabled(rule: LintRule, cfg: LintConfig) bool {
-    return switch (rule) {
-        .no_pk => cfg.check_pk,
-        .naming => cfg.check_naming,
-        .no_index_fk => cfg.check_fk_index,
-        .no_timestamps => cfg.check_timestamps,
-        .wide_table => cfg.check_wide_table,
-        .enum_case => cfg.check_enum_case,
-        .count => cfg.check_count,
-        .fk_cascade => cfg.check_fk_cascade,
-        .nullable_pk => cfg.check_nullable_pk,
-        .orphan_type => cfg.check_orphan_type,
-        .index_unused => cfg.check_index_unused,
-        .circular_fk => cfg.check_circular_fk,
-        .duplicate_index => cfg.check_duplicate_index,
-        .empty_table => cfg.check_empty_table,
-        .table_comment => cfg.check_table_comment,
-        .serial_type => cfg.check_serial_type,
-        .table_name_length => cfg.check_table_name_length,
-        .column_length => cfg.check_column_length,
-        .index_column_missing => cfg.check_index_column_missing,
-        .naming_prefix => cfg.check_naming_prefix,
-        .fk_naming => cfg.check_fk_naming,
-        .bool_default => cfg.check_bool_default,
-        .view_no_select => cfg.check_view_no_select,
-        .column_default_required => cfg.check_column_default_required,
-        .index_naming => cfg.check_index_naming,
-        .nullable_column_default => cfg.check_nullable_column_default,
-        .timestamp_naming => cfg.check_timestamp_naming,
-        .enum_value_naming => cfg.check_enum_value_naming,
-        .fk_null => cfg.check_fk_null,
-        .cross_dialect_types => cfg.check_cross_dialect_types,
-        .view_no_alias => cfg.check_view_no_alias,
-        .fk_self_reference => cfg.check_fk_self_reference,
-        .enum_empty => cfg.check_enum_empty,
-    };
+    return cfg.rules.isEnabled(rule);
 }
 
 pub const LintConfig = struct {
-    check_pk: bool = true,
-    check_naming: bool = true,
-    check_fk_index: bool = true,
-    check_timestamps: bool = true,
-    check_wide_table: bool = true,
-    check_enum_case: bool = true,
-    check_count: bool = true,
-    check_fk_cascade: bool = true,
-    check_nullable_pk: bool = true,
-    check_orphan_type: bool = true,
-    check_index_unused: bool = true,
-    check_circular_fk: bool = true,
-    check_duplicate_index: bool = true,
-    check_empty_table: bool = true,
-    check_table_comment: bool = true,
-    check_serial_type: bool = true,
-    check_table_name_length: bool = true,
-    check_column_length: bool = true,
-    check_index_column_missing: bool = true,
-    check_naming_prefix: bool = true,
-    check_fk_naming: bool = true,
-    check_bool_default: bool = true,
-    check_view_no_select: bool = true,
-    check_column_default_required: bool = true,
-    check_index_naming: bool = true,
-    check_nullable_column_default: bool = true,
-    check_timestamp_naming: bool = true,
-    check_enum_value_naming: bool = true,
-    check_fk_null: bool = true,
-    check_cross_dialect_types: bool = true,
-    check_view_no_alias: bool = true,
-    check_fk_self_reference: bool = true,
-    check_enum_empty: bool = true,
+    rules: RuleSet = .{},
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -248,44 +221,10 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
 
     // If enabled list is set, disable everything first, then enable listed rules
     if (rules.enabled) |enabled| {
-        cfg = LintConfig{
-            .check_pk = false,
-            .check_naming = false,
-            .check_fk_index = false,
-            .check_timestamps = false,
-            .check_wide_table = false,
-            .check_enum_case = false,
-            .check_count = false,
-            .check_fk_cascade = false,
-            .check_nullable_pk = false,
-            .check_orphan_type = false,
-            .check_index_unused = false,
-            .check_circular_fk = false,
-            .check_duplicate_index = false,
-            .check_empty_table = false,
-            .check_table_comment = false,
-            .check_serial_type = false,
-            .check_table_name_length = false,
-            .check_column_length = false,
-            .check_index_column_missing = false,
-            .check_naming_prefix = false,
-            .check_fk_naming = false,
-            .check_bool_default = false,
-            .check_view_no_select = false,
-            .check_column_default_required = false,
-            .check_index_naming = false,
-            .check_nullable_column_default = false,
-            .check_timestamp_naming = false,
-            .check_enum_value_naming = false,
-            .check_fk_null = false,
-            .check_cross_dialect_types = false,
-            .wide_table_max = base.wide_table_max,
-            .count_min = base.count_min,
-            .table_name_max = base.table_name_max,
-        };
+        cfg.rules.disableAll();
         for (enabled) |rule| {
             if (LintRule.fromName(rule)) |r| {
-                cfg = setRuleEnabled(cfg, r, true);
+                cfg.rules.setEnabled(r, true);
             }
         }
     }
@@ -294,7 +233,7 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
     if (rules.disabled) |disabled| {
         for (disabled) |rule| {
             if (LintRule.fromName(rule)) |r| {
-                cfg = setRuleEnabled(cfg, r, false);
+                cfg.rules.setEnabled(r, false);
             }
         }
     }
@@ -307,43 +246,71 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
     return cfg;
 }
 
-/// Set a rule's enabled state in a LintConfig.
-fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
-    var c = cfg;
-    switch (rule) {
-        .no_pk => c.check_pk = enabled,
-        .naming => c.check_naming = enabled,
-        .no_index_fk => c.check_fk_index = enabled,
-        .no_timestamps => c.check_timestamps = enabled,
-        .wide_table => c.check_wide_table = enabled,
-        .enum_case => c.check_enum_case = enabled,
-        .count => c.check_count = enabled,
-        .fk_cascade => c.check_fk_cascade = enabled,
-        .nullable_pk => c.check_nullable_pk = enabled,
-        .orphan_type => c.check_orphan_type = enabled,
-        .index_unused => c.check_index_unused = enabled,
-        .circular_fk => c.check_circular_fk = enabled,
-        .duplicate_index => c.check_duplicate_index = enabled,
-        .empty_table => c.check_empty_table = enabled,
-        .table_comment => c.check_table_comment = enabled,
-        .serial_type => c.check_serial_type = enabled,
-        .table_name_length => c.check_table_name_length = enabled,
-        .column_length => c.check_column_length = enabled,
-        .index_column_missing => c.check_index_column_missing = enabled,
-        .naming_prefix => c.check_naming_prefix = enabled,
-        .fk_naming => c.check_fk_naming = enabled,
-        .bool_default => c.check_bool_default = enabled,
-        .view_no_select => c.check_view_no_select = enabled,
-        .column_default_required => c.check_column_default_required = enabled,
-        .index_naming => c.check_index_naming = enabled,
-        .nullable_column_default => c.check_nullable_column_default = enabled,
-        .timestamp_naming => c.check_timestamp_naming = enabled,
-        .enum_value_naming => c.check_enum_value_naming = enabled,
-        .fk_null => c.check_fk_null = enabled,
-        .cross_dialect_types => c.check_cross_dialect_types = enabled,
-        .view_no_alias => c.check_view_no_alias = enabled,
-        .fk_self_reference => c.check_fk_self_reference = enabled,
-        .enum_empty => c.check_enum_empty = enabled,
+// ─── Unit Tests ──────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "RuleSet: all rules enabled by default" {
+    const rs = RuleSet{};
+    inline for (std.meta.fields(LintRule)) |field| {
+        const rule = @field(LintRule, field.name);
+        try testing.expect(rs.isEnabled(rule));
     }
-    return c;
+}
+
+test "RuleSet: disableAll disables all rules" {
+    var rs = RuleSet{};
+    rs.disableAll();
+    inline for (std.meta.fields(LintRule)) |field| {
+        const rule = @field(LintRule, field.name);
+        try testing.expect(!rs.isEnabled(rule));
+    }
+}
+
+test "RuleSet: setEnabled toggles individual rules" {
+    var rs = RuleSet{};
+    rs.setEnabled(.no_pk, false);
+    try testing.expect(!rs.isEnabled(.no_pk));
+    // Other rules remain enabled
+    try testing.expect(rs.isEnabled(.naming));
+    try testing.expect(rs.isEnabled(.fk_cascade));
+}
+
+test "RuleSet: isRuleEnabled delegates to rules.isEnabled" {
+    var cfg = LintConfig{};
+    try testing.expect(isRuleEnabled(.no_pk, cfg));
+    cfg.rules.setEnabled(.no_pk, false);
+    try testing.expect(!isRuleEnabled(.no_pk, cfg));
+}
+
+test "applyLintRules: enabled list disables all then enables listed" {
+    const base = LintConfig{};
+    const rules = LintRulesConfig{
+        .enabled = &.{"no-pk"},
+        .disabled = &.{"naming"},
+    };
+    const cfg = applyLintRules(base, rules);
+    try testing.expect(cfg.rules.isEnabled(.no_pk));
+    try testing.expect(!cfg.rules.isEnabled(.naming));
+    try testing.expect(!cfg.rules.isEnabled(.fk_cascade));
+}
+
+test "applyLintRules: disabled list removes specific rules" {
+    const base = LintConfig{};
+    const rules = LintRulesConfig{
+        .disabled = &.{"no-pk"},
+    };
+    const cfg = applyLintRules(base, rules);
+    try testing.expect(!cfg.rules.isEnabled(.no_pk));
+    try testing.expect(cfg.rules.isEnabled(.naming));
+}
+
+test "applyLintRules: thresholds are applied" {
+    const base = LintConfig{};
+    const rules = LintRulesConfig{
+        .thresholds = .{ .wide_table_max = 50, .count_min = 5 },
+    };
+    const cfg = applyLintRules(base, rules);
+    try testing.expectEqual(@as(usize, 50), cfg.wide_table_max);
+    try testing.expectEqual(@as(usize, 5), cfg.count_min);
 }

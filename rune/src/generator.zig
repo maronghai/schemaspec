@@ -160,6 +160,27 @@ pub fn listDetailed(writer: anytype) !void {
     }
 }
 
+/// Print detailed generator information to stderr (uses std.debug.print).
+pub fn listDetailedStderr() void {
+    std.debug.print("Available generators:\n\n", .{});
+    for (REGISTRY) |gen| {
+        std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
+        std.debug.print("    Extension:  {s}\n", .{gen.extension});
+        std.debug.print("    Category:   {s}\n", .{@tagName(gen.category)});
+        if (gen.dialects) |dialects| {
+            std.debug.print("    Dialects:   ", .{});
+            for (dialects, 0..) |d, i| {
+                if (i > 0) std.debug.print(", ", .{});
+                std.debug.print("{s}", .{d});
+            }
+            std.debug.print("\n", .{});
+        } else {
+            std.debug.print("    Dialects:   all (agnostic)\n", .{});
+        }
+        std.debug.print("\n", .{});
+    }
+}
+
 /// Health check: verify all generators can produce output for a minimal schema.
 /// Returns null on success, error message on failure.
 pub fn check(alloc: std.mem.Allocator) ?[]const u8 {

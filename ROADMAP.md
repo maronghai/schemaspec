@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.216.0 (2026-08-10) — 57,000+ lines production Zig, 1,600+ tests, 34 test suites.
+**Current version**: 0.217.0 (2026-08-10) — 57,000+ lines production Zig, 1,619 tests, 34 test suites.
 
 ---
 
@@ -245,6 +245,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.217.0** — LintConfig data-driven refactoring & generator CLI improvements: replaced 33 individual boolean fields in `LintConfig` with a data-driven `RuleSet` struct indexed by `LintRule` enum; eliminated 33-arm `isRuleEnabled` and `setRuleEnabled` switches; simplified `applyLintRules` to use `RuleSet` methods; unified `rune generate --list` to use `generator.listDetailedStderr()` for rich output showing extension, category, and dialects; added `rune generate --check` flag for generator health validation; added `listDetailedStderr()` function to generator module; 7 new RuleSet unit tests; 1,619 unit tests pass, benchmarks show no regressions
 - **v0.216.0** — Architecture hardening & code quality: eliminated `= undefined` fields in PassContext (replaced with required fields via `init()`); extracted export/validation formatters from `pipeline/handlers.zig` into `pipeline/export.zig`; extracted `LintRule` enum from `lint/config.zig` into `lint/rule_enum.zig`; added `safePositionCast` helper for LSP position safety; hardened WASM error classification with structured `classifyError` function; named rename detection threshold constant (`RENAME_OVERLAP_THRESHOLD`); updated all test files to use `PassContext.init()`; new unit tests for export formatters and LintRule metadata; 1,601+ unit tests pass, benchmarks show no regressions
 - **v0.215.0** — WASM module refactoring & lint rules expansion: refactored 800-line wasm.zig monolith into wasm/ directory with 8 focused sub-modules (common, error, compile, diff, reverse, lint, format, generate); added 3 new lint rules (view-no-alias, fk-self-reference, enum-empty — 33 total); updated ARCHITECTURE.md with new wasm module structure; 1,601 unit tests pass, benchmarks show no regressions
 - **v0.214.0** — Generator registry enhancement & export command: added `category` (schema/standalone) and `dialects` metadata to all 11 generators in `REGISTRY`; added `listDetailed()` for rich `rune generate --list` output showing extension, category, and supported dialects; added `check()` function for generator health validation; added `rune export` command with JSON/text/markdown output formats for schema tooling integration; refactored `main.zig` dispatch with `resolveInputPath` and `readFileOrStdin` helpers (reduced dispatch function by 30 lines); 1,600+ unit tests pass, benchmarks show no regressions
