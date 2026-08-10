@@ -34,6 +34,8 @@ pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?
         .prepare_rename_provider = true,
         .references_provider = true,
         .document_highlight_provider = true,
+        .folding_range_provider = true,
+        .type_definition_provider = true,
     });
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
@@ -416,6 +418,78 @@ pub fn handleDocumentHighlight(self: *Server, stdout_file: anytype, id: ?i64, pa
         }
     }
     try body_alloc.writer.writeByte(']');
+
+    try self.sendResponse(stdout_file, rid, &body_alloc);
+}
+
+pub fn handleFoldingRange(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+    const rid = id orelse return;
+    const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+    const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+
+    const doc = self.documents.get(uri);
+    const doc_text = if (doc) |d| d.text else "";
+
+    var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+    try body_alloc.writer.writeByte('[');
+    if (doc_text.len > 0) {
+        const folding_range = @import("folding_range.zig");
+        const ranges = folding_range.getFoldingRanges(self.arena, doc_text) catch &[_]lsp_protocol.FoldingRange{};
+        for (ranges, 0..) |fr, i| {
+            if (i > 0) try body_alloc.writer.writeByte(',');
+            try body_alloc.writer.writeByte('{');
+            try body_alloc.writer.print("\"startLine\":{d}", .{fr.start_line});
+            if (fr.start_character) |sc| {
+                try body_alloc.writer.print(",\"startCharacter\":{d}", .{sc});
+            }
+            try body_alloc.writer.print(",\"endLine\":{d}", .{fr.end_line});
+            if (fr.end_character) |ec| {
+                try body_alloc.writer.print(",\"endCharacter\":{d}", .{ec});
+            }
+            if (fr.kind) |kind| {
+                try body_alloc.writer.writeAll(",\"kind\":\"");
+                try body_alloc.writer.writeAll(@tagName(kind));
+                try body_alloc.writer.writeByte('"');
+            }
+            try body_alloc.writer.writeByte('}');
+        }
+    }
+    try body_alloc.writer.writeByte(']');
+
+    try self.sendResponse(stdout_file, rid, &body_alloc);
+}
+
+pub fn handleTypeDefinition(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+    const rid = id orelse return;
+    const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+    const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+
+    const result = self.compile_results.get(uri);
+    const typed = if (result) |r| r.typed_ast else null;
+
+    var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+    if (typed) |t| {
+        const type_def = @import("type_definition.zig");
+        const position = lsp_protocol.Position{ .line = line, .character = character };
+        if (type_def.getTypeDefinition(self.arena, t, uri, position)) |loc| {
+            try body_alloc.writer.writeByte('[');
+            try body_alloc.writer.writeByte('{');
+            try body_alloc.writer.writeAll("\"uri\":\"");
+            try body_alloc.writer.writeAll(loc.uri);
+            try body_alloc.writer.writeByte('"');
+            try body_alloc.writer.writeByte(',');
+            try lsp_protocol.writeRange(&body_alloc.writer, "range", loc.range);
+            try body_alloc.writer.writeByte('}');
+            try body_alloc.writer.writeByte(']');
+        } else {
+            try body_alloc.writer.writeAll("null");
+        }
+    } else {
+        try body_alloc.writer.writeAll("null");
+    }
 
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }

@@ -70,6 +70,8 @@ pub const Server = struct {
         .{ .method = "textDocument/prepareRename", .handler = handlePrepareRenameDispatch },
         .{ .method = "textDocument/references", .handler = handleReferencesDispatch },
         .{ .method = "textDocument/documentHighlight", .handler = handleDocumentHighlightDispatch },
+        .{ .method = "textDocument/foldingRange", .handler = handleFoldingRangeDispatch },
+        .{ .method = "textDocument/typeDefinition", .handler = handleTypeDefinitionDispatch },
     };
 
     /// Run the LSP server main loop.
@@ -193,6 +195,14 @@ pub const Server = struct {
 
     fn handleDocumentHighlightDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
         if (params) |p| try handlers.handleDocumentHighlight(self, stdout.?, id, p);
+    }
+
+    fn handleFoldingRangeDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleFoldingRange(self, stdout.?, id, p);
+    }
+
+    fn handleTypeDefinitionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleTypeDefinition(self, stdout.?, id, p);
     }
 
     /// Send a JSON-RPC response to stdout.

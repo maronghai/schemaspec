@@ -2,6 +2,96 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.205.0] - 2026-08-10
+
+### Added
+- **`textDocument/foldingRange` LSP support** — Code folding for `.ss` files. Detects foldable regions for table blocks (`# name { ... }`), template blocks (`% name ...`), and `@if`/`@endif` conditional blocks. New `lsp/folding_range.zig` module with 5 unit tests.
+- **`textDocument/typeDefinition` LSP support** — Navigate from a field's custom type to its `~` definition. Matches columns with enum values against custom type definitions. New `lsp/type_definition.zig` module with 2 unit tests.
+- **LSP capabilities** — Added `foldingRangeProvider` and `typeDefinitionProvider` to server capabilities. Updated dispatch table with 2 new handlers.
+- **2 new unit tests** for LSP features (1522+ total)
+
+### Changed
+- **Documentation accuracy** — Fixed CHANGELOG.md gap (added v0.195-v0.204 entries). Fixed ROADMAP.md Phase 6 description ("Not started" → "In progress — 3/8 items done"), Phase 7 count (9/10 → 8/10), Architecture Targets (15/15 → 19/22), and total (97/105 → 100/117).
+
+## [0.204.0] - 2026-08-10
+
+### Fixed
+- **Plan inversion `type_def = undefined`** — Fixed `diff/plan.zig` `invertPlan()` that set `type_def` to `undefined` when inverting `drop_type` to `create_type`. Rollback SQL for custom type drops now correctly preserves the type definition.
+- **`emitEnumValues` placeholder** — Implemented proper enum value extraction from `CustomType` definition in `diff/migrate.zig`. Was emitting hardcoded `'-- values --'` placeholder instead of actual enum values.
+- **MSSQL `sp_rename` missing table qualifier** — Fixed `dialect/mssql.zig` `emitAlterRenameColumn` to include table name prefix in `sp_rename` call (e.g., `sp_rename 'table.column', 'new_column'`).
+
+### Changed
+- **Improved lint config error reporting** — Invalid numeric thresholds in `.rune-lint.toml` now return errors instead of silently ignoring them.
+- **Removed `std.process.exit` from library code** — Extracted `cli/lint_cmd.zig` to return error codes instead of calling `process.exit`, improving testability. Added `StrictWarnings` error type for lint strict mode.
+
+### Added
+- **3 new unit tests** for plan inversion (1520+ total)
+
+## [0.203.0] - 2026-08-10
+
+### Added
+- **Custom type migration support** — Added CREATE/DROP TYPE SQL generation for PostgreSQL dialect in migration output. MySQL emits comments for unsupported dialects.
+- **FK field count validation** — Warns when foreign key fields count doesn't match referenced fields count.
+- **8 new semantic pass tests** — 4 tests for `resolve_conditionals`, 4 tests for `validate_views`.
+
+### Changed
+- **Deduplicated ORM FK detection loops** — Knex and SQLAlchemy generators now use shared `common.findFkRefTable` helper instead of duplicate loops.
+
+## [0.202.0] - 2026-08-10
+
+### Added
+- **`LintRule.description()` method** — Single source of truth for rule descriptions (30 rules).
+- **`RuleInfo` struct and `RULE_INFO` constant** — Derived from `LintRule` enum, eliminates hardcoded lists in `lint_cmd.zig`.
+- **4 new unit tests** for `RULE_INFO` consistency (1502 total).
+
+### Changed
+- **Refactored `showAllRules` and `initLintConfig`** — Now iterate `RULE_INFO` instead of maintaining separate hardcoded lists.
+
+## [0.201.0] - 2026-08-10
+
+### Added
+- **`--show-rules` flag** — Lists all 30 lint rules with descriptions and fixability status.
+- **`--init` flag** — Generates starter `.rune-lint.toml` config file with all rules.
+- **`cross-dialect-types` lint rule** — Warns about MySQL-specific types (UNSIGNED, TINYINT, MEDIUMTEXT) that don't port to other dialects.
+- **4 new unit tests** (1498 total).
+
+### Changed
+- **Enhanced lint summary** — Shows fixable count alongside error/warning counts.
+
+## [0.200.0] - 2026-08-10
+
+### Fixed
+- **ARCHITECTURE.md stale pass list** — Added `template_type_conflict`, fixed `resolve_conditionals` position, updated count from 14 to 16.
+- **`main.zig` Zig 0.16 API compatibility** — Fixed `std.io.getStdErr()` to use `std.Io.File.stderr()` for Zig 0.16.
+
+### Changed
+- **All 1498 tests pass** with no benchmark regressions.
+
+## [0.199.0] - 2026-08-10
+
+### Added
+- **LSP doc hover** — Added `+` doc content to LSP hover popups. Tables, columns, and views now show documentation as markdown blockquote.
+- **`enum-value-naming` lint rule** — Warns when custom type enum values use lowercase instead of UPPER_CASE.
+- **`fk-null` lint rule** — Warns when foreign key columns are nullable.
+- **4 new unit tests** (1498 total).
+
+## [0.198.0] - 2026-08-10
+
+### Added
+- **Expanded lint auto-fix** — `rune lint --fix` now supports 8 rules (was 3): serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing.
+- **`LintRule.isFixable()` method** — Rule introspection for fixability status.
+- **`template_type_conflict` semantic pass** — Detects table-to-template type mismatches.
+- **Auto-lint in `rune migrate`** — Auto-fixes applied to new schema before migration (disable with `--no-lint`).
+- **`template_ref` field** — Added to `ResolvedTable` for template tracking.
+- **10 new unit tests** (1492 total).
+
+## [0.197.0] - 2026-08-10
+
+### Added
+- **49 new tests** for `cli/parse` (argument parsing, flag detection, suggestions) and `lsp/protocol` (JSON-RPC message writing).
+- **Consolidated `getInputPath`/`getInputPath2`** into single `getInputPaths` function.
+- **Registered new test files** in `tests.zig` comptime index.
+
 ## [0.196.0] - 2026-08-10
 
 ### Fixed

@@ -261,6 +261,8 @@ pub const ServerCapabilities = struct {
     prepare_rename_provider: ?bool = null,
     references_provider: ?bool = null,
     document_highlight_provider: ?bool = null,
+    folding_range_provider: ?bool = null,
+    type_definition_provider: ?bool = null,
 };
 
 pub const InitializeResult = struct {
@@ -285,6 +287,33 @@ pub const DocumentHighlight = struct {
 pub const Reference = struct {
     range: Range,
     is_definition: bool,
+};
+
+// ─── Folding Range ───────────────────────────────────────────
+
+pub const FoldingRangeKind = enum {
+    comment,
+    imports,
+    region,
+};
+
+pub const FoldingRange = struct {
+    start_line: u32,
+    start_character: ?u32 = null,
+    end_line: u32,
+    end_character: ?u32 = null,
+    kind: ?FoldingRangeKind = null,
+};
+
+pub const FoldingRangeParams = struct {
+    text_document: TextDocumentIdentifier,
+};
+
+// ─── Type Definition ─────────────────────────────────────────
+
+pub const TypeDefinitionParams = struct {
+    text_document: TextDocumentIdentifier,
+    position: Position,
 };
 
 // ─── Response Writers ──────────────────────────────────────────

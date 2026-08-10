@@ -155,4 +155,8 @@ comptime {
     _ = @import("lsp/json.zig");
     _ = @import("lsp/message.zig");
     _ = @import("lsp/features_test.zig");
+    _ = @import("lsp/folding_range.zig");
+    _ = @import("lsp/folding_range_test.zig");
+    _ = @import("lsp/type_definition.zig");
+    _ = @import("lsp/type_definition_test.zig");
 }

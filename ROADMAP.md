@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.204.0 (2026-08-10) — 55,800+ lines production Zig, 1,520+ tests, 34 test suites.
+**Current version**: 0.205.0 (2026-08-10) — 56,500+ lines production Zig, 1,522+ tests, 34 test suites.
 
 ---
 
@@ -54,7 +54,7 @@ LSP server with JSON-RPC 2.0, document sync, real-time diagnostics, completion, 
 
 ## Phase 6: Ecosystem & Community 🔲
 
-Build the community and ecosystem around Rune. **Not started.**
+Build the community and ecosystem around Rune. **In progress — 3/8 items done.**
 
 ### Distribution
 
@@ -80,7 +80,7 @@ Build the community and ecosystem around Rune. **Not started.**
 
 ## Phase 7: Editor Extensions 🔲
 
-Extend the LSP foundation into full editor experiences.
+Extend the LSP foundation into full editor experiences. **In progress — 8/10 items done.**
 
 ### VS Code Extension
 
@@ -107,7 +107,7 @@ Extend the LSP foundation into full editor experiences.
 
 ## Phase 8: Language Evolution 🔲
 
-Extend the `.ss` language and pipeline for new use cases.
+Extend the `.ss` language and pipeline for new use cases. **In progress — 3/10 items done.**
 
 ### Generator Plugin System
 
@@ -192,11 +192,11 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
 | 6: Ecosystem & Community | 🔲 In Progress | 3/8 | 5 |
-| 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
+| 7: Editor Extensions | 🔲 In Progress | 8/10 | 2 |
 | 8: Language Evolution | 🔲 In Progress | 3/10 | 7 |
-| Architecture Targets | ✅ Complete | 15/15 | 0 |
+| Architecture Targets | 🔲 In Progress | 19/22 | 3 |
 | Technical Debt | ✅ Complete | 8/8 | 0 |
-| **Total** | | **97/105** | **8** |
+| **Total** | | **100/117** | **17** |
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.205.0** — LSP feature completeness & documentation accuracy: added `textDocument/foldingRange` support (code folding for table blocks, template blocks, @if/@endif conditional blocks); added `textDocument/typeDefinition` support (navigate from custom type fields to ~ definitions); fixed CHANGELOG.md gap (added v0.195-v0.204 entries); fixed ROADMAP.md inconsistencies (Phase 6/7/8 descriptions, summary table totals); 7 new unit tests (1522+ total)
 - **v0.204.0** — Architecture hardening & critical bug fixes: fixed plan inversion `type_def = undefined` (rollbacks now preserve custom type definitions); implemented `emitEnumValues` to extract actual enum values from CustomType definitions instead of emitting placeholders; fixed MSSQL `sp_rename` to include 'COLUMN' object type parameter; improved lint config error reporting (invalid numeric thresholds now return errors instead of silently ignoring); removed `std.process.exit` from `cli/lint_cmd.zig` library code (now returns errors for testability); added `StrictWarnings` error type for lint strict mode; 3 new unit tests for plan inversion (1520+ total)
 - **v0.203.0** — Architecture hardening & migration pipeline: added custom type migration support (CREATE/DROP TYPE SQL generation for PostgreSQL, MySQL comments for unsupported dialects); deduplicated ORM FK detection loops (knex, sqlalchemy now use shared `common.findFkRefTable`); added 8 new semantic pass tests (resolve_conditionals: 4 tests, validate_views: 4 tests); added FK field count validation (warns when FK fields count doesn't match ref_fields count); 12 new tests total (1514 pass)
 - **v0.202.0** — Lint rule metadata consolidation: added `description()` method to `LintRule` enum (single source of truth for rule descriptions); added `RuleInfo` struct and `RULE_INFO` constant in `lint/rules.zig` (derives name, description, fixable from `LintRule`); refactored `showAllRules` and `initLintConfig` in `lint_cmd.zig` to iterate `RULE_INFO` instead of maintaining hardcoded lists; added 4 unit tests for `RULE_INFO` consistency; 1502 tests pass, benchmarks show no regressions
