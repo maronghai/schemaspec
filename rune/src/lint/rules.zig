@@ -97,6 +97,8 @@ const RULES = [_]RuleEntry{
     .{ .rule = .column_default_required, .handler = validation.checkColumnDefaultRequired },
     .{ .rule = .nullable_column_default, .handler = validation.checkNullableColumnDefault },
     .{ .rule = .duplicate_column, .handler = validation.checkDuplicateColumn },
+    .{ .rule = .unique_constraint, .handler = validation.checkUniqueConstraint },
+    .{ .rule = .composite_pk, .handler = validation.checkCompositePk },
     // Compatibility rules
     .{ .rule = .serial_type, .handler = compat.checkSerialType },
     .{ .rule = .column_length, .handler = compat.checkColumnLength },

@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.231.0 (2026-08-11) — 54,000+ lines production Zig, 1,680 tests, 39 lint rules, 34 test suites.
+**Current version**: 0.233.0 (2026-08-11) — 54,000+ lines production Zig, 1,690+ tests, 41 lint rules, 34 test suites.
 
 ---
 
@@ -246,6 +246,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.233.0** — Generator metadata & lint bug fix: added `version` and `author` metadata fields to `Generator` struct (displayed in `rune generate --list` output); fixed `duplicate-column` auto-fix bug (was marked fixable but handler was not implemented — now properly removes duplicate column declarations); added `unique-constraint` lint rule (warns when a UNIQUE constraint targets a column that is already the primary key — redundant); added `composite-pk` lint rule (warns when a table has multiple auto-increment primary keys — invalid); 41 lint rules total, 11 fixable; 1,690+ unit tests pass, benchmarks show no regressions
 - **v0.232.0** — LSP inlay hints & architecture quality: added `textDocument/inlayHint` LSP support that shows resolved SQL types inline in the editor (e.g., `n` shows as `-> int`, `s64` shows as `-> varchar(64)`); added `InlayHint` type to LSP protocol; added `inlayHintProvider` capability to LSP initialize response; added 5 unit tests for inlay hint generation and serialization; added comment explaining generator listing duplication rationale; 1,685 unit tests pass, benchmarks show no regressions
 - **v0.231.0** — Generator deduplication & architecture cleanup: extracted `writeOrmDefault` helper to eliminate 5-line default value emission pattern across 5 ORM generators; created `ImportTracker` struct in `common.zig` to consolidate ~80 lines of duplicated import-tracking logic; moved `irregulars` table to module-level const in `toCamelSingular`; fixed `parseInList` memory leak in `writeColumnPropJson`; refactored drizzle/typeorm/sqlalchemy/knex generators to use `common.writeComment`, `common.writeOrmDefault`; added `parsePosition` helper in LSP handlers (eliminated 8 occurrences of 3-line position parsing); removed dead `shouldCompile` stub and dead defer arm in server.zig; removed dead `parseOnly` function in forward.zig; added named `CompileInternalResult` struct; added `Stats.zero` comptime constant; 1,680 unit tests pass, benchmarks show no regressions
 - **v0.230.0** — Architecture quality improvements: unified generator listing functions (eliminated ~40 lines of duplication between `listDetailed` and `listDetailedStderr`); created `GenerateConfig` struct in `pipeline/handlers.zig` to replace 8 positional parameters with a named struct (consistent with `CompileConfig` and `ValidateConfig` patterns); added unified `handleGenerate()` entry point; verified `catch unreachable` only exists in test code (not production); 1,680 unit tests pass, benchmarks show no regressions

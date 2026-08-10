@@ -46,6 +46,8 @@ pub const LintRule = enum {
     enum_value_duplicate,
     column_boolean_naming,
     fk_depth,
+    unique_constraint,
+    composite_pk,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -89,6 +91,8 @@ pub const LintRule = enum {
             .enum_value_duplicate => "enum-value-duplicate",
             .column_boolean_naming => "column-boolean-naming",
             .fk_depth => "fk-depth",
+            .unique_constraint => "unique-constraint",
+            .composite_pk => "composite-pk",
         };
     }
 
@@ -165,6 +169,8 @@ pub const LintRule = enum {
             .enum_value_duplicate => "Custom type has duplicate enum values",
             .column_boolean_naming => "Boolean column should use is_/has_/can_ prefix",
             .fk_depth => "Foreign key reference chain exceeds 3 levels",
+            .unique_constraint => "UNIQUE constraint on column that is already the primary key",
+            .composite_pk => "Multiple auto-increment primary keys in one table",
         };
     }
 };

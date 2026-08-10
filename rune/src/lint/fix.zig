@@ -16,6 +16,7 @@ const LintRule = @import("config.zig").LintRule;
 //   duplicate-index            — removes duplicate index declarations
 //   column-default-required    — adds "= 0" for numeric, "= ''" for string, "= false" for boolean
 //   no-index-fk                — adds "index idx_<table>_<field> <field>" after FK field
+//   duplicate-column           — removes duplicate column declarations
 
 pub const LintFix = struct {
     rule: []const u8,
@@ -117,6 +118,8 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
     defer needs_column_default.deinit();
     var needs_fk_index = std.StringHashMap(void).init(alloc);
     defer needs_fk_index.deinit();
+    var needs_column_dedup = std.StringHashMap(void).init(alloc);
+    defer needs_column_dedup.deinit();
 
     for (results) |r| {
         if (LintRule.fromName(r.rule)) |rule| {
@@ -126,6 +129,7 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
                 .empty_table => try needs_empty_removal.put(r.table, {}),
                 .column_default_required => try needs_column_default.put(r.table, {}),
                 .no_index_fk => try needs_fk_index.put(r.table, {}),
+                .duplicate_column => try needs_column_dedup.put(r.table, {}),
                 else => {},
             }
         }
@@ -146,6 +150,8 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
     var skipping_empty_table = false;
     var seen_indexes = std.StringHashMap(void).init(alloc);
     defer seen_indexes.deinit();
+    var seen_columns = std.StringHashMap(void).init(alloc);
+    defer seen_columns.deinit();
 
     while (i < source.len) {
         const line_start = i;
@@ -395,6 +401,42 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
             }
         }
 
+        // duplicate-column fix: track seen column names and skip duplicates
+        if (in_table and line.len > 0 and
+            line[0] != '#' and line[0] != ';' and line[0] != '@' and line[0] != '$')
+        {
+            if (current_table) |tbl| {
+                if (needs_column_dedup.contains(tbl)) {
+                    // Extract field name (first word before spaces)
+                    const trimmed = std.mem.trim(u8, line, " \t");
+                    if (trimmed.len > 0) {
+                        var field_end: usize = 0;
+                        while (field_end < trimmed.len and trimmed[field_end] != ' ' and trimmed[field_end] != '\t') : (field_end += 1) {}
+                        const field_name = trimmed[0..field_end];
+
+                        // Build a key from table name + column name
+                        var col_key_buf = try std.ArrayList(u8).initCapacity(alloc, tbl.len + field_name.len + 1);
+                        defer col_key_buf.deinit(alloc);
+                        try col_key_buf.appendSlice(alloc, tbl);
+                        try col_key_buf.append(alloc, ':');
+                        try col_key_buf.appendSlice(alloc, field_name);
+                        const col_key = try col_key_buf.toOwnedSlice(alloc);
+
+                        if (seen_columns.contains(col_key)) {
+                            // Duplicate column — skip it
+                            try fixes.append(alloc, .{
+                                .rule = "duplicate-column",
+                                .table = tbl,
+                                .description = "removed duplicate column declaration",
+                            });
+                            continue; // Skip the normal output below
+                        }
+                        try seen_columns.put(col_key, {});
+                    }
+                }
+            }
+        }
+
         try output.appendSlice(alloc, line);
         if (line_end < source.len) {
             try output.append(alloc, '\n');
@@ -613,6 +655,25 @@ test "fix: no-index-fk adds index after FK field" {
     const result = try fix(alloc, source, &results);
     try testing.expect(std.mem.indexOf(u8, result.source, "index idx_posts_user_id user_id") != null);
     try testing.expect(result.fixes.len > 0);
+}
+
+test "fix: duplicate-column removes second occurrence" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const results = [_]LintResult{
+        .{ .rule = "duplicate-column", .table = "users", .message = "dup col", .severity = .warning },
+    };
+    const source = "# users\nname s32\nage n\nname s64\n";
+    const result = try fix(alloc, source, &results);
+    // The second "name" line should be removed
+    const first_pos = std.mem.indexOf(u8, result.source, "name s32").?;
+    const rest = result.source[first_pos + 8 ..];
+    // "name" should not appear again as a column
+    try testing.expect(std.mem.indexOf(u8, rest, "name") == null);
+    try testing.expect(result.fixes.len > 0);
+    try testing.expectEqualStrings("duplicate-column", result.fixes[0].rule);
 }
 
 test "fix: detectDefaultValue returns correct defaults" {

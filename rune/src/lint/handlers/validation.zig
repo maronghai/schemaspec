@@ -128,3 +128,60 @@ pub fn checkDuplicateColumn(alloc: std.mem.Allocator, results: *std.ArrayList(Li
         }
     }
 }
+
+/// Check if a table has a UNIQUE constraint on a column that is already the primary key.
+/// A single-column UNIQUE on the PK is redundant since PRIMARY KEY implies UNIQUE.
+pub fn checkUniqueConstraint(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Find the primary key column name(s)
+        var pk_columns = std.ArrayList([]const u8).initCapacity(alloc, table.fields.len) catch return;
+        defer pk_columns.deinit(alloc);
+
+        for (table.fields) |field| {
+            if (isPrimaryKey(field)) {
+                pk_columns.append(alloc, field.name) catch return;
+            }
+        }
+
+        // Check if any UNIQUE index targets a single PK column
+        for (table.indexes) |idx| {
+            if (idx.kind == .unique and idx.fields.len == 1) {
+                for (pk_columns.items) |pk_col| {
+                    if (std.mem.eql(u8, idx.fields[0], pk_col)) {
+                        const msg = try std.fmt.allocPrint(alloc, "UNIQUE constraint on '{s}' is redundant (already primary key)", .{pk_col});
+                        try results.append(alloc, .{
+                            .rule = "unique-constraint",
+                            .table = table.name,
+                            .message = msg,
+                            .severity = .warning,
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// Check if a table has multiple auto-increment primary keys (invalid).
+/// Only one auto-increment PK is allowed per table.
+pub fn checkCompositePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        var auto_inc_count: usize = 0;
+        for (table.fields) |field| {
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk) {
+                    auto_inc_count += 1;
+                }
+            }
+        }
+        if (auto_inc_count > 1) {
+            const msg = try std.fmt.allocPrint(alloc, "table has {d} auto-increment primary keys (only 1 allowed)", .{auto_inc_count});
+            try results.append(alloc, .{
+                .rule = "composite-pk",
+                .table = table.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}

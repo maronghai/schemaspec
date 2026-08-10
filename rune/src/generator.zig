@@ -28,6 +28,10 @@ pub const Generator = struct {
     category: GeneratorCategory,
     /// Supported dialects. null = dialect-agnostic (works with any dialect).
     dialects: ?[]const []const u8 = null,
+    /// Generator version for metadata display.
+    version: []const u8 = "1.0",
+    /// Generator author for metadata display.
+    author: []const u8 = "Rune",
     generate: *const fn (alloc: std.mem.Allocator, typed: typed_ast.TypedAst, dialect: Dialect) anyerror![]const u8,
 };
 
@@ -147,6 +151,8 @@ pub fn listDetailedTo(writer: anytype) !void {
         try writer.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
         try writer.print("    Extension:  {s}\n", .{gen.extension});
         try writer.print("    Category:   {s}\n", .{@tagName(gen.category)});
+        try writer.print("    Version:    {s}\n", .{gen.version});
+        try writer.print("    Author:     {s}\n", .{gen.author});
         if (gen.dialects) |dialects| {
             try writer.print("    Dialects:   ", .{});
             for (dialects, 0..) |d, i| {
@@ -178,6 +184,8 @@ pub fn listDetailedStderr() void {
         std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
         std.debug.print("    Extension:  {s}\n", .{gen.extension});
         std.debug.print("    Category:   {s}\n", .{@tagName(gen.category)});
+        std.debug.print("    Version:    {s}\n", .{gen.version});
+        std.debug.print("    Author:     {s}\n", .{gen.author});
         if (gen.dialects) |dialects| {
             std.debug.print("    Dialects:   ", .{});
             for (dialects, 0..) |d, i| {
@@ -210,4 +218,33 @@ pub fn check(alloc: std.mem.Allocator) ?[]const u8 {
         alloc.free(result);
     }
     return null;
+}
+
+// ─── Tests ──────────────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "Generator: all entries have version and author" {
+    for (REGISTRY) |gen| {
+        try testing.expect(gen.version.len > 0);
+        try testing.expect(gen.author.len > 0);
+    }
+}
+
+test "Generator: get returns null for unknown name" {
+    try testing.expect(get("nonexistent") == null);
+}
+
+test "Generator: get returns correct generator" {
+    const gen = get("json-schema");
+    try testing.expect(gen != null);
+    try testing.expectEqualStrings("json-schema", gen.?.name);
+    try testing.expectEqualStrings("1.0", gen.?.version);
+}
+
+test "Generator: all entries have valid category" {
+    for (REGISTRY) |gen| {
+        const cat = gen.category;
+        try testing.expect(cat == .schema or cat == .standalone);
+    }
 }
