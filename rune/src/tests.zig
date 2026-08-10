@@ -18,6 +18,7 @@ comptime {
     _ = @import("completions_test.zig");
     // ── config ───────────────────────────────────────────────────
     _ = @import("config.zig");
+    _ = @import("config_merge.zig");
     // ── codegen ──────────────────────────────────────────────────
     _ = @import("codegen/codegen_test.zig");
     _ = @import("codegen/columns_test.zig");

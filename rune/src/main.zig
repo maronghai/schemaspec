@@ -11,6 +11,7 @@ const completions = @import("completions.zig");
 const init_mod = @import("cli/init.zig");
 const hooks_mod = @import("cli/hooks.zig");
 const config_mod = @import("config.zig");
+const config_merge = @import("config_merge.zig");
 const dialect_enum = @import("dialect/enum.zig");
 const fmt = @import("diagnostic/format.zig");
 
@@ -81,33 +82,7 @@ pub fn main(init: std.process.Init) !void {
         std.process.exit(1);
     };
     // Apply config defaults (CLI flags take precedence)
-    if (!parsed.dialect_was_explicit and cfg.dialect != null) {
-        final_parsed.dialect = cli.parseDialect(cfg.dialect.?) catch parsed.dialect;
-    }
-    if (cfg.quiet != null and !parsed.quiet) final_parsed.quiet = cfg.quiet.?;
-    if (cfg.json_errors != null and !parsed.json_errors) final_parsed.json_errors = cfg.json_errors.?;
-    if (cfg.color != null) {
-        final_parsed.color = if (std.mem.eql(u8, cfg.color.?, "always"))
-            .always
-        else if (std.mem.eql(u8, cfg.color.?, "never"))
-            .never
-        else
-            parsed.color;
-    }
-    if (cfg.target != null and !parsed.dialect_was_explicit) {
-        final_parsed.target = cli.parseTarget(cfg.target.?) catch parsed.target;
-    }
-    // Apply stream/parallel/format defaults to subcommand structs
-    if (cfg.stream != null and final_parsed.command == .compile) {
-        final_parsed.command.compile.stream = final_parsed.command.compile.stream or cfg.stream.?;
-    }
-    if (cfg.parallel != null) {
-        if (final_parsed.command == .compile) {
-            final_parsed.command.compile.parallel = final_parsed.command.compile.parallel or cfg.parallel.?;
-        } else if (final_parsed.command == .watch) {
-            final_parsed.command.watch.parallel = final_parsed.command.watch.parallel or cfg.parallel.?;
-        }
-    }
+    config_merge.mergeCliConfig(&final_parsed, cfg);
 
     return dispatch(init.io, alloc, final_parsed) catch |err| {
         handleDispatchError(err, final_parsed);

@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.211.0 (2026-08-10) — 56,500+ lines production Zig, 1,575+ tests, 34 test suites.
+**Current version**: 0.212.0 (2026-08-10) — 56,500+ lines production Zig, 1,586+ tests, 34 test suites.
 
 ---
 
@@ -179,6 +179,7 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 - [x] Table-driven LSP method dispatch — replace if-else chain with dispatch table (v0.186.0)
 - [x] Data-driven lint rule dispatch — replace repetitive guard-then-call blocks (v0.186.0)
 - [x] Standardize error output — unified all modules to use diagnostic/format.zig (v0.187.0)
+- [x] Extract config merge logic — moved from main.zig to config_merge.zig for testability (v0.212.0)
 
 ---
 
@@ -195,8 +196,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 7: Editor Extensions | 🔲 In Progress | 8/10 | 2 |
 | 8: Language Evolution | 🔲 In Progress | 3/10 | 7 |
 | Architecture Targets | 🔲 In Progress | 19/22 | 3 |
-| Technical Debt | ✅ Complete | 8/8 | 0 |
-| **Total** | | **100/117** | **17** |
+| Technical Debt | ✅ Complete | 9/9 | 0 |
+| **Total** | | **101/117** | **16** |
 
 ---
 
@@ -244,6 +245,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.212.0** — Config merge extraction & testability: extracted config merge logic from main.zig into config_merge.zig (7 merge cases: dialect, quiet, json_errors, color, target, stream, parallel); added 11 unit tests verifying CLI precedence semantics; updated CLAUDE.md with Config Merge pattern documentation; 1,586 unit tests pass
 - **v0.211.0** — Watch command enhancement & quality improvements: fixed watch mode missing `--import-path` support (schemas with @import directives now work correctly in watch mode); added `--stream` flag to watch command for streaming compilation (decoupled from `--parallel`); added color mode support to watch command; added SARIF format output for `rune validate --format sarif` (CI/CD integration); added new watch module unit tests (stream, import_paths); 1,575 unit tests pass
 - **v0.210.0** — WASM API completeness & bug fixes: added `rune_stats` export (compile schema, return statistics as JSON), `rune_validate` export (validate schema, return results as JSON), `rune_last_error_code` export (numeric error codes for programmatic error handling); fixed parser memory leak in `stripEngineTokens`; refactored WASM module to use new format modules; extracted option-parsing helpers to reduce boilerplate; 15+ new WASM unit tests (1,560+ total)
 - **v0.209.0** — Parser memory leak fix & error output unification: fixed `BlockState.reset()` in `parser.zig` that allocated a new `parents_buf` on each call without reusing capacity (changed to fixed-size `[4][]const u8` array); fixed `parseTemplateHeader` in `parse_template.zig` to properly free temporary `parents_buf` allocation; unified config warnings in `config.zig` to use `fmt.printWarn` from `diagnostic/format.zig`; 1,548 unit tests pass
