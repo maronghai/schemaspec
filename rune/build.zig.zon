@@ -1,6 +1,6 @@
 .{
     .name = .rune,
-    .version = "0.208.0",
+    .version = "0.210.0",
     .fingerprint = 0x74eece4ee49af649,
     .dependencies = .{},
     .paths = .{

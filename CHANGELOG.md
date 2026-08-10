@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.210.0] - 2026-08-10
+
+### Added
+- **WASM API: `rune_stats`** — New export that compiles a schema and returns statistics as JSON (tables, fields, types, constraints).
+- **WASM API: `rune_validate`** — New export that validates a schema and returns results as JSON (valid/error status, table/field counts).
+- **WASM API: `rune_last_error_code`** — Numeric error codes (0=success, 1=syntax, 2=type, 3=FK, 4=semantic, 5=unknown) for programmatic error handling.
+- **WASM test coverage** — Added 15+ new unit tests for `rune_migrate`, `rune_reverse`, `rune_stats`, `rune_validate`, option parsing, and error codes.
+
+### Fixed
+- **Parser memory leak** — Removed unnecessary `deinit` call in `stripEngineTokens` (`parse_table.zig`) that confused the debug allocator. The arena allocator handles cleanup.
+- **WASM test syntax** — Updated test schemas from old syntax (`id n pk`) to current syntax (`id N ++`).
+- **WASM option length** — Fixed incorrect string length parameters in `rune_diff` format tests (json/sarif/markdown).
+
+### Changed
+- **WASM API refactoring** — Extracted `parseDialectOption` and `parseDiffFormatOption` helpers to deduplicate dialect/format parsing across export functions. Updated `rune_diff` to use new format modules (`text_fmt`, `json_fmt`, `sarif_fmt`, `markdown_fmt`). Updated `rune_migrate` to include TypeResolver for proper type resolution. Updated `rune_reverse` to use `ReverseCodegen.init().generate()` API.
+
 ## [0.209.0] - 2026-08-10
 
 ### Fixed

@@ -110,7 +110,6 @@ pub fn stripEngineTokens(alloc: std.mem.Allocator, tokens: []const []const u8) !
         try stripped.append(alloc, tok);
     }
     const result = try stripped.toOwnedSlice(alloc);
-    stripped.deinit(alloc);
     return .{ .stripped = result, .engine = engine };
 }
 
