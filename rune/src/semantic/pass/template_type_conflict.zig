@@ -1,5 +1,6 @@
 const std = @import("std");
 const ast = @import("../../types/ast.zig");
+const symbol_table_mod = @import("../../types/symbol_table.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const TypeInfo = ast.TypeInfo;
 
@@ -99,14 +100,7 @@ test "template_type_conflict: detects table field type mismatch with template" {
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
     const template_refs = std.StringHashMap(void).init(alloc);
 
-    var ctx = PassContext{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .templates = templates,
-        .template_refs = template_refs,
-        .diagnostics = &diagnostics,
-    };
+    var ctx = PassContext.init(alloc, &tables, null, templates, template_refs, &diagnostics, symbol_table_mod.SymbolTable.init(alloc));
 
     // Note: This test demonstrates the conflict detection structure.
     // The actual template-to-table linking requires the schema's table.template_ref
@@ -153,14 +147,7 @@ test "template_type_conflict: same type produces no diagnostic" {
     var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
     const template_refs = std.StringHashMap(void).init(alloc);
 
-    var ctx = PassContext{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .templates = templates,
-        .template_refs = template_refs,
-        .diagnostics = &diagnostics,
-    };
+    var ctx = PassContext.init(alloc, &tables, null, templates, template_refs, &diagnostics, symbol_table_mod.SymbolTable.init(alloc));
 
     try run(&ctx);
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);

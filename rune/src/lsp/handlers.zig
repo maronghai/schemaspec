@@ -9,6 +9,15 @@ const dialect_enum = @import("../dialect/enum.zig");
 
 pub const Server = @import("server.zig").Server;
 
+/// Safely cast an i64 LSP position value to u32.
+/// Returns 0 if the value is out of range (negative or > max u32).
+/// LSP protocol uses i64 for positions, but practical positions fit in u32.
+fn safePositionCast(val: i64) u32 {
+    if (val < 0) return 0;
+    if (val > std.math.maxInt(u32)) return std.math.maxInt(u32);
+    return @intCast(val);
+}
+
 pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
 
@@ -127,8 +136,8 @@ pub fn handleCompletion(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
     const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
@@ -151,8 +160,8 @@ pub fn handleHover(self: *Server, stdout_file: anytype, id: ?i64, params: std.js
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
     const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
@@ -176,8 +185,8 @@ pub fn handleDefinition(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
     const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
@@ -203,10 +212,10 @@ pub fn handleCodeAction(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const range_val = lsp_protocol.getObjectField(params, "range") orelse return;
     const start_val = lsp_protocol.getObjectField(range_val, "start") orelse return;
     const end_val = lsp_protocol.getObjectField(range_val, "end") orelse return;
-    const start_line: u32 = @intCast(lsp_protocol.getIntField(start_val, "line") orelse 0);
-    const start_char: u32 = @intCast(lsp_protocol.getIntField(start_val, "character") orelse 0);
-    const end_line: u32 = @intCast(lsp_protocol.getIntField(end_val, "line") orelse 0);
-    const end_char: u32 = @intCast(lsp_protocol.getIntField(end_val, "character") orelse 0);
+    const start_line: u32 = safePositionCast(lsp_protocol.getIntField(start_val, "line") orelse 0);
+    const start_char: u32 = safePositionCast(lsp_protocol.getIntField(start_val, "character") orelse 0);
+    const end_line: u32 = safePositionCast(lsp_protocol.getIntField(end_val, "line") orelse 0);
+    const end_char: u32 = safePositionCast(lsp_protocol.getIntField(end_val, "character") orelse 0);
 
     // Get diagnostics from context
     var diagnostics = std.ArrayList(lsp_protocol.Diagnostic).initCapacity(self.arena, 8) catch return;
@@ -220,8 +229,8 @@ pub fn handleCodeAction(self: *Server, stdout_file: anytype, id: ?i64, params: s
                         const s = lsp_protocol.getObjectField(r, "start") orelse break :blk lsp_protocol.Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
                         const e = lsp_protocol.getObjectField(r, "end") orelse break :blk lsp_protocol.Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
                         break :blk lsp_protocol.Range{
-                            .start = .{ .line = @intCast(@max(0, lsp_protocol.getIntField(s, "line") orelse 0)), .character = @intCast(@max(0, lsp_protocol.getIntField(s, "character") orelse 0)) },
-                            .end = .{ .line = @intCast(@max(0, lsp_protocol.getIntField(e, "line") orelse 0)), .character = @intCast(@max(0, lsp_protocol.getIntField(e, "character") orelse 0)) },
+                            .start = .{ .line = safePositionCast(lsp_protocol.getIntField(s, "line") orelse 0), .character = safePositionCast(lsp_protocol.getIntField(s, "character") orelse 0) },
+                            .end = .{ .line = safePositionCast(lsp_protocol.getIntField(e, "line") orelse 0), .character = safePositionCast(lsp_protocol.getIntField(e, "character") orelse 0) },
                         };
                     } else lsp_protocol.Range{ .start = .{ .line = 0, .character = 0 }, .end = .{ .line = 0, .character = 0 } };
                     diagnostics.append(self.arena, .{
@@ -297,8 +306,8 @@ pub fn handleRename(self: *Server, stdout_file: anytype, id: ?i64, params: std.j
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
     const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
     const new_name = lsp_protocol.getStringField(params, "newName") orelse return;
 
     const doc = self.documents.get(uri) orelse return;
@@ -332,8 +341,8 @@ pub fn handlePrepareRename(self: *Server, stdout_file: anytype, id: ?i64, params
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
     const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
     const doc = self.documents.get(uri) orelse return;
     const result = self.compile_results.get(uri);
@@ -361,8 +370,8 @@ pub fn handleReferences(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
     const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
     const doc = self.documents.get(uri);
     const doc_text = if (doc) |d| d.text else "";
@@ -396,8 +405,8 @@ pub fn handleDocumentHighlight(self: *Server, stdout_file: anytype, id: ?i64, pa
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
     const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
     const doc = self.documents.get(uri);
     const doc_text = if (doc) |d| d.text else "";
@@ -464,8 +473,8 @@ pub fn handleTypeDefinition(self: *Server, stdout_file: anytype, id: ?i64, param
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
     const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = @intCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = @intCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;

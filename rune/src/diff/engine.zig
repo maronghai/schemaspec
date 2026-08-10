@@ -45,6 +45,14 @@ const INITIAL_DROPPED_TABLES_CAPACITY = 4;
 /// Typical number of view diffs per migration (0-2 common).
 const INITIAL_VIEW_DIFF_CAPACITY = 4;
 
+// ─── Detection Thresholds ───────────────────────────────────
+// Thresholds for heuristic-based detection in the diff engine.
+
+/// Minimum field overlap ratio to consider a drop+create pair as a table rename.
+/// When a dropped table and a created table share at least this fraction of fields,
+/// the diff engine treats them as a rename rather than separate drop+create.
+const RENAME_OVERLAP_THRESHOLD: f64 = 0.7;
+
 // ─── Diff Engine ───────────────────────────────────────────
 
 /// Compare two ResolvedAsts and produce a SchemaDiff describing all differences.
@@ -100,7 +108,7 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
             if (matched_creates.contains(new_idx)) continue;
             const new_table = new.tables[new_idx];
             const overlap = computeFieldOverlap(old_table.fields, new_table.fields);
-            if (overlap >= 0.7) {
+            if (overlap >= RENAME_OVERLAP_THRESHOLD) {
                 if (best_match == null or overlap > best_match.?.overlap) {
                     best_match = .{ .new_idx = new_idx, .overlap = overlap };
                 }

@@ -4,6 +4,7 @@ const test_helpers = @import("test_helpers.zig");
 const ast_mod = @import("../types/ast.zig");
 const diag = @import("diagnostic.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
+const symbol_table_mod = @import("../types/symbol_table.zig");
 const PassContext = analyzer.PassContext;
 
 const testing = std.testing;
@@ -159,12 +160,7 @@ test "validate_type_modifiers: ++ on varchar produces warning" {
     });
 
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var ctx = PassContext{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .diagnostics = &diagnostics,
-    };
+    var ctx = PassContext.init(alloc, &tables, null, std.StringHashMap(*const ast_mod.Template).init(alloc), std.StringHashMap(void).init(alloc), &diagnostics, symbol_table_mod.SymbolTable.init(alloc));
     try @import("pass/validate_type_modifiers.zig").run(&ctx);
     try testing.expect(diagnostics.diagnostics.items.len > 0);
 }
@@ -190,12 +186,7 @@ test "validate_type_modifiers: u on varchar produces warning" {
     });
 
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var ctx = PassContext{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .diagnostics = &diagnostics,
-    };
+    var ctx = PassContext.init(alloc, &tables, null, std.StringHashMap(*const ast_mod.Template).init(alloc), std.StringHashMap(void).init(alloc), &diagnostics, symbol_table_mod.SymbolTable.init(alloc));
     try @import("pass/validate_type_modifiers.zig").run(&ctx);
     try testing.expect(diagnostics.diagnostics.items.len > 0);
 }
@@ -221,12 +212,7 @@ test "validate_type_modifiers: ++ on n produces no warning" {
     });
 
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var ctx = PassContext{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .diagnostics = &diagnostics,
-    };
+    var ctx = PassContext.init(alloc, &tables, null, std.StringHashMap(*const ast_mod.Template).init(alloc), std.StringHashMap(void).init(alloc), &diagnostics, symbol_table_mod.SymbolTable.init(alloc));
     try @import("pass/validate_type_modifiers.zig").run(&ctx);
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
 }
@@ -252,12 +238,7 @@ test "validate_type_modifiers: + on t produces no warning" {
     });
 
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var ctx = PassContext{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .diagnostics = &diagnostics,
-    };
+    var ctx = PassContext.init(alloc, &tables, null, std.StringHashMap(*const ast_mod.Template).init(alloc), std.StringHashMap(void).init(alloc), &diagnostics, symbol_table_mod.SymbolTable.init(alloc));
     try @import("pass/validate_type_modifiers.zig").run(&ctx);
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
 }
@@ -283,12 +264,7 @@ test "validate_type_modifiers: u on n produces no warning" {
     });
 
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var ctx = PassContext{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .diagnostics = &diagnostics,
-    };
+    var ctx = PassContext.init(alloc, &tables, null, std.StringHashMap(*const ast_mod.Template).init(alloc), std.StringHashMap(void).init(alloc), &diagnostics, symbol_table_mod.SymbolTable.init(alloc));
     try @import("pass/validate_type_modifiers.zig").run(&ctx);
     try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
 }

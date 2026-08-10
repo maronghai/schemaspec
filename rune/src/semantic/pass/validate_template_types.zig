@@ -1,5 +1,6 @@
 const std = @import("std");
 const ast = @import("../../types/ast.zig");
+const symbol_table_mod = @import("../../types/symbol_table.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const TypeInfo = ast.TypeInfo;
 
@@ -44,13 +45,7 @@ const ResolvedTable = resolved_ast.ResolvedTable;
 
 fn makeCtx(alloc: std.mem.Allocator, diagnostics: *diag_mod.DiagnosticCollector, templates: std.StringHashMap(*const ast.Template)) !PassContext {
     var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 4);
-    return .{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .templates = templates,
-        .diagnostics = diagnostics,
-    };
+    return PassContext.init(alloc, &tables, null, templates, std.StringHashMap(void).init(alloc), diagnostics, symbol_table_mod.SymbolTable.init(alloc));
 }
 
 test "validate_template_types: child overrides parent field type emits diagnostic" {

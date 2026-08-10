@@ -1,6 +1,7 @@
 const std = @import("std");
 const ast = @import("../../types/ast.zig");
 const resolved_ast = @import("../../types/resolved_ast.zig");
+const symbol_table_mod = @import("../../types/symbol_table.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const Field = ast.Field;
 const ResolvedTable = resolved_ast.ResolvedTable;
@@ -60,12 +61,7 @@ fn runPassOnFields(alloc: std.mem.Allocator, fields: []const Field) !ResolvedTab
         .line_no = 1,
     });
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
-    var ctx = PassContext{
-        .alloc = alloc,
-        .tables = &tables,
-        .schema = null,
-        .diagnostics = &diagnostics,
-    };
+    var ctx = PassContext.init(alloc, &tables, null, std.StringHashMap(*const ast.Template).init(alloc), std.StringHashMap(void).init(alloc), &diagnostics, symbol_table_mod.SymbolTable.init(alloc));
     try run(&ctx);
     return tables.items[0];
 }

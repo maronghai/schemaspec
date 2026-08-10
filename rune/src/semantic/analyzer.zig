@@ -70,7 +70,12 @@ pub const SemanticAnalyzer = struct {
         var owned_diagnostics = if (external_collector == null)
             try diag.DiagnosticCollector.init(self.alloc)
         else
-            undefined;
+            blk: {
+                // When an external collector is provided, we still need a valid
+                // DiagnosticCollector for the PassContext. The external collector
+                // will be used instead.
+                break :blk try diag.DiagnosticCollector.init(self.alloc);
+            };
         if (external_collector == null) {
             owned_diagnostics.use_color = self.use_color;
         }

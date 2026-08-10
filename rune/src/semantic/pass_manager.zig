@@ -13,19 +13,17 @@ const Dialect = dialect_enum.Dialect;
 
 /// Shared mutable context passed to each semantic pass.
 ///
-/// IMPORTANT: Always use `init()` to construct PassContext. Fields marked
-/// `= undefined` are only present for backward-compatible struct literals
-/// in test code; using them in production will cause undefined behavior.
+/// Always use `init()` to construct PassContext — all fields are required.
 pub const PassContext = struct {
     alloc: std.mem.Allocator,
     tables: *std.ArrayList(ResolvedTable),
     schema: ?ast_mod.Schema,
-    templates: std.StringHashMap(*const Template) = undefined,
+    templates: std.StringHashMap(*const Template),
     /// Set of template names referenced by tables (template_ref) or other templates (parents).
     /// Populated by the analyzer before passes run. Used by validate_unused_templates for unused template detection.
-    template_refs: std.StringHashMap(void) = undefined,
-    diagnostics: *diag.DiagnosticCollector = undefined,
-    symbol_table: symbol_table_mod.SymbolTable = undefined,
+    template_refs: std.StringHashMap(void),
+    diagnostics: *diag.DiagnosticCollector,
+    symbol_table: symbol_table_mod.SymbolTable,
     /// Target dialect for conditional block resolution.
     dialect: Dialect = .mysql,
     /// Views from the AST — available for view validation passes.

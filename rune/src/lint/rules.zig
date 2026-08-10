@@ -3,6 +3,7 @@ const ResolvedAst = @import("../types/resolved_ast.zig").ResolvedAst;
 const LintConfig = @import("config.zig").LintConfig;
 const LintResult = @import("config.zig").LintResult;
 const LintRule = @import("config.zig").LintRule;
+const isRuleEnabled = @import("config.zig").isRuleEnabled;
 
 // ─── Lint Rules ───────────────────────────────────────────────
 // Data-driven dispatch table. Each handler is defined in a
@@ -95,7 +96,7 @@ pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.
     errdefer results.deinit(alloc);
 
     for (RULES) |entry| {
-        if (entry.rule.isEnabled(cfg)) {
+        if (isRuleEnabled(entry.rule, cfg)) {
             try entry.handler(alloc, &results, ast, cfg);
         }
     }

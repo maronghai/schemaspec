@@ -24,17 +24,28 @@ pub fn clearError() void {
 /// Store an error message for retrieval via rune_last_error().
 pub fn storeError(alloc: std.mem.Allocator, err_name: []const u8) void {
     last_error = alloc.dupeZ(u8, err_name) catch null;
-    // Map error names to numeric codes
-    last_error_code = if (std.mem.indexOf(u8, err_name, "Syntax") != null or std.mem.indexOf(u8, err_name, "Parse") != null)
-        1
-    else if (std.mem.indexOf(u8, err_name, "Type") != null)
-        2
-    else if (std.mem.indexOf(u8, err_name, "Foreign") != null or std.mem.indexOf(u8, err_name, "Fk") != null)
-        3
-    else if (std.mem.indexOf(u8, err_name, "Semantic") != null or std.mem.indexOf(u8, err_name, "Diagnostic") != null)
-        4
-    else
-        5;
+    // Map error names to numeric codes using comptime-validated rules
+    last_error_code = classifyError(err_name);
+}
+
+/// Classify an error name into a numeric code.
+/// 0 = success, 1 = syntax/parse, 2 = type, 3 = FK, 4 = semantic/diagnostic, 5 = unknown.
+fn classifyError(err_name: []const u8) i32 {
+    // Check for syntax/parse errors
+    if (containsSubstring(err_name, "Syntax") or containsSubstring(err_name, "Parse")) return 1;
+    // Check for type errors
+    if (containsSubstring(err_name, "Type")) return 2;
+    // Check for FK errors
+    if (containsSubstring(err_name, "Foreign") or containsSubstring(err_name, "Fk")) return 3;
+    // Check for semantic errors
+    if (containsSubstring(err_name, "Semantic") or containsSubstring(err_name, "Diagnostic")) return 4;
+    // Default: unknown error
+    return 5;
+}
+
+/// Check if haystack contains needle (case-sensitive substring search).
+fn containsSubstring(haystack: []const u8, needle: []const u8) bool {
+    return std.mem.indexOf(u8, haystack, needle) != null;
 }
 
 /// Parse "key=value" from a space-separated options string.

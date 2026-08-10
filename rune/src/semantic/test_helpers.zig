@@ -86,14 +86,14 @@ pub fn makePassCtx(
             _ = sym.registerTable(t.name, t) catch {};
         }
         break :blk sym;
-    } else undefined;
-    return .{
-        .alloc = alloc,
-        .tables = tables,
-        .schema = opts.schema,
-        .templates = opts.templates orelse std.StringHashMap(*const ast_mod.Template).init(alloc),
-        .template_refs = if (opts.template_refs) |tr| tr else undefined,
-        .diagnostics = diagnostics,
-        .symbol_table = st,
-    };
+    } else symbol_table_mod.SymbolTable.init(alloc);
+    return PassContext.init(
+        alloc,
+        tables,
+        opts.schema,
+        opts.templates orelse std.StringHashMap(*const ast_mod.Template).init(alloc),
+        if (opts.template_refs) |tr| tr else std.StringHashMap(void).init(alloc),
+        diagnostics,
+        st,
+    );
 }
