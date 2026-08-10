@@ -105,7 +105,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune watch schema.ss --parallel         # Watch with parallel compilation
 ./rune/zig-out/bin/rune watch schema.ss -s                 # Watch with compilation stats
 ./rune/zig-out/bin/rune watch schemas/ --recursive         # Watch directory recursively
-./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues (30 rules)
+./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues (33 rules)
 ./rune/zig-out/bin/rune lint schema.ss --fix              # Lint and auto-fix issues (8 rules: no-pk, no-timestamps, empty-table, serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing)
 ./rune/zig-out/bin/rune lint schema.ss --fix --dry-run    # Preview fixes without writing
 ./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON
@@ -154,6 +154,9 @@ Provides: syntax highlighting (TextMate grammar), language configuration (bracke
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig, completions.zig, color.zig, config.zig, config_merge.zig  # CLI + glue
   wasm.zig                                                   # WASM library entry point (wasm32-wasi)
+  wasm/common.zig, wasm/error.zig, wasm/compile.zig,        # WASM sub-modules (split from monolith)
+  wasm/diff.zig, wasm/reverse.zig, wasm/lint.zig,
+  wasm/format.zig, wasm/generate.zig
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
   bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules (lint.zig = barrel for lint/ sub-modules)
   lint/rules.zig, lint/format.zig, lint/config.zig, lint/fix.zig  # lint engine split

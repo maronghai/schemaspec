@@ -45,6 +45,9 @@ pub const LintRule = enum {
     enum_value_naming,
     fk_null,
     cross_dialect_types,
+    view_no_alias,
+    fk_self_reference,
+    enum_empty,
 
     /// Check if this rule is enabled in the given config.
     pub fn isEnabled(self: LintRule, cfg: LintConfig) bool {
@@ -79,6 +82,9 @@ pub const LintRule = enum {
             .enum_value_naming => cfg.check_enum_value_naming,
             .fk_null => cfg.check_fk_null,
             .cross_dialect_types => cfg.check_cross_dialect_types,
+            .view_no_alias => cfg.check_view_no_alias,
+            .fk_self_reference => cfg.check_fk_self_reference,
+            .enum_empty => cfg.check_enum_empty,
         };
     }
 
@@ -115,6 +121,9 @@ pub const LintRule = enum {
             .enum_value_naming => "enum-value-naming",
             .fk_null => "fk-null",
             .cross_dialect_types => "cross-dialect-types",
+            .view_no_alias => "view-no-alias",
+            .fk_self_reference => "fk-self-reference",
+            .enum_empty => "enum-empty",
         };
     }
 
@@ -176,6 +185,9 @@ pub const LintRule = enum {
             .enum_value_naming => "Enum values should be UPPER_CASE",
             .fk_null => "Foreign key column is nullable",
             .cross_dialect_types => "MySQL-specific types not portable to other dialects",
+            .view_no_alias => "View SELECT uses expressions without column aliases",
+            .fk_self_reference => "Foreign key references the same table (self-reference)",
+            .enum_empty => "Custom type enum has no values",
         };
     }
 };
@@ -211,6 +223,9 @@ pub const LintConfig = struct {
     check_enum_value_naming: bool = true,
     check_fk_null: bool = true,
     check_cross_dialect_types: bool = true,
+    check_view_no_alias: bool = true,
+    check_fk_self_reference: bool = true,
+    check_enum_empty: bool = true,
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
@@ -465,6 +480,9 @@ fn setRuleEnabled(cfg: LintConfig, rule: LintRule, enabled: bool) LintConfig {
         .enum_value_naming => c.check_enum_value_naming = enabled,
         .fk_null => c.check_fk_null = enabled,
         .cross_dialect_types => c.check_cross_dialect_types = enabled,
+        .view_no_alias => c.check_view_no_alias = enabled,
+        .fk_self_reference => c.check_fk_self_reference = enabled,
+        .enum_empty => c.check_enum_empty = enabled,
     }
     return c;
 }

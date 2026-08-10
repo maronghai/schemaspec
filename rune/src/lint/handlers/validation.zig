@@ -388,6 +388,80 @@ pub fn checkFkNull(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult)
     }
 }
 
+pub fn checkViewNoAlias(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.views) |view| {
+        // Check if view has SELECT with expressions that lack aliases
+        // This is a heuristic: if SELECT contains function calls or arithmetic without AS, warn
+        const select = view.query;
+        // Look for patterns like "COUNT(*)" or "a + b" without "AS alias"
+        var i: usize = 0;
+        while (i < select.len) {
+            // Skip whitespace
+            while (i < select.len and select[i] == ' ') i += 1;
+            if (i >= select.len) break;
+
+            // Check for function call pattern: word(
+            const start = i;
+            while (i < select.len and select[i] != ' ' and select[i] != ',') i += 1;
+            const token = select[start..i];
+
+            // Check if token contains a function call (has '(' but no 'AS' following)
+            if (std.mem.indexOf(u8, token, "(")) |_| {
+                // Check if there's an AS alias after the closing paren
+                var j = i;
+                while (j < select.len and select[j] == ' ') j += 1;
+                // Check if next token is NOT "AS" or "as"
+                const remaining = select[j..];
+                if (!std.mem.startsWith(u8, remaining, "AS ") and !std.mem.startsWith(u8, remaining, "as ")) {
+                    const msg = try std.fmt.allocPrint(alloc, "view '{s}' SELECT expression '{s}' lacks a column alias — add 'AS alias_name'", .{ view.name, token });
+                    try results.append(alloc, .{
+                        .rule = "view-no-alias",
+                        .table = view.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+            }
+
+            // Skip to next comma
+            while (i < select.len and select[i] != ',') i += 1;
+            if (i < select.len) i += 1; // skip comma
+        }
+    }
+}
+
+pub fn checkFkSelfReference(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fks) |fk| {
+            // Check if FK references the same table
+            if (std.mem.eql(u8, table.name, fk.ref_table)) {
+                const msg = try std.fmt.allocPrint(alloc, "table '{s}' has a self-referencing foreign key — consider if this is intentional (hierarchical data pattern)", .{table.name});
+                try results.append(alloc, .{
+                    .rule = "fk-self-reference",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
+
+pub fn checkEnumEmpty(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        // Check if custom type is an enum with no values
+        if (ct.base == .enum_type and ct.base.enum_type.len == 0) {
+            const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' is an enum with no values — add at least one value", .{ct.name});
+            try results.append(alloc, .{
+                .rule = "enum-empty",
+                .table = ct.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 fn detectCircularFkDfs(

@@ -83,6 +83,10 @@ const RULES = [_]RuleEntry{
     .{ .rule = .serial_type, .handler = compat.checkSerialType },
     .{ .rule = .column_length, .handler = compat.checkColumnLength },
     .{ .rule = .cross_dialect_types, .handler = compat.checkCrossDialectTypes },
+    // Additional validation rules
+    .{ .rule = .view_no_alias, .handler = validation.checkViewNoAlias },
+    .{ .rule = .fk_self_reference, .handler = validation.checkFkSelfReference },
+    .{ .rule = .enum_empty, .handler = validation.checkEnumEmpty },
 };
 
 /// Run all enabled lint checks on a resolved schema.

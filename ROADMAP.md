@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.214.0 (2026-08-10) — 57,000+ lines production Zig, 1,600+ tests, 34 test suites.
+**Current version**: 0.215.0 (2026-08-10) — 57,000+ lines production Zig, 1,600+ tests, 34 test suites.
 
 ---
 
@@ -245,6 +245,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.215.0** — WASM module refactoring & lint rules expansion: refactored 800-line wasm.zig monolith into wasm/ directory with 8 focused sub-modules (common, error, compile, diff, reverse, lint, format, generate); added 3 new lint rules (view-no-alias, fk-self-reference, enum-empty — 33 total); updated ARCHITECTURE.md with new wasm module structure; 1,601 unit tests pass, benchmarks show no regressions
 - **v0.214.0** — Generator registry enhancement & export command: added `category` (schema/standalone) and `dialects` metadata to all 11 generators in `REGISTRY`; added `listDetailed()` for rich `rune generate --list` output showing extension, category, and supported dialects; added `check()` function for generator health validation; added `rune export` command with JSON/text/markdown output formats for schema tooling integration; refactored `main.zig` dispatch with `resolveInputPath` and `readFileOrStdin` helpers (reduced dispatch function by 30 lines); 1,600+ unit tests pass, benchmarks show no regressions
 - **v0.213.0** — WASM API completeness & CLI enhancement: added `rune_format` export (auto-format .ss schema text via WASM), `rune_tune` export (auto-extract templates via WASM), `rune_generate` export (pluggable generator dispatch via WASM — prisma, drizzle, openapi, etc.); added `--json` flag to `rune version` for machine-readable JSON output; added 11 new WASM unit tests; 1,597 unit tests pass, benchmarks show no regressions
 - **v0.212.0** — Config merge extraction & testability: extracted config merge logic from main.zig into config_merge.zig (7 merge cases: dialect, quiet, json_errors, color, target, stream, parallel); added 11 unit tests verifying CLI precedence semantics; updated CLAUDE.md with Config Merge pattern documentation; 1,586 unit tests pass

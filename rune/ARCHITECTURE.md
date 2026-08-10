@@ -471,7 +471,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 ## Lint Module
 
-The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 30 rules, 8 auto-fixable, with `--show-rules` and `--init` for discoverability.
+The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 33 rules, 8 auto-fixable, with `--show-rules` and `--init` for discoverability.
 
 ### Sub-modules
 
@@ -602,7 +602,19 @@ Rune supports multiple platforms via Zig's cross-compilation:
 
 ### WASM Architecture
 
-WASM builds use a separate entry point (`src/wasm.zig`) instead of `src/main.zig`. The WASM module exports C-compatible functions:
+WASM builds use a separate entry point (`src/wasm.zig`) instead of `src/main.zig`. The WASM module is organized into focused sub-modules:
+
+- `wasm.zig` — Entry point, re-exports all sub-modules
+- `wasm/common.zig` — Shared state (global arena, error handling) and option parsing helpers
+- `wasm/error.zig` — Error state management (`rune_last_error`, `rune_last_error_code`, `rune_reset`, `rune_version`)
+- `wasm/compile.zig` — Compilation functions (`rune_compile`, `rune_stats`, `rune_validate`)
+- `wasm/diff.zig` — Diff and migration functions (`rune_diff`, `rune_migrate`)
+- `wasm/reverse.zig` — Reverse engineering functions (`rune_reverse`)
+- `wasm/lint.zig` — Lint functions (`rune_lint`)
+- `wasm/format.zig` — Formatting and template extraction (`rune_format`, `rune_tune`)
+- `wasm/generate.zig` — Generator functions (`rune_generate`)
+
+The WASM module exports C-compatible functions:
 
 - `rune_compile(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — compile schema to SQL
 - `rune_diff(schema1_ptr, schema1_len, schema2_ptr, schema2_len, options_ptr, options_len) → ?[*:0]const u8` — diff two schemas
