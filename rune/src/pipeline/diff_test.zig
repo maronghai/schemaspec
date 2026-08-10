@@ -1,5 +1,6 @@
 const std = @import("std");
 const pipeline_diff = @import("diff.zig");
+const pipeline_migrate = @import("migrate.zig");
 const pipeline_forward = @import("forward.zig");
 const diff = @import("../diff/engine.zig");
 const diff_types = @import("../diff/types.zig");
@@ -13,7 +14,7 @@ test "migration file name: zero-padded 4-digit" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const name = try pipeline_diff.formatMigrationFileName(alloc, 1, "add_users");
+    const name = try pipeline_migrate.formatMigrationFileName(alloc, 1, "add_users");
     try testing.expectEqualStrings("0001_add_users.sql", name);
 }
 
@@ -21,7 +22,7 @@ test "migration file name: large sequence number" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const name = try pipeline_diff.formatMigrationFileName(alloc, 1234, "create_posts");
+    const name = try pipeline_migrate.formatMigrationFileName(alloc, 1234, "create_posts");
     try testing.expectEqualStrings("1234_create_posts.sql", name);
 }
 
@@ -29,7 +30,7 @@ test "migration file name: sequence 0" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const name = try pipeline_diff.formatMigrationFileName(alloc, 0, "init");
+    const name = try pipeline_migrate.formatMigrationFileName(alloc, 0, "init");
     try testing.expectEqualStrings("0000_init.sql", name);
 }
 
@@ -58,7 +59,7 @@ test "filter incremental: keeps structural diffs" {
         },
         .custom_type_diffs = &.{},
     };
-    const filtered = try pipeline_diff.filterIncrementalChanges(alloc, sd);
+    const filtered = try pipeline_migrate.filterIncrementalChanges(alloc, sd);
     try testing.expectEqual(@as(usize, 1), filtered.table_diffs.len);
 }
 
@@ -88,7 +89,7 @@ test "filter incremental: removes metadata-only diffs" {
         },
         .custom_type_diffs = &.{},
     };
-    const filtered = try pipeline_diff.filterIncrementalChanges(alloc, sd);
+    const filtered = try pipeline_migrate.filterIncrementalChanges(alloc, sd);
     try testing.expectEqual(@as(usize, 0), filtered.table_diffs.len);
 }
 
@@ -115,7 +116,7 @@ test "filter incremental: keeps create tables" {
         },
         .custom_type_diffs = &.{},
     };
-    const filtered = try pipeline_diff.filterIncrementalChanges(alloc, sd);
+    const filtered = try pipeline_migrate.filterIncrementalChanges(alloc, sd);
     try testing.expectEqual(@as(usize, 1), filtered.table_diffs.len);
 }
 
@@ -142,7 +143,7 @@ test "filter incremental: keeps table with index changes" {
         },
         .custom_type_diffs = &.{},
     };
-    const filtered = try pipeline_diff.filterIncrementalChanges(alloc, sd);
+    const filtered = try pipeline_migrate.filterIncrementalChanges(alloc, sd);
     try testing.expectEqual(@as(usize, 1), filtered.table_diffs.len);
 }
 
@@ -160,7 +161,7 @@ test "diff config: default values" {
 }
 
 test "migrate config: default values" {
-    const cfg = pipeline_diff.MigrateConfig{
+    const cfg = pipeline_migrate.MigrateConfig{
         .old_path = "old.ss",
         .new_path = "new.ss",
     };

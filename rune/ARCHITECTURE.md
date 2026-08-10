@@ -67,6 +67,8 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `diff/migrate.zig` | `diff/migrate_helpers.zig` | Shared `emitSingleTable` helper for forward and rollback paths |
 | `pipeline/forward.zig` | `pipeline/import_resolver.zig` | `@import` directive resolution — `ImportContext`, `resolveImports`, `splitLines`, `tokenizeAndParseWithLines` |
 | `pipeline/handlers.zig` | `pipeline/forward.zig` | CLI output handlers — `handleCompileRequest`, `handleValidate`, `handleCheck`, `handleStats`, `generateFromSchema`, `generateFromSchemaBatch` |
+| `pipeline/diff.zig` | `pipeline/forward.zig` | Diff pipeline orchestration — `DiffConfig`, `handleDiff`, `prepareDiff`, `prepareDiffFromSql`, `emitTraceAndStats` |
+| `pipeline/migrate.zig` | `pipeline/diff.zig` | Migrate pipeline orchestration — `MigrateConfig`, `handleMigrate`, `handleMigrateStatus`, `filterIncrementalChanges`, `collectMigrateFiles`, `findNextSequenceNumber`, `formatMigrationFileName` |
 | `codegen/codegen.zig` | `codegen/columns.zig` | Column definition rendering (emitColumnDef, emitColumnDefEx, emitDefault) + shared `isDominatedByExplicitIndex()` |
 | `codegen/codegen.zig` | `codegen/indexes.zig` | Inline and standalone index emission |
 | `parser/sql_parser.zig` | `parser/sql_parser_helpers.zig` | Identifier/literal/word parsing, whitespace/comment skipping, trailing comment capture, `parseExpression` |
@@ -177,20 +179,26 @@ Input (SQL DDL text)
 
 ## Diff/Migrate Pipeline
 
+The diff/migrate pipeline has two layers:
+1. **Pipeline orchestration** (`pipeline/diff.zig`, `pipeline/migrate.zig`) — CLI handlers that compile schemas, invoke the diff engine, and format output
+2. **Diff engine** (`diff/engine.zig` + sub-modules) — Structural comparison with rename detection
+3. **Migration generator** (`diff/migrate.zig`) — SchemaDiff → ALTER TABLE SQL
+
 ```
 (old.ss, new.ss)
     │
     ▼
-[1] Compile both to ResolvedAst (forward pipeline)
+[1] Pipeline Orchestration (pipeline/diff.zig or pipeline/migrate.zig)
+    Compiles both schemas to ResolvedAst via forward pipeline
     │
     ▼
-[2] Diff Engine (diff.zig, 710 lines + diff_fields/diff_indexes/diff_fks/diff_format)
+[2] Diff Engine (diff/engine.zig + diff_fields/diff_indexes/diff_fks/diff_format)
     Structural comparison with rename detection
     Output: SchemaDiff
     │
     ├──▶ Diff Printer (human-readable diff output)
     │
-    └──▶ Migration Generator (migrate.zig, 458 lines, 6 sub-functions)
+    └──▶ Migration Generator (diff/migrate.zig, 6 sub-functions)
          SchemaDiff → ALTER TABLE SQL
          Sub-functions: emitDroppedTables, emitViewDiffs, emitTableDiffs,
          emitFieldDiffs, emitIndexDiffs, emitMetadataDiffs, emitFkDiffs

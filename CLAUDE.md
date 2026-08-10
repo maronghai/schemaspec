@@ -169,7 +169,7 @@ rune/src/
   tests.zig                                                       # colocated test index (100 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, handlers.zig, reverse.zig,  # pipeline orchestration + CLI handlers
-               stats.zig
+               diff.zig, migrate.zig, export.zig, stats.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig
   codegen/     codegen.zig, columns.zig, indexes.zig,    # SQL code generation
@@ -217,7 +217,7 @@ rune/src/
 
 - **PipelineOptions** (`pipeline/forward.zig`): Configuration struct for the unified compilation pipeline. Replaces three separate functions (`compilePipeline`, `compilePipelineVerbose`, `compilePipelineWithImports`) with a single `compilePipeline(alloc, file_data, opts)`. Fields: `io`, `import_ctx`, `resolve_imports`, `merge_imports`, `run_semantic`, `verbose_passes`, `json_errors`.
 
-- **DiffConfig / MigrateConfig / ReverseConfig** (`pipeline/diff.zig`, `pipeline/reverse.zig`): Configuration structs for diff, migrate, and reverse handlers, replacing 8-11 positional parameters each. Follows the `CompileConfig` pattern. `handleDiff(io, alloc, DiffConfig)`, `handleMigrate(io, alloc, MigrateConfig)`, and `handleReverse(io, alloc, file_data, ReverseConfig)` are the unified entry points.
+- **DiffConfig / MigrateConfig** (`pipeline/diff.zig`, `pipeline/migrate.zig`): Configuration structs for diff and migrate handlers, replacing 8-11 positional parameters each. Follows the `CompileConfig` pattern. `handleDiff(io, alloc, DiffConfig)`, `handleMigrate(io, alloc, MigrateConfig)`, and `handleReverse(io, alloc, file_data, ReverseConfig)` are the unified entry points.
 
 - **Config Merge** (`config_merge.zig`): Extracted from `main.zig` for testability. `mergeCliConfig(parsed, cfg)` merges CLI flags with config file defaults (CLI takes precedence). Handles 7 merge cases: dialect, quiet, json_errors, color, target, stream, parallel. Each case has unit tests verifying precedence semantics.
 
@@ -276,7 +276,8 @@ rune/src/
 | `pipeline/` | `forward.zig` | `.ss` → SQL compilation pipeline (tokenizer → parser → semantic → ResolvedAst) |
 | | `handlers.zig` | CLI output handlers (compile, validate, check, stats, generate) |
 | | `reverse.zig` | SQL → `.ss` orchestration + dialect auto-detection |
-| | `diff.zig` | Diff/migrate pipeline orchestration |
+| | `diff.zig` | Diff pipeline orchestration (`rune diff` handler) |
+| | `migrate.zig` | Migrate pipeline orchestration (`rune migrate` handler) |
 | | `stats.zig` | Schema statistics (field type classification, table/field/view/constraint counts) |
 | `lsp/` | `protocol.zig` | JSON-RPC message types and LSP protocol helpers |
 | | `documents.zig` | Document state manager (open/change/close tracking) |

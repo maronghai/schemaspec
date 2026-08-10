@@ -29,8 +29,10 @@ const Template = struct {
 pub fn handleTune(io: std.Io, alloc: std.mem.Allocator, source: []const u8, dry_run: bool) !void {
     const result = try tune(alloc, source);
     if (dry_run) {
+        // Dry run: preview the result to stdout without modifying the file
         try io_mod.writeOutput(io, result, null, false);
     } else {
+        // Normal mode: write the result to stdout (file write handled by caller)
         try io_mod.writeOutput(io, result, null, false);
     }
 }
@@ -50,7 +52,7 @@ pub fn tune(alloc: std.mem.Allocator, source: []const u8) ![]const u8 {
     }
 
     // Find the most valuable field set (fields co-occurring in most tables)
-    const best = (findBestFieldSet(all_fields.items) catch return source) orelse return source;
+    const best = (findBestFieldSet(alloc, all_fields.items) catch return source) orelse return source;
 
     // Generate output
     var output = try std.ArrayList(u8).initCapacity(alloc, source.len + 256);
@@ -177,12 +179,12 @@ fn fieldName(line: []const u8) []const u8 {
 
 // ─── Field Set Finding ───────────────────────────────────────
 
-fn findBestFieldSet(all_fields: []const []const FieldEntry) !?Template {
+fn findBestFieldSet(alloc: std.mem.Allocator, all_fields: []const []const FieldEntry) !?Template {
     const table_count = all_fields.len;
     if (table_count < MIN_SHARED_TABLES) return null;
 
     // Step 1: Count how many tables each field name appears in
-    var field_freq = std.StringHashMap(usize).init(std.heap.page_allocator);
+    var field_freq = std.StringHashMap(usize).init(alloc);
     defer field_freq.deinit();
 
     for (all_fields) |fields| {
@@ -193,11 +195,11 @@ fn findBestFieldSet(all_fields: []const []const FieldEntry) !?Template {
     }
 
     // Step 2: Find the most frequent fields (appear in >= 2 tables)
-    var frequent_fields = try std.ArrayList([]const u8).initCapacity(std.heap.page_allocator, 32);
+    var frequent_fields = try std.ArrayList([]const u8).initCapacity(alloc, 32);
     var iter = field_freq.iterator();
     while (iter.next()) |entry| {
         if (entry.value_ptr.* >= MIN_SHARED_TABLES) {
-            try frequent_fields.append(std.heap.page_allocator, entry.key_ptr.*);
+            try frequent_fields.append(alloc, entry.key_ptr.*);
         }
     }
 
@@ -209,15 +211,15 @@ fn findBestFieldSet(all_fields: []const []const FieldEntry) !?Template {
     var best_field_count: usize = 0;
 
     for (frequent_fields.items) |seed| {
-        var candidate = try std.ArrayList([]const u8).initCapacity(std.heap.page_allocator, 16);
-        try candidate.append(std.heap.page_allocator, seed);
+        var candidate = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+        try candidate.append(alloc, seed);
 
         // Find tables that have the seed
-        var seed_tables = try std.ArrayList(usize).initCapacity(std.heap.page_allocator, table_count);
+        var seed_tables = try std.ArrayList(usize).initCapacity(alloc, table_count);
         for (all_fields, 0..) |fields, ti| {
             for (fields) |fe| {
                 if (std.mem.eql(u8, fe.name, seed)) {
-                    try seed_tables.append(std.heap.page_allocator, ti);
+                    try seed_tables.append(alloc, ti);
                     break;
                 }
             }
@@ -241,7 +243,7 @@ fn findBestFieldSet(all_fields: []const []const FieldEntry) !?Template {
                 }
             }
             if (in_all) {
-                try candidate.append(std.heap.page_allocator, candidate_field);
+                try candidate.append(alloc, candidate_field);
             }
         }
 
@@ -254,24 +256,24 @@ fn findBestFieldSet(all_fields: []const []const FieldEntry) !?Template {
             {
                 best_table_count = t_count;
                 best_field_count = f_count;
-                best_fields = try candidate.toOwnedSlice(std.heap.page_allocator);
+                best_fields = try candidate.toOwnedSlice(alloc);
             }
         }
-        candidate.deinit(std.heap.page_allocator);
-        seed_tables.deinit(std.heap.page_allocator);
+        candidate.deinit(alloc);
+        seed_tables.deinit(alloc);
     }
 
-    frequent_fields.deinit(std.heap.page_allocator);
+    frequent_fields.deinit(alloc);
 
     if (best_fields) |fields| {
         // Build FieldEntry list from the field names
-        var template_fields = try std.ArrayList(FieldEntry).initCapacity(std.heap.page_allocator, fields.len);
+        var template_fields = try std.ArrayList(FieldEntry).initCapacity(alloc, fields.len);
         for (fields) |fname| {
             // Find the line text from the first table that has this field
             for (all_fields) |tfields| {
                 for (tfields) |fe| {
                     if (std.mem.eql(u8, fe.name, fname)) {
-                        try template_fields.append(std.heap.page_allocator, fe);
+                        try template_fields.append(alloc, fe);
                         break;
                     }
                 }
@@ -285,7 +287,7 @@ fn findBestFieldSet(all_fields: []const []const FieldEntry) !?Template {
         }
         return .{
             .name = "base",
-            .fields = try template_fields.toOwnedSlice(std.heap.page_allocator),
+            .fields = try template_fields.toOwnedSlice(alloc),
         };
     }
 

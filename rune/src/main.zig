@@ -3,6 +3,7 @@ const cli = @import("cli.zig");
 const handlers = @import("pipeline/handlers.zig");
 const forward = @import("pipeline/forward.zig");
 const diff_pipe = @import("pipeline/diff.zig");
+const migrate_pipe = @import("pipeline/migrate.zig");
 const reverse_pipe = @import("pipeline/reverse.zig");
 const io_mod = @import("io.zig");
 const version = @import("version.zig");
@@ -253,7 +254,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             .summary = cmd.summary,
             .from_sql = cmd.from_sql,
         }),
-        .migrate => |cmd| return diff_pipe.handleMigrate(io, alloc, .{
+        .migrate => |cmd| return migrate_pipe.handleMigrate(io, alloc, .{
             .old_path = cmd.old,
             .new_path = cmd.new,
             .dialect = parsed.dialect,
@@ -272,7 +273,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             .graph = cmd.graph,
             .auto_lint = !cmd.no_lint,
         }),
-        .migrate_status => |cmd| return diff_pipe.handleMigrateStatus(io, alloc, cmd.dir, cmd.json_errors),
+        .migrate_status => |cmd| return migrate_pipe.handleMigrateStatus(io, alloc, cmd.dir, cmd.json_errors),
         .reverse => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return reverse_pipe.handleReverse(io, alloc, file_data, .{

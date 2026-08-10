@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.218.0] - 2026-08-10
+
+### Changed
+- **Pipeline decomposition** — Extracted migrate handler from `pipeline/diff.zig` into `pipeline/migrate.zig`. `diff.zig` now contains only `DiffConfig`, `handleDiff`, `prepareDiff`, `prepareDiffFromSql`, `emitTraceAndStats` (~163 lines). `migrate.zig` contains `MigrateConfig`, `handleMigrate`, `handleMigrateStatus`, `filterIncrementalChanges`, `collectMigrateFiles`, `findNextSequenceNumber`, `formatMigrationFileName` (~306 lines). Single-responsibility: diff owns diff computation and display; migrate owns migration SQL generation and file management.
+- **`tune.zig` allocator fix** — Replaced hardcoded `std.heap.page_allocator` in `findBestFieldSet` with the passed-in allocator parameter, consistent with project conventions. All 10 `page_allocator` references replaced.
+
+### Fixed
+- **`tune.zig` documentation** — Added descriptive comments to `handleTune` branches explaining dry_run vs normal mode behavior.
+
 ## [0.213.0] - 2026-08-10
 
 ### Added

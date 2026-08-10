@@ -4,6 +4,15 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.218.0] - 2026-08-10
+
+### Changed
+- **Pipeline decomposition** — Extracted migrate handler from `pipeline/diff.zig` into `pipeline/migrate.zig`. `diff.zig` now contains only diff-related code (`DiffConfig`, `handleDiff`, `prepareDiff`, `prepareDiffFromSql`, `emitTraceAndStats`). `migrate.zig` contains migrate-related code (`MigrateConfig`, `handleMigrate`, `handleMigrateStatus`, `filterIncrementalChanges`, `collectMigrateFiles`, `findNextSequenceNumber`, `formatMigrationFileName`). Single-responsibility: diff owns diff computation and display; migrate owns migration SQL generation and file management.
+- **`tune.zig` allocator fix** — Replaced hardcoded `std.heap.page_allocator` in `findBestFieldSet` with the passed-in allocator parameter, consistent with project conventions.
+
+### Fixed
+- **`tune.zig` documentation** — Added descriptive comments to `handleTune` branches explaining dry_run vs normal mode behavior.
+
 ## [0.194.0] - 2026-08-10
 
 ### Added
