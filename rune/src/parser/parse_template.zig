@@ -86,9 +86,17 @@ pub fn flushTemplate(
     loc: ?SourceLocation,
 ) !void {
     const slot_idx = findSlot(fields.items);
+    // Allocate and copy parents to ensure they outlive the stack buffer.
+    const parents = if (parents_len > 0) blk: {
+        const result = try alloc.alloc([]const u8, parents_len);
+        for (result, 0..) |*r, idx| {
+            r.* = try alloc.dupe(u8, parents_buf[idx]);
+        }
+        break :blk result;
+    } else &.{};
     try templates.append(alloc, .{
         .name = name,
-        .parents = parents_buf[0..parents_len],
+        .parents = parents,
         .doc = doc,
         .fields = try fields.toOwnedSlice(alloc),
         .slot_index = slot_idx,

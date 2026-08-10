@@ -452,5 +452,6 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .check = flags.want_check,
         .verbose_passes = flags.want_verbose_passes,
         .stream = flags.want_stream,
+        .parallel = flags.want_parallel,
     } });
 }

@@ -241,7 +241,7 @@ rune/src/
 
 - **TypedAst IR** (`types/typed_ast.zig`): Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 
-- **TypeInfo Methods** (`types/ast.zig`): `TypeInfo` carries embedded `isNumeric()`, `isString()`, `isDatetime()`, `isBoolean()` methods that classify SS type symbols. Collocates type behavior with the type definition — no external lookup tables needed for classification.
+- **TypeInfo Methods** (`types/ast.zig`): `TypeInfo` carries embedded `isNumeric()`, `isString()`, `isDatetime()`, `isBoolean()`, `isBlob()`, `isOther()` methods that classify SS type symbols. Collocates type behavior with the type definition — no external lookup tables needed for classification.
 
 - **Template Slot Merging** (`semantic/template.zig`): Template inheritance with `...` slot controls field insertion order. Merge formula: `parent_before + child_before + <concrete> + child_after + parent_after`. Max 4 parents via mixin syntax (`+`).
 

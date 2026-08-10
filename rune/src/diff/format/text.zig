@@ -12,10 +12,7 @@ const optionalStrEq = utils.optionalStrEq;
 const writeColorized = format_common.writeColorized;
 const DiffStats = format_common.DiffStats;
 const formatSummaryStats = format_common.formatSummaryStats;
-
-fn quoteChar(dialect: Dialect) u8 {
-    return dialect_mod.getBackend(dialect).quoteChar;
-}
+const quoteChar = format_common.quoteChar;
 
 const formatTypeInfo = format_common.formatTypeInfo;
 
@@ -217,6 +214,14 @@ pub fn formatDiffSummary(alloc: std.mem.Allocator, d: SchemaDiff, color_mode: Co
 pub fn printDiff(d: SchemaDiff, dialect: Dialect) void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
-    const text = formatDiff(arena.allocator(), d, dialect, .never, undefined) catch return;
-    std.debug.print("{s}", .{text});
+    const q = quoteChar(dialect);
+    var stdout = std.io.getStdOut().writer();
+    writeDiffTo(stdout, d, q, false) catch return;
+    // Summary statistics
+    const stats = DiffStats.compute(d);
+    const total = stats.dropped_tables + stats.added_tables + stats.modified_tables;
+    if (total > 0) {
+        stdout.writeAll("\n") catch return;
+        formatSummaryStats(stdout, stats, false) catch return;
+    }
 }

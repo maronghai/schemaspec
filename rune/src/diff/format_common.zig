@@ -3,11 +3,18 @@ const ast_mod = @import("../types/ast.zig");
 const diff_types = @import("types.zig");
 const color_mod = @import("../color.zig");
 const utils = @import("../utils.zig");
+const dialect_mod = @import("../dialect/dialect.zig");
 const SchemaDiff = diff_types.SchemaDiff;
+const Dialect = @import("../dialect/enum.zig").Dialect;
 
 const optionalStrEq = utils.optionalStrEq;
 
 // ─── Shared Helpers ────────────────────────────────────────────
+
+/// Get the quote character for a dialect (backtick for MySQL, double-quote for PG/SQLite).
+pub fn quoteChar(dialect: Dialect) u8 {
+    return dialect_mod.getBackend(dialect).quoteChar;
+}
 
 /// Write text with optional ANSI color wrapping.
 pub fn writeColorized(w: anytype, color: []const u8, use_color: bool, comptime fmt: []const u8, args: anytype) !void {

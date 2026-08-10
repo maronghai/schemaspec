@@ -100,7 +100,8 @@ pub const LintRule = enum {
             .bool_default => true,
             .nullable_column_default => true,
             .duplicate_index => true,
-            .index_column_missing => true,
+            .column_default_required => true,
+            .no_index_fk => true,
             else => false,
         };
     }

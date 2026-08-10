@@ -4,6 +4,7 @@ const ResolvedTable = @import("../../types/resolved_ast.zig").ResolvedTable;
 const ast_mod = @import("../../types/ast.zig");
 const LintConfig = @import("../config.zig").LintConfig;
 const LintResult = @import("../config.zig").LintResult;
+const naming = @import("naming.zig");
 
 // ─── Shared Field Helpers ──────────────────────────────────────
 
@@ -95,7 +96,7 @@ pub fn checkNullablePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintRes
 
 pub fn checkEnumCase(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.custom_types) |ct| {
-        if (!isUpperSnakeCase(ct.name)) {
+        if (!naming.isUpperSnakeCase(ct.name)) {
             const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' should use UPPER_CASE naming", .{ct.name});
             try results.append(alloc, .{
                 .rule = "enum-case",
@@ -499,15 +500,6 @@ fn fieldHasIndex(table: ResolvedTable, field_name: []const u8) bool {
         }
     }
     return false;
-}
-
-fn isUpperSnakeCase(name: []const u8) bool {
-    var has_upper = false;
-    for (name) |c| {
-        if (std.ascii.isUpper(c)) has_upper = true;
-        if (std.ascii.isLower(c)) return false;
-    }
-    return has_upper;
 }
 
 fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {

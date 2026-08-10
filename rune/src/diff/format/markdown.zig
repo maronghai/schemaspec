@@ -8,10 +8,7 @@ const Dialect = @import("../../dialect/enum.zig").Dialect;
 
 const optionalStrEq = utils.optionalStrEq;
 const DiffStats = format_common.DiffStats;
-
-fn quoteChar(dialect: Dialect) u8 {
-    return dialect_mod.getBackend(dialect).quoteChar;
-}
+const quoteChar = format_common.quoteChar;
 
 const formatTypeInfo = format_common.formatTypeInfo;
 

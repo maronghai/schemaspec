@@ -7,10 +7,7 @@ const SchemaDiff = diff_types.SchemaDiff;
 const Dialect = @import("../../dialect/enum.zig").Dialect;
 
 const jsonEscapeString = utils.jsonEscapeString;
-
-fn quoteChar(dialect: Dialect) u8 {
-    return dialect_mod.getBackend(dialect).quoteChar;
-}
+const quoteChar = @import("../../diff/format_common.zig").quoteChar;
 
 /// Format SchemaDiff as SARIF (Static Analysis Results Interchange Format) for CI/CD integration.
 pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect) ![]const u8 {
@@ -215,7 +212,7 @@ pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect
         // Metadata diffs
         if (td.metadata_diff) |md| {
             if (md.hasChanges()) {
-                if (!@import("../../utils.zig").optionalStrEq(md.old_comment, md.new_comment)) {
+                if (!utils.optionalStrEq(md.old_comment, md.new_comment)) {
                     if (result_idx > 0) try w.writeAll(",\n");
                     try w.writeAll("      {\n");
                     try w.writeAll("        \"ruleId\": \"schema/metadata-comment\",\n");
@@ -231,7 +228,7 @@ pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect
                     try w.writeAll("      }");
                     result_idx += 1;
                 }
-                if (!@import("../../utils.zig").optionalStrEq(md.old_engine, md.new_engine)) {
+                if (!utils.optionalStrEq(md.old_engine, md.new_engine)) {
                     if (result_idx > 0) try w.writeAll(",\n");
                     try w.writeAll("      {\n");
                     try w.writeAll("        \"ruleId\": \"schema/metadata-engine\",\n");

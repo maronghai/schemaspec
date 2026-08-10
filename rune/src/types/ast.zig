@@ -102,6 +102,16 @@ pub const TypeInfo = union(enum) {
     pub fn isBoolean(self: TypeInfo) bool {
         return self.category() == .boolean;
     }
+
+    /// True if the SS symbol maps to a blob/binary SQL type.
+    pub fn isBlob(self: TypeInfo) bool {
+        return self.category() == .blob;
+    }
+
+    /// True if the SS symbol maps to an uncategorized SQL type.
+    pub fn isOther(self: TypeInfo) bool {
+        return self.category() == .other;
+    }
 };
 
 pub const ModifierType = enum {

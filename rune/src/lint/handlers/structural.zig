@@ -3,6 +3,7 @@ const ResolvedAst = @import("../../types/resolved_ast.zig").ResolvedAst;
 const ResolvedTable = @import("../../types/resolved_ast.zig").ResolvedTable;
 const LintConfig = @import("../config.zig").LintConfig;
 const LintResult = @import("../config.zig").LintResult;
+const validation = @import("validation.zig");
 
 // ─── Structural Rules ──────────────────────────────────────────
 // Rules that check table structure: primary keys, timestamps,
@@ -12,13 +13,10 @@ pub fn checkNoPk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), 
     for (ast.tables) |table| {
         var has_pk = false;
         for (table.fields) |field| {
-            for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
-                    has_pk = true;
-                    break;
-                }
+            if (validation.isPrimaryKey(field)) {
+                has_pk = true;
+                break;
             }
-            if (has_pk) break;
         }
         if (!has_pk) {
             for (table.indexes) |idx| {
@@ -77,14 +75,7 @@ pub fn checkCount(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult),
     for (ast.tables) |table| {
         var non_pk_count: usize = 0;
         for (table.fields) |field| {
-            var is_pk = false;
-            for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
-                    is_pk = true;
-                    break;
-                }
-            }
-            if (!is_pk) non_pk_count += 1;
+            if (!validation.isPrimaryKey(field)) non_pk_count += 1;
         }
         if (non_pk_count < cfg.count_min) {
             const msg = try std.fmt.allocPrint(alloc, "table has only {d} non-PK field(s) — is this a junction table?", .{non_pk_count});

@@ -160,3 +160,7 @@ test "RULE_INFO descriptions match LintRule.description" {
         try std.testing.expectEqualStrings(info.rule.description(), info.description);
     }
 }
+
+test "RULES covers all LintRule variants" {
+    try std.testing.expectEqual(std.meta.fields(LintRule).len, RULES.len);
+}
