@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.229.0 (2026-08-11) — 54,000+ lines production Zig, 1,685 tests, 39 lint rules, 34 test suites.
+**Current version**: 0.230.0 (2026-08-11) — 54,000+ lines production Zig, 1,680 tests, 39 lint rules, 34 test suites.
 
 ---
 
@@ -245,6 +245,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.230.0** — Architecture quality improvements: unified generator listing functions (eliminated ~40 lines of duplication between `listDetailed` and `listDetailedStderr`); created `GenerateConfig` struct in `pipeline/handlers.zig` to replace 8 positional parameters with a named struct (consistent with `CompileConfig` and `ValidateConfig` patterns); added unified `handleGenerate()` entry point; verified `catch unreachable` only exists in test code (not production); 1,680 unit tests pass, benchmarks show no regressions
 - **v0.229.0** — Lint handler refactoring & new rules: split `lint/handlers/validation.zig` (586 lines) into 4 focused modules (`fk.zig`, `index.zig`, `view.zig`, `enum.zig`) for better maintainability; added `column-boolean-naming` lint rule (warns when boolean columns don't use `is_`/`has_`/`can_` prefix convention); added `fk-depth` lint rule (warns when FK reference chain exceeds 3 levels); 10 new unit tests (1,685 total); benchmarks show no regressions
 - **v0.228.0** — Lint rules expansion: added `view-select-star` lint rule (warns when views use SELECT * — prefer explicit column lists for portability and schema evolution); added `enum-value-duplicate` lint rule (warns when a custom type has duplicate enum values — helps catch copy-paste errors); 5 new unit tests (1,675 total); benchmarks show no regressions
 - **v0.227.0** — Architecture review & quality: comprehensive architecture analysis confirmed clean IR boundaries, pluggable generator registry, and data-driven dispatch patterns; verified all code quality issues (catch unreachable, std.process.exit) are resolved in production code; confirmed pipeline modules have comprehensive test coverage (100 test files, 1,670 tests); benchmarks show no regressions

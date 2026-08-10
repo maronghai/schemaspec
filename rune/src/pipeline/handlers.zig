@@ -43,6 +43,21 @@ pub const ValidateConfig = struct {
     per_table: bool = false,
 };
 
+/// Configuration for `generateFromSchema` and `generateFromSchemaBatch`.
+/// Replaces 8 positional parameters with a named struct.
+pub const GenerateConfig = struct {
+    /// Generator name (for single generation) or comma-separated list (for batch).
+    generators: []const u8,
+    /// Output file path or directory for batch mode. null = stdout.
+    output: ?[]const u8 = null,
+    /// Target dialect for dialect-specific output.
+    dialect: codegen.Dialect = .mysql,
+    /// Suppress non-error output.
+    quiet: bool = false,
+    /// Preview output without writing to files.
+    dry_run: bool = false,
+};
+
 /// Unified compile handler for all combinations of input (stdin/file) and output (sql/json).
 pub fn handleCompileRequest(
     io: std.Io,
@@ -324,6 +339,24 @@ pub fn generateFromSchemaBatch(
                 }
             }
         }
+    }
+}
+
+/// Unified generate handler using GenerateConfig struct.
+/// Handles both single and batch generation based on whether generators contains a comma.
+pub fn handleGenerate(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    file_data: []const u8,
+    cfg: GenerateConfig,
+) !void {
+    // Check if this is batch mode (comma-separated generator names)
+    const is_batch = std.mem.indexOf(u8, cfg.generators, ",") != null;
+
+    if (is_batch) {
+        try generateFromSchemaBatch(io, alloc, file_data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run);
+    } else {
+        try generateFromSchema(io, alloc, file_data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run);
     }
 }
 

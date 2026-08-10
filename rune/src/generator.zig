@@ -140,7 +140,8 @@ pub fn listAll(writer: anytype) !void {
 }
 
 /// Print detailed generator information including dialect support.
-pub fn listDetailed(writer: anytype) !void {
+/// Generic writer version — used by both stdout and stderr callers.
+pub fn listDetailedTo(writer: anytype) !void {
     try writer.print("Available generators:\n\n", .{});
     for (REGISTRY) |gen| {
         try writer.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
@@ -160,8 +161,15 @@ pub fn listDetailed(writer: anytype) !void {
     }
 }
 
-/// Print detailed generator information to stderr (uses std.debug.print).
+/// Print detailed generator information to stdout.
+pub fn listDetailed() !void {
+    const stdout = std.Io.getStdOut().writer();
+    try listDetailedTo(stdout);
+}
+
+/// Print detailed generator information to stderr.
 pub fn listDetailedStderr() void {
+    // Use std.debug.print which always writes to stderr
     std.debug.print("Available generators:\n\n", .{});
     for (REGISTRY) |gen| {
         std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });

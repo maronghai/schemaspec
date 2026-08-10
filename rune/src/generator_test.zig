@@ -104,7 +104,7 @@ test "listAll produces output" {
 test "listDetailed produces rich output" {
     var aw = std.Io.Writer.Allocating.init(testing.allocator);
     defer aw.deinit();
-    try generator.listDetailed(&aw.writer);
+    try generator.listDetailedTo(&aw.writer);
     const output = try aw.toOwnedSlice();
     defer testing.allocator.free(output);
     try testing.expect(output.len > 0);
