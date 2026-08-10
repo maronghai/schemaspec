@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.206.0 (2026-08-10) — 56,500+ lines production Zig, 1,548+ tests, 34 test suites.
+**Current version**: 0.207.0 (2026-08-10) — 56,500+ lines production Zig, 1,548+ tests, 34 test suites.
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.207.0** — Critical template inheritance bug fix: fixed arena allocator memory corruption caused by `BlockState.reset()` and `BlockState.deinit()` freeing `parents_buf` via `alloc.free()` while previously flushed templates still referenced it through `Template.parents` slices; the arena allocator's `free` moved the end pointer backward, corrupting previously allocated data; all 5 template inheritance golden tests now pass (11-template-inherit, 12-template-deep, 13-template-extends, 51-inherit-override, 66-template-mixins); 1,548 unit tests pass, 447 golden tests pass across all 6 dialects
 - **v0.206.0** — Test coverage expansion & documentation accuracy: added unit tests for `dialect/enum.zig` (parseDialect, alias resolution, writeHeader), `utils.zig` (optionalStrEq, jsonEscapeString), `cli/types.zig` (Command enum, ParsedArgs defaults, COMMAND_REGISTRY, GlobalFlags); fixed stale documentation metrics across CLAUDE.md, README.md, ARCHITECTURE.md (test file count 93→100, test count 1,438+→1,548+); 20 new unit tests (1,548 total)
 - **v0.205.0** — LSP feature completeness & documentation accuracy: added `textDocument/foldingRange` support (code folding for table blocks, template blocks, @if/@endif conditional blocks); added `textDocument/typeDefinition` support (navigate from custom type fields to ~ definitions); fixed CHANGELOG.md gap (added v0.195-v0.204 entries); fixed ROADMAP.md inconsistencies (Phase 6/7/8 descriptions, summary table totals); 7 new unit tests (1522+ total)
 - **v0.204.0** — Architecture hardening & critical bug fixes: fixed plan inversion `type_def = undefined` (rollbacks now preserve custom type definitions); implemented `emitEnumValues` to extract actual enum values from CustomType definitions instead of emitting placeholders; fixed MSSQL `sp_rename` to include 'COLUMN' object type parameter; improved lint config error reporting (invalid numeric thresholds now return errors instead of silently ignoring); removed `std.process.exit` from `cli/lint_cmd.zig` library code (now returns errors for testability); added `StrictWarnings` error type for lint strict mode; 3 new unit tests for plan inversion (1520+ total)

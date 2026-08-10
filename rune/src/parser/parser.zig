@@ -95,8 +95,9 @@ pub const Parser = struct {
             self.comment = null;
             self.doc = null;
             self.template_ref = null;
-            // Free old parents_buf before allocating new one to avoid memory leak
-            if (self.parents_buf.len > 0) alloc.free(self.parents_buf);
+            // Allocate new parents_buf. Old one is NOT freed here because it may
+            // still be referenced by previously flushed templates via Template.parents.
+            // The arena allocator handles cleanup at end of compilation.
             self.parents_buf = try alloc.alloc([]const u8, 4);
             self.parents_len = 0;
             self.fields.clearRetainingCapacity();
@@ -115,7 +116,9 @@ pub const Parser = struct {
             self.fks.deinit(alloc);
             self.indexes.deinit(alloc);
             self.conditional_blocks.deinit(alloc);
-            if (self.parents_buf.len > 0) alloc.free(self.parents_buf);
+            // Note: parents_buf is NOT freed here because it may be referenced
+            // by previously flushed templates via Template.parents.
+            // The arena allocator handles cleanup at end of compilation.
         }
     };
 
