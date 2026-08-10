@@ -30,7 +30,7 @@ pub fn storeError(alloc: std.mem.Allocator, err_name: []const u8) void {
 
 /// Classify an error name into a numeric code.
 /// 0 = success, 1 = syntax/parse, 2 = type, 3 = FK, 4 = semantic/diagnostic, 5 = unknown.
-fn classifyError(err_name: []const u8) i32 {
+pub fn classifyError(err_name: []const u8) i32 {
     // Check for syntax/parse errors
     if (containsSubstring(err_name, "Syntax") or containsSubstring(err_name, "Parse")) return 1;
     // Check for type errors
@@ -44,7 +44,7 @@ fn classifyError(err_name: []const u8) i32 {
 }
 
 /// Check if haystack contains needle (case-sensitive substring search).
-fn containsSubstring(haystack: []const u8, needle: []const u8) bool {
+pub fn containsSubstring(haystack: []const u8, needle: []const u8) bool {
     return std.mem.indexOf(u8, haystack, needle) != null;
 }
 

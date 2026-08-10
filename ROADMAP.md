@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.219.0 (2026-08-10) — 57,000+ lines production Zig, 1,633 tests, 34 test suites.
+**Current version**: 0.220.0 (2026-08-10) — 58,000+ lines production Zig, 1,651 tests, 34 test suites.
 
 ---
 
@@ -245,6 +245,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.220.0** — Diff engine optimization & WASM test coverage: optimized `computeFieldOverlap` in diff engine from O(n×m) to O(n+m) using StringHashMap for field name lookup; added 18 new WASM unit tests covering `classifyError` (5 error categories), `storeError`/`clearError` lifecycle, and `parseOption` edge cases (empty key, empty value, multiple keys, equals in value); made `classifyError` public for testability; 1,651 unit tests pass, benchmarks show no regressions
 - **v0.219.0** — Version struct & architecture hardening: added `Version` struct to `version.zig` with `major`/`minor`/`patch` fields, `parse()` for string parsing, `format()` for string output, and `order()`/`gte()`/`lte()`/`gt()`/`lt()`/`eq()` comparison methods; added `CURRENT` comptime constant for compile-time version access; added 15 new unit tests for Version parsing, formatting, and comparison; 1,633 unit tests pass, benchmarks show no regressions
 - **v0.217.0** — LintConfig data-driven refactoring & generator CLI improvements: replaced 33 individual boolean fields in `LintConfig` with a data-driven `RuleSet` struct indexed by `LintRule` enum; eliminated 33-arm `isRuleEnabled` and `setRuleEnabled` switches; simplified `applyLintRules` to use `RuleSet` methods; unified `rune generate --list` to use `generator.listDetailedStderr()` for rich output showing extension, category, and dialects; added `rune generate --check` flag for generator health validation; added `listDetailedStderr()` function to generator module; 7 new RuleSet unit tests; 1,619 unit tests pass, benchmarks show no regressions
 - **v0.216.0** — Architecture hardening & code quality: eliminated `= undefined` fields in PassContext (replaced with required fields via `init()`); extracted export/validation formatters from `pipeline/handlers.zig` into `pipeline/export.zig`; extracted `LintRule` enum from `lint/config.zig` into `lint/rule_enum.zig`; added `safePositionCast` helper for LSP position safety; hardened WASM error classification with structured `classifyError` function; named rename detection threshold constant (`RENAME_OVERLAP_THRESHOLD`); updated all test files to use `PassContext.init()`; new unit tests for export formatters and LintRule metadata; 1,601+ unit tests pass, benchmarks show no regressions

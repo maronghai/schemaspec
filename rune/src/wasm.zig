@@ -76,3 +76,113 @@ test "rune_last_error_code after success" {
     @import("wasm/error.zig").rune_reset();
     try std.testing.expectEqual(@as(i32, 0), @import("wasm/error.zig").rune_last_error_code());
 }
+
+// ─── classifyError tests ─────────────────────────────────────────
+
+test "classifyError: syntax errors return code 1" {
+    const common = @import("wasm/common.zig");
+    try std.testing.expectEqual(@as(i32, 1), common.classifyError("SyntaxError"));
+    try std.testing.expectEqual(@as(i32, 1), common.classifyError("ParseError"));
+    try std.testing.expectEqual(@as(i32, 1), common.classifyError("Unexpected Syntax token"));
+}
+
+test "classifyError: type errors return code 2" {
+    const common = @import("wasm/common.zig");
+    try std.testing.expectEqual(@as(i32, 2), common.classifyError("TypeError"));
+    try std.testing.expectEqual(@as(i32, 2), common.classifyError("Unknown Type symbol"));
+}
+
+test "classifyError: FK errors return code 3" {
+    const common = @import("wasm/common.zig");
+    try std.testing.expectEqual(@as(i32, 3), common.classifyError("ForeignKeyError"));
+    try std.testing.expectEqual(@as(i32, 3), common.classifyError("FkTargetError"));
+}
+
+test "classifyError: semantic errors return code 4" {
+    const common = @import("wasm/common.zig");
+    try std.testing.expectEqual(@as(i32, 4), common.classifyError("SemanticError"));
+    try std.testing.expectEqual(@as(i32, 4), common.classifyError("DiagnosticError"));
+}
+
+test "classifyError: unknown errors return code 5" {
+    const common = @import("wasm/common.zig");
+    try std.testing.expectEqual(@as(i32, 5), common.classifyError("UnknownError"));
+    try std.testing.expectEqual(@as(i32, 5), common.classifyError("SomeRandomError"));
+    try std.testing.expectEqual(@as(i32, 5), common.classifyError(""));
+}
+
+// ─── storeError + clearError lifecycle ────────────────────────────
+
+test "storeError sets error state, clearError resets" {
+    const common = @import("wasm/common.zig");
+    const err_mod = @import("wasm/error.zig");
+
+    // Clear first
+    err_mod.rune_reset();
+    try std.testing.expect(err_mod.rune_last_error() == null);
+    try std.testing.expectEqual(@as(i32, 0), err_mod.rune_last_error_code());
+
+    // Store an error
+    const alloc = common.gpa.allocator();
+    common.storeError(alloc, "SyntaxError");
+    try std.testing.expect(err_mod.rune_last_error() != null);
+    try std.testing.expectEqual(@as(i32, 1), err_mod.rune_last_error_code());
+
+    // Clear
+    err_mod.rune_reset();
+    try std.testing.expect(err_mod.rune_last_error() == null);
+    try std.testing.expectEqual(@as(i32, 0), err_mod.rune_last_error_code());
+}
+
+// ─── parseOption edge cases ──────────────────────────────────────
+
+test "parseOption: empty key matches =value" {
+    const common = @import("wasm/common.zig");
+    // Empty key matches token "=value" (key="" before =)
+    const result = common.parseOption("=value", "");
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        try std.testing.expectEqualStrings("value", r);
+    }
+}
+
+test "parseOption: empty value returns empty string" {
+    const common = @import("wasm/common.zig");
+    const result = common.parseOption("key=", "key");
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        try std.testing.expectEqual(@as(usize, 0), r.len);
+    }
+}
+
+test "parseOption: value with equals sign" {
+    const common = @import("wasm/common.zig");
+    const result = common.parseOption("key=val=ue", "key");
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        try std.testing.expectEqualStrings("val=ue", r);
+    }
+}
+
+test "parseOption: multiple keys, pick second" {
+    const common = @import("wasm/common.zig");
+    const result = common.parseOption("a=1 b=2 c=3", "b");
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        try std.testing.expectEqualStrings("2", r);
+    }
+}
+
+test "parseOption: key not found" {
+    const common = @import("wasm/common.zig");
+    try std.testing.expect(common.parseOption("a=1 b=2", "c") == null);
+}
+
+test "parseOption: single option" {
+    const common = @import("wasm/common.zig");
+    const result = common.parseOption("dialect=pg", "dialect");
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        try std.testing.expectEqualStrings("pg", r);
+    }
+}

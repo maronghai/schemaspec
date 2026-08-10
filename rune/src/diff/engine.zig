@@ -282,18 +282,23 @@ fn viewQueriesEql(old: ast_mod.View, new: ast_mod.View) bool {
 /// Compute field name overlap ratio between two field lists.
 /// Returns a value between 0.0 (no overlap) and 1.0 (identical fields).
 /// Used for table-level rename detection.
+/// Optimized: O(n+m) via hash set instead of O(n*m) nested loop.
 fn computeFieldOverlap(old_fields: []const ast_mod.Field, new_fields: []const ast_mod.Field) f64 {
     if (old_fields.len == 0 and new_fields.len == 0) return 1.0;
     if (old_fields.len == 0 or new_fields.len == 0) return 0.0;
 
-    // Count matching field names using the smaller set as the probe
-    var match_count: usize = 0;
+    // Build a hash set of old field names, then probe with new field names.
+    // This is O(n+m) instead of O(n*m).
+    var old_names = std.StringHashMap(void).init(std.heap.page_allocator);
+    defer old_names.deinit();
     for (old_fields) |old_field| {
-        for (new_fields) |new_field| {
-            if (std.mem.eql(u8, old_field.name, new_field.name)) {
-                match_count += 1;
-                break;
-            }
+        old_names.put(old_field.name, {}) catch continue;
+    }
+
+    var match_count: usize = 0;
+    for (new_fields) |new_field| {
+        if (old_names.contains(new_field.name)) {
+            match_count += 1;
         }
     }
 
