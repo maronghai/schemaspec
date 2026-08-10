@@ -1,0 +1,481 @@
+const std = @import("std");
+const ResolvedAst = @import("../../types/resolved_ast.zig").ResolvedAst;
+const ResolvedTable = @import("../../types/resolved_ast.zig").ResolvedTable;
+const ast_mod = @import("../../types/ast.zig");
+const LintConfig = @import("../config.zig").LintConfig;
+const LintResult = @import("../config.zig").LintResult;
+
+// ─── Validation Rules ──────────────────────────────────────────
+// Rules that validate schema integrity: FK references, indexes,
+// cascades, duplicates, views, and default values.
+
+pub fn checkNoIndexFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (field.fk != null and !fieldHasIndex(table, field.name)) {
+                const msg = try std.fmt.allocPrint(alloc, "foreign key column '{s}' has no index", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "no-index-fk",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
+pub fn checkFkCascade(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (field.fk) |fk| {
+                var has_delete = false;
+                var has_update = false;
+                for (fk.actions) |action| {
+                    if (action.trigger == .on_delete) has_delete = true;
+                    if (action.trigger == .on_update) has_update = true;
+                }
+                if (!has_delete or !has_update) {
+                    const msg = if (!has_delete and !has_update)
+                        try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON DELETE/ON UPDATE actions", .{field.name})
+                    else if (!has_delete)
+                        try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON DELETE action", .{field.name})
+                    else
+                        try std.fmt.allocPrint(alloc, "FK column '{s}' has no explicit ON UPDATE action", .{field.name});
+                    try results.append(alloc, .{
+                        .rule = "fk-cascade",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .info,
+                    });
+                }
+            }
+        }
+    }
+}
+
+pub fn checkNullablePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            var is_pk = false;
+            var is_nullable = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) is_pk = true;
+                if (mod.kind == .nullable) is_nullable = true;
+            }
+            if (is_pk and is_nullable) {
+                const msg = try std.fmt.allocPrint(alloc, "primary key column '{s}' should not be nullable", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "nullable-pk",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
+pub fn checkEnumCase(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        if (!isUpperSnakeCase(ct.name)) {
+            const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' should use UPPER_CASE naming", .{ct.name});
+            try results.append(alloc, .{
+                .rule = "enum-case",
+                .table = ct.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+pub fn checkOrphanType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        var used = false;
+        for (ast.tables) |table| {
+            for (table.fields) |field| {
+                switch (field.type_info) {
+                    .simple => |s| if (std.mem.eql(u8, s, ct.name)) {
+                        used = true;
+                        break;
+                    },
+                    else => {},
+                }
+                if (used) break;
+            }
+            if (used) break;
+        }
+        if (!used) {
+            const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' is defined but never used by any table", .{ct.name});
+            try results.append(alloc, .{
+                .rule = "orphan-type",
+                .table = ct.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+pub fn checkIndexUnused(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        var fk_fields = std.StringHashMap(void).init(alloc);
+        defer fk_fields.deinit();
+        for (table.fields) |field| {
+            if (field.fk != null) {
+                try fk_fields.put(field.name, {});
+            }
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key or idx.kind == .unique) continue;
+            var covers_fk = false;
+            for (idx.fields) |idx_field| {
+                if (fk_fields.contains(idx_field)) {
+                    covers_fk = true;
+                    break;
+                }
+            }
+            if (!covers_fk) {
+                const field_name = if (idx.fields.len > 0) idx.fields[0] else "??";
+                const msg = try std.fmt.allocPrint(alloc, "index '{s}' on [{s}] may be unused (no FK or unique constraint)", .{ idx.name, field_name });
+                try results.append(alloc, .{
+                    .rule = "index-unused",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
+
+pub fn checkCircularFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    var graph = std.StringHashMap(std.ArrayList([]const u8)).init(alloc);
+    defer {
+        var iter = graph.iterator();
+        while (iter.next()) |entry| {
+            entry.value_ptr.deinit(alloc);
+        }
+        graph.deinit();
+    }
+
+    for (ast.tables) |table| {
+        var targets = try std.ArrayList([]const u8).initCapacity(alloc, 4);
+        for (table.fields) |field| {
+            if (field.fk) |fk| {
+                try targets.append(alloc, fk.ref_table);
+            }
+        }
+        try graph.put(table.name, targets);
+    }
+
+    var visited = std.StringHashMap(void).init(alloc);
+    defer visited.deinit();
+    var path = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+    defer path.deinit(alloc);
+
+    for (ast.tables) |table| {
+        if (!visited.contains(table.name)) {
+            try detectCircularFkDfs(alloc, &visited, &path, &graph, table.name, results);
+        }
+    }
+}
+
+pub fn checkDuplicateIndex(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        if (table.indexes.len < 2) continue;
+
+        var i: usize = 0;
+        while (i < table.indexes.len) : (i += 1) {
+            var j: usize = i + 1;
+            while (j < table.indexes.len) : (j += 1) {
+                if (indexesEqual(table.indexes[i], table.indexes[j])) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates index '{s}' (same columns and type)", .{ table.indexes[j].name, table.indexes[i].name });
+                    try results.append(alloc, .{
+                        .rule = "duplicate-index",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+            }
+        }
+    }
+}
+
+pub fn checkIndexColumnMissing(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.indexes) |idx| {
+            for (idx.fields) |idx_field| {
+                var found = false;
+                for (table.fields) |field| {
+                    if (std.mem.eql(u8, field.name, idx_field)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' references column '{s}' which does not exist in table", .{ idx.name, idx_field });
+                    try results.append(alloc, .{
+                        .rule = "index-column-missing",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+            }
+        }
+    }
+}
+
+pub fn checkBoolDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Check if field is boolean type using type_info
+            const is_bool = field.type_info.isBoolean();
+            if (!is_bool) continue;
+
+            // Check if field has an explicit default value
+            const has_default = field.default_val != null;
+
+            if (!has_default) {
+                const msg = try std.fmt.allocPrint(alloc, "boolean column '{s}' has no explicit default value", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "bool-default",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
+
+pub fn checkViewNoSelect(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.views) |view| {
+        // Check if view query is empty or doesn't contain SELECT
+        const query = view.query;
+        if (query.len == 0) {
+            const msg = try std.fmt.allocPrint(alloc, "view '{s}' has empty query", .{view.name});
+            try results.append(alloc, .{
+                .rule = "view-no-select",
+                .table = view.name,
+                .message = msg,
+                .severity = .warning,
+            });
+            continue;
+        }
+        // Case-insensitive check for SELECT keyword
+        if (!containsIgnoreCase(query, "select")) {
+            const msg = try std.fmt.allocPrint(alloc, "view '{s}' query does not contain SELECT statement", .{view.name});
+            try results.append(alloc, .{
+                .rule = "view-no-select",
+                .table = view.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
+
+pub fn checkColumnDefaultRequired(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Skip PK fields
+            var is_pk = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
+                    is_pk = true;
+                    break;
+                }
+            }
+            if (is_pk) continue;
+
+            // Skip nullable fields
+            var is_nullable = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .nullable) {
+                    is_nullable = true;
+                    break;
+                }
+            }
+            if (is_nullable) continue;
+
+            // Skip fields with explicit default
+            if (field.default_val != null) continue;
+
+            // Non-PK, non-nullable field without default
+            const msg = try std.fmt.allocPrint(alloc, "column '{s}' has no explicit DEFAULT value", .{field.name});
+            try results.append(alloc, .{
+                .rule = "column-default-required",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+pub fn checkNullableColumnDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Skip PK fields
+            var is_pk = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) {
+                    is_pk = true;
+                    break;
+                }
+            }
+            if (is_pk) continue;
+
+            // Only check nullable fields
+            var is_nullable = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .nullable) {
+                    is_nullable = true;
+                    break;
+                }
+            }
+            if (!is_nullable) continue;
+
+            // Skip fields with explicit default
+            if (field.default_val != null) continue;
+
+            // Nullable field without explicit default — suggest adding NULL default for clarity
+            const msg = try std.fmt.allocPrint(alloc, "nullable column '{s}' has no explicit DEFAULT — consider adding `= null` for clarity", .{field.name});
+            try results.append(alloc, .{
+                .rule = "nullable-column-default",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
+pub fn checkFkNull(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Check if field has a FK reference
+            var has_fk = false;
+            for (table.fks) |fk| {
+                for (fk.fields) |col| {
+                    if (std.mem.eql(u8, col, field.name)) {
+                        has_fk = true;
+                        break;
+                    }
+                }
+                if (has_fk) break;
+            }
+            if (!has_fk) continue;
+
+            // Check if FK column is nullable
+            for (field.modifiers) |mod| {
+                if (mod.kind == .nullable) {
+                    const msg = try std.fmt.allocPrint(alloc, "foreign key column '{s}' is nullable — FK columns should typically be NOT NULL", .{field.name});
+                    try results.append(alloc, .{
+                        .rule = "fk-null",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .info,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+
+fn detectCircularFkDfs(
+    alloc: std.mem.Allocator,
+    visited: *std.StringHashMap(void),
+    path: *std.ArrayList([]const u8),
+    graph: *std.StringHashMap(std.ArrayList([]const u8)),
+    current: []const u8,
+    results: *std.ArrayList(LintResult),
+) !void {
+    try visited.put(current, {});
+    try path.append(alloc, current);
+
+    if (graph.get(current)) |targets| {
+        for (targets.items) |target| {
+            for (path.items) |path_node| {
+                if (std.mem.eql(u8, path_node, target)) {
+                    var cycle_desc = try std.ArrayList(u8).initCapacity(alloc, 128);
+                    defer cycle_desc.deinit(alloc);
+                    var in_cycle = false;
+                    for (path.items) |pn| {
+                        if (std.mem.eql(u8, pn, target)) in_cycle = true;
+                        if (in_cycle) {
+                            if (cycle_desc.items.len > 0) try cycle_desc.appendSlice(alloc, " -> ");
+                            try cycle_desc.appendSlice(alloc, pn);
+                        }
+                    }
+                    try cycle_desc.appendSlice(alloc, " -> ");
+                    try cycle_desc.appendSlice(alloc, target);
+                    const msg = try std.fmt.allocPrint(alloc, "circular FK chain detected: {s}", .{cycle_desc.items});
+                    try results.append(alloc, .{
+                        .rule = "circular-fk",
+                        .table = current,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    return;
+                }
+            }
+            if (!visited.contains(target)) {
+                try detectCircularFkDfs(alloc, visited, path, graph, target, results);
+            }
+        }
+    }
+
+    _ = path.pop();
+}
+
+fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
+    if (a.kind != b.kind) return false;
+    if (a.fields.len != b.fields.len) return false;
+    for (a.fields, 0..) |field_a, idx| {
+        if (!std.mem.eql(u8, field_a, b.fields[idx])) return false;
+    }
+    return true;
+}
+
+fn fieldHasIndex(table: ResolvedTable, field_name: []const u8) bool {
+    for (table.indexes) |idx| {
+        for (idx.fields) |idx_field| {
+            if (std.mem.eql(u8, idx_field, field_name)) return true;
+        }
+    }
+    return false;
+}
+
+fn isUpperSnakeCase(name: []const u8) bool {
+    var has_upper = false;
+    for (name) |c| {
+        if (std.ascii.isUpper(c)) has_upper = true;
+        if (std.ascii.isLower(c)) return false;
+    }
+    return has_upper;
+}
+
+fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len > haystack.len) return false;
+    const end = haystack.len - needle.len + 1;
+    var i: usize = 0;
+    while (i < end) : (i += 1) {
+        var match = true;
+        for (needle, 0..) |nc, j| {
+            if (std.ascii.toLower(haystack[i + j]) != std.ascii.toLower(nc)) {
+                match = false;
+                break;
+            }
+        }
+        if (match) return true;
+    }
+    return false;
+}

@@ -477,7 +477,11 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 
 | File | Lines | Responsibility |
 |------|-------|---------------|
-| `lint/rules.zig` | ~500 | 30 lint rules (no-pk, naming, no-index-fk, no-timestamps, wide-table, enum-case, count, fk-cascade, nullable-pk, orphan-type, index-unused, circular-fk, duplicate-index, empty-table, table-comment, serial-type, table-name-length, column-length, index-column-missing, naming-prefix, fk-naming, bool-default, view-no-select, column-default-required, index-naming, nullable-column-default, timestamp-naming, enum-value-naming, fk-null, cross-dialect-types) |
+| `lint/rules.zig` | ~130 | Data-driven dispatch table (`RULES` array), `RuleInfo`/`RULE_INFO`, helper functions (`isSnakeCase`, `isUpperSnakeCase`), `runAll()` orchestrator |
+| `lint/handlers/structural.zig` | ~120 | Structural rules: no-pk, no-timestamps, wide-table, count, empty-table, table-comment, table-name-length |
+| `lint/handlers/naming.zig` | ~120 | Naming rules: naming, naming-prefix, fk-naming, index-naming, timestamp-naming, enum-value-naming |
+| `lint/handlers/validation.zig` | ~300 | Validation rules: no-index-fk, fk-cascade, nullable-pk, enum-case, orphan-type, index-unused, circular-fk, duplicate-index, index-column-missing, bool-default, view-no-select, column-default-required, nullable-column-default, fk-null |
+| `lint/handlers/compat.zig` | ~80 | Compatibility rules: serial-type, column-length, cross-dialect-types |
 | `lint/config.zig` | ~300 | `LintConfig` struct with toggle flags, `LintRule` enum (single source of truth for rule names + descriptions + enable/disable), `LintRules` TOML config parsing, severity/threshold configuration |
 | `lint/format.zig` | ~160 | Output formatters: text (human-readable with summary line), JSON (machine-readable), SARIF (CI/CD integration) |
 | `lint/fix.zig` | ~180 | Auto-fix logic for fixable rules (no-pk, no-timestamps, empty-table) |

@@ -83,8 +83,6 @@ pub fn build(b: *std.Build) void {
     // ─── Golden Tests ────────────────────────────────────────────
     // Run all shell-based golden test suites via a single step.
     const golden_step = b.step("golden-tests", "Run all golden test suites (requires rune binary)");
-    const run_golden = b.addRunArtifact(exe);
-    run_golden.step.dependOn(b.getInstallStep());
     // The golden tests are shell scripts in tests/ — run them via bash
     // Use b.pathFromRoot to construct the correct path relative to the build file's directory
     const parent_dir = b.pathFromRoot("..");

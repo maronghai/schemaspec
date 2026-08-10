@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.208.0] - 2026-08-10
+
+### Changed
+- **Lint rules refactoring** — Split `lint/rules.zig` (1,052 lines) into 4 category-based handler modules: `lint/handlers/structural.zig` (7 rules), `lint/handlers/naming.zig` (6 rules), `lint/handlers/validation.zig` (14 rules), `lint/handlers/compat.zig` (3 rules). `lint/rules.zig` retains dispatch table, `RuleInfo`, `RULE_INFO`, and helper functions (~130 lines).
+- **Build system cleanup** — Removed unused `run_golden` artifact from `build.zig` that was never wired into any step.
+
+## [0.207.0] - 2026-08-10
+
+### Fixed
+- **Critical template inheritance bug** — Fixed arena allocator memory corruption caused by `BlockState.reset()` and `BlockState.deinit()` freeing `parents_buf` via `alloc.free()` while previously flushed templates still referenced it through `Template.parents` slices. All 5 template inheritance golden tests now pass (11-template-inherit, 12-template-deep, 13-template-extends, 51-inherit-override, 66-template-mixins).
+
+## [0.206.0] - 2026-08-10
+
+### Added
+- **Test coverage expansion** — Added unit tests for `dialect/enum.zig` (parseDialect, alias resolution, writeHeader), `utils.zig` (optionalStrEq, jsonEscapeString), `cli/types.zig` (Command enum, ParsedArgs defaults, COMMAND_REGISTRY, GlobalFlags). 20 new unit tests (1,548 total).
+
+### Changed
+- **Documentation accuracy** — Fixed stale documentation metrics across CLAUDE.md, README.md, ARCHITECTURE.md (test file count 93→100, test count 1,438+→1,548+).
+
 ## [0.205.0] - 2026-08-10
 
 ### Added
