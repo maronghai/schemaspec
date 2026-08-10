@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.234.0 (2026-08-11) — 60,000+ lines production Zig, 1,690+ tests, 41 lint rules, 38 test suites.
+**Current version**: 0.235.0 (2026-08-11) — 60,000+ lines production Zig, 1,705+ tests, 41 lint rules, 38 test suites.
 
 ---
 
@@ -250,6 +250,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.235.0** — Generator deduplication & lint test coverage: extracted `writeDetailedInfo` helper in `generator.zig` to consolidate detailed generator listing logic (used by `listDetailedTo`); added 10 new unit tests for 5 previously uncovered lint rules (cross-dialect-types, column-default-required, unique-constraint, composite-pk, view-no-alias); fixed version mismatch between `build.zig.zon` (was 0.233.0) and `VERSION` file; 1,705 unit tests pass, benchmarks show no regressions
 - **v0.234.0** — Architecture cleanup & code deduplication: extracted CLI error handling from `main.zig` into `cli/errors.zig` (reduced main.zig by 150 lines); added shared `writeSqlTypeString` helper to `generators/common.zig` (eliminates SQL type rendering duplication across generators); refactored `generators/docs.zig` and `generators/symbol_index.zig` to use shared helper; decomposed monolithic `lint/fix.zig` (370-line `fix()` function) into per-rule handler functions (`fixSerialType`, `fixBoolDefault`, `fixNullableColumnDefault`, `fixColumnDefaultRequired`, `fixNoIndexFk`) with extracted `buildFixMaps` pre-scan; expanded SARIF output in `lint/format.zig` to include all 41 lint rules (was 14); SARIF rule descriptions now derived from `LintRule.description()` (single source of truth); added 6 new unit tests for `cli/errors.zig`; 1,690+ unit tests pass, benchmarks show no regressions
 - **v0.233.0** — Generator metadata & lint bug fix: added `version` and `author` metadata fields to `Generator` struct (displayed in `rune generate --list` output); fixed `duplicate-column` auto-fix bug (was marked fixable but handler was not implemented — now properly removes duplicate column declarations); added `unique-constraint` lint rule (warns when a UNIQUE constraint targets a column that is already the primary key — redundant); added `composite-pk` lint rule (warns when a table has multiple auto-increment primary keys — invalid); 41 lint rules total, 11 fixable; 1,690+ unit tests pass, benchmarks show no regressions
 - **v0.232.0** — LSP inlay hints & architecture quality: added `textDocument/inlayHint` LSP support that shows resolved SQL types inline in the editor (e.g., `n` shows as `-> int`, `s64` shows as `-> varchar(64)`); added `InlayHint` type to LSP protocol; added `inlayHintProvider` capability to LSP initialize response; added 5 unit tests for inlay hint generation and serialization; added comment explaining generator listing duplication rationale; 1,685 unit tests pass, benchmarks show no regressions

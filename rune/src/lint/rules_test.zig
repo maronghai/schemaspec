@@ -1975,3 +1975,238 @@ test "lint: FK chain depth 4 triggers warning" {
     }
     try testing.expect(found);
 }
+
+// ─── cross-dialect-types tests ──────────────────────────────────
+
+test "lint: MySQL UNSIGNED type triggers cross-dialect warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("amount", .{ .simple = "unsigned" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "cross-dialect-types")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: TINYINT type triggers cross-dialect info" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "flags", &.{
+        makePkField("id"),
+        makeField("flag", .{ .simple = "tinyint" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "cross-dialect-types")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: cross-portable type passes cross-dialect check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.no_pk, false);
+    cfg.rules.setEnabled(.naming, false);
+    cfg.rules.setEnabled(.no_index_fk, false);
+    cfg.rules.setEnabled(.no_timestamps, false);
+    cfg.rules.setEnabled(.column_length, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "cross-dialect-types")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── column-default-required tests ─────────────────────────────
+
+test "lint: non-PK non-nullable column without default triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("name", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-default-required")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: nullable column passes column-default-required" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("bio", .{ .simple = "s" }, &.{.{ .kind = .nullable, .line_no = 1 }}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-default-required")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── unique-constraint tests ───────────────────────────────────
+
+test "lint: UNIQUE on PK column triggers redundancy warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{
+        makeIndex("uniq_id", .unique, &.{"id"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "unique-constraint")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: UNIQUE on non-PK column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("email"),
+    }, &.{
+        makeIndex("uniq_email", .unique, &.{"email"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "unique-constraint")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── composite-pk tests ────────────────────────────────────────
+
+test "lint: multiple auto-inc PKs triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "bad_table", &.{
+        makeField("id1", .{ .simple = "n" }, &.{.{ .kind = .auto_inc_pk, .line_no = 1 }}, null),
+        makeField("id2", .{ .simple = "n" }, &.{.{ .kind = .auto_inc_pk, .line_no = 1 }}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "composite-pk")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: single auto-inc PK passes composite-pk check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "composite-pk")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── view-no-alias tests ───────────────────────────────────────
+
+test "lint: view with AS alias passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = ast_mod.View{
+        .name = "user_view",
+        .query = "SELECT id AS user_id FROM users",
+        .comment = null,
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lintSchema(alloc, test_ast, cfg);
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-no-alias")) {
+            try testing.expect(false);
+        }
+    }
+}

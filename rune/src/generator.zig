@@ -143,9 +143,9 @@ pub fn listAll(writer: anytype) !void {
     }
 }
 
-/// Print detailed generator information including dialect support.
-/// Generic writer version — used by both stdout and stderr callers.
-pub fn listDetailedTo(writer: anytype) !void {
+/// Shared helper: write detailed generator info to any writer.
+/// Used by both `listDetailedTo` (fallible) and `listDetailedStderr` (infallible).
+fn writeDetailedInfo(writer: anytype) !void {
     try writer.print("Available generators:\n\n", .{});
     for (REGISTRY) |gen| {
         try writer.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
@@ -167,18 +167,15 @@ pub fn listDetailedTo(writer: anytype) !void {
     }
 }
 
-/// Print detailed generator information to stdout.
-pub fn listDetailed() !void {
-    const stdout = std.Io.getStdOut().writer();
-    try listDetailedTo(stdout);
+/// Print detailed generator information including dialect support.
+/// Generic writer version — used by both stdout and stderr callers.
+pub fn listDetailedTo(writer: anytype) !void {
+    try writeDetailedInfo(writer);
 }
 
 /// Print detailed generator information to stderr.
 /// Uses std.debug.print which always writes to stderr and ignores errors.
 pub fn listDetailedStderr() void {
-    // std.debug.print always writes to stderr and cannot fail.
-    // We duplicate the formatting logic here rather than calling listDetailedTo()
-    // because listDetailedTo() requires a fallible writer and returns !void.
     std.debug.print("Available generators:\n\n", .{});
     for (REGISTRY) |gen| {
         std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
