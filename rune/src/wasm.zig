@@ -22,6 +22,9 @@ const dialect_detect = @import("reverse/dialect_detect.zig");
 const diag = @import("semantic/diagnostic.zig");
 const stats_mod = @import("pipeline/stats.zig");
 const handlers = @import("pipeline/handlers.zig");
+const formatter = @import("formatter.zig");
+const tune_mod = @import("tune.zig");
+const generator = @import("generator.zig");
 
 // ─── WASM Library Entry Point ──────────────────────────────────
 // Compile-time entry point for wasm32-wasi target. Exports C-compatible
@@ -407,6 +410,86 @@ export fn rune_validate(schema_ptr: [*]const u8, schema_len: usize, options_ptr:
     return alloc.dupeZ(u8, json) catch null;
 }
 
+// ─── New Exports ──────────────────────────────────────────────
+
+/// Format a Rune .ss schema with consistent style.
+/// Returns formatted .ss text. No options needed (formatter is dialect-agnostic).
+export fn rune_format(schema_ptr: [*]const u8, schema_len: usize, _: [*]const u8, _: usize) ?[*:0]const u8 {
+    const alloc = gpa.allocator();
+    const schema = schema_ptr[0..schema_len];
+
+    last_error = null;
+    last_error_code = 0;
+
+    const output = formatter.format(alloc, schema) catch |err| {
+        storeError(alloc, @errorName(err));
+        return null;
+    };
+
+    return alloc.dupeZ(u8, output) catch null;
+}
+
+/// Auto-extract common fields into templates (tune).
+/// Returns .ss text with extracted template definitions.
+export fn rune_tune(schema_ptr: [*]const u8, schema_len: usize, _: [*]const u8, _: usize) ?[*:0]const u8 {
+    const alloc = gpa.allocator();
+    const schema = schema_ptr[0..schema_len];
+
+    last_error = null;
+    last_error_code = 0;
+
+    const output = tune_mod.tune(alloc, schema) catch |err| {
+        storeError(alloc, @errorName(err));
+        return null;
+    };
+
+    return alloc.dupeZ(u8, output) catch null;
+}
+
+/// Generate output using a named generator (prisma, drizzle, openapi, etc.).
+/// Options: "generator=<name> dialect=<dialect>".
+export fn rune_generate(schema_ptr: [*]const u8, schema_len: usize, options_ptr: [*]const u8, options_len: usize) ?[*:0]const u8 {
+    const alloc = gpa.allocator();
+    const schema = schema_ptr[0..schema_len];
+    const options = options_ptr[0..options_len];
+
+    last_error = null;
+    last_error_code = 0;
+
+    const dialect = parseDialectOption(options);
+    const gen_name = parseOption(options, "generator") orelse {
+        storeError(alloc, "missing generator option (e.g. generator=prisma)");
+        return null;
+    };
+
+    const gen = generator.get(gen_name) orelse {
+        storeError(alloc, "unknown generator");
+        return null;
+    };
+
+    // Compile schema
+    const result = pipeline.compilePipeline(alloc, schema, .{ .dialect = dialect, .run_semantic = true }) catch |err| {
+        storeError(alloc, @errorName(err));
+        return null;
+    };
+
+    // Resolve types
+    const typed = TypeResolver.resolve(alloc, result.resolved, dialect) catch |err| {
+        storeError(alloc, @errorName(err));
+        return null;
+    };
+
+    // Generate output
+    const output = gen.generate(alloc, typed, dialect) catch |err| {
+        storeError(alloc, @errorName(err));
+        return null;
+    };
+
+    return alloc.dupeZ(u8, output) catch null;
+}
+
+// ─── Tests ────────────────────────────────────────────────────
+
 test "parseOption" {
     try std.testing.expectEqualStrings("pg", parseOption("dialect=pg", "dialect").?);
     try std.testing.expectEqualStrings("mysql", parseOption("dialect=mysql format=sql", "dialect").?);
@@ -634,4 +717,84 @@ test "rune_last_error_code after success" {
 test "rune_last_error_code after reset" {
     rune_reset();
     try std.testing.expectEqual(@as(i32, 0), rune_last_error_code());
+}
+
+test "rune_format basic" {
+    const schema = "# users\nid n pk\nname s\n";
+    const result = rune_format(schema.ptr, schema.len, "", 0);
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        const formatted = std.mem.span(r);
+        try std.testing.expect(formatted.len > 0);
+        // Should be formatted with indentation
+        try std.testing.expect(std.mem.indexOf(u8, formatted, "  id") != null);
+    }
+    rune_reset();
+}
+
+test "rune_format already formatted" {
+    const schema = "# users\n  id n pk\n  name s\n";
+    const result = rune_format(schema.ptr, schema.len, "", 0);
+    try std.testing.expect(result != null);
+    rune_reset();
+}
+
+test "rune_tune extracts templates" {
+    const schema = "# user\nid p\nname s\nemail s\n\n# post\nid p\nname s\nemail s\ntitle s\n";
+    const result = rune_tune(schema.ptr, schema.len, "", 0);
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        const tuned = std.mem.span(r);
+        try std.testing.expect(std.mem.indexOf(u8, tuned, "% base") != null);
+    }
+    rune_reset();
+}
+
+test "rune_tune single table returns original" {
+    const schema = "# user\nid p\nname s\n";
+    const result = rune_tune(schema.ptr, schema.len, "", 0);
+    try std.testing.expect(result != null);
+    rune_reset();
+}
+
+test "rune_generate prisma" {
+    const schema = "# users\nid N ++\nname s\n";
+    const result = rune_generate(schema.ptr, schema.len, "generator=prisma dialect=pg", 28);
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        const output = std.mem.span(r);
+        try std.testing.expect(output.len > 0);
+        try std.testing.expect(std.mem.indexOf(u8, output, "model") != null);
+    }
+    rune_reset();
+}
+
+test "rune_generate json-schema" {
+    const schema = "# users\nid N ++\nname s\n";
+    const result = rune_generate(schema.ptr, schema.len, "generator=json-schema dialect=pg", 32);
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        const output = std.mem.span(r);
+        try std.testing.expect(output.len > 0);
+        try std.testing.expect(std.mem.indexOf(u8, output, "{") != null);
+    }
+    rune_reset();
+}
+
+test "rune_generate unknown generator" {
+    const schema = "# users\nid N ++\nname s\n";
+    const result = rune_generate(schema.ptr, schema.len, "generator=nonexistent", 21);
+    try std.testing.expect(result == null);
+    const err = rune_last_error();
+    try std.testing.expect(err != null);
+    rune_reset();
+}
+
+test "rune_generate missing generator option" {
+    const schema = "# users\nid N ++\nname s\n";
+    const result = rune_generate(schema.ptr, schema.len, "dialect=pg", 10);
+    try std.testing.expect(result == null);
+    const err = rune_last_error();
+    try std.testing.expect(err != null);
+    rune_reset();
 }

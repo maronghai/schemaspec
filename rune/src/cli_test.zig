@@ -15,7 +15,7 @@ test "parseArgs: --version returns version command" {
     const alloc = arena.allocator();
     const args = makeArgs(2, .{ "rune", "--version" });
     const result = try cli.parseArgs(alloc, &args);
-    try testing.expectEqual(Command.version, result.command);
+    try testing.expectEqual(Command{ .version = .{} }, result.command);
 }
 
 test "parseArgs: -v returns version command" {
@@ -24,7 +24,7 @@ test "parseArgs: -v returns version command" {
     const alloc = arena.allocator();
     const args = makeArgs(2, .{ "rune", "-v" });
     const result = try cli.parseArgs(alloc, &args);
-    try testing.expectEqual(Command.version, result.command);
+    try testing.expectEqual(Command{ .version = .{} }, result.command);
 }
 
 test "parseArgs: compile with input file" {

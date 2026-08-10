@@ -31,7 +31,7 @@ pub const Command = union(enum) {
     watch: struct { input: []const u8, interval_ms: u64 = 1000, output: ?[]const u8 = null, stream: bool = false, parallel: bool = false, trace: bool = false, stats: bool = false, json_errors: bool = false, recursive: bool = false },
     tune: struct { input: ?[]const u8 = null, dry_run: bool = false },
     lsp,
-    version,
+    version: struct { json: bool = false },
     help: struct { subcommand: ?[]const u8 = null },
 };
 

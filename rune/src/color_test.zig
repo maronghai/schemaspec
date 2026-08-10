@@ -40,7 +40,7 @@ test "ParsedArgs: default color is auto" {
     const args = cli.ParsedArgs{
         .dialect = .mysql,
         .target = .sql,
-        .command = .version,
+        .command = .{ .version = .{} },
         .quiet = false,
         .strict = false,
     };
@@ -51,7 +51,7 @@ test "ParsedArgs: color can be set to always" {
     const args = cli.ParsedArgs{
         .dialect = .mysql,
         .target = .sql,
-        .command = .version,
+        .command = .{ .version = .{} },
         .quiet = false,
         .strict = false,
         .color = .always,

@@ -205,8 +205,12 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
     }
 
     switch (parsed.command) {
-        .version => {
-            version.printVersion();
+        .version => |cmd| {
+            if (cmd.json) {
+                version.printVersionJson();
+            } else {
+                version.printVersion();
+            }
             return;
         },
         .help => |cmd| {

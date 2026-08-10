@@ -152,6 +152,7 @@ const FlagResult = struct {
     filtered_args: []const []const u8,
     // Boolean flags
     want_version: bool,
+    want_json: bool,
     want_stats: bool,
     want_quiet: bool,
     want_check: bool,
@@ -177,6 +178,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
     var import_paths = try std.ArrayList([]const u8).initCapacity(alloc, 4);
 
     var want_version = false;
+    var want_json = false;
     var want_stats = false;
     var want_quiet = false;
     var want_check = false;
@@ -201,6 +203,8 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
         // Each boolean flag sets a corresponding bool to true when matched.
         if (flag_reg.matchesFlag(arg, .{ .long = "--version", .short = "-v" })) {
             want_version = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--json" })) {
+            want_json = true;
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--stats", .short = "-s" })) {
             want_stats = true;
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--quiet", .short = "-q" })) {
@@ -317,6 +321,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
         .import_paths = try import_paths.toOwnedSlice(alloc),
         .filtered_args = try filtered.toOwnedSlice(alloc),
         .want_version = want_version,
+        .want_json = want_json,
         .want_stats = want_stats,
         .want_quiet = want_quiet,
         .want_check = want_check,
@@ -358,7 +363,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
 
     // --version flag
     if (flags.want_version) {
-        return buildParsedArgs(flags, .version);
+        return buildParsedArgs(flags, .{ .version = .{ .json = flags.want_json } });
     }
 
     // Build GlobalFlags for subcommand parsers

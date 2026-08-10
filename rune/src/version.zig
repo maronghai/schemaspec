@@ -9,3 +9,8 @@ pub const VERSION = build_options.VERSION;
 pub fn printVersion() void {
     std.debug.print("rune {s}\n", .{VERSION});
 }
+
+/// Print version as JSON to stderr.
+pub fn printVersionJson() void {
+    std.debug.print("{{\"version\":\"{s}\",\"binary\":\"rune\"}}\n", .{VERSION});
+}

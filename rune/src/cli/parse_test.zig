@@ -161,14 +161,14 @@ test "parseSimpleSubcommand: builds ParsedArgs correctly" {
     const result = parse.parseSimpleSubcommand(
         .pg,
         .sql,
-        .version,
+        .{ .version = .{} },
         .{ .dialect_was_explicit = true, .quiet = true, .stats = false, .check = false, .dry_run = false, .strict = false, .verbose_passes = false, .json_errors = false, .color = .auto, .format = .text, .validate_only = false, .import_paths = &.{} },
     );
     try testing.expectEqual(.pg, result.dialect);
     try testing.expect(result.dialect_was_explicit);
     try testing.expectEqual(types.Target.sql, result.target);
     try testing.expect(result.quiet);
-    try testing.expectEqual(types.Command{ .version = {} }, result.command);
+    try testing.expectEqual(types.Command{ .version = .{} }, result.command);
 }
 
 // ─── parseArgs Integration Tests ──────────────────────────────
@@ -178,7 +178,7 @@ test "parseArgs: version flag" {
     defer arena.deinit();
     const alloc = arena.allocator();
     const result = try parse.parseArgs(alloc, &.{ "rune", "--version" });
-    try testing.expectEqual(types.Command{ .version = {} }, result.command);
+    try testing.expectEqual(types.Command{ .version = .{} }, result.command);
 }
 
 test "parseArgs: no args defaults to compile" {

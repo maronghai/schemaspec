@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.213.0] - 2026-08-10
+
+### Added
+- **WASM API: `rune_format`** — New export that auto-formats .ss schema text with consistent style (indentation, blank lines, trailing whitespace).
+- **WASM API: `rune_tune`** — New export that auto-extracts common fields into template definitions.
+- **WASM API: `rune_generate`** — New export that runs pluggable generators (prisma, drizzle, openapi, etc.) via WASM. Options: `generator=<name> dialect=<dialect>`.
+- **CLI: `rune version --json`** — Machine-readable JSON output for version information.
+- **WASM test coverage** — Added 11 new unit tests for `rune_format`, `rune_tune`, `rune_generate` (including error cases).
+
 ## [0.210.0] - 2026-08-10
 
 ### Added

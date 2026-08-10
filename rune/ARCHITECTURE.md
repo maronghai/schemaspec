@@ -605,7 +605,18 @@ Rune supports multiple platforms via Zig's cross-compilation:
 WASM builds use a separate entry point (`src/wasm.zig`) instead of `src/main.zig`. The WASM module exports C-compatible functions:
 
 - `rune_compile(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — compile schema to SQL
+- `rune_diff(schema1_ptr, schema1_len, schema2_ptr, schema2_len, options_ptr, options_len) → ?[*:0]const u8` — diff two schemas
+- `rune_migrate(schema1_ptr, schema1_len, schema2_ptr, schema2_len, options_ptr, options_len) → ?[*:0]const u8` — generate migration SQL
+- `rune_reverse(sql_ptr, sql_len, options_ptr, options_len) → ?[*:0]const u8` — reverse-engineer SQL to .ss
+- `rune_lint(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — lint schema
+- `rune_format(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — format .ss schema text
+- `rune_tune(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — auto-extract templates
+- `rune_generate(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — generate via pluggable generator
+- `rune_stats(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — schema statistics as JSON
+- `rune_validate(schema_ptr, schema_len, options_ptr, options_len) → ?[*:0]const u8` — validate schema as JSON
 - `rune_version() → ?[*:0]const u8` — get version string
+- `rune_last_error() → ?[*:0]const u8` — get last error message
+- `rune_last_error_code() → i32` — get numeric error code (0=success, 1=syntax, 2=type, 3=FK, 4=semantic, 5=unknown)
 - `rune_reset() → void` — free all allocated memory
 
 Key WASM adaptations:
