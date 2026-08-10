@@ -319,11 +319,11 @@ pub fn parseLintRules(alloc: std.mem.Allocator, data: []const u8) !LintRulesConf
                 const key = std.mem.trim(u8, line[0..eq_pos], " \t");
                 const val_str = std.mem.trim(u8, line[eq_pos + 1 ..], " \t");
                 if (std.mem.eql(u8, key, "wide_table_max")) {
-                    result.thresholds.wide_table_max = std.fmt.parseInt(usize, val_str, 10) catch null;
+                    result.thresholds.wide_table_max = std.fmt.parseInt(usize, val_str, 10) catch return error.InvalidConfigValue;
                 } else if (std.mem.eql(u8, key, "count_min")) {
-                    result.thresholds.count_min = std.fmt.parseInt(usize, val_str, 10) catch null;
+                    result.thresholds.count_min = std.fmt.parseInt(usize, val_str, 10) catch return error.InvalidConfigValue;
                 } else if (std.mem.eql(u8, key, "table_name_max")) {
-                    result.thresholds.table_name_max = std.fmt.parseInt(usize, val_str, 10) catch null;
+                    result.thresholds.table_name_max = std.fmt.parseInt(usize, val_str, 10) catch return error.InvalidConfigValue;
                 }
             }
             continue;

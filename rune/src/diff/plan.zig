@@ -53,6 +53,8 @@ pub const MigrationPlan = struct {
 
     pub const DropType = struct {
         name: []const u8,
+        /// Type definition for rollback inversion (preserves type_def for create_type inversion).
+        type_def: ?ast_mod.CustomType = null,
     };
 
     pub const CreateType = struct {
@@ -115,7 +117,7 @@ pub fn planFromDiff(
     // 4. Custom type diffs → drop/create/modify_type operations
     for (d.custom_type_diffs) |ctd| {
         switch (ctd.action) {
-            .drop => ops.appendAssumeCapacity(.{ .drop_type = .{ .name = ctd.name } }),
+            .drop => ops.appendAssumeCapacity(.{ .drop_type = .{ .name = ctd.name, .type_def = ctd.old_type } }),
             .add => {
                 if (ctd.new_type) |new_t| {
                     ops.appendAssumeCapacity(.{ .create_type = .{ .name = ctd.name, .type_def = new_t } });
@@ -161,7 +163,21 @@ pub fn invertPlan(
             .drop_view => |dv| ops.appendAssumeCapacity(.{ .create_view = .{ .name = dv.name } }),
             .create_view => |cv| ops.appendAssumeCapacity(.{ .drop_view = .{ .name = cv.name } }),
             .modify_view => |mv| ops.appendAssumeCapacity(.{ .modify_view = .{ .name = mv.name } }),
-            .drop_type => |dt| ops.appendAssumeCapacity(.{ .create_type = .{ .name = dt.name, .type_def = undefined } }),
+            .drop_type => |dt| {
+                // When rolling back a drop_type, we need to recreate the type.
+                // If type_def is available (from plan generation), use it.
+                // Otherwise, create a minimal placeholder (type was not tracked).
+                if (dt.type_def) |td| {
+                    ops.appendAssumeCapacity(.{ .create_type = .{ .name = dt.name, .type_def = td } });
+                } else {
+                    ops.appendAssumeCapacity(.{ .create_type = .{ .name = dt.name, .type_def = .{
+                        .name = dt.name,
+                        .base = .{ .simple = "s" },
+                        .dialect_overrides = &.{},
+                        .line_no = 0,
+                    } } });
+                }
+            },
             .create_type => |ct| ops.appendAssumeCapacity(.{ .drop_type = .{ .name = ct.name } }),
             .modify_type => |mt| ops.appendAssumeCapacity(.{ .modify_type = .{ .name = mt.name, .old_type = mt.new_type, .new_type = mt.old_type } }),
             .alter_table => |at| {
@@ -453,18 +469,27 @@ test "planFromDiff: custom type add" {
 }
 
 test "planFromDiff: custom type drop" {
+    const old_ct = ast_mod.CustomType{
+        .name = "status_t",
+        .base = .{ .simple = "s" },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
     const d = types.SchemaDiff{
         .table_diffs = &[_]types.TableDiff{},
         .dropped_tables = &[_][]const u8{},
         .view_diffs = &[_]types.ViewDiff{},
         .custom_type_diffs = &[_]types.CustomTypeDiff{
-            types.CustomTypeDiff{ .name = "status_t", .action = .drop, .old_type = null, .new_type = null },
+            types.CustomTypeDiff{ .name = "status_t", .action = .drop, .old_type = old_ct, .new_type = null },
         },
     };
     const plan = try planFromDiff(testing.allocator, d);
     defer testing.allocator.free(plan.operations);
     try testing.expectEqual(@as(usize, 1), plan.operations.len);
     try testing.expectEqualStrings("status_t", plan.operations[0].drop_type.name);
+    // Verify type_def is preserved for rollback
+    try testing.expect(plan.operations[0].drop_type.type_def != null);
+    try testing.expectEqualStrings("status_t", plan.operations[0].drop_type.type_def.?.name);
 }
 
 test "planFromDiff: custom type modify" {
@@ -517,4 +542,31 @@ test "invertPlan: custom type operations" {
     try testing.expectEqual(@as(usize, 1), inv.operations.len);
     // create_type inverted to drop_type
     try testing.expectEqualStrings("status_t", inv.operations[0].drop_type.name);
+}
+
+test "invertPlan: custom type drop preserves type_def" {
+    const old_ct = ast_mod.CustomType{
+        .name = "status_t",
+        .base = .{ .simple = "s" },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const d = types.SchemaDiff{
+        .table_diffs = &[_]types.TableDiff{},
+        .dropped_tables = &[_][]const u8{},
+        .view_diffs = &[_]types.ViewDiff{},
+        .custom_type_diffs = &[_]types.CustomTypeDiff{
+            types.CustomTypeDiff{ .name = "status_t", .action = .drop, .old_type = old_ct, .new_type = null },
+        },
+    };
+    const plan = try planFromDiff(testing.allocator, d);
+    defer testing.allocator.free(plan.operations);
+
+    const inv = try invertPlan(testing.allocator, plan);
+    defer testing.allocator.free(inv.operations);
+    try testing.expectEqual(@as(usize, 1), inv.operations.len);
+    // drop_type inverted to create_type with type_def preserved
+    try testing.expectEqualStrings("status_t", inv.operations[0].create_type.name);
+    try testing.expectEqualStrings("status_t", inv.operations[0].create_type.type_def.name);
+    try testing.expectEqualStrings("s", inv.operations[0].create_type.type_def.base.simple);
 }

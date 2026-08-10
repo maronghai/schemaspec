@@ -82,10 +82,7 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
         .io = io,
         .dialect = parsed.dialect,
         .json_errors = false,
-    }) catch {
-        fmt.printError("schema", "failed to compile schema");
-        std.process.exit(1);
-    };
+    }) catch return error.DiagnosticsError;
     const results = try lint_mod.lintSchema(alloc, pipeline.resolved, lint_cfg);
 
     // When --fix is active, skip normal output (fix summary goes to stderr)
@@ -98,10 +95,7 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
                 .io = io,
                 .dialect = parsed.dialect,
                 .json_errors = false,
-            }) catch {
-                fmt.printError("schema", "failed to compile schema");
-                std.process.exit(1);
-            };
+            }) catch return error.DiagnosticsError;
             const results2 = try lint_mod.lintSchema(alloc, pipeline2.resolved, lint_cfg);
             const diff = try lint_mod.lintDiff(results.items, results2.items, alloc);
             try lintOutput(io, alloc, diff.added, cmd.format, cmd.json_errors, cmd.input2, use_color, parsed.quiet);
@@ -123,12 +117,12 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
                 const results2_s = try lint_mod.lintSchema(alloc, p2.resolved, lint_cfg);
                 const diff_s = try lint_mod.lintDiff(results.items, results2_s.items, alloc);
                 for (diff_s.added) |r| {
-                    if (r.severity == .warning) std.process.exit(1);
+                    if (r.severity == .warning) return error.StrictWarnings;
                 }
             }
         } else {
             for (results.items) |r| {
-                if (r.severity == .warning) std.process.exit(1);
+                if (r.severity == .warning) return error.StrictWarnings;
             }
         }
     }
@@ -142,10 +136,7 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
             std.Io.Dir.cwd().writeFile(io, .{
                 .sub_path = input_path,
                 .data = fixed.source,
-            }) catch {
-                fmt.printError("io", "failed to write fixed file");
-                std.process.exit(1);
-            };
+            }) catch return error.AccessDenied;
         }
         for (fixed.fixes) |fix| {
             std.debug.print("fixed: [{s}] {s} — {s}\n", .{ fix.rule, fix.table, fix.description });
@@ -202,9 +193,6 @@ fn initLintConfig(io: std.Io, alloc: std.mem.Allocator) !void {
     std.Io.Dir.cwd().writeFile(io, .{
         .sub_path = ".rune-lint.toml",
         .data = content,
-    }) catch {
-        fmt.printError("io", "failed to write .rune-lint.toml");
-        std.process.exit(1);
-    };
+    }) catch return error.AccessDenied;
     std.debug.print("Created .rune-lint.toml\n", .{});
 }

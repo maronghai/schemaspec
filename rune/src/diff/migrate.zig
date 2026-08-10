@@ -472,13 +472,24 @@ fn emitEnumValues(
     type_def: ast_mod.CustomType,
     dialect: Dialect,
 ) !void {
-    // For now, we support simple enum types where base is the enum values
-    // The custom type definition stores the base type info
-    // In Rune syntax: ~ status : s { active, inactive, pending }
-    // The enum values are part of the type definition
-    // Since we don't have direct access to enum values in CustomType,
-    // we emit a placeholder that will be replaced when the full type system is available
-    _ = type_def;
     _ = dialect;
-    try w.writeAll("'-- values --'");
+    // Extract enum values from the type definition.
+    // In Rune syntax: ~ status : s { active, inactive, pending }
+    // The enum values are stored in base.enum_type
+    switch (type_def.base) {
+        .enum_type => |values| {
+            for (values, 0..) |val, i| {
+                if (i > 0) try w.writeAll(", ");
+                try w.writeAll("'");
+                try w.writeAll(val);
+                try w.writeAll("'");
+            }
+        },
+        else => {
+            // Non-enum base type — emit placeholder with type info
+            try w.writeAll("'-- type: ");
+            try w.writeAll(@tagName(type_def.base));
+            try w.writeAll(" --'");
+        },
+    }
 }

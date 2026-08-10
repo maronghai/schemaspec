@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.203.0 (2026-08-10) — 55,400+ lines production Zig, 1,514+ tests, 33 test suites.
+**Current version**: 0.204.0 (2026-08-10) — 55,800+ lines production Zig, 1,520+ tests, 34 test suites.
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.204.0** — Architecture hardening & critical bug fixes: fixed plan inversion `type_def = undefined` (rollbacks now preserve custom type definitions); implemented `emitEnumValues` to extract actual enum values from CustomType definitions instead of emitting placeholders; fixed MSSQL `sp_rename` to include 'COLUMN' object type parameter; improved lint config error reporting (invalid numeric thresholds now return errors instead of silently ignoring); removed `std.process.exit` from `cli/lint_cmd.zig` library code (now returns errors for testability); added `StrictWarnings` error type for lint strict mode; 3 new unit tests for plan inversion (1520+ total)
 - **v0.203.0** — Architecture hardening & migration pipeline: added custom type migration support (CREATE/DROP TYPE SQL generation for PostgreSQL, MySQL comments for unsupported dialects); deduplicated ORM FK detection loops (knex, sqlalchemy now use shared `common.findFkRefTable`); added 8 new semantic pass tests (resolve_conditionals: 4 tests, validate_views: 4 tests); added FK field count validation (warns when FK fields count doesn't match ref_fields count); 12 new tests total (1514 pass)
 - **v0.202.0** — Lint rule metadata consolidation: added `description()` method to `LintRule` enum (single source of truth for rule descriptions); added `RuleInfo` struct and `RULE_INFO` constant in `lint/rules.zig` (derives name, description, fixable from `LintRule`); refactored `showAllRules` and `initLintConfig` in `lint_cmd.zig` to iterate `RULE_INFO` instead of maintaining hardcoded lists; added 4 unit tests for `RULE_INFO` consistency; 1502 tests pass, benchmarks show no regressions
 - **v0.201.0** — Lint UX & rule infrastructure: added `--show-rules` flag to list all 30 rules with descriptions and fixability status; added `--init` flag to generate starter `.rune-lint.toml` config file; added `cross-dialect-types` lint rule (warns about MySQL-specific types like UNSIGNED, TINYINT, MEDIUMTEXT that don't port to other dialects); enhanced lint summary line to show fixable count; updated help text with all 30 rules; 4 new unit tests

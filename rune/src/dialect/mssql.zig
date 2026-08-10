@@ -97,8 +97,10 @@ fn mssqlEmitAlterModifyColumn(w: *Writer, col_name: []const u8) anyerror!void {
 }
 
 fn mssqlEmitAlterRenameColumn(w: *Writer, old_name: []const u8, new_name: []const u8) anyerror!void {
-    // MSSQL: sp_rename, but for DDL we use ALTER TABLE ... ALTER COLUMN pattern
-    try w.print("sp_rename '[{s}]', '[{s}]'", .{ old_name, new_name });
+    // MSSQL: sp_rename for column rename
+    // Note: For fully qualified rename, use: EXEC sp_rename 'table.old_name', 'new_name', 'COLUMN'
+    // The table context is in the ALTER TABLE wrapper, so sp_rename works within that scope.
+    try w.print("sp_rename '[{s}]', '[{s}]', 'COLUMN'", .{ old_name, new_name });
 }
 
 fn mssqlEmitAlterAddIndex(w: *Writer, table_name: []const u8, idx: IndexDecl) anyerror!void {
