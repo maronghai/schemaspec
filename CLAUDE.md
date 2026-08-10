@@ -66,6 +66,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune validate schema.ss               # Validate schema (no output)
 ./rune/zig-out/bin/rune validate schema.ss -s            # Validate with stats
 ./rune/zig-out/bin/rune validate schema.ss --format json # Validate as JSON
+./rune/zig-out/bin/rune validate schema.ss --format sarif # Validate as SARIF
 ./rune/zig-out/bin/rune stats schema.ss                  # Print schema statistics
 ./rune/zig-out/bin/rune stats schema.ss --format json    # Stats as JSON
 ./rune/zig-out/bin/rune stats schema.ss --per-table      # Per-table breakdown
@@ -97,8 +98,10 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune generate schema.ss --dry-run     # Preview generate output without writing
 ./rune/zig-out/bin/rune watch schema.ss                   # Watch file and recompile on change
 ./rune/zig-out/bin/rune watch schema.ss --interval 500    # Watch with 500ms polling interval
-./rune/zig-out/bin/rune watch schema.ss --parallel        # Watch with parallel compilation
-./rune/zig-out/bin/rune watch schema.ss -s                # Watch with compilation stats
+./rune/zig-out/bin/rune watch schema.ss --stream           # Watch with streaming compilation
+./rune/zig-out/bin/rune watch schema.ss --parallel         # Watch with parallel compilation
+./rune/zig-out/bin/rune watch schema.ss -s                 # Watch with compilation stats
+./rune/zig-out/bin/rune watch schemas/ --recursive         # Watch directory recursively
 ./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues (30 rules)
 ./rune/zig-out/bin/rune lint schema.ss --fix              # Lint and auto-fix issues (8 rules: no-pk, no-timestamps, empty-table, serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing)
 ./rune/zig-out/bin/rune lint schema.ss --fix --dry-run    # Preview fixes without writing

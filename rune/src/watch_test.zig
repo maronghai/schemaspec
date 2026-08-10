@@ -11,8 +11,11 @@ test "WatchConfig defaults" {
     try testing.expectEqual(false, cfg.trace);
     try testing.expectEqual(false, cfg.stats);
     try testing.expectEqual(false, cfg.json_errors);
+    try testing.expectEqual(false, cfg.stream);
+    try testing.expectEqual(false, cfg.parallel);
     try testing.expectEqual(@as(?[]const u8, null), cfg.output_path);
     try testing.expectEqual(false, cfg.recursive);
+    try testing.expectEqual(@as(usize, 0), cfg.import_paths.len);
 }
 
 test "WatchConfig with custom values" {
@@ -47,6 +50,25 @@ test "WatchConfig with parallel" {
         .parallel = true,
     };
     try testing.expectEqual(true, cfg.parallel);
+}
+
+test "WatchConfig with stream" {
+    const cfg = watch.WatchConfig{
+        .input = "test.ss",
+        .stream = true,
+    };
+    try testing.expectEqual(true, cfg.stream);
+}
+
+test "WatchConfig with import_paths" {
+    const paths = &[_][]const u8{ "/path/a", "/path/b" };
+    const cfg = watch.WatchConfig{
+        .input = "test.ss",
+        .import_paths = paths,
+    };
+    try testing.expectEqual(@as(usize, 2), cfg.import_paths.len);
+    try testing.expectEqualStrings("/path/a", cfg.import_paths[0]);
+    try testing.expectEqualStrings("/path/b", cfg.import_paths[1]);
 }
 
 test "WatchConfig with recursive" {

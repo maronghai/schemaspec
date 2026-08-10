@@ -119,6 +119,7 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
 pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     if (fargs.len < 2) return error.MissingArgs;
     var interval_ms: u64 = 1000;
+    var stream = false;
     var parallel = false;
     var trace = false;
     var stats = false;
@@ -129,6 +130,8 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
         if (std.mem.eql(u8, fargs[j], "--interval") and j + 1 < fargs.len) {
             interval_ms = std.fmt.parseInt(u64, fargs[j + 1], 10) catch 1000;
             j += 1;
+        } else if (std.mem.eql(u8, fargs[j], "--stream")) {
+            stream = true;
         } else if (std.mem.eql(u8, fargs[j], "--parallel")) {
             parallel = true;
         } else if (std.mem.eql(u8, fargs[j], "--trace") or std.mem.eql(u8, fargs[j], "-t")) {
@@ -149,6 +152,7 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
             .input = fargs[1],
             .interval_ms = interval_ms,
             .output = shared.parseOutputFlag(fargs, 2),
+            .stream = stream,
             .parallel = parallel,
             .trace = trace,
             .stats = stats,

@@ -2,6 +2,7 @@ const std = @import("std");
 const handlers = @import("pipeline/handlers.zig");
 const io_mod = @import("io.zig");
 const dialect_enum = @import("dialect/enum.zig");
+const color_mod = @import("color.zig");
 const fmt = @import("diagnostic/format.zig");
 
 // ─── Watch Mode ───────────────────────────────────────────────
@@ -29,10 +30,16 @@ pub const WatchConfig = struct {
     stats: bool = false,
     /// JSON error output.
     json_errors: bool = false,
+    /// Streaming compilation (output SQL as each table resolves).
+    stream: bool = false,
     /// Use parallel streaming compilation (compile independent tables concurrently).
     parallel: bool = false,
     /// Watch directory recursively instead of a single file.
     recursive: bool = false,
+    /// Import search paths for @import directives.
+    import_paths: []const []const u8 = &.{},
+    /// Color mode for output.
+    color: color_mod.ColorMode = .auto,
 };
 
 /// Hash file content for change detection.
@@ -53,8 +60,10 @@ fn compileOnce(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig, input: []
         .stats = cfg.stats,
         .quiet = cfg.quiet,
         .json_errors = cfg.json_errors,
-        .stream = cfg.parallel,
+        .stream = cfg.stream or cfg.parallel,
         .parallel = cfg.parallel,
+        .import_paths = cfg.import_paths,
+        .color = cfg.color.shouldUseColor(io),
     }) catch |err| {
         if (!cfg.quiet) {
             fmt.printError("compile", "compilation failed");

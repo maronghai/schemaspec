@@ -112,6 +112,7 @@ pub fn handleCompileRequest(
 /// With strict=false (default validate): always succeeds (exit 0), prints errors but doesn't fail.
 /// With strict=true (check mode): returns error.DiagnosticsError on errors (exit 1).
 /// With json_errors=true or format=.json: outputs JSON result instead of text.
+/// With format=.sarif: outputs SARIF result for CI/CD integration.
 pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, cfg: ValidateConfig) !void {
     const result = compilePipeline(alloc, file_data, .{ .verbose_passes = cfg.verbose_passes, .json_errors = cfg.json_errors }) catch |err| {
         if (err == error.DiagnosticsError or err == error.SemanticError) {
@@ -119,6 +120,9 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
                 const s = Stats{ .tables = 0, .fields = 0, .views = 0, .not_null_fields = 0, .numeric_fields = 0, .string_fields = 0, .datetime_fields = 0, .boolean_fields = 0, .other_fields = 0, .foreign_keys = 0, .indexes = 0, .check_constraints = 0, .custom_types = 0 };
                 const json = try formatValidateResult(alloc, false, s, 1);
                 try io_mod.writeOutput(io, json, null, false);
+            } else if (cfg.format == .sarif) {
+                const sarif = try formatValidateSarif(alloc, false, 1);
+                try io_mod.writeOutput(io, sarif, null, false);
             } else {
                 fmt.printError("schema", "has errors");
             }
@@ -131,6 +135,10 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
     if (cfg.json_errors or cfg.format == .json) {
         const json = try formatValidateResult(alloc, !result.partial, s, if (result.partial) @min(result.tree.error_count, std.math.maxInt(u32)) else 0);
         try io_mod.writeOutput(io, json, null, false);
+    } else if (cfg.format == .sarif) {
+        const error_count: u32 = if (result.partial) @min(result.tree.error_count, std.math.maxInt(u32)) else 0;
+        const sarif = try formatValidateSarif(alloc, !result.partial, error_count);
+        try io_mod.writeOutput(io, sarif, null, false);
     } else {
         if (cfg.stats or cfg.per_table) {
             printStats(s);
@@ -161,7 +169,7 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
     if (per_table) {
         const table_stats = stats_mod.computePerTableStats(result.resolved);
         switch (format) {
-            .json => {
+            .json, .sarif => {
                 const json = try stats_mod.formatPerTableStatsJson(alloc, table_stats);
                 try io_mod.writeOutput(io, json, null, false);
             },
@@ -177,7 +185,7 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
     }
 
     switch (format) {
-        .json => {
+        .json, .sarif => {
             const json = try stats_mod.formatStatsJson(alloc, s);
             try io_mod.writeOutput(io, json, null, false);
         },
@@ -206,6 +214,55 @@ pub fn formatValidateResult(alloc: std.mem.Allocator, valid: bool, s: Stats, err
         s.fields,
         s.views,
     });
+}
+
+/// Format validate/check result as SARIF (Static Analysis Results Interchange Format).
+pub fn formatValidateSarif(alloc: std.mem.Allocator, valid: bool, error_count: u32) ![]const u8 {
+    const version = @import("../version.zig");
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    const w = &aw.writer;
+
+    try w.writeAll("{\n");
+    try w.writeAll("  \"$schema\": \"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json\",\n");
+    try w.writeAll("  \"version\": \"2.1.0\",\n");
+    try w.writeAll("  \"runs\": [{\n");
+    try w.writeAll("    \"tool\": {\n");
+    try w.writeAll("      \"driver\": {\n");
+    try w.writeAll("        \"name\": \"rune\",\n");
+    try w.writeAll("        \"informationUri\": \"https://github.com/rune-lang/rune\",\n");
+    try w.print("        \"version\": \"{s}\"\n", .{version.VERSION});
+    try w.writeAll("      }\n");
+    try w.writeAll("    },\n");
+    try w.writeAll("    \"results\": [");
+
+    if (!valid and error_count > 0) {
+        try w.writeAll("\n      {\n");
+        try w.writeAll("        \"ruleId\": \"schema/validation-error\",\n");
+        try w.writeAll("        \"level\": \"error\",\n");
+        try w.writeAll("        \"message\": {\n");
+        try w.writeAll("          \"text\": \"Schema validation failed\"\n");
+        try w.writeAll("        },\n");
+        try w.writeAll("        \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"schema.ss\"}}}]\n");
+        try w.writeAll("      }\n");
+    }
+
+    try w.writeAll("    ],\n");
+    try w.writeAll("    \"invocations\": [{\n");
+    try w.writeAll("      \"executionSuccessful\": true,\n");
+    try w.writeAll("      \"toolExecutionNotifications\": [");
+    if (!valid) {
+        try w.writeAll("\n        {\n");
+        try w.writeAll("          \"level\": \"error\",\n");
+        try w.print("          \"text\": \"Schema has {d} error(s)\"\n", .{error_count});
+        try w.writeAll("        }\n");
+    }
+    try w.writeAll("      ]\n");
+    try w.writeAll("    }]\n");
+    try w.writeAll("  }]\n");
+    try w.writeAll("}\n");
+
+    try w.flush();
+    return try aw.toOwnedSlice();
 }
 
 /// Compile a schema and run a named generator on it. Handles the full pipeline:

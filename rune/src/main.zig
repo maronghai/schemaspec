@@ -389,8 +389,11 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 .trace = cmd.trace,
                 .stats = cmd.stats,
                 .json_errors = cmd.json_errors,
+                .stream = cmd.stream,
                 .parallel = cmd.parallel,
                 .recursive = cmd.recursive,
+                .import_paths = parsed.import_paths,
+                .color = parsed.color,
             });
         },
         .tune => |cmd| {

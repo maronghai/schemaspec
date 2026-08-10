@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.210.0 (2026-08-10) — 56,500+ lines production Zig, 1,560+ tests, 34 test suites.
+**Current version**: 0.211.0 (2026-08-10) — 56,500+ lines production Zig, 1,575+ tests, 34 test suites.
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.211.0** — Watch command enhancement & quality improvements: fixed watch mode missing `--import-path` support (schemas with @import directives now work correctly in watch mode); added `--stream` flag to watch command for streaming compilation (decoupled from `--parallel`); added color mode support to watch command; added SARIF format output for `rune validate --format sarif` (CI/CD integration); added new watch module unit tests (stream, import_paths); 1,575 unit tests pass
 - **v0.210.0** — WASM API completeness & bug fixes: added `rune_stats` export (compile schema, return statistics as JSON), `rune_validate` export (validate schema, return results as JSON), `rune_last_error_code` export (numeric error codes for programmatic error handling); fixed parser memory leak in `stripEngineTokens`; refactored WASM module to use new format modules; extracted option-parsing helpers to reduce boilerplate; 15+ new WASM unit tests (1,560+ total)
 - **v0.209.0** — Parser memory leak fix & error output unification: fixed `BlockState.reset()` in `parser.zig` that allocated a new `parents_buf` on each call without reusing capacity (changed to fixed-size `[4][]const u8` array); fixed `parseTemplateHeader` in `parse_template.zig` to properly free temporary `parents_buf` allocation; unified config warnings in `config.zig` to use `fmt.printWarn` from `diagnostic/format.zig`; 1,548 unit tests pass
 - **v0.208.0** — Lint rules refactoring & build cleanup: split `lint/rules.zig` (1,052 lines) into 4 category-based handler modules (`structural.zig`, `naming.zig`, `validation.zig`, `compat.zig`); removed unused `run_golden` artifact from `build.zig`; 1,548 unit tests pass
