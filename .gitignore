@@ -64,3 +64,4 @@ plans/
 
 rune/.zig-cache/
 rune/rune
+.zig-cache

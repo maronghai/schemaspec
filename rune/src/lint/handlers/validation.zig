@@ -436,6 +436,28 @@ pub fn checkEnumEmpty(alloc: std.mem.Allocator, results: *std.ArrayList(LintResu
     }
 }
 
+pub fn checkDuplicateColumn(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Track seen column names
+        var seen = std.StringHashMap(void).init(alloc);
+        defer seen.deinit();
+
+        for (table.fields) |field| {
+            if (seen.contains(field.name)) {
+                const msg = try std.fmt.allocPrint(alloc, "duplicate column name '{s}' in table", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "duplicate-column",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            } else {
+                try seen.put(field.name, {});
+            }
+        }
+    }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 fn detectCircularFkDfs(

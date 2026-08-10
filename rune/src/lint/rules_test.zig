@@ -1587,3 +1587,131 @@ test "custom type diff: detects dropped types" {
     try testing.expect(result.custom_type_diffs[0].action == .drop);
     try testing.expectEqualStrings("STATUS", result.custom_type_diffs[0].name);
 }
+
+// ─── view-naming tests ──────────────────────────────────────────
+
+test "lint: view with bad naming triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = ast_mod.View{
+        .name = "user_data",
+        .query = "SELECT * FROM users",
+        .comment = null,
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-naming")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: view with _view suffix passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = ast_mod.View{
+        .name = "user_view",
+        .query = "SELECT * FROM users",
+        .comment = null,
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: view with v_ prefix passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const view = ast_mod.View{
+        .name = "v_users",
+        .query = "SELECT * FROM users",
+        .comment = null,
+        .line_no = 1,
+    };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = &.{},
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── duplicate-column tests ──────────────────────────────────────
+
+test "lint: duplicate column name triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("name", .{ .simple = "s100" }, &.{}, null),
+        makeField("name", .{ .simple = "s50" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "duplicate-column")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: no duplicate column names passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("name", .{ .simple = "s100" }, &.{}, null),
+        makeField("email", .{ .simple = "s100" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "duplicate-column")) {
+            try testing.expect(false);
+        }
+    }
+}

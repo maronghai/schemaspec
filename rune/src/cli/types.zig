@@ -289,7 +289,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
     },
     .{
         .usage = "[input.ss] [--fix] [--dry-run] [--strict] [--format json|sarif] [--rules <file>]",
-        .description = "Lint schema for quality issues (33 rules)",
+        .description = "Lint schema for quality issues (35 rules)",
         .options = &.{
             "  --json-errors   Output results as JSON (machine-readable)",
             "  --strict        Exit 1 if any warnings found (for CI/CD)",

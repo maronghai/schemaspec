@@ -88,6 +88,9 @@ const RULES = [_]RuleEntry{
     .{ .rule = .view_no_alias, .handler = validation.checkViewNoAlias },
     .{ .rule = .fk_self_reference, .handler = validation.checkFkSelfReference },
     .{ .rule = .enum_empty, .handler = validation.checkEnumEmpty },
+    .{ .rule = .duplicate_column, .handler = validation.checkDuplicateColumn },
+    // Naming rules (continued)
+    .{ .rule = .view_naming, .handler = naming.checkViewNaming },
 };
 
 /// Run all enabled lint checks on a resolved schema.

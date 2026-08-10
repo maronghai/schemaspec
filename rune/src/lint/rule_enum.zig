@@ -40,6 +40,8 @@ pub const LintRule = enum {
     view_no_alias,
     fk_self_reference,
     enum_empty,
+    view_naming,
+    duplicate_column,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -77,6 +79,8 @@ pub const LintRule = enum {
             .view_no_alias => "view-no-alias",
             .fk_self_reference => "fk-self-reference",
             .enum_empty => "enum-empty",
+            .view_naming => "view-naming",
+            .duplicate_column => "duplicate-column",
         };
     }
 
@@ -102,6 +106,7 @@ pub const LintRule = enum {
             .duplicate_index => true,
             .column_default_required => true,
             .no_index_fk => true,
+            .duplicate_column => true,
             else => false,
         };
     }
@@ -142,6 +147,8 @@ pub const LintRule = enum {
             .view_no_alias => "View SELECT uses expressions without column aliases",
             .fk_self_reference => "Foreign key references the same table (self-reference)",
             .enum_empty => "Custom type enum has no values",
+            .view_naming => "View name doesn't follow <entity>_view or v_<entity> convention",
+            .duplicate_column => "Table has columns with the same name",
         };
     }
 };

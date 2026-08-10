@@ -165,6 +165,24 @@ pub fn checkEnumValueNaming(alloc: std.mem.Allocator, results: *std.ArrayList(Li
     }
 }
 
+pub fn checkViewNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.views) |view| {
+        // Check if view follows <entity>_view or v_<entity> convention
+        const ends_with_view = std.mem.endsWith(u8, view.name, "_view");
+        const starts_with_v_ = std.mem.startsWith(u8, view.name, "v_") and view.name.len > 2;
+
+        if (!ends_with_view and !starts_with_v_) {
+            const msg = try std.fmt.allocPrint(alloc, "view '{s}' should follow '<entity>_view' or 'v_<entity>' naming convention", .{view.name});
+            try results.append(alloc, .{
+                .rule = "view-naming",
+                .table = view.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 pub fn isSnakeCase(name: []const u8) bool {
