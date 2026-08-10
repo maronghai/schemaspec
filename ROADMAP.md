@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.228.0 (2026-08-11) — 59,000+ lines production Zig, 1,675 tests, 36 lint rules, 34 test suites.
+**Current version**: 0.229.0 (2026-08-11) — 54,000+ lines production Zig, 1,685 tests, 39 lint rules, 34 test suites.
 
 ---
 
@@ -245,6 +245,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.229.0** — Lint handler refactoring & new rules: split `lint/handlers/validation.zig` (586 lines) into 4 focused modules (`fk.zig`, `index.zig`, `view.zig`, `enum.zig`) for better maintainability; added `column-boolean-naming` lint rule (warns when boolean columns don't use `is_`/`has_`/`can_` prefix convention); added `fk-depth` lint rule (warns when FK reference chain exceeds 3 levels); 10 new unit tests (1,685 total); benchmarks show no regressions
 - **v0.228.0** — Lint rules expansion: added `view-select-star` lint rule (warns when views use SELECT * — prefer explicit column lists for portability and schema evolution); added `enum-value-duplicate` lint rule (warns when a custom type has duplicate enum values — helps catch copy-paste errors); 5 new unit tests (1,675 total); benchmarks show no regressions
 - **v0.227.0** — Architecture review & quality: comprehensive architecture analysis confirmed clean IR boundaries, pluggable generator registry, and data-driven dispatch patterns; verified all code quality issues (catch unreachable, std.process.exit) are resolved in production code; confirmed pipeline modules have comprehensive test coverage (100 test files, 1,670 tests); benchmarks show no regressions
 - **v0.226.0** — LSP enhancements & semantic quality: added `workspace/symbol` LSP support for searching all tables, columns, views, and custom types across the workspace (case-insensitive substring match); added `textDocument/signatureHelp` LSP support with parameter hints for field declarations and FK references; added `validate_unused_enums` semantic pass that warns about custom types (~) defined but never referenced in any table field; fixed missing capability serialization for `referencesProvider`, `documentHighlightProvider`, `foldingRangeProvider`, and `typeDefinitionProvider` in LSP initialize response; 10 new unit tests (1,670 total); benchmarks show no regressions

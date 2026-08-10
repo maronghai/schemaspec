@@ -14,6 +14,10 @@ const structural = @import("handlers/structural.zig");
 const naming = @import("handlers/naming.zig");
 const validation = @import("handlers/validation.zig");
 const compat = @import("handlers/compat.zig");
+const fk_rules = @import("handlers/fk.zig");
+const index_rules = @import("handlers/index.zig");
+const view_rules = @import("handlers/view.zig");
+const enum_rules = @import("handlers/enum.zig");
 
 /// Metadata for a lint rule — single source of truth for `--show-rules` and `--init`.
 pub const RuleInfo = struct {
@@ -65,35 +69,38 @@ const RULES = [_]RuleEntry{
     .{ .rule = .index_naming, .handler = naming.checkIndexNaming },
     .{ .rule = .timestamp_naming, .handler = naming.checkTimestampNaming },
     .{ .rule = .enum_value_naming, .handler = naming.checkEnumValueNaming },
-    // Validation rules
-    .{ .rule = .no_index_fk, .handler = validation.checkNoIndexFk },
-    .{ .rule = .fk_cascade, .handler = validation.checkFkCascade },
+    .{ .rule = .column_boolean_naming, .handler = naming.checkColumnBooleanNaming },
+    // FK validation rules (moved to fk.zig)
+    .{ .rule = .no_index_fk, .handler = fk_rules.checkNoIndexFk },
+    .{ .rule = .fk_cascade, .handler = fk_rules.checkFkCascade },
+    .{ .rule = .fk_null, .handler = fk_rules.checkFkNull },
+    .{ .rule = .fk_self_reference, .handler = fk_rules.checkFkSelfReference },
+    .{ .rule = .circular_fk, .handler = fk_rules.checkCircularFk },
+    .{ .rule = .fk_depth, .handler = fk_rules.checkFkDepth },
+    // Index validation rules (moved to index.zig)
+    .{ .rule = .index_unused, .handler = index_rules.checkIndexUnused },
+    .{ .rule = .duplicate_index, .handler = index_rules.checkDuplicateIndex },
+    .{ .rule = .index_column_missing, .handler = index_rules.checkIndexColumnMissing },
+    // View validation rules (moved to view.zig)
+    .{ .rule = .view_no_select, .handler = view_rules.checkViewNoSelect },
+    .{ .rule = .view_no_alias, .handler = view_rules.checkViewNoAlias },
+    .{ .rule = .view_select_star, .handler = view_rules.checkViewSelectStar },
+    .{ .rule = .view_naming, .handler = naming.checkViewNaming },
+    // Enum validation rules (moved to enum.zig)
+    .{ .rule = .enum_case, .handler = enum_rules.checkEnumCase },
+    .{ .rule = .orphan_type, .handler = enum_rules.checkOrphanType },
+    .{ .rule = .enum_empty, .handler = enum_rules.checkEnumEmpty },
+    .{ .rule = .enum_value_duplicate, .handler = enum_rules.checkEnumValueDuplicate },
+    // General validation rules (staying in validation.zig)
     .{ .rule = .nullable_pk, .handler = validation.checkNullablePk },
-    .{ .rule = .enum_case, .handler = validation.checkEnumCase },
-    .{ .rule = .orphan_type, .handler = validation.checkOrphanType },
-    .{ .rule = .index_unused, .handler = validation.checkIndexUnused },
-    .{ .rule = .circular_fk, .handler = validation.checkCircularFk },
-    .{ .rule = .duplicate_index, .handler = validation.checkDuplicateIndex },
-    .{ .rule = .index_column_missing, .handler = validation.checkIndexColumnMissing },
     .{ .rule = .bool_default, .handler = validation.checkBoolDefault },
-    .{ .rule = .view_no_select, .handler = validation.checkViewNoSelect },
     .{ .rule = .column_default_required, .handler = validation.checkColumnDefaultRequired },
     .{ .rule = .nullable_column_default, .handler = validation.checkNullableColumnDefault },
-    .{ .rule = .fk_null, .handler = validation.checkFkNull },
+    .{ .rule = .duplicate_column, .handler = validation.checkDuplicateColumn },
     // Compatibility rules
     .{ .rule = .serial_type, .handler = compat.checkSerialType },
     .{ .rule = .column_length, .handler = compat.checkColumnLength },
     .{ .rule = .cross_dialect_types, .handler = compat.checkCrossDialectTypes },
-    // Additional validation rules
-    .{ .rule = .view_no_alias, .handler = validation.checkViewNoAlias },
-    .{ .rule = .fk_self_reference, .handler = validation.checkFkSelfReference },
-    .{ .rule = .enum_empty, .handler = validation.checkEnumEmpty },
-    .{ .rule = .duplicate_column, .handler = validation.checkDuplicateColumn },
-    // Naming rules (continued)
-    .{ .rule = .view_naming, .handler = naming.checkViewNaming },
-    // Additional validation rules (continued)
-    .{ .rule = .view_select_star, .handler = validation.checkViewSelectStar },
-    .{ .rule = .enum_value_duplicate, .handler = validation.checkEnumValueDuplicate },
 };
 
 /// Run all enabled lint checks on a resolved schema.

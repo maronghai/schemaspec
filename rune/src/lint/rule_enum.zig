@@ -44,6 +44,8 @@ pub const LintRule = enum {
     duplicate_column,
     view_select_star,
     enum_value_duplicate,
+    column_boolean_naming,
+    fk_depth,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -85,6 +87,8 @@ pub const LintRule = enum {
             .duplicate_column => "duplicate-column",
             .view_select_star => "view-select-star",
             .enum_value_duplicate => "enum-value-duplicate",
+            .column_boolean_naming => "column-boolean-naming",
+            .fk_depth => "fk-depth",
         };
     }
 
@@ -113,6 +117,8 @@ pub const LintRule = enum {
             .duplicate_column => true,
             .view_select_star => false,
             .enum_value_duplicate => false,
+            .column_boolean_naming => false,
+            .fk_depth => false,
             else => false,
         };
     }
@@ -157,6 +163,8 @@ pub const LintRule = enum {
             .duplicate_column => "Table has columns with the same name",
             .view_select_star => "View uses SELECT * (prefer explicit columns for portability)",
             .enum_value_duplicate => "Custom type has duplicate enum values",
+            .column_boolean_naming => "Boolean column should use is_/has_/can_ prefix",
+            .fk_depth => "Foreign key reference chain exceeds 3 levels",
         };
     }
 };

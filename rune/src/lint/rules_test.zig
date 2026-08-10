@@ -1851,3 +1851,127 @@ test "lint: unique enum values passes" {
         }
     }
 }
+
+// ─── column-boolean-naming tests ──────────────────────────────
+
+test "lint: boolean column without is_/has_/can_ prefix triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("active", .{ .simple = "b" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-boolean-naming")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: boolean column with is_ prefix passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("is_active", .{ .simple = "b" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-boolean-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: boolean column with has_ prefix passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("has_subscription", .{ .simple = "b" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-boolean-naming")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── fk-depth tests ───────────────────────────────────────────
+
+test "lint: FK chain depth 1 passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table_a = try makeTestTableWithFks(alloc, "orders", &.{
+        makePkField("id"),
+        makeFkFieldTo("user_id", "users", "id"),
+    });
+    const table_users = try makeTestTableWithFks(alloc, "users", &.{
+        makePkField("id"),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{ table_a, table_users });
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-depth")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: FK chain depth 4 triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Create a chain: level4 -> level3 -> level2 -> level1 -> base
+    const level4 = try makeTestTableWithFks(alloc, "level4", &.{
+        makePkField("id"),
+        makeFkFieldTo("level3_id", "level3", "id"),
+    });
+    const level3 = try makeTestTableWithFks(alloc, "level3", &.{
+        makePkField("id"),
+        makeFkFieldTo("level2_id", "level2", "id"),
+    });
+    const level2 = try makeTestTableWithFks(alloc, "level2", &.{
+        makePkField("id"),
+        makeFkFieldTo("level1_id", "level1", "id"),
+    });
+    const level1 = try makeTestTableWithFks(alloc, "level1", &.{
+        makePkField("id"),
+        makeFkFieldTo("base_id", "base", "id"),
+    });
+    const base = try makeTestTableWithFks(alloc, "base", &.{
+        makePkField("id"),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{ level4, level3, level2, level1, base });
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-depth")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}

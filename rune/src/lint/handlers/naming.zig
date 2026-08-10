@@ -183,6 +183,33 @@ pub fn checkViewNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintRes
     }
 }
 
+pub fn checkColumnBooleanNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (!field.type_info.isBoolean()) continue;
+
+            // Boolean columns should follow is_/has_/can_/was_/should_ prefix convention
+            const valid_prefixes = [_][]const u8{ "is_", "has_", "can_", "was_", "should_", "will_", "did_" };
+            var valid = false;
+            for (valid_prefixes) |prefix| {
+                if (std.mem.startsWith(u8, field.name, prefix)) {
+                    valid = true;
+                    break;
+                }
+            }
+            if (!valid) {
+                const msg = try std.fmt.allocPrint(alloc, "boolean column '{s}' should use 'is_/has_/can_' prefix for clarity", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "column-boolean-naming",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 pub fn isSnakeCase(name: []const u8) bool {

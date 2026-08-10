@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.229.0] - 2026-08-11
+
+### Added
+- **`column-boolean-naming` lint rule** — Warns when boolean columns don't use `is_`/`has_`/`can_` prefix convention. Improves schema readability and consistency.
+- **`fk-depth` lint rule** — Warns when foreign key reference chain exceeds 3 levels. Helps catch overly complex FK hierarchies that may impact performance.
+
+### Changed
+- **Lint handler refactoring** — Split `lint/handlers/validation.zig` (586 lines) into 4 focused modules: `fk.zig` (5 FK rules), `index.zig` (3 index rules), `view.zig` (3 view rules), `enum.zig` (4 enum rules). `validation.zig` now contains only general validation rules (5 rules) plus shared helpers.
+- **Lint rule count** — Expanded from 37 to 39 rules.
+- **Handler module count** — Expanded from 4 to 8 modules.
+
 ## [0.228.0] - 2026-08-11
 
 ### Added
