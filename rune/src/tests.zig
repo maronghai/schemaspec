@@ -12,6 +12,7 @@ comptime {
     _ = @import("cli/init_test.zig");
     _ = @import("cli/parse_test.zig");
     _ = @import("cli/types_test.zig");
+    _ = @import("cli/errors.zig");
     // ── color ────────────────────────────────────────────────────
     _ = @import("color_test.zig");
     // ── completions ──────────────────────────────────────────────

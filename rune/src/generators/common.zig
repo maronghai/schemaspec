@@ -183,6 +183,70 @@ pub const ImportTracker = struct {
     }
 };
 
+// ─── Shared SQL Type-to-String Writer ─────────────────────────
+// Eliminates duplicated SQL type rendering across generators.
+// Used by docs.zig, symbol_index.zig, and potentially others.
+
+const SqlType = @import("../types/sql_type.zig").SqlType;
+
+/// Write a human-readable SQL type string.
+/// When `uppercase` is true, outputs UPPERCASE (INT, VARCHAR(64)).
+/// When `uppercase` is false, outputs lowercase (int, varchar(64)).
+pub fn writeSqlTypeString(w: *std.Io.Writer, sql_type: SqlType, uppercase: bool) !void {
+    switch (sql_type) {
+        .int => try w.writeAll(if (uppercase) "INT" else "int"),
+        .bigint => try w.writeAll(if (uppercase) "BIGINT" else "bigint"),
+        .smallint => try w.writeAll(if (uppercase) "SMALLINT" else "smallint"),
+        .decimal => |ds| {
+            if (uppercase) {
+                try w.print("DECIMAL({d},{d})", .{ ds.precision, ds.scale });
+            } else {
+                try w.print("decimal({d},{d})", .{ ds.precision, ds.scale });
+            }
+        },
+        .varchar => |n| {
+            if (n > 0) {
+                if (uppercase) {
+                    try w.print("VARCHAR({d})", .{n});
+                } else {
+                    try w.print("varchar({d})", .{n});
+                }
+            } else {
+                try w.writeAll(if (uppercase) "TEXT" else "text");
+            }
+        },
+        .text => try w.writeAll(if (uppercase) "TEXT" else "text"),
+        .blob => try w.writeAll(if (uppercase) "BLOB" else "blob"),
+        .json => try w.writeAll(if (uppercase) "JSON" else "json"),
+        .jsonb => try w.writeAll(if (uppercase) "JSONB" else "jsonb"),
+        .datetime => try w.writeAll(if (uppercase) "DATETIME" else "datetime"),
+        .date => try w.writeAll(if (uppercase) "DATE" else "date"),
+        .timestamptz => try w.writeAll(if (uppercase) "TIMESTAMPTZ" else "timestamptz"),
+        .boolean => try w.writeAll(if (uppercase) "BOOLEAN" else "boolean"),
+        .uuid => try w.writeAll(if (uppercase) "UUID" else "uuid"),
+        .inet => try w.writeAll(if (uppercase) "INET" else "inet"),
+        .serial => try w.writeAll(if (uppercase) "SERIAL" else "serial"),
+        .enum_values => |vals| {
+            if (uppercase) {
+                try w.writeAll("ENUM(");
+            } else {
+                try w.writeAll("enum(");
+            }
+            for (vals, 0..) |v, vi| {
+                if (vi > 0) try w.writeAll(", ");
+                if (uppercase) {
+                    try w.print("'{s}'", .{v});
+                } else {
+                    try w.print("{s}", .{v});
+                }
+            }
+            try w.writeAll(")");
+        },
+        .raw_sql => |s| try w.writeAll(s),
+        .passthrough => |s| try w.writeAll(s),
+    }
+}
+
 // ─── Default Value Guards ─────────────────────────────────────
 
 /// Check if a default value should be emitted in ORM output.

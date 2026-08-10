@@ -164,6 +164,7 @@ rune/src/
   lint/rules.zig, lint/format.zig, lint/config.zig, lint/fix.zig  # lint engine split
   lint/handlers/structural.zig, lint/handlers/naming.zig, lint/handlers/validation.zig, lint/handlers/compat.zig  # handler modules
   cli/lint_cmd.zig                                                 # lint CLI handler (extracted from main.zig)
+  cli/errors.zig                                                   # CLI error handling (extracted from main.zig)
   generator.zig                                                   # generator registry (pluggable)
   lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights, workspace symbols, signature help)
                 compile_service.zig, server.zig, features.zig
@@ -344,6 +345,7 @@ rune/src/
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_format, rune_tune, rune_generate, rune_stats, rune_validate, rune_version, rune_last_error, rune_last_error_code, rune_reset) |
 | | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (41 rules + `RuleInfo` + `RULE_INFO`), `lint/handlers/*.zig` (8 handler modules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum with `name()`, `description()`, `isFixable()`, TOML parsing), `lint/fix.zig` (auto-fix for 11 rules) |
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
+| | `cli/errors.zig` | CLI error handling (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
 | | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
 | | `bench.zig` | Benchmark entry point |
@@ -351,7 +353,7 @@ rune/src/
 | | `version.zig` | Centralized version constant |
 | generators | `generators/json_schema.zig` | JSON Schema generator (draft-07) |
 | | `generators/sql_ddl.zig` | SQL DDL generator (wraps codegen) |
-| | `generators/common.zig` | Shared generator helpers + ORM default formatter factory |
+| | `generators/common.zig` | Shared generator helpers + ORM default formatter factory + SQL type-to-string writer |
 | | `generators/common_test.zig` | Shared test utilities for all generator test files |
 | | `generators/prisma.zig` | Prisma schema generator |
 | | `generators/docs.zig` | Markdown documentation generator |

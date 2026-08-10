@@ -350,38 +350,6 @@ fn colTypeToMermaid(alloc: std.mem.Allocator, col: typed_ast.TypedColumn) ![]con
 }
 
 fn writeType(w: *Writer, col: typed_ast.TypedColumn) !void {
-    switch (col.sql_type) {
-        .int => try w.writeAll("INT"),
-        .bigint => try w.writeAll("BIGINT"),
-        .smallint => try w.writeAll("SMALLINT"),
-        .decimal => |ds| try w.print("DECIMAL({d},{d})", .{ ds.precision, ds.scale }),
-        .varchar => |n| {
-            if (n > 0) {
-                try w.print("VARCHAR({d})", .{n});
-            } else {
-                try w.writeAll("TEXT");
-            }
-        },
-        .text => try w.writeAll("TEXT"),
-        .blob => try w.writeAll("BLOB"),
-        .json => try w.writeAll("JSON"),
-        .jsonb => try w.writeAll("JSONB"),
-        .datetime => try w.writeAll("DATETIME"),
-        .date => try w.writeAll("DATE"),
-        .timestamptz => try w.writeAll("TIMESTAMPTZ"),
-        .boolean => try w.writeAll("BOOLEAN"),
-        .uuid => try w.writeAll("UUID"),
-        .inet => try w.writeAll("INET"),
-        .serial => try w.writeAll("SERIAL"),
-        .enum_values => |vals| {
-            try w.writeAll("ENUM(");
-            for (vals, 0..) |v, vi| {
-                if (vi > 0) try w.writeAll(", ");
-                try w.print("'{s}'", .{v});
-            }
-            try w.writeAll(")");
-        },
-        .raw_sql => |s| try w.writeAll(s),
-        .passthrough => |s| try w.writeAll(s),
-    }
+    const common = @import("common.zig");
+    try common.writeSqlTypeString(w, col.sql_type, true);
 }

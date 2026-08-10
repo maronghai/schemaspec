@@ -107,38 +107,9 @@ pub fn generate(alloc: std.mem.Allocator, ast: typed_ast.TypedAst, dialect: Dial
 }
 
 fn writeSqlType(w: anytype, sql_type: sql_type_mod.SqlType) !void {
-    switch (sql_type) {
-        .int => try w.writeAll("int"),
-        .bigint => try w.writeAll("bigint"),
-        .smallint => try w.writeAll("smallint"),
-        .decimal => |d| try w.print("decimal({d},{d})", .{ d.precision, d.scale }),
-        .varchar => |len| {
-            if (len > 0) {
-                try w.print("varchar({d})", .{len});
-            } else {
-                try w.writeAll("text");
-            }
-        },
-        .text => try w.writeAll("text"),
-        .blob => try w.writeAll("blob"),
-        .json => try w.writeAll("json"),
-        .jsonb => try w.writeAll("jsonb"),
-        .datetime => try w.writeAll("datetime"),
-        .date => try w.writeAll("date"),
-        .timestamptz => try w.writeAll("timestamptz"),
-        .boolean => try w.writeAll("boolean"),
-        .uuid => try w.writeAll("uuid"),
-        .inet => try w.writeAll("inet"),
-        .serial => try w.writeAll("serial"),
-        .enum_values => |vals| {
-            try w.writeAll("enum(");
-            for (vals, 0..) |val, i| {
-                try w.print("{s}", .{val});
-                if (i < vals.len - 1) try w.writeAll(", ");
-            }
-            try w.writeAll(")");
-        },
-        .passthrough => |s| try w.writeAll(s),
-        .raw_sql => |s| try w.writeAll(s),
-    }
+    // Delegate to the shared helper in common.zig.
+    // We wrap the writer to satisfy the *std.Io.Writer type.
+    const common = @import("common.zig");
+    // Symbol index uses lowercase SQL type names.
+    try common.writeSqlTypeString(w, sql_type, false);
 }

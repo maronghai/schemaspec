@@ -6,6 +6,10 @@ const LintRule = @import("config.zig").LintRule;
 // Modifies source text to fix lintable issues.
 // Works on raw source text — inserts/removes/modifies lines at the right positions.
 //
+// Architecture: Each fixable rule has a dedicated handler function.
+// The main `fix()` function orchestrates pre-scanning and dispatches
+// to per-rule handlers during line-by-line source processing.
+//
 // Supported fixable rules:
 //   no-pk                      — adds "id       n++" after table header
 //   no-timestamps              — adds "created_at t\nupdated_at t" before end of table
@@ -61,7 +65,6 @@ fn detectDefaultValue(field_line: []const u8) ?[]const u8 {
     if (trimmed.len == 0) return null;
 
     // Find the type symbol — it's typically the last non-modifier token
-    // Patterns: "name s32", "name n", "name b", "name t", "name s100?"
     var last_token_start: usize = trimmed.len;
     var pos = trimmed.len;
     // Skip trailing modifiers (?, !, u, @)
@@ -75,25 +78,20 @@ fn detectDefaultValue(field_line: []const u8) ?[]const u8 {
     }
     const type_sym = trimmed[last_token_start..pos];
 
-    // Numeric types: n, N, i, I, m, M, e, and suffixed variants
     if (type_sym.len > 0) {
         const first = type_sym[0];
         if (first == 'n' or first == 'N' or first == 'i' or first == 'I' or first == 'm' or first == 'M' or first == 'e') {
             return " = 0";
         }
-        // Boolean type: b
         if (first == 'b' and type_sym.len == 1) {
             return " = false";
         }
-        // String types: s, S (including s32, s100, etc.)
         if (first == 's' or first == 'S') {
             return " = ''";
         }
-        // Datetime types: t, d, dt
         if (first == 't' or first == 'd') {
             return " = CURRENT_TIMESTAMP";
         }
-        // JSON type: j
         if (first == 'j') {
             return " = '{}'";
         }
@@ -102,40 +100,242 @@ fn detectDefaultValue(field_line: []const u8) ?[]const u8 {
     return null;
 }
 
-/// Fix lint issues in the source text. Returns the modified source and a list of fixes applied.
-pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintResult) !struct { source: []u8, fixes: []LintFix } {
-    var fixes = try std.ArrayList(LintFix).initCapacity(alloc, results.len);
-    errdefer fixes.deinit(alloc);
+// ─── Pre-Scan: Build Fix Maps ────────────────────────────────
 
-    // Pre-scan: find which tables need fixes
-    var needs_pk = std.StringHashMap(void).init(alloc);
-    defer needs_pk.deinit();
-    var needs_timestamps = std.StringHashMap(void).init(alloc);
-    defer needs_timestamps.deinit();
-    var needs_empty_removal = std.StringHashMap(void).init(alloc);
-    defer needs_empty_removal.deinit();
-    var needs_column_default = std.StringHashMap(void).init(alloc);
-    defer needs_column_default.deinit();
-    var needs_fk_index = std.StringHashMap(void).init(alloc);
-    defer needs_fk_index.deinit();
-    var needs_column_dedup = std.StringHashMap(void).init(alloc);
-    defer needs_column_dedup.deinit();
+const FixMaps = struct {
+    needs_pk: std.StringHashMap(void),
+    needs_timestamps: std.StringHashMap(void),
+    needs_empty_removal: std.StringHashMap(void),
+    needs_column_default: std.StringHashMap(void),
+    needs_fk_index: std.StringHashMap(void),
+    needs_column_dedup: std.StringHashMap(void),
+
+    fn deinit(self: *FixMaps) void {
+        self.needs_pk.deinit();
+        self.needs_timestamps.deinit();
+        self.needs_empty_removal.deinit();
+        self.needs_column_default.deinit();
+        self.needs_fk_index.deinit();
+        self.needs_column_dedup.deinit();
+    }
+};
+
+/// Pre-scan lint results to build per-rule fix maps.
+fn buildFixMaps(alloc: std.mem.Allocator, results: []const LintResult) !FixMaps {
+    var maps = FixMaps{
+        .needs_pk = std.StringHashMap(void).init(alloc),
+        .needs_timestamps = std.StringHashMap(void).init(alloc),
+        .needs_empty_removal = std.StringHashMap(void).init(alloc),
+        .needs_column_default = std.StringHashMap(void).init(alloc),
+        .needs_fk_index = std.StringHashMap(void).init(alloc),
+        .needs_column_dedup = std.StringHashMap(void).init(alloc),
+    };
 
     for (results) |r| {
         if (LintRule.fromName(r.rule)) |rule| {
             switch (rule) {
-                .no_pk => try needs_pk.put(r.table, {}),
-                .no_timestamps => try needs_timestamps.put(r.table, {}),
-                .empty_table => try needs_empty_removal.put(r.table, {}),
-                .column_default_required => try needs_column_default.put(r.table, {}),
-                .no_index_fk => try needs_fk_index.put(r.table, {}),
-                .duplicate_column => try needs_column_dedup.put(r.table, {}),
+                .no_pk => try maps.needs_pk.put(r.table, {}),
+                .no_timestamps => try maps.needs_timestamps.put(r.table, {}),
+                .empty_table => try maps.needs_empty_removal.put(r.table, {}),
+                .column_default_required => try maps.needs_column_default.put(r.table, {}),
+                .no_index_fk => try maps.needs_fk_index.put(r.table, {}),
+                .duplicate_column => try maps.needs_column_dedup.put(r.table, {}),
                 else => {},
             }
         }
     }
 
-    // Build output by scanning source character by character
+    return maps;
+}
+
+// ─── Per-Rule Fix Handlers ───────────────────────────────────
+
+/// Fix serial-type: replace "serial"/"bigserial" with "n++" modifier.
+/// Returns true if this line was handled (caller should skip normal output).
+fn fixSerialType(
+    alloc: std.mem.Allocator,
+    line: []const u8,
+    output: *std.ArrayList(u8),
+    line_end: usize,
+    source_len: usize,
+    fixes: *std.ArrayList(LintFix),
+    current_table: ?[]const u8,
+) !bool {
+    if (std.mem.indexOf(u8, line, "bigserial")) |pos| {
+        if (isWordBoundary(line, pos, 9)) {
+            const modified = try replaceWord(alloc, line, pos, 9, "n++");
+            defer alloc.free(modified);
+            try output.appendSlice(alloc, modified);
+            if (line_end < source_len) try output.append(alloc, '\n');
+            try fixes.append(alloc, .{
+                .rule = "serial-type",
+                .table = current_table orelse "",
+                .description = "replaced bigserial type with n++ modifier",
+            });
+            return true;
+        }
+    } else if (std.mem.indexOf(u8, line, "serial")) |pos| {
+        if (isWordBoundary(line, pos, 6)) {
+            const modified = try replaceWord(alloc, line, pos, 6, "n++");
+            defer alloc.free(modified);
+            try output.appendSlice(alloc, modified);
+            if (line_end < source_len) try output.append(alloc, '\n');
+            try fixes.append(alloc, .{
+                .rule = "serial-type",
+                .table = current_table orelse "",
+                .description = "replaced serial type with n++ modifier",
+            });
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Fix bool-default: add "= false" to boolean fields without defaults.
+fn fixBoolDefault(
+    alloc: std.mem.Allocator,
+    line: []const u8,
+    output: *std.ArrayList(u8),
+    line_end: usize,
+    source_len: usize,
+    fixes: *std.ArrayList(LintFix),
+    current_table: ?[]const u8,
+    results: []const LintResult,
+) !bool {
+    if (std.mem.indexOf(u8, line, "=") != null) return false;
+    const trimmed = std.mem.trim(u8, line, " \t");
+    if (trimmed.len == 0) return false;
+    const last_char = trimmed[trimmed.len - 1];
+    if (last_char != 'b' and !(last_char == '?' and trimmed.len >= 2 and trimmed[trimmed.len - 2] == 'b')) return false;
+    if (current_table) |tbl| {
+        if (tableNeedsFix(results, tbl, "bool-default")) {
+            try output.appendSlice(alloc, line);
+            try output.appendSlice(alloc, " = false");
+            if (line_end < source_len) try output.append(alloc, '\n');
+            try fixes.append(alloc, .{
+                .rule = "bool-default",
+                .table = tbl,
+                .description = "added default value 'false' to boolean column",
+            });
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Fix nullable-column-default: add "= null" to nullable fields without defaults.
+fn fixNullableColumnDefault(
+    alloc: std.mem.Allocator,
+    line: []const u8,
+    output: *std.ArrayList(u8),
+    line_end: usize,
+    source_len: usize,
+    fixes: *std.ArrayList(LintFix),
+    current_table: ?[]const u8,
+    results: []const LintResult,
+) !bool {
+    if (std.mem.indexOf(u8, line, "=") != null) return false;
+    const trimmed = std.mem.trim(u8, line, " \t");
+    if (trimmed.len == 0 or trimmed[trimmed.len - 1] != '?') return false;
+    if (current_table) |tbl| {
+        if (tableNeedsFix(results, tbl, "nullable-column-default")) {
+            try output.appendSlice(alloc, line);
+            try output.appendSlice(alloc, " = null");
+            if (line_end < source_len) try output.append(alloc, '\n');
+            try fixes.append(alloc, .{
+                .rule = "nullable-column-default",
+                .table = tbl,
+                .description = "added default value 'null' to nullable column",
+            });
+            return true;
+        }
+    }
+    return false;
+}
+
+/// Fix column-default-required: add type-appropriate defaults.
+fn fixColumnDefaultRequired(
+    alloc: std.mem.Allocator,
+    line: []const u8,
+    output: *std.ArrayList(u8),
+    line_end: usize,
+    source_len: usize,
+    fixes: *std.ArrayList(LintFix),
+    current_table: ?[]const u8,
+    needs_column_default: *const std.StringHashMap(void),
+) !bool {
+    if (std.mem.indexOf(u8, line, "=") != null) return false;
+    if (current_table) |tbl| {
+        if (needs_column_default.contains(tbl)) {
+            const trimmed = std.mem.trim(u8, line, " \t");
+            if (trimmed.len > 0 and !std.mem.startsWith(u8, trimmed, "index ") and std.mem.indexOf(u8, trimmed, "->") == null) {
+                if (detectDefaultValue(trimmed)) |dv| {
+                    try output.appendSlice(alloc, line);
+                    try output.appendSlice(alloc, dv);
+                    if (line_end < source_len) try output.append(alloc, '\n');
+                    try fixes.append(alloc, .{
+                        .rule = "column-default-required",
+                        .table = tbl,
+                        .description = "added default value to non-nullable column",
+                    });
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+/// Fix no-index-fk: add index declaration after FK field lines.
+fn fixNoIndexFk(
+    alloc: std.mem.Allocator,
+    line: []const u8,
+    output: *std.ArrayList(u8),
+    line_end: usize,
+    source_len: usize,
+    fixes: *std.ArrayList(LintFix),
+    current_table: ?[]const u8,
+    needs_fk_index: *const std.StringHashMap(void),
+) !bool {
+    if (std.mem.indexOf(u8, line, " -> ") == null) return false;
+    if (current_table) |tbl| {
+        if (needs_fk_index.contains(tbl)) {
+            const trimmed = std.mem.trim(u8, line, " \t");
+            if (trimmed.len > 0) {
+                var field_end: usize = 0;
+                while (field_end < trimmed.len and trimmed[field_end] != ' ' and trimmed[field_end] != '\t') : (field_end += 1) {}
+                const field_name = trimmed[0..field_end];
+                try output.appendSlice(alloc, line);
+                if (line_end < source_len) try output.append(alloc, '\n');
+                try output.appendSlice(alloc, "index idx_");
+                try output.appendSlice(alloc, tbl);
+                try output.append(alloc, '_');
+                try output.appendSlice(alloc, field_name);
+                try output.append(alloc, ' ');
+                try output.appendSlice(alloc, field_name);
+                try output.append(alloc, '\n');
+                try fixes.append(alloc, .{
+                    .rule = "no-index-fk",
+                    .table = tbl,
+                    .description = "added index for foreign key column",
+                });
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// ─── Main Fix Entry Point ────────────────────────────────────
+
+/// Fix lint issues in the source text. Returns the modified source and a list of fixes applied.
+pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintResult) !struct { source: []u8, fixes: []LintFix } {
+    var fixes = try std.ArrayList(LintFix).initCapacity(alloc, results.len);
+    errdefer fixes.deinit(alloc);
+
+    var maps = try buildFixMaps(alloc, results);
+    defer maps.deinit();
+
     var output = try std.ArrayList(u8).initCapacity(alloc, source.len + 256);
     errdefer output.deinit(alloc);
 
@@ -167,7 +367,7 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
             if (ns < line.len) {
                 // Flush timestamp insertion for previous table
                 if (current_table) |prev_tbl| {
-                    if (needs_timestamps.contains(prev_tbl) and !ts_inserted.contains(prev_tbl) and last_field_end > 0) {
+                    if (maps.needs_timestamps.contains(prev_tbl) and !ts_inserted.contains(prev_tbl) and last_field_end > 0) {
                         try output.appendSlice(alloc, "\ncreated_at t\nupdated_at t");
                         try fixes.append(alloc, .{
                             .rule = "no-timestamps",
@@ -183,10 +383,8 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
                 in_table = true;
                 last_field_end = 0;
 
-                // Check if this table needs empty removal
-                if (needs_empty_removal.contains(tbl_name)) {
+                if (maps.needs_empty_removal.contains(tbl_name)) {
                     skipping_empty_table = true;
-                    // Don't output this line — we're removing the entire block
                     continue;
                 } else {
                     skipping_empty_table = false;
@@ -197,20 +395,16 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
         // If skipping an empty table, skip all lines until the next table header or EOF
         if (skipping_empty_table) {
             if (line.len > 0 and line[0] == '#') {
-                // This is the next table header — stop skipping
                 skipping_empty_table = false;
-                // Process this line normally (fall through)
             } else {
-                // Still inside empty table block — skip this line
-                // But record the fix on the first skip
                 if (current_table) |tbl| {
-                    if (needs_empty_removal.contains(tbl) and !pk_inserted.contains(tbl)) {
+                    if (maps.needs_empty_removal.contains(tbl) and !pk_inserted.contains(tbl)) {
                         try fixes.append(alloc, .{
                             .rule = "empty-table",
                             .table = tbl,
                             .description = "removed empty table declaration",
                         });
-                        try pk_inserted.put(tbl, {}); // reuse map to track "fix applied"
+                        try pk_inserted.put(tbl, {});
                     }
                 }
                 continue;
@@ -223,164 +417,17 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
         {
             last_field_end = line_end + 1;
 
-            // serial-type fix: replace "serial"/"bigserial" with "n++" modifier
-            // Check for "bigserial" first (longer match), then "serial"
-            if (std.mem.indexOf(u8, line, "bigserial")) |pos| {
-                if (isWordBoundary(line, pos, 9)) { // 9 = len("bigserial")
-                    const modified = try replaceWord(alloc, line, pos, 9, "n++");
-                    defer alloc.free(modified);
-                    try output.appendSlice(alloc, modified);
-                    if (line_end < source.len) {
-                        try output.append(alloc, '\n');
-                    }
-                    try fixes.append(alloc, .{
-                        .rule = "serial-type",
-                        .table = current_table orelse "",
-                        .description = "replaced bigserial type with n++ modifier",
-                    });
-                    continue;
-                }
-            } else if (std.mem.indexOf(u8, line, "serial")) |pos| {
-                // Check it's a standalone word (not part of another word)
-                if (isWordBoundary(line, pos, 6)) { // 6 = len("serial")
-                    const modified = try replaceWord(alloc, line, pos, 6, "n++");
-                    defer alloc.free(modified);
-                    try output.appendSlice(alloc, modified);
-                    if (line_end < source.len) {
-                        try output.append(alloc, '\n');
-                    }
-                    try fixes.append(alloc, .{
-                        .rule = "serial-type",
-                        .table = current_table orelse "",
-                        .description = "replaced serial type with n++ modifier",
-                    });
-                    continue;
-                }
-            }
-
-            // bool-default fix: add "= false" to boolean field lines without defaults
-            // Heuristic: line contains type symbol "b" and no "=" sign
-            if (line.len >= 1 and std.mem.indexOf(u8, line, "=") == null) {
-                // Check for boolean type: field ends with "b" as type symbol
-                // Pattern: "name  b" or "name  b?" or "name  b  ..."
-                const trimmed = std.mem.trim(u8, line, " \t");
-                if (trimmed.len > 0) {
-                    // Find the type symbol - it's typically the last non-modifier token
-                    // For booleans: "is_active  b" or "is_active  b?"
-                    const last_char = trimmed[trimmed.len - 1];
-                    if (last_char == 'b' or (last_char == '?' and trimmed.len >= 2 and trimmed[trimmed.len - 2] == 'b')) {
-                        // Check this table needs bool-default fix
-                        if (current_table) |tbl| {
-                            if (tableNeedsFix(results, tbl, "bool-default")) {
-                                try output.appendSlice(alloc, line);
-                                try output.appendSlice(alloc, " = false");
-                                if (line_end < source.len) {
-                                    try output.append(alloc, '\n');
-                                }
-                                try fixes.append(alloc, .{
-                                    .rule = "bool-default",
-                                    .table = tbl,
-                                    .description = "added default value 'false' to boolean column",
-                                });
-                                continue; // Skip the normal output below
-                            }
-                        }
-                    }
-                }
-            }
-
-            // nullable-column-default fix: add "= null" to nullable field lines without defaults
-            // Heuristic: line ends with "?" modifier and no "=" sign
-            if (line.len >= 1 and std.mem.indexOf(u8, line, "=") == null) {
-                const trimmed2 = std.mem.trim(u8, line, " \t");
-                if (trimmed2.len > 0 and trimmed2[trimmed2.len - 1] == '?') {
-                    if (current_table) |tbl| {
-                        if (tableNeedsFix(results, tbl, "nullable-column-default")) {
-                            try output.appendSlice(alloc, line);
-                            try output.appendSlice(alloc, " = null");
-                            if (line_end < source.len) {
-                                try output.append(alloc, '\n');
-                            }
-                            try fixes.append(alloc, .{
-                                .rule = "nullable-column-default",
-                                .table = tbl,
-                                .description = "added default value 'null' to nullable column",
-                            });
-                            continue; // Skip the normal output below
-                        }
-                    }
-                }
-            }
-
-            // column-default-required fix: add "= 0" for numeric, "= ''" for string, "= false" for boolean
-            // Heuristic: line has no "=" sign and is a type field (not index, not FK)
-            if (line.len >= 1 and std.mem.indexOf(u8, line, "=") == null) {
-                if (current_table) |tbl| {
-                    if (needs_column_default.contains(tbl)) {
-                        const trimmed3 = std.mem.trim(u8, line, " \t");
-                        // Skip lines that are already index or FK declarations
-                        if (trimmed3.len > 0 and !std.mem.startsWith(u8, trimmed3, "index ") and std.mem.indexOf(u8, trimmed3, "->") == null) {
-                            // Detect type symbol to choose appropriate default
-                            const default_val = detectDefaultValue(trimmed3);
-                            if (default_val) |dv| {
-                                try output.appendSlice(alloc, line);
-                                try output.appendSlice(alloc, dv);
-                                if (line_end < source.len) {
-                                    try output.append(alloc, '\n');
-                                }
-                                try fixes.append(alloc, .{
-                                    .rule = "column-default-required",
-                                    .table = tbl,
-                                    .description = "added default value to non-nullable column",
-                                });
-                                continue;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // no-index-fk fix: add index declaration after FK field lines
-            // Heuristic: line contains " -> " (FK declaration)
-            if (std.mem.indexOf(u8, line, " -> ") != null) {
-                if (current_table) |tbl| {
-                    if (needs_fk_index.contains(tbl)) {
-                        // Extract field name (first word before spaces)
-                        const trimmed4 = std.mem.trim(u8, line, " \t");
-                        if (trimmed4.len > 0) {
-                            var field_end: usize = 0;
-                            while (field_end < trimmed4.len and trimmed4[field_end] != ' ' and trimmed4[field_end] != '\t') : (field_end += 1) {}
-                            const field_name = trimmed4[0..field_end];
-
-                            // Output the original line first
-                            try output.appendSlice(alloc, line);
-                            if (line_end < source.len) {
-                                try output.append(alloc, '\n');
-                            }
-                            // Then insert the index declaration
-                            try output.appendSlice(alloc, "index idx_");
-                            try output.appendSlice(alloc, tbl);
-                            try output.append(alloc, '_');
-                            try output.appendSlice(alloc, field_name);
-                            try output.append(alloc, ' ');
-                            try output.appendSlice(alloc, field_name);
-                            try output.append(alloc, '\n');
-                            try fixes.append(alloc, .{
-                                .rule = "no-index-fk",
-                                .table = tbl,
-                                .description = "added index for foreign key column",
-                            });
-                            continue;
-                        }
-                    }
-                }
-            }
+            // Dispatch to per-rule fix handlers
+            if (try fixSerialType(alloc, line, &output, line_end, source.len, &fixes, current_table)) continue;
+            if (try fixBoolDefault(alloc, line, &output, line_end, source.len, &fixes, current_table, results)) continue;
+            if (try fixNullableColumnDefault(alloc, line, &output, line_end, source.len, &fixes, current_table, results)) continue;
+            if (try fixColumnDefaultRequired(alloc, line, &output, line_end, source.len, &fixes, current_table, &maps.needs_column_default)) continue;
+            if (try fixNoIndexFk(alloc, line, &output, line_end, source.len, &fixes, current_table, &maps.needs_fk_index)) continue;
         }
 
         // duplicate-index fix: track seen index lines and skip duplicates
         if (in_table and std.mem.startsWith(u8, std.mem.trim(u8, line, " \t"), "index ")) {
             if (current_table) |tbl| {
-                // Build a key from table name + index line
                 var key_buf = try std.ArrayList(u8).initCapacity(alloc, tbl.len + line.len + 1);
                 defer key_buf.deinit(alloc);
                 try key_buf.appendSlice(alloc, tbl);
@@ -389,13 +436,12 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
                 const key = try key_buf.toOwnedSlice(alloc);
 
                 if (seen_indexes.contains(key)) {
-                    // Duplicate index line — skip it
                     try fixes.append(alloc, .{
                         .rule = "duplicate-index",
                         .table = tbl,
                         .description = "removed duplicate index declaration",
                     });
-                    continue; // Skip the normal output below
+                    continue;
                 }
                 try seen_indexes.put(key, {});
             }
@@ -406,15 +452,13 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
             line[0] != '#' and line[0] != ';' and line[0] != '@' and line[0] != '$')
         {
             if (current_table) |tbl| {
-                if (needs_column_dedup.contains(tbl)) {
-                    // Extract field name (first word before spaces)
+                if (maps.needs_column_dedup.contains(tbl)) {
                     const trimmed = std.mem.trim(u8, line, " \t");
                     if (trimmed.len > 0) {
                         var field_end: usize = 0;
                         while (field_end < trimmed.len and trimmed[field_end] != ' ' and trimmed[field_end] != '\t') : (field_end += 1) {}
                         const field_name = trimmed[0..field_end];
 
-                        // Build a key from table name + column name
                         var col_key_buf = try std.ArrayList(u8).initCapacity(alloc, tbl.len + field_name.len + 1);
                         defer col_key_buf.deinit(alloc);
                         try col_key_buf.appendSlice(alloc, tbl);
@@ -423,13 +467,12 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
                         const col_key = try col_key_buf.toOwnedSlice(alloc);
 
                         if (seen_columns.contains(col_key)) {
-                            // Duplicate column — skip it
                             try fixes.append(alloc, .{
                                 .rule = "duplicate-column",
                                 .table = tbl,
                                 .description = "removed duplicate column declaration",
                             });
-                            continue; // Skip the normal output below
+                            continue;
                         }
                         try seen_columns.put(col_key, {});
                     }
@@ -447,7 +490,7 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
             const ns: usize = if (line.len > 1 and line[1] == ' ') 2 else 1;
             if (ns < line.len) {
                 const tbl_name = line[ns..];
-                if (needs_pk.contains(tbl_name) and !pk_inserted.contains(tbl_name)) {
+                if (maps.needs_pk.contains(tbl_name) and !pk_inserted.contains(tbl_name)) {
                     try output.appendSlice(alloc, "id       n++\n");
                     try fixes.append(alloc, .{
                         .rule = "no-pk",
@@ -462,7 +505,7 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
 
     // Handle timestamps for the last table
     if (current_table) |tbl| {
-        if (needs_timestamps.contains(tbl) and !ts_inserted.contains(tbl)) {
+        if (maps.needs_timestamps.contains(tbl) and !ts_inserted.contains(tbl)) {
             try output.appendSlice(alloc, "\ncreated_at t\nupdated_at t");
             try fixes.append(alloc, .{
                 .rule = "no-timestamps",
@@ -516,9 +559,7 @@ test "fix: empty-table removes empty table block" {
     };
     const source = "# empty_tbl\n\n# users\nname s32\n";
     const result = try fix(alloc, source, &results);
-    // The empty table block should be removed
     try testing.expect(std.mem.indexOf(u8, result.source, "empty_tbl") == null);
-    // The users table should remain
     try testing.expect(std.mem.indexOf(u8, result.source, "# users") != null);
     try testing.expectEqual(@as(usize, 1), result.fixes.len);
     try testing.expectEqualStrings("empty-table", result.fixes[0].rule);
@@ -534,9 +575,7 @@ test "fix: empty-table at end of file" {
     };
     const source = "# users\nname s32\n\n# empty_tbl\n";
     const result = try fix(alloc, source, &results);
-    // The empty table at end should be removed
     try testing.expect(std.mem.indexOf(u8, result.source, "empty_tbl") == null);
-    // The users table should remain
     try testing.expect(std.mem.indexOf(u8, result.source, "# users") != null);
 }
 
@@ -580,10 +619,8 @@ test "fix: duplicate-index removes second occurrence" {
     };
     const source = "# users\nname s32\nindex idx_name name\nindex idx_name2 name\nindex idx_name name\n";
     const result = try fix(alloc, source, &results);
-    // The second "index idx_name name" should be removed
     const first_pos = std.mem.indexOf(u8, result.source, "index idx_name name").?;
     const second_pos = std.mem.indexOf(u8, result.source[first_pos + 1 ..], "index idx_name name");
-    // Should only appear once (or the duplicate is removed)
     try testing.expect(second_pos == null or result.fixes.len > 0);
 }
 
@@ -667,10 +704,8 @@ test "fix: duplicate-column removes second occurrence" {
     };
     const source = "# users\nname s32\nage n\nname s64\n";
     const result = try fix(alloc, source, &results);
-    // The second "name" line should be removed
     const first_pos = std.mem.indexOf(u8, result.source, "name s32").?;
     const rest = result.source[first_pos + 8 ..];
-    // "name" should not appear again as a column
     try testing.expect(std.mem.indexOf(u8, rest, "name") == null);
     try testing.expect(result.fixes.len > 0);
     try testing.expectEqualStrings("duplicate-column", result.fixes[0].rule);

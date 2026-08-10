@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.233.0 (2026-08-11) — 54,000+ lines production Zig, 1,690+ tests, 41 lint rules, 34 test suites.
+**Current version**: 0.234.0 (2026-08-11) — 60,000+ lines production Zig, 1,690+ tests, 41 lint rules, 38 test suites.
 
 ---
 
@@ -181,6 +181,10 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 - [x] Data-driven lint rule dispatch — replace repetitive guard-then-call blocks (v0.186.0)
 - [x] Standardize error output — unified all modules to use diagnostic/format.zig (v0.187.0)
 - [x] Extract config merge logic — moved from main.zig to config_merge.zig for testability (v0.212.0)
+- [x] Extract CLI error handling — moved error-to-message mapping from main.zig to cli/errors.zig (v0.234.0)
+- [x] Shared SQL type-to-string helper — extracted duplicated SQL type rendering from generators into common.zig (v0.234.0)
+- [x] Decompose lint auto-fixer — split monolithic fix() function into per-rule handler functions (v0.234.0)
+- [x] Remove SARIF metadata duplication — rule descriptions now derived from LintRule.description() (v0.234.0)
 
 ---
 
@@ -197,8 +201,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
 | 8: Language Evolution | 🔲 In Progress | 3/10 | 7 |
 | Architecture Targets | 🔲 In Progress | 19/22 | 3 |
-| Technical Debt | ✅ Complete | 9/9 | 0 |
-| **Total** | | **102/117** | **15** |
+| Technical Debt | ✅ Complete | 13/13 | 0 |
+| **Total** | | **106/117** | **11** |
 
 ---
 
@@ -246,6 +250,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.234.0** — Architecture cleanup & code deduplication: extracted CLI error handling from `main.zig` into `cli/errors.zig` (reduced main.zig by 150 lines); added shared `writeSqlTypeString` helper to `generators/common.zig` (eliminates SQL type rendering duplication across generators); refactored `generators/docs.zig` and `generators/symbol_index.zig` to use shared helper; decomposed monolithic `lint/fix.zig` (370-line `fix()` function) into per-rule handler functions (`fixSerialType`, `fixBoolDefault`, `fixNullableColumnDefault`, `fixColumnDefaultRequired`, `fixNoIndexFk`) with extracted `buildFixMaps` pre-scan; expanded SARIF output in `lint/format.zig` to include all 41 lint rules (was 14); SARIF rule descriptions now derived from `LintRule.description()` (single source of truth); added 6 new unit tests for `cli/errors.zig`; 1,690+ unit tests pass, benchmarks show no regressions
 - **v0.233.0** — Generator metadata & lint bug fix: added `version` and `author` metadata fields to `Generator` struct (displayed in `rune generate --list` output); fixed `duplicate-column` auto-fix bug (was marked fixable but handler was not implemented — now properly removes duplicate column declarations); added `unique-constraint` lint rule (warns when a UNIQUE constraint targets a column that is already the primary key — redundant); added `composite-pk` lint rule (warns when a table has multiple auto-increment primary keys — invalid); 41 lint rules total, 11 fixable; 1,690+ unit tests pass, benchmarks show no regressions
 - **v0.232.0** — LSP inlay hints & architecture quality: added `textDocument/inlayHint` LSP support that shows resolved SQL types inline in the editor (e.g., `n` shows as `-> int`, `s64` shows as `-> varchar(64)`); added `InlayHint` type to LSP protocol; added `inlayHintProvider` capability to LSP initialize response; added 5 unit tests for inlay hint generation and serialization; added comment explaining generator listing duplication rationale; 1,685 unit tests pass, benchmarks show no regressions
 - **v0.231.0** — Generator deduplication & architecture cleanup: extracted `writeOrmDefault` helper to eliminate 5-line default value emission pattern across 5 ORM generators; created `ImportTracker` struct in `common.zig` to consolidate ~80 lines of duplicated import-tracking logic; moved `irregulars` table to module-level const in `toCamelSingular`; fixed `parseInList` memory leak in `writeColumnPropJson`; refactored drizzle/typeorm/sqlalchemy/knex generators to use `common.writeComment`, `common.writeOrmDefault`; added `parsePosition` helper in LSP handlers (eliminated 8 occurrences of 3-line position parsing); removed dead `shouldCompile` stub and dead defer arm in server.zig; removed dead `parseOnly` function in forward.zig; added named `CompileInternalResult` struct; added `Stats.zero` comptime constant; 1,680 unit tests pass, benchmarks show no regressions
