@@ -166,6 +166,8 @@ comptime {
     _ = @import("lsp/folding_range_test.zig");
     _ = @import("lsp/type_definition.zig");
     _ = @import("lsp/type_definition_test.zig");
+    _ = @import("lsp/inlay_hints.zig");
+    _ = @import("lsp/inlay_hints_test.zig");
     // ── wasm ──────────────────────────────────────────────────────
     _ = @import("wasm.zig");
 }

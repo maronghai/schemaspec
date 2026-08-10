@@ -146,7 +146,7 @@ See [docs/migration-guide.md](docs/migration-guide.md) for migrating from SQL DD
 cd packaging/vscode && code --install-extension .
 ```
 
-Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), LSP-powered IntelliSense (completion, hover, go-to-definition, diagnostics, code actions, formatting, workspace symbols, signature help), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). The extension starts `rune lsp` automatically on activation. Configure `rune.schemaPath` for custom binary paths.
+Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), LSP-powered IntelliSense (completion, hover, go-to-definition, diagnostics, code actions, formatting, workspace symbols, signature help, inlay hints), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). The extension starts `rune lsp` automatically on activation. Configure `rune.schemaPath` for custom binary paths.
 
 ## Architecture
 
@@ -285,7 +285,7 @@ rune/src/
 | | `documents.zig` | Document state manager (open/change/close tracking) |
 | | `compile_service.zig` | Pipeline wrapper for LSP diagnostics + TypedAst capture (dialect-aware) |
 | | `server.zig` | LSP server main loop (JSON-RPC over stdio) |
-| | `features.zig` | LSP interactive features (document symbols, completion, hover, go-to-definition, code actions, formatting) |
+| | `features.zig` | LSP interactive features (document symbols, completion, hover, go-to-definition, code actions, formatting, inlay hints) |
 | `parser/` | `parser.zig` | Token-level `.ss` parser → AST, dispatches to parse_* modules |
 | | `parse_field.zig` | Field declaration parsing (type, modifiers, default, inline FK) |
 | | `parse_fk.zig`, `parse_check.zig`, `parse_index.zig` | FK/Check/Index parsing |

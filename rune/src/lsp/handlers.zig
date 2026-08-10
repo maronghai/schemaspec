@@ -63,6 +63,7 @@ pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?
         .type_definition_provider = true,
         .workspace_symbol_provider = true,
         .signature_help_provider = true,
+        .inlay_hint_provider = true,
     });
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
@@ -573,6 +574,31 @@ pub fn handleSignatureHelp(self: *Server, stdout_file: anytype, id: ?i64, params
         }
     } else {
         try body_alloc.writer.writeAll("null");
+    }
+
+    try self.sendResponse(stdout_file, rid, &body_alloc);
+}
+
+pub fn handleInlayHint(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+    const rid = id orelse return;
+    const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+    const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+
+    const result = self.compile_results.get(uri);
+    const typed = if (result) |r| r.typed_ast else null;
+
+    var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+    if (typed) |t| {
+        const inlay_hints = @import("inlay_hints.zig");
+        const hints = inlay_hints.getInlayHints(self.arena, t, self.dialect) catch {
+            try body_alloc.writer.writeAll("[]");
+            try self.sendResponse(stdout_file, rid, &body_alloc);
+            return;
+        };
+        try lsp_protocol.writeInlayHintArray(&body_alloc.writer, hints);
+        // Note: hints are arena-allocated, no need to free individually
+    } else {
+        try body_alloc.writer.writeAll("[]");
     }
 
     try self.sendResponse(stdout_file, rid, &body_alloc);

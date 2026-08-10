@@ -168,8 +168,11 @@ pub fn listDetailed() !void {
 }
 
 /// Print detailed generator information to stderr.
+/// Uses std.debug.print which always writes to stderr and ignores errors.
 pub fn listDetailedStderr() void {
-    // Use std.debug.print which always writes to stderr
+    // std.debug.print always writes to stderr and cannot fail.
+    // We duplicate the formatting logic here rather than calling listDetailedTo()
+    // because listDetailedTo() requires a fallible writer and returns !void.
     std.debug.print("Available generators:\n\n", .{});
     for (REGISTRY) |gen| {
         std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });

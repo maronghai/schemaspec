@@ -546,6 +546,7 @@ The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It
 | `lsp/references.zig` | ~100 | Find all references to a table or column name |
 | `lsp/highlights.zig` | ~100 | Document highlights — highlight all occurrences of symbol under cursor |
 | `lsp/formatting.zig` | ~10 | Document formatting via formatter |
+| `lsp/inlay_hints.zig` | ~80 | Inlay hints — show resolved SQL types inline in the editor |
 
 ### Data flow
 
@@ -559,7 +560,8 @@ Editor → JSON-RPC → server.zig dispatch → handlers.zig
   ├── textDocument/documentHighlight → highlights.zig → DocumentHighlight[]
   ├── textDocument/codeAction → code_actions.zig → CodeAction[]
   ├── textDocument/rename → rename.zig → WorkspaceEdit
-  └── textDocument/formatting → formatting.zig → TextEdit[]
+  ├── textDocument/formatting → formatting.zig → TextEdit[]
+  └── textDocument/inlayHint → inlay_hints.zig → InlayHint[]
 ```
 
 ## Watch Mode

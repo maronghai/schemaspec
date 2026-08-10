@@ -80,7 +80,7 @@ Build the community and ecosystem around Rune. **In progress — 3/8 items done.
 
 ## Phase 7: Editor Extensions 🔲
 
-Extend the LSP foundation into full editor experiences. **In progress — 8/10 items done.**
+Extend the LSP foundation into full editor experiences. **In progress — 9/10 items done.**
 
 ### VS Code Extension
 
@@ -91,6 +91,7 @@ Extend the LSP foundation into full editor experiences. **In progress — 8/10 i
 - [x] Rename — rename table/column with FK reference updates (v0.153.0)
 - [x] Enhanced completion — context-aware FK targets, template refs, prefix filtering (v0.153.0)
 - [x] Rich hover — SQL DDL preview, FK relationship details, view SQL (v0.153.0)
+- [x] Inlay hints — show resolved SQL types inline in the editor (v0.232.0)
 
 ### Neovim Plugin
 
@@ -193,11 +194,11 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
 | 6: Ecosystem & Community | 🔲 In Progress | 3/8 | 5 |
-| 7: Editor Extensions | 🔲 In Progress | 8/10 | 2 |
+| 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
 | 8: Language Evolution | 🔲 In Progress | 3/10 | 7 |
 | Architecture Targets | 🔲 In Progress | 19/22 | 3 |
 | Technical Debt | ✅ Complete | 9/9 | 0 |
-| **Total** | | **101/117** | **16** |
+| **Total** | | **102/117** | **15** |
 
 ---
 
@@ -245,6 +246,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.232.0** — LSP inlay hints & architecture quality: added `textDocument/inlayHint` LSP support that shows resolved SQL types inline in the editor (e.g., `n` shows as `-> int`, `s64` shows as `-> varchar(64)`); added `InlayHint` type to LSP protocol; added `inlayHintProvider` capability to LSP initialize response; added 5 unit tests for inlay hint generation and serialization; added comment explaining generator listing duplication rationale; 1,685 unit tests pass, benchmarks show no regressions
 - **v0.231.0** — Generator deduplication & architecture cleanup: extracted `writeOrmDefault` helper to eliminate 5-line default value emission pattern across 5 ORM generators; created `ImportTracker` struct in `common.zig` to consolidate ~80 lines of duplicated import-tracking logic; moved `irregulars` table to module-level const in `toCamelSingular`; fixed `parseInList` memory leak in `writeColumnPropJson`; refactored drizzle/typeorm/sqlalchemy/knex generators to use `common.writeComment`, `common.writeOrmDefault`; added `parsePosition` helper in LSP handlers (eliminated 8 occurrences of 3-line position parsing); removed dead `shouldCompile` stub and dead defer arm in server.zig; removed dead `parseOnly` function in forward.zig; added named `CompileInternalResult` struct; added `Stats.zero` comptime constant; 1,680 unit tests pass, benchmarks show no regressions
 - **v0.230.0** — Architecture quality improvements: unified generator listing functions (eliminated ~40 lines of duplication between `listDetailed` and `listDetailedStderr`); created `GenerateConfig` struct in `pipeline/handlers.zig` to replace 8 positional parameters with a named struct (consistent with `CompileConfig` and `ValidateConfig` patterns); added unified `handleGenerate()` entry point; verified `catch unreachable` only exists in test code (not production); 1,680 unit tests pass, benchmarks show no regressions
 - **v0.229.0** — Lint handler refactoring & new rules: split `lint/handlers/validation.zig` (586 lines) into 4 focused modules (`fk.zig`, `index.zig`, `view.zig`, `enum.zig`) for better maintainability; added `column-boolean-naming` lint rule (warns when boolean columns don't use `is_`/`has_`/`can_` prefix convention); added `fk-depth` lint rule (warns when FK reference chain exceeds 3 levels); 10 new unit tests (1,685 total); benchmarks show no regressions

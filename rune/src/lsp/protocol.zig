@@ -265,6 +265,7 @@ pub const ServerCapabilities = struct {
     type_definition_provider: ?bool = null,
     workspace_symbol_provider: ?bool = null,
     signature_help_provider: ?bool = null,
+    inlay_hint_provider: ?bool = null,
 };
 
 pub const InitializeResult = struct {
@@ -329,6 +330,25 @@ pub const WorkspaceSymbol = struct {
     kind: SymbolKind,
     location: Location,
     container_name: ?[]const u8 = null,
+};
+
+// ─── Inlay Hint ────────────────────────────────────────────
+
+pub const InlayHintKind = enum(u32) {
+    type_hint = 1,
+    parameter = 2,
+};
+
+pub const InlayHint = struct {
+    position: Position,
+    label: []const u8,
+    kind: InlayHintKind = .type_hint,
+    tooltip: ?[]const u8 = null,
+};
+
+pub const InlayHintParams = struct {
+    text_document: TextDocumentIdentifier,
+    range: Range,
 };
 
 // ─── Signature Help ──────────────────────────────────────────
@@ -454,6 +474,10 @@ pub fn writeInitializeResult(w: anytype, caps: ServerCapabilities) !void {
         try w.writeAll(",\"signatureHelpProvider\":{");
         try w.writeAll("\"triggerCharacters\":[\" \"]}");
     }
+    if (caps.inlay_hint_provider) |ihp| {
+        try w.writeAll(",\"inlayHintProvider\":");
+        try w.writeAll(if (ihp) "true" else "false");
+    }
     try w.writeAll("}");
 }
 
@@ -559,6 +583,34 @@ pub fn writeCompletionItem(w: anytype, item: CompletionItem) !void {
         try w.print("{d}", .{@intFromEnum(fmt)});
     }
     try w.writeByte('}');
+}
+
+/// Write an InlayHint as JSON.
+pub fn writeInlayHint(w: anytype, hint: InlayHint) !void {
+    try w.writeByte('{');
+    try w.writeAll("\"position\":{\"line\":");
+    try w.print("{d}", .{hint.position.line});
+    try w.writeAll(",\"character\":");
+    try w.print("{d}", .{hint.position.character});
+    try w.writeAll("},\"label\":");
+    try json_utils.writeJsonString(w, hint.label);
+    try w.writeAll(",\"kind\":");
+    try w.print("{d}", .{@intFromEnum(hint.kind)});
+    if (hint.tooltip) |tip| {
+        try w.writeAll(",\"tooltip\":");
+        try json_utils.writeJsonString(w, tip);
+    }
+    try w.writeByte('}');
+}
+
+/// Write an InlayHint array as JSON.
+pub fn writeInlayHintArray(w: anytype, hints: []const InlayHint) !void {
+    try w.writeByte('[');
+    for (hints, 0..) |hint, i| {
+        if (i > 0) try w.writeByte(',');
+        try writeInlayHint(w, hint);
+    }
+    try w.writeByte(']');
 }
 
 /// Write a Hover result as JSON.
