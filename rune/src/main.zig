@@ -206,96 +206,75 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
 
     switch (parsed.command) {
         .version => |cmd| {
-            if (cmd.json) {
-                version.printVersionJson();
-            } else {
-                version.printVersion();
-            }
+            if (cmd.json) version.printVersionJson() else version.printVersion();
             return;
         },
         .help => |cmd| {
-            if (cmd.subcommand) |sub| {
-                cli.printSubcommandHelp(sub);
-            } else {
-                cli.printUsage();
-            }
+            if (cmd.subcommand) |sub| cli.printSubcommandHelp(sub) else cli.printUsage();
             return;
         },
-        .compile => |cmd| {
-            const input_path = if (cmd.input) |path|
-                if (std.mem.eql(u8, path, io_mod.STDIN_PATH)) null else path
-            else
-                null;
-
-            return handlers.handleCompileRequest(io, alloc, .{
-                .input = input_path,
-                .output_path = cmd.output,
-                .trace = cmd.trace,
-                .dialect = parsed.dialect,
-                .format = resolveOutputFormat(parsed.target),
-                .stats = cmd.stats,
-                .check = cmd.check,
-                .quiet = parsed.quiet,
-                .verbose_passes = cmd.verbose_passes,
-                .json_errors = parsed.json_errors,
-                .import_paths = parsed.import_paths,
-                .stream = cmd.stream,
-                .parallel = cmd.parallel,
-                .color = parsed.color.shouldUseColor(io),
-            });
-        },
+        .compile => |cmd| return handlers.handleCompileRequest(io, alloc, .{
+            .input = resolveInputPath(cmd.input),
+            .output_path = cmd.output,
+            .trace = cmd.trace,
+            .dialect = parsed.dialect,
+            .format = resolveOutputFormat(parsed.target),
+            .stats = cmd.stats,
+            .check = cmd.check,
+            .quiet = parsed.quiet,
+            .verbose_passes = cmd.verbose_passes,
+            .json_errors = parsed.json_errors,
+            .import_paths = parsed.import_paths,
+            .stream = cmd.stream,
+            .parallel = cmd.parallel,
+            .color = parsed.color.shouldUseColor(io),
+        }),
         .validate => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return handlers.handleValidate(io, alloc, file_data, .{ .stats = cmd.stats, .verbose_passes = cmd.verbose_passes, .json_errors = parsed.json_errors, .strict = parsed.strict, .format = cmd.format, .per_table = cmd.per_table });
         },
         .check => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return handlers.handleCheck(io, alloc, file_data, .{ .stats = cmd.stats, .verbose_passes = cmd.verbose_passes, .json_errors = parsed.json_errors, .format = cmd.format });
         },
         .stats => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return handlers.handleStats(io, alloc, file_data, cmd.format, cmd.per_table);
         },
-        .diff => |cmd| {
-            return diff_pipe.handleDiff(io, alloc, .{
-                .old_path = cmd.old,
-                .new_path = cmd.new,
-                .dialect = parsed.dialect,
-                .format = cmd.format,
-                .trace = cmd.trace,
-                .stats = cmd.stats,
-                .check = cmd.check,
-                .color = parsed.color,
-                .summary = cmd.summary,
-                .from_sql = cmd.from_sql,
-            });
-        },
-        .migrate => |cmd| {
-            return diff_pipe.handleMigrate(io, alloc, .{
-                .old_path = cmd.old,
-                .new_path = cmd.new,
-                .dialect = parsed.dialect,
-                .format = cmd.format,
-                .output_path = cmd.output,
-                .trace = cmd.trace,
-                .stats = cmd.stats,
-                .rollback = cmd.rollback,
-                .dry_run = cmd.dry_run,
-                .check = cmd.check,
-                .name = cmd.name,
-                .dir = cmd.dir,
-                .incremental = cmd.incremental,
-                .summary = cmd.summary,
-                .color = parsed.color,
-                .graph = cmd.graph,
-                .auto_lint = !cmd.no_lint,
-            });
-        },
-        .migrate_status => |cmd| {
-            return diff_pipe.handleMigrateStatus(io, alloc, cmd.dir, cmd.json_errors);
-        },
+        .diff => |cmd| return diff_pipe.handleDiff(io, alloc, .{
+            .old_path = cmd.old,
+            .new_path = cmd.new,
+            .dialect = parsed.dialect,
+            .format = cmd.format,
+            .trace = cmd.trace,
+            .stats = cmd.stats,
+            .check = cmd.check,
+            .color = parsed.color,
+            .summary = cmd.summary,
+            .from_sql = cmd.from_sql,
+        }),
+        .migrate => |cmd| return diff_pipe.handleMigrate(io, alloc, .{
+            .old_path = cmd.old,
+            .new_path = cmd.new,
+            .dialect = parsed.dialect,
+            .format = cmd.format,
+            .output_path = cmd.output,
+            .trace = cmd.trace,
+            .stats = cmd.stats,
+            .rollback = cmd.rollback,
+            .dry_run = cmd.dry_run,
+            .check = cmd.check,
+            .name = cmd.name,
+            .dir = cmd.dir,
+            .incremental = cmd.incremental,
+            .summary = cmd.summary,
+            .color = parsed.color,
+            .graph = cmd.graph,
+            .auto_lint = !cmd.no_lint,
+        }),
+        .migrate_status => |cmd| return diff_pipe.handleMigrateStatus(io, alloc, cmd.dir, cmd.json_errors),
         .reverse => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return reverse_pipe.handleReverse(io, alloc, file_data, .{
                 .input_name = cmd.input orelse "<stdin>",
                 .output_path = cmd.output,
@@ -309,12 +288,19 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             });
         },
         .docs => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            const doc_format: handlers.DocsFormat = switch (cmd.doc_format) {
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
+            return handlers.handleDocs(io, alloc, file_data, cmd.output, switch (cmd.doc_format) {
                 .markdown => .markdown,
                 .json => .json,
-            };
-            return handlers.handleDocs(io, alloc, file_data, cmd.output, doc_format, parsed.quiet, parsed.dialect);
+            }, parsed.quiet, parsed.dialect);
+        },
+        .export_cmd => |cmd| {
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
+            return handlers.handleExport(io, alloc, file_data, cmd.output, switch (cmd.format) {
+                .json => .json,
+                .text => .text,
+                .markdown => .markdown,
+            }, parsed.quiet);
         },
         .generate => |cmd| {
             if (cmd.list) {
@@ -323,26 +309,19 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
                 }
                 return;
             }
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
-            // Batch generation: --generators prisma,drizzle,openapi
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
             if (cmd.generators_str) |gens_str| {
                 return handlers.generateFromSchemaBatch(io, alloc, file_data, gens_str, parsed.dialect, cmd.output, parsed.quiet, cmd.dry_run);
             }
             return handlers.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet, cmd.dry_run);
         },
-        .init => |cmd| {
-            return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template);
-        },
+        .init => |cmd| return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template),
         .format_cmd => |cmd| {
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return handlers.handleFormat(io, alloc, file_data, cmd.output, cmd.check, parsed.quiet);
         },
-        .completions => |cmd| {
-            return completions.handleCompletions(io, alloc, cmd.shell);
-        },
-        .hooks => |cmd| {
-            return hooks_mod.handleHooks(io, alloc, cmd.hook_type);
-        },
+        .completions => |cmd| return completions.handleCompletions(io, alloc, cmd.shell),
+        .hooks => |cmd| return hooks_mod.handleHooks(io, alloc, cmd.hook_type),
         .lint => |cmd| {
             const lint_cmd = @import("cli/lint_cmd.zig");
             return lint_cmd.handleLint(io, alloc, .{
@@ -377,7 +356,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .tune => |cmd| {
             const tune_mod = @import("tune.zig");
-            const file_data = try io_mod.readFileOrStdin(io, alloc, cmd.input orelse io_mod.STDIN_PATH);
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return tune_mod.handleTune(io, alloc, file_data, cmd.dry_run);
         },
         .lsp => {
@@ -387,6 +366,19 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             return server.run();
         },
     }
+}
+
+/// Resolve input path, converting STDIN_PATH to null.
+fn resolveInputPath(input: ?[]const u8) ?[]const u8 {
+    return if (input) |path|
+        if (std.mem.eql(u8, path, io_mod.STDIN_PATH)) null else path
+    else
+        null;
+}
+
+/// Read file or stdin from an optional input path.
+fn readFileOrStdin(io: std.Io, alloc: std.mem.Allocator, input: ?[]const u8) ![]const u8 {
+    return io_mod.readFileOrStdin(io, alloc, input orelse io_mod.STDIN_PATH);
 }
 
 // ─── Error Messages ───────────────────────────────────────────
@@ -409,6 +401,7 @@ fn getInputPaths(command: cli.Command) InputPaths {
         .migrate => |cmd| .{ .path1 = cmd.old, .path2 = cmd.new },
         .reverse => |cmd| .{ .path1 = cmd.input },
         .docs => |cmd| .{ .path1 = cmd.input },
+        .export_cmd => |cmd| .{ .path1 = cmd.input },
         .format_cmd => |cmd| .{ .path1 = cmd.input },
         .generate => |cmd| .{ .path1 = cmd.input },
         .lint => |cmd| .{ .path1 = cmd.input },

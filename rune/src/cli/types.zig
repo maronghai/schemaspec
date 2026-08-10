@@ -11,6 +11,7 @@ pub const ColorMode = enums.ColorMode;
 
 pub const LintFormat = enum { text, json, sarif };
 pub const DocsFormat = enum { markdown, json };
+pub const ExportFormat = enum { json, text, markdown };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
@@ -22,6 +23,7 @@ pub const Command = union(enum) {
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat, check: bool = false },
     docs: struct { input: ?[]const u8, output: ?[]const u8, doc_format: DocsFormat = .markdown },
+    export_cmd: struct { input: ?[]const u8, output: ?[]const u8, format: ExportFormat = .json },
     format_cmd: struct { input: ?[]const u8, output: ?[]const u8, check: bool = false },
     generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool, dry_run: bool = false },
     init: struct { name: ?[]const u8, output: ?[]const u8, output_dir: ?[]const u8 = null, template: ?[]const u8 = null },
@@ -102,6 +104,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "migrate", .args = "<old.ss> <new.ss> [--name <label>] [--dir <path>] [--incremental] [--graph]", .description = "Generate ALTER TABLE migration SQL" },
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
     .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
+    .{ .name = "export", .args = "[input.ss] [--format json|text|markdown]", .description = "Export schema as structured data" },
     .{ .name = "format", .args = "[input.ss]", .description = "Auto-format .ss schema file" },
     .{ .name = "generate", .args = "<generator> [input.ss]", .description = "Generate output in specified format" },
     .{ .name = "init", .args = "[name] [--output-dir <dir>] [--template <name>]", .description = "Create a starter .ss schema file" },

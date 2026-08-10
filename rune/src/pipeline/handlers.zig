@@ -420,3 +420,109 @@ pub fn handleFormat(
     }
     try io_mod.writeOutput(io, formatted, output_path, quiet);
 }
+
+pub const ExportFormat = enum { json, text, markdown };
+
+/// Export schema as structured data for tooling integration.
+pub fn handleExport(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    file_data: []const u8,
+    output_path: ?[]const u8,
+    export_format: ExportFormat,
+    quiet: bool,
+) !void {
+    const pipeline = try compilePipeline(alloc, file_data, .{});
+    const output_text = switch (export_format) {
+        .json => try exportAsJson(alloc, pipeline),
+        .text => try exportAsText(alloc, pipeline),
+        .markdown => try exportAsMarkdown(alloc, pipeline),
+    };
+    try io_mod.writeOutput(io, output_text, output_path, quiet);
+}
+
+fn exportAsJson(alloc: std.mem.Allocator, pipeline: forward.PipelineResult) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    defer aw.deinit();
+    const w = &aw.writer;
+
+    try w.writeAll("{\n");
+
+    // Schema info
+    if (pipeline.resolved.schema_name) |name| {
+        try w.print("  \"schema\": {{\n", .{});
+        try w.print("    \"name\": \"{s}\"\n", .{name});
+        try w.print("  }},\n", .{});
+    }
+
+    // Tables
+    try w.print("  \"tables\": [\n", .{});
+    for (pipeline.resolved.tables, 0..) |table, i| {
+        if (i > 0) try w.writeAll(",\n");
+        try w.print("    {{\n", .{});
+        try w.print("      \"name\": \"{s}\",\n", .{table.name});
+        if (table.template_ref) |tref| {
+            try w.print("      \"template\": \"{s}\",\n", .{tref});
+        }
+        try w.print("      \"fields\": {d},\n", .{table.fields.len});
+        try w.print("      \"indexes\": {d},\n", .{table.indexes.len});
+        try w.print("      \"foreign_keys\": {d}\n", .{table.fks.len});
+        try w.print("    }}", .{});
+    }
+    try w.writeAll("\n  ]\n");
+
+    try w.writeAll("}\n");
+
+    const result = try aw.toOwnedSlice();
+    return result;
+}
+
+fn exportAsText(alloc: std.mem.Allocator, pipeline: forward.PipelineResult) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    defer aw.deinit();
+    const w = &aw.writer;
+
+    if (pipeline.resolved.schema_name) |name| {
+        try w.print("Schema: {s}\n\n", .{name});
+    }
+
+    // Tables
+    try w.writeAll("Tables:\n");
+    for (pipeline.resolved.tables) |table| {
+        try w.print("  # {s}", .{table.name});
+        if (table.template_ref) |tref| {
+            try w.print(" ({s})", .{tref});
+        }
+        try w.print(" — {d} fields, {d} indexes, {d} FKs\n", .{ table.fields.len, table.indexes.len, table.fks.len });
+    }
+
+    const result = try aw.toOwnedSlice();
+    return result;
+}
+
+fn exportAsMarkdown(alloc: std.mem.Allocator, pipeline: forward.PipelineResult) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    defer aw.deinit();
+    const w = &aw.writer;
+
+    if (pipeline.resolved.schema_name) |name| {
+        try w.print("# Schema: {s}\n\n", .{name});
+    }
+
+    // Tables
+    try w.writeAll("## Tables\n\n");
+    for (pipeline.resolved.tables) |table| {
+        try w.print("### `{s}`\n\n", .{table.name});
+        if (table.template_ref) |tref| {
+            try w.print("Extends: `%{s}`\n\n", .{tref});
+        }
+        try w.print("| Field | Type |\n|-------|------|\n", .{});
+        for (table.fields) |field| {
+            try w.print("| `{s}` | {s} |\n", .{ field.name, @tagName(field.type_info) });
+        }
+        try w.writeAll("\n");
+    }
+
+    const result = try aw.toOwnedSlice();
+    return result;
+}

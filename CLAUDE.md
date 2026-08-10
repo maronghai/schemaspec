@@ -93,9 +93,12 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune diff schema.ss --from-sql live.sql # Drift detection against SQL dump
 ./rune/zig-out/bin/rune diff schema.ss --from-sql live.sql --check # CI drift gate
 ./rune/zig-out/bin/rune generate json-schema schema.ss   # Generate JSON Schema
-./rune/zig-out/bin/rune generate --list                  # List available generators
+./rune/zig-out/bin/rune generate --list                  # List available generators with metadata
 ./rune/zig-out/bin/rune generate schema.ss --generators prisma,drizzle,openapi  # Batch generation
 ./rune/zig-out/bin/rune generate schema.ss --dry-run     # Preview generate output without writing
+./rune/zig-out/bin/rune export schema.ss                  # Export schema as JSON
+./rune/zig-out/bin/rune export schema.ss --format text    # Export as text summary
+./rune/zig-out/bin/rune export schema.ss --format markdown # Export as Markdown
 ./rune/zig-out/bin/rune watch schema.ss                   # Watch file and recompile on change
 ./rune/zig-out/bin/rune watch schema.ss --interval 500    # Watch with 500ms polling interval
 ./rune/zig-out/bin/rune watch schema.ss --stream           # Watch with streaming compilation
@@ -203,7 +206,7 @@ rune/src/
 
 ### Key Design Patterns
 
-- **Generator Registry** (`generator.zig`): `Generator` struct (name, description, extension, generate fn ptr) + `REGISTRY` array + `get(name)` lookup. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `extension` field specifies the output file extension (e.g. `.prisma`, `.sql`, `.json`) used in batch mode. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone), `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`.
+- **Generator Registry** (`generator.zig`): `Generator` struct (name, description, extension, category, dialects, generate fn ptr) + `REGISTRY` array + `get(name)` lookup + `listDetailed()` for rich output + `check()` for health validation. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `extension` field specifies the output file extension (e.g. `.prisma`, `.sql`, `.json`) used in batch mode. The `category` field indicates schema-based vs standalone generators. The `dialects` field lists supported dialects (null = dialect-agnostic). The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone, agnostic), `sql-ddl` (all 6 dialects), `prisma` (agnostic), `docs` (agnostic), `drizzle` (mysql/pg/sqlite), `typeorm` (mysql/pg/sqlite/mssql), `sqlalchemy` (mysql/pg/sqlite), `knex` (mysql/pg/sqlite/mssql), `openapi` (mysql/pg/sqlite/mssql/oracle), `graphql` (agnostic), `symbol-index` (all 6 dialects).
 
 - **DialectBackend vtable** (`dialect/dialect.zig`): 33 function pointers (26 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. `getBackend()` returns `*const DialectBackend` (pointer to static const, avoids 136-byte copy). Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). Comptime validation via `comptimeValidateAllPointers()` auto-validates all function pointer fields.
 
@@ -216,6 +219,8 @@ rune/src/
 - **Config Merge** (`config_merge.zig`): Extracted from `main.zig` for testability. `mergeCliConfig(parsed, cfg)` merges CLI flags with config file defaults (CLI takes precedence). Handles 7 merge cases: dialect, quiet, json_errors, color, target, stream, parallel. Each case has unit tests verifying precedence semantics.
 
 - **`generateFromSchema`** (`pipeline/handlers.zig`): Shared helper that handles the full compile→generate→write pipeline. Used by both `rune generate` and `rune docs` in `main.zig`, eliminating duplicate dispatch logic.
+
+- **Export Command** (`pipeline/handlers.zig`): `handleExport()` compiles a schema and exports it as structured data (JSON, text, or Markdown) for tooling integration. JSON export includes schema metadata, table names, field counts, index counts, and FK counts. Text export provides a concise summary. Markdown export generates a table documentation with field types.
 
 - **CLI Unknown-Flag Detection** (`cli.zig`): Unrecognized `--` flags produce `error.UnknownFlag` with the flag name in the error message, instead of silently treating them as file paths. Known flags are checked against `GLOBAL_FLAG_REGISTRY` (20 entries in `cli/flag_registry.zig`) plus `KNOWN_FLAGS` for subcommand-specific flags.
 

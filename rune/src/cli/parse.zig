@@ -419,6 +419,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .{ .name = "check", .parse = parse_compile.parseCheckArgs },
         .{ .name = "stats", .parse = parse_compile.parseStatsArgs },
         .{ .name = "docs", .parse = parse_utils.parseDocsArgs },
+        .{ .name = "export", .parse = parse_utils.parseExportArgs },
         .{ .name = "format", .parse = parse_utils.parseFormatArgs },
         .{ .name = "init", .parse = parse_utils.parseInitArgs },
         .{ .name = "completions", .parse = parse_utils.parseCompletionsArgs },

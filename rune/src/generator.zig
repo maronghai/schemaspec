@@ -12,11 +12,22 @@ const Dialect = dialect_enum.Dialect;
 //   2. Add a Generator entry to REGISTRY below
 //   3. That's it — the CLI automatically picks it up
 
+/// Category of generator output.
+pub const GeneratorCategory = enum {
+    /// Requires TypedAst input (e.g., Prisma, Drizzle, SQL DDL).
+    schema,
+    /// Standalone output that may not need full schema processing (e.g., JSON Schema, symbol-index).
+    standalone,
+};
+
 /// A code generator that produces output from a TypedAst.
 pub const Generator = struct {
     name: []const u8,
     description: []const u8,
     extension: []const u8,
+    category: GeneratorCategory,
+    /// Supported dialects. null = dialect-agnostic (works with any dialect).
+    dialects: ?[]const []const u8 = null,
     generate: *const fn (alloc: std.mem.Allocator, typed: typed_ast.TypedAst, dialect: Dialect) anyerror![]const u8,
 };
 
@@ -26,66 +37,88 @@ pub const REGISTRY = [_]Generator{
         .name = "json-schema",
         .description = "JSON Schema (draft-07) from .ss schema",
         .extension = ".json",
+        .category = .standalone,
+        .dialects = null, // dialect-agnostic
         .generate = @import("generators/json_schema.zig").generate,
     },
     .{
         .name = "sql-ddl",
         .description = "SQL DDL (CREATE TABLE) for the selected dialect",
         .extension = ".sql",
+        .category = .schema,
+        .dialects = &.{ "mysql", "pg", "sqlite", "mssql", "oracle", "db2" },
         .generate = @import("generators/sql_ddl.zig").generate,
     },
     .{
         .name = "prisma",
         .description = "Prisma schema from .ss schema",
         .extension = ".prisma",
+        .category = .schema,
+        .dialects = null, // dialect-agnostic
         .generate = @import("generators/prisma.zig").generate,
     },
     .{
         .name = "docs",
         .description = "Markdown documentation from .ss schema",
         .extension = ".md",
+        .category = .schema,
+        .dialects = null, // dialect-agnostic
         .generate = @import("generators/docs.zig").generate,
     },
     .{
         .name = "drizzle",
         .description = "Drizzle ORM TypeScript schema from .ss schema",
         .extension = ".ts",
+        .category = .schema,
+        .dialects = &.{ "mysql", "pg", "sqlite" },
         .generate = @import("generators/drizzle.zig").generate,
     },
     .{
         .name = "typeorm",
         .description = "TypeORM entity classes from .ss schema",
         .extension = ".ts",
+        .category = .schema,
+        .dialects = &.{ "mysql", "pg", "sqlite", "mssql" },
         .generate = @import("generators/typeorm.zig").generate,
     },
     .{
         .name = "sqlalchemy",
         .description = "SQLAlchemy ORM models from .ss schema",
         .extension = ".py",
+        .category = .schema,
+        .dialects = &.{ "mysql", "pg", "sqlite" },
         .generate = @import("generators/sqlalchemy.zig").generate,
     },
     .{
         .name = "knex",
         .description = "Knex.js migration files from .ss schema",
         .extension = ".js",
+        .category = .schema,
+        .dialects = &.{ "mysql", "pg", "sqlite", "mssql" },
         .generate = @import("generators/knex.zig").generate,
     },
     .{
         .name = "openapi",
         .description = "OpenAPI 3.1 spec from .ss schema",
         .extension = ".json",
+        .category = .schema,
+        .dialects = &.{ "mysql", "pg", "sqlite", "mssql", "oracle" },
         .generate = @import("generators/openapi.zig").generate,
     },
     .{
         .name = "graphql",
         .description = "GraphQL type definitions from .ss schema",
         .extension = ".graphql",
+        .category = .schema,
+        .dialects = null, // dialect-agnostic
         .generate = @import("generators/graphql.zig").generate,
     },
     .{
         .name = "symbol-index",
         .description = "JSON symbol index for IDE integration",
         .extension = ".json",
+        .category = .standalone,
+        .dialects = &.{ "mysql", "pg", "sqlite", "mssql", "oracle", "db2" },
         .generate = @import("generators/symbol_index.zig").generate,
     },
 };
@@ -104,4 +137,45 @@ pub fn listAll(writer: anytype) !void {
     for (REGISTRY) |gen| {
         try writer.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
     }
+}
+
+/// Print detailed generator information including dialect support.
+pub fn listDetailed(writer: anytype) !void {
+    try writer.print("Available generators:\n\n", .{});
+    for (REGISTRY) |gen| {
+        try writer.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
+        try writer.print("    Extension:  {s}\n", .{gen.extension});
+        try writer.print("    Category:   {s}\n", .{@tagName(gen.category)});
+        if (gen.dialects) |dialects| {
+            try writer.print("    Dialects:   ", .{});
+            for (dialects, 0..) |d, i| {
+                if (i > 0) try writer.print(", ", .{});
+                try writer.print("{s}", .{d});
+            }
+            try writer.print("\n", .{});
+        } else {
+            try writer.print("    Dialects:   all (agnostic)\n", .{});
+        }
+        try writer.print("\n", .{});
+    }
+}
+
+/// Health check: verify all generators can produce output for a minimal schema.
+/// Returns null on success, error message on failure.
+pub fn check(alloc: std.mem.Allocator) ?[]const u8 {
+    // Create a minimal typed_ast for testing
+    const test_ast = typed_ast.TypedAst{
+        .schema_name = "test",
+        .schema_charset = null,
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    for (REGISTRY) |gen| {
+        const result = gen.generate(alloc, test_ast, .mysql) catch |err| {
+            return @errorName(err);
+        };
+        alloc.free(result);
+    }
+    return null;
 }
