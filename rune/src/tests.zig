@@ -11,6 +11,7 @@ comptime {
     _ = @import("cli/lint_cmd_test.zig");
     _ = @import("cli/init_test.zig");
     _ = @import("cli/parse_test.zig");
+    _ = @import("cli/types_test.zig");
     // ── color ────────────────────────────────────────────────────
     _ = @import("color_test.zig");
     // ── completions ──────────────────────────────────────────────
@@ -29,6 +30,7 @@ comptime {
     // ── dialect ──────────────────────────────────────────────────
     _ = @import("dialect/dialect_test.zig");
     _ = @import("dialect/common_test.zig");
+    _ = @import("dialect/enum_test.zig");
     _ = @import("dialect/mysql_test.zig");
     _ = @import("dialect/pg_test.zig");
     _ = @import("dialect/sqlite_test.zig");
@@ -137,6 +139,7 @@ comptime {
     _ = @import("types/typed_ast_test.zig");
     _ = @import("types/resolved_ast_test.zig");
     // ── utils ────────────────────────────────────────────────────
+    _ = @import("utils_test.zig");
     _ = @import("utils/edit_distance_test.zig");
     // ── tune ─────────────────────────────────────────────────────
     _ = @import("tune.zig");
