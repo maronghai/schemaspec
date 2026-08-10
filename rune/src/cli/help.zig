@@ -12,7 +12,6 @@ pub fn printUsage() void {
     inline for (COMMAND_REGISTRY) |cmd| {
         std.debug.print("  rune {s:<32}{s}\n", .{ cmd.name ++ " " ++ cmd.args, cmd.description });
     }
-    std.debug.print("                                                       -T: extract shared templates (reverse only)\n", .{});
     std.debug.print("\nOptions:\n", .{});
     std.debug.print("  -d, --dialect   Target SQL dialect: mysql (default), pg, postgres, sqlite, mssql, oracle, db2\n", .{});
     std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
@@ -71,136 +70,32 @@ pub fn printUsage() void {
 }
 
 /// Print help for a specific subcommand.
+/// Uses data-driven COMMAND_HELP registry — no per-command if-else chain.
 pub fn printSubcommandHelp(subcommand: []const u8) void {
     std.debug.print("Usage: rune {s}", .{subcommand});
-    inline for (COMMAND_REGISTRY) |cmd| {
+
+    // Find help details in the registry
+    inline for (COMMAND_REGISTRY, 0..) |cmd, i| {
         if (std.mem.eql(u8, cmd.name, subcommand)) {
             std.debug.print(" {s}\n", .{cmd.args});
             std.debug.print("\n{s}\n", .{cmd.description});
-            if (std.mem.eql(u8, subcommand, "diff") or std.mem.eql(u8, subcommand, "migrate")) {
-                std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  --format        Output format: text (default), json, sarif, markdown\n", .{});
-                std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
-                std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
-                std.debug.print("  --check         Exit 1 if there are differences\n", .{});
-                if (std.mem.eql(u8, subcommand, "diff")) {
-                    std.debug.print("  --from-sql      Compare against a SQL dump file instead of a .ss file\n", .{});
-                    std.debug.print("  --summary, --stat Show summary only (no full diff)\n", .{});
+
+            // Print options and examples from COMMAND_HELP (comptime-indexed)
+            const help_entries = types.COMMAND_HELP;
+            if (i < help_entries.len) {
+                const help = help_entries[i];
+                if (help.options.len > 0) {
+                    std.debug.print("\nOptions:\n", .{});
+                    for (help.options) |opt| {
+                        std.debug.print("{s}\n", .{opt});
+                    }
                 }
-                if (std.mem.eql(u8, subcommand, "migrate")) {
-                    std.debug.print("  --rollback      Generate rollback SQL instead\n", .{});
-                    std.debug.print("  --dry-run       Show SQL without writing to file\n", .{});
-                    std.debug.print("  --summary, --stat Show summary only (no full SQL)\n", .{});
-                    std.debug.print("  --graph         Show migration dependency graph\n", .{});
-                    std.debug.print("  -o, --output    Output file path\n", .{});
+                if (help.examples.len > 0) {
+                    std.debug.print("\nExamples:\n", .{});
+                    for (help.examples) |ex| {
+                        std.debug.print("{s}\n", .{ex});
+                    }
                 }
-            } else if (std.mem.eql(u8, subcommand, "reverse")) {
-                std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  -T, --template  Extract shared templates\n", .{});
-                std.debug.print("  --format        Output format: text (default), json\n", .{});
-                std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
-                std.debug.print("  -o, --output    Output file path\n", .{});
-                std.debug.print("  --validate-only Validate SQL without generating output\n", .{});
-            } else if (std.mem.eql(u8, subcommand, "generate")) {
-                std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  --list, -l      List available generators\n", .{});
-                std.debug.print("  -o, --output    Output file path\n", .{});
-                std.debug.print("  --dry-run       Preview output without writing to file\n", .{});
-                std.debug.print("  --generators    Comma-separated list for batch generation\n", .{});
-                std.debug.print("\nRun 'rune generate --list' to see available generators.\n", .{});
-            } else if (std.mem.eql(u8, subcommand, "validate") or std.mem.eql(u8, subcommand, "check")) {
-                std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
-                std.debug.print("  --per-table     Show per-table field/constraint breakdown\n", .{});
-                std.debug.print("  --format        Output format: text (default), json\n", .{});
-                std.debug.print("  --verbose-passes Print semantic pass execution details\n", .{});
-            } else if (std.mem.eql(u8, subcommand, "init")) {
-                std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  -d, --dialect   Target dialect: mysql (default), pg, sqlite, mssql, oracle, db2\n", .{});
-                std.debug.print("  -o, --output    Output file path\n", .{});
-                std.debug.print("  --output-dir    Output directory (creates if needed)\n", .{});
-                std.debug.print("  --template      Schema template: default (default), blog, ecommerce, rest-api\n", .{});
-                std.debug.print("\nExamples:\n", .{});
-                std.debug.print("  rune init myapp                      # Default starter schema\n", .{});
-                std.debug.print("  rune init myapp --template blog      # Blog schema (posts, categories, tags)\n", .{});
-                std.debug.print("  rune init myapp --template ecommerce # E-commerce schema (products, orders)\n", .{});
-                std.debug.print("  rune init myapp --template rest-api  # REST API schema (resources, api keys)\n", .{});
-            } else if (std.mem.eql(u8, subcommand, "completions")) {
-                std.debug.print("\nArguments:\n", .{});
-                std.debug.print("  shell           Target shell: bash (default), zsh, fish, powershell\n", .{});
-            } else if (std.mem.eql(u8, subcommand, "hooks")) {
-                std.debug.print("\nArguments:\n", .{});
-                std.debug.print("  type            Hook type: pre-commit (default)\n", .{});
-                std.debug.print("\nInstall:\n", .{});
-                std.debug.print("  rune hooks pre-commit > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit\n", .{});
-            } else if (std.mem.eql(u8, subcommand, "lint")) {
-                std.debug.print("\nChecks schema for quality issues and anti-patterns (30 rules):\n", .{});
-                std.debug.print("  no-pk            Table has no primary key\n", .{});
-                std.debug.print("  naming           Table/column name uses camelCase instead of snake_case\n", .{});
-                std.debug.print("  no-index-fk      Foreign key column has no index\n", .{});
-                std.debug.print("  no-timestamps    No created_at/updated_at fields\n", .{});
-                std.debug.print("  wide-table       Table has more than 30 fields (configurable)\n", .{});
-                std.debug.print("  enum-case        Custom type uses non-UPPER_CASE naming\n", .{});
-                std.debug.print("  count            Table has fewer than 2 non-PK fields (configurable)\n", .{});
-                std.debug.print("  fk-cascade       FK has no explicit ON DELETE/ON UPDATE actions\n", .{});
-                std.debug.print("  nullable-pk      Primary key column is nullable\n", .{});
-                std.debug.print("  orphan-type      Custom type is defined but never used by any table\n", .{});
-                std.debug.print("  index-unused     Standalone index may be unnecessary\n", .{});
-                std.debug.print("  circular-fk      Foreign key chain forms a circular reference\n", .{});
-                std.debug.print("  duplicate-index  Multiple indexes with same columns and type\n", .{});
-                std.debug.print("  empty-table      Table has no fields defined\n", .{});
-                std.debug.print("  table-comment    Table lacks a comment/documentation\n", .{});
-                std.debug.print("  cross-dialect-types  MySQL/PG-specific types not portable across dialects\n", .{});
-                std.debug.print("  column-default-required Non-PK, non-nullable column has no DEFAULT\n", .{});
-                std.debug.print("  index-naming     Index name doesn't follow <table>_<columns> convention\n", .{});
-                std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  --json-errors   Output results as JSON (machine-readable)\n", .{});
-                std.debug.print("  --strict        Exit 1 if any warnings found (for CI/CD)\n", .{});
-                std.debug.print("  --format        Output format: text (default), json, sarif\n", .{});
-                std.debug.print("  --rules         Path to rune-lint.toml rules file\n", .{});
-                std.debug.print("  --show-rules    List all available rules with descriptions\n", .{});
-                std.debug.print("  --init          Generate starter .rune-lint.toml config file\n", .{});
-                std.debug.print("  --fix           Auto-fix fixable issues (8 rules)\n", .{});
-                std.debug.print("  --dry-run       Preview fixes without writing (with --fix)\n", .{});
-                std.debug.print("  --include-views Enable view-related lint rules (view-no-select, view-no-alias)\n", .{});
-                std.debug.print("\nExamples:\n", .{});
-                std.debug.print("  rune lint schema.ss                # Lint schema\n", .{});
-                std.debug.print("  rune lint schema.ss --json-errors  # Lint as JSON\n", .{});
-                std.debug.print("  rune lint schema.ss --strict       # Lint, exit 1 on warnings\n", .{});
-                std.debug.print("  rune lint old.ss new.ss            # Diff-aware lint (new issues only)\n", .{});
-                std.debug.print("  rune lint --show-rules             # List all available rules\n", .{});
-                std.debug.print("  rune lint --init                   # Generate .rune-lint.toml config\n", .{});
-                std.debug.print("  rune lint schema.ss --fix          # Auto-fix fixable issues\n", .{});
-            } else if (std.mem.eql(u8, subcommand, "watch")) {
-                std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  --interval      Polling interval in milliseconds (default: 1000)\n", .{});
-                std.debug.print("  --recursive     Watch directory recursively for all .ss files\n", .{});
-                std.debug.print("  --parallel      Parallel streaming compilation\n", .{});
-                std.debug.print("  -d, --dialect   Target SQL dialect\n", .{});
-                std.debug.print("  --target        Output format: sql (default), json-schema\n", .{});
-                std.debug.print("  -o, --output    Output file path\n", .{});
-                std.debug.print("  -t, --trace     Print intermediate pipeline stages\n", .{});
-                std.debug.print("  -s, --stats     Print compilation statistics\n", .{});
-                std.debug.print("  --json-errors   Output diagnostics as JSON\n", .{});
-                std.debug.print("\nExamples:\n", .{});
-                std.debug.print("  rune watch schema.ss                  # Watch with default 1s interval\n", .{});
-                std.debug.print("  rune watch schema.ss --interval 500   # Watch with 500ms interval\n", .{});
-                std.debug.print("  rune watch schema.ss -d pg            # Watch and compile to PostgreSQL\n", .{});
-                std.debug.print("  rune watch schema.ss -o out.sql       # Watch and write to file\n", .{});
-                std.debug.print("  rune watch schema.ss --parallel       # Watch with parallel compilation\n", .{});
-                std.debug.print("  rune watch schema.ss -s               # Watch with compilation stats\n", .{});
-                std.debug.print("  rune watch ./schemas --recursive      # Watch all .ss files in directory\n", .{});
-                std.debug.print("\nPress Ctrl+C to stop watching.\n", .{});
-            } else if (std.mem.eql(u8, subcommand, "tune")) {
-                std.debug.print("\nScans all tables, finds shared field patterns, and extracts them\n", .{});
-                std.debug.print("into template definitions. Rewrites the file in-place.\n", .{});
-                std.debug.print("\nOptions:\n", .{});
-                std.debug.print("  --dry-run       Preview changes without modifying the file\n", .{});
-                std.debug.print("\nExamples:\n", .{});
-                std.debug.print("  rune tune schema.ss            # Extract templates, rewrite file\n", .{});
-                std.debug.print("  rune tune schema.ss --dry-run  # Preview changes only\n", .{});
-            } else {
-                std.debug.print("\nGlobal options also apply: -d/--dialect, -s/--stats, -q/--quiet, -h/--help\n", .{});
             }
             return;
         }

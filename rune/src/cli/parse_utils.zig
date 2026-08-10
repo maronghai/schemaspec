@@ -33,7 +33,14 @@ pub fn parseExportArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect,
 
 pub fn parseFormatArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1), .check = opts.check } }, opts);
+    var diff = false;
+    for (fargs[1..]) |arg| {
+        if (std.mem.eql(u8, arg, "--diff")) {
+            diff = true;
+            break;
+        }
+    }
+    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1), .check = opts.check, .diff = diff } }, opts);
 }
 
 pub fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {

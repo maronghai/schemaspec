@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.224.0] - 2026-08-11
+
+### Changed
+- **Data-driven help system** — Replaced 200-line if-else chain in `printSubcommandHelp` with data-driven `COMMAND_HELP` registry (17 commands). Help is now indexed the same way as CLI dispatch and lint rules.
+- **Removed duplicate `DocsFormat` enum** — Consolidated to single definition in `cli/types.zig`, re-exported from `pipeline/handlers.zig`.
+
+### Fixed
+- **Help text accuracy** — Lint help claimed "30 rules" (actual: 33) and "8 fixable rules" (actual: 9). Both corrected.
+- **Orphaned `-T` flag in global help** — Removed from global options (already documented in reverse subcommand help).
+- **Missing command help sections** — Added detailed help for export, docs, stats, version, migrate_status, and help commands.
+
 ## [0.218.0] - 2026-08-10
 
 ### Changed

@@ -326,7 +326,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         .init => |cmd| return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template),
         .format_cmd => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
-            return handlers.handleFormat(io, alloc, file_data, cmd.output, cmd.check, parsed.quiet);
+            return handlers.handleFormat(io, alloc, file_data, cmd.output, cmd.check, cmd.diff, parsed.quiet);
         },
         .completions => |cmd| return completions.handleCompletions(io, alloc, cmd.shell),
         .hooks => |cmd| return hooks_mod.handleHooks(io, alloc, cmd.hook_type),

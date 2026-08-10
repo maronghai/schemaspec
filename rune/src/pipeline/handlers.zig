@@ -347,7 +347,7 @@ pub fn handleDocs(
     try io_mod.writeOutput(io, output_text, output_path, quiet);
 }
 
-pub const DocsFormat = enum { markdown, json };
+pub const DocsFormat = @import("../cli/types.zig").DocsFormat;
 
 /// Format a .ss file.
 pub fn handleFormat(
@@ -356,12 +356,39 @@ pub fn handleFormat(
     file_data: []const u8,
     output_path: ?[]const u8,
     check: bool,
+    diff: bool,
     quiet: bool,
 ) !void {
     const formatter = @import("../formatter.zig");
     const formatted = try formatter.format(alloc, file_data);
     if (check) {
         if (!std.mem.eql(u8, formatted, file_data)) {
+            return error.FormatCheckFailed;
+        }
+        return;
+    }
+    if (diff) {
+        // Show line-by-line differences between original and formatted
+        var original_lines = std.mem.splitScalar(u8, file_data, '\n');
+        var formatted_lines = std.mem.splitScalar(u8, formatted, '\n');
+        var line_no: usize = 1;
+        var has_diff = false;
+        while (true) {
+            const orig = original_lines.next();
+            const fmt_line = formatted_lines.next();
+            if (orig == null and fmt_line == null) break;
+            const o = orig orelse "";
+            const f = fmt_line orelse "";
+            if (!std.mem.eql(u8, o, f)) {
+                has_diff = true;
+                if (!quiet) {
+                    std.debug.print("- {d}: {s}\n", .{ line_no, o });
+                    std.debug.print("+ {d}: {s}\n", .{ line_no, f });
+                }
+            }
+            line_no += 1;
+        }
+        if (has_diff) {
             return error.FormatCheckFailed;
         }
         return;

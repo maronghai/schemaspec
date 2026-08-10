@@ -84,6 +84,8 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune reverse schema.sql --check        # CI gate (exit 1 on errors)
 ./rune/zig-out/bin/rune docs schema.ss                   # Generate Markdown documentation
 ./rune/zig-out/bin/rune format schema.ss                    # Auto-format .ss file
+./rune/zig-out/bin/rune format schema.ss --check            # Check if formatting needed
+./rune/zig-out/bin/rune format schema.ss --diff             # Show formatting differences
 ./rune/zig-out/bin/rune tune schema.ss                      # Extract common fields into templates
 ./rune/zig-out/bin/rune tune schema.ss --dry-run            # Preview template extraction
 ./rune/zig-out/bin/rune diff old.ss new.ss --format sarif # SARIF diff output
