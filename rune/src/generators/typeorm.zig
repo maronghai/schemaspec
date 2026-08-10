@@ -134,10 +134,7 @@ fn writeEntity(w: *Writer, table: typed_ast.TypedTable) !void {
             try w.print("@Index('{s}', {s})\n", .{ idx.name, idx.fields[0] });
         } else {
             try w.print("@Index('{s}', [", .{idx.name});
-            for (idx.fields, 0..) |field, fi| {
-                if (fi > 0) try w.writeAll(", ");
-                try w.print("'{s}'", .{field});
-            }
+            try common.writeFieldList(w, idx.fields);
             try w.writeAll("])\n");
         }
     }
@@ -145,11 +142,7 @@ fn writeEntity(w: *Writer, table: typed_ast.TypedTable) !void {
     try w.print("@Entity('{s}')\n", .{table.name});
 
     // Comment
-    if (table.comment) |comment| {
-        if (comment.len > 0) {
-            try w.print("// {s}\n", .{comment});
-        }
-    }
+    try common.writeComment(w, table.comment, "//", "");
 
     try w.print("export class {s} {{\n", .{table.name});
 
@@ -165,11 +158,7 @@ fn writeEntity(w: *Writer, table: typed_ast.TypedTable) !void {
 
 fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable) !void {
     // Comment
-    if (col.comment) |comment| {
-        if (comment.len > 0) {
-            try w.print("  // {s}\n", .{comment});
-        }
-    }
+    try common.writeComment(w, col.comment, "//", "  ");
 
     // Check if this column is an FK — emit @ManyToOne + @JoinColumn
     for (table.fks) |fk| {
@@ -208,10 +197,7 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
         try w.writeAll(", nullable: true");
     }
     if (col.default) |dflt| {
-        if (common.shouldEmitDefault(dflt)) {
-            try w.writeAll(", default: ");
-            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.typeorm));
-        }
+        try common.writeOrmDefault(w, dflt, ", default: ", "", .typeorm);
     }
     try w.writeAll(" })\n");
 
@@ -222,10 +208,7 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
 fn writeColumnType(w: *Writer, col: typed_ast.TypedColumn) !void {
     if (col.flags.is_enum) {
         try w.writeAll("type: 'enum', enum: [");
-        for (col.enum_values, 0..) |val, vi| {
-            if (vi > 0) try w.writeAll(", ");
-            try w.print("'{s}'", .{val});
-        }
+        try common.writeEnumValues(w, col.enum_values);
         try w.writeAll("]");
         return;
     }
@@ -250,10 +233,7 @@ fn writeColumnType(w: *Writer, col: typed_ast.TypedColumn) !void {
         .inet => try w.writeAll("type: 'varchar', length: 45"),
         .enum_values => |vals| {
             try w.writeAll("type: 'enum', enum: [");
-            for (vals, 0..) |val, vi| {
-                if (vi > 0) try w.writeAll(", ");
-                try w.print("'{s}'", .{val});
-            }
+            try common.writeEnumValues(w, vals);
             try w.writeAll("]");
         },
         .raw_sql, .passthrough => try w.writeAll("type: 'varchar'"),

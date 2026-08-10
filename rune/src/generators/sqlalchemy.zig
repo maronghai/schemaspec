@@ -131,11 +131,7 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst) !void {
 
 fn writeModel(w: *Writer, table: typed_ast.TypedTable) !void {
     // Comment
-    if (table.comment) |comment| {
-        if (comment.len > 0) {
-            try w.print("# {s}\n", .{comment});
-        }
-    }
+    try common.writeComment(w, table.comment, "#", "");
 
     try w.print("class {s}(Base):\n", .{table.name});
     try w.print("    __tablename__ = '{s}'\n\n", .{table.name});
@@ -184,11 +180,7 @@ fn writeModel(w: *Writer, table: typed_ast.TypedTable) !void {
 
 fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable) !void {
     // Comment
-    if (col.comment) |comment| {
-        if (comment.len > 0) {
-            try w.print("    # {s}\n", .{comment});
-        }
-    }
+    try common.writeComment(w, col.comment, "#", "    ");
 
     // Check if this column is an FK — if so, skip it (handled by relationship)
     if (common.findFkRefTable(col.name, table.fks) != null) {
@@ -218,10 +210,7 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
 
     // Default value
     if (col.default) |dflt| {
-        if (common.shouldEmitDefault(dflt)) {
-            try w.writeAll(", server_default=");
-            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.sqlalchemy));
-        }
+        try common.writeOrmDefault(w, dflt, ", server_default=", "", .sqlalchemy);
     }
 
     // Index

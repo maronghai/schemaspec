@@ -87,6 +87,102 @@ pub fn writeJsonValue(w: *std.Io.Writer, val: []const u8) !void {
     }
 }
 
+// ─── ORM Default Value Writer ───────────────────────────────────
+// Eliminates duplicated default value emission across ORM generators.
+// Pattern: prefix + formatted_default + suffix (e.g. ".default(", ")")
+
+/// Write a formatted default value with prefix and suffix wrappers.
+/// Used by drizzle (.default()), knex (.defaultTo()), prisma (@default()),
+/// sqlalchemy (server_default=), typeorm (default:).
+pub fn writeOrmDefault(
+    w: *std.Io.Writer,
+    dflt: []const u8,
+    prefix: []const u8,
+    suffix: []const u8,
+    orm_target: OrmTarget,
+) !void {
+    if (shouldEmitDefault(dflt)) {
+        try w.writeAll(prefix);
+        try writeFormattedDefault(w, dflt, getOrmFormatter(orm_target));
+        try w.writeAll(suffix);
+    }
+}
+
+// ─── Import Tracker ─────────────────────────────────────────────
+// Shared import tracking for ORM generators.
+// Eliminates ~80 lines of duplicated boolean-flag logic.
+
+pub const ImportTracker = struct {
+    need_integer: bool = false,
+    need_smallint: bool = false,
+    need_bigint: bool = false,
+    need_varchar: bool = false,
+    need_text: bool = false,
+    need_boolean: bool = false,
+    need_timestamp: bool = false,
+    need_date: bool = false,
+    need_json: bool = false,
+    need_uuid: bool = false,
+    need_decimal: bool = false,
+    need_blob: bool = false,
+    need_serial: bool = false,
+    need_enum: bool = false,
+    has_any_index: bool = false,
+    has_unique_index: bool = false,
+    has_composite_index: bool = false,
+    has_any_fk: bool = false,
+    has_composite_fk: bool = false,
+
+    /// Scan a typed AST to populate import flags.
+    pub fn scan(typed: typed_ast.TypedAst) ImportTracker {
+        var tracker = ImportTracker{};
+        for (typed.tables) |table| {
+            tracker.scanTable(table);
+        }
+        return tracker;
+    }
+
+    /// Scan a single table's columns, indexes, and FKs.
+    pub fn scanTable(self: *ImportTracker, table: typed_ast.TypedTable) void {
+        for (table.columns) |col| {
+            self.scanColumn(col);
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key) continue;
+            self.has_any_index = true;
+            if (idx.kind == .unique) self.has_unique_index = true;
+            if (idx.fields.len > 1) self.has_composite_index = true;
+        }
+        for (table.fks) |fk| {
+            self.has_any_fk = true;
+            if (fk.fields.len > 1) self.has_composite_fk = true;
+        }
+    }
+
+    /// Scan a single column to update type flags.
+    pub fn scanColumn(self: *ImportTracker, col: typed_ast.TypedColumn) void {
+        if (col.flags.is_enum) self.need_enum = true;
+        switch (col.sql_type) {
+            .int => self.need_integer = true,
+            .serial => self.need_serial = true,
+            .smallint => self.need_smallint = true,
+            .bigint => self.need_bigint = true,
+            .decimal => self.need_decimal = true,
+            .varchar => self.need_varchar = true,
+            .text => self.need_text = true,
+            .boolean => self.need_boolean = true,
+            .datetime, .timestamptz => self.need_timestamp = true,
+            .date => self.need_date = true,
+            .json, .jsonb => self.need_json = true,
+            .uuid => self.need_uuid = true,
+            .blob => self.need_blob = true,
+            .inet => self.need_varchar = true,
+            .enum_values => self.need_enum = true,
+            .raw_sql, .passthrough => self.need_text = true,
+        }
+    }
+};
+
 // ─── Default Value Guards ─────────────────────────────────────
 
 /// Check if a default value should be emitted in ORM output.
@@ -106,7 +202,60 @@ pub fn findFkRefTable(col_name: []const u8, fks: []const FkDecl) ?[]const u8 {
     return null;
 }
 
+// ─── Shared Enum Value Writer ─────────────────────────────────
+// Eliminates duplicated enum value iteration across ORM generators.
+
+/// Write comma-separated single-quoted enum values.
+/// Used by drizzle, typeorm, sqlalchemy generators for enum definitions.
+/// Pattern: 'val1', 'val2', 'val3'
+pub fn writeEnumValues(w: *std.Io.Writer, values: []const []const u8) !void {
+    for (values, 0..) |val, i| {
+        if (i > 0) try w.writeAll(", ");
+        try w.print("'{s}'", .{val});
+    }
+}
+
+// ─── Shared Comment Writer ────────────────────────────────────
+// Eliminates duplicated comment emission across ORM generators.
+
+/// Write a comment line if the comment exists and is non-empty.
+/// `prefix` is the comment syntax (e.g. "//", "#", "--").
+/// `indent` is optional indentation before the prefix.
+pub fn writeComment(w: *std.Io.Writer, comment: ?[]const u8, prefix: []const u8, indent: []const u8) !void {
+    if (comment) |c| {
+        if (c.len > 0) {
+            try w.print("{s}{s} {s}\n", .{ indent, prefix, c });
+        }
+    }
+}
+
+// ─── Shared Field List Writer ─────────────────────────────────
+// Eliminates duplicated field list iteration across ORM generators.
+
+/// Write a comma-separated list of single-quoted field names.
+/// Used by drizzle, typeorm, knex for index/FK field lists.
+/// Pattern: 'field1', 'field2', 'field3'
+pub fn writeFieldList(w: *std.Io.Writer, fields: []const []const u8) !void {
+    for (fields, 0..) |field, i| {
+        if (i > 0) try w.writeAll(", ");
+        try w.print("'{s}'", .{field});
+    }
+}
+
 // ─── Name Helpers ─────────────────────────────────────────────
+
+/// Irregular plural → singular mappings.
+const irregulars = [_]struct { from: []const u8, to: []const u8 }{
+    .{ .from = "men", .to = "man" },
+    .{ .from = "women", .to = "woman" },
+    .{ .from = "children", .to = "child" },
+    .{ .from = "people", .to = "person" },
+    .{ .from = "mice", .to = "mouse" },
+    .{ .from = "geese", .to = "goose" },
+    .{ .from = "criteria", .to = "criterion" },
+    .{ .from = "phenomena", .to = "phenomenon" },
+    .{ .from = "data", .to = "datum" },
+};
 
 /// Convert plural table name to singular form for ORM generators.
 /// Handles irregular plurals (categories→category, statuses→status, men→man, etc.).
@@ -114,18 +263,7 @@ pub fn findFkRefTable(col_name: []const u8, fks: []const FkDecl) ?[]const u8 {
 pub fn toCamelSingular(alloc: std.mem.Allocator, name: []const u8) ![]const u8 {
     if (name.len == 0) return name;
 
-    // Irregular plurals — must be checked before generic rules
-    const irregulars = [_]struct { from: []const u8, to: []const u8 }{
-        .{ .from = "men", .to = "man" },
-        .{ .from = "women", .to = "woman" },
-        .{ .from = "children", .to = "child" },
-        .{ .from = "people", .to = "person" },
-        .{ .from = "mice", .to = "mouse" },
-        .{ .from = "geese", .to = "goose" },
-        .{ .from = "criteria", .to = "criterion" },
-        .{ .from = "phenomena", .to = "phenomenon" },
-        .{ .from = "data", .to = "datum" },
-    };
+    // Check irregular plurals first
     for (irregulars) |pair| {
         if (std.mem.eql(u8, name, pair.from)) return pair.to;
     }
@@ -225,6 +363,7 @@ pub fn writeColumnPropJson(
                 },
                 .in_list => {
                     if (parseInList(alloc, check.expr)) |items| {
+                        defer alloc.free(items);
                         try w.writeAll(",\n");
                         try w.print("{s}  \"enum\": [", .{indent});
                         for (items, 0..) |item, ii| {

@@ -42,18 +42,6 @@ pub const Server = struct {
         self.documents.deinit();
     }
 
-    /// Check if enough time has passed since the last compile for this document.
-    /// Returns true if we should recompile (debounce check).
-    /// Uses a simple counter-based approach since std.time.timestamp() is not available in Zig 0.16.
-    pub fn shouldCompile(self: *Server, uri: []const u8) bool {
-        // Simple debounce: track compile count per document
-        // First compile always succeeds; subsequent compiles are always allowed
-        // (the debounce is handled by the LSP protocol's didChange batching)
-        _ = self;
-        _ = uri;
-        return true;
-    }
-
     /// Get the typed AST for a document URI, if available.
     pub fn getTypedAst(self: *Server, uri: []const u8) ?TypedAst {
         const result = self.compile_results.get(uri);
@@ -108,9 +96,6 @@ pub const Server = struct {
             const msg = try readMessage(self.arena, &r.interface);
             defer {
                 if (msg.method) |m| self.arena.free(m);
-                if (msg.params) |p| {
-                    _ = p;
-                }
                 if (msg.error_obj) |e| {
                     self.arena.free(e.message);
                 }

@@ -82,6 +82,15 @@ pub const CompileConfig = struct {
     run_semantic: bool = true,
 };
 
+/// Result of internal compilation pipeline.
+/// Named struct for clarity instead of anonymous struct.
+const CompileInternalResult = struct {
+    tree: ast_mod.Ast,
+    lines: []tokenizer.Line,
+    resolved: ?resolved_ast.ResolvedAst,
+    partial: bool,
+};
+
 /// Unified internal compilation pipeline.
 /// Handles tokenize → parse → (optional imports) → (optional semantic) → ResolvedAst.
 /// `io` is only used when `resolve_imports` is true; pass null when imports are disabled.
@@ -92,7 +101,7 @@ fn compileInternal(
     alloc: std.mem.Allocator,
     file_data: []const u8,
     cfg: CompileConfig,
-) !struct { tree: ast_mod.Ast, lines: []tokenizer.Line, resolved: ?resolved_ast.ResolvedAst, partial: bool } {
+) !CompileInternalResult {
     const raw_lines = try import_res.splitLines(alloc, file_data);
 
     // Resolve @import directives only when enabled and io is available
@@ -158,18 +167,6 @@ pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8, cfg: Com
         .partial = result.partial,
         .skipped_tables = if (result.partial) @min(result.tree.error_count, std.math.maxInt(u32)) else 0,
     };
-}
-
-/// Tokenize and parse a .ss file, resolving @import directives recursively.
-/// Used for importing templates and tables from other files.
-fn parseOnly(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, import_ctx: *ImportContext) !ast_mod.Ast {
-    const result = try compileInternal(alloc, file_data, .{
-        .io = io,
-        .import_ctx = import_ctx,
-        .resolve_imports = true,
-        .run_semantic = false,
-    });
-    return result.tree;
 }
 
 // ─── Public API ────────────────────────────────────────────────

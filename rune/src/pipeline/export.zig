@@ -248,8 +248,7 @@ test "formatValidateResult: invalid schema" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const s = Stats{ .tables = 0, .fields = 0, .views = 0, .not_null_fields = 0, .numeric_fields = 0, .string_fields = 0, .datetime_fields = 0, .boolean_fields = 0, .other_fields = 0, .foreign_keys = 0, .indexes = 0, .check_constraints = 0, .custom_types = 0 };
-    const json = try formatValidateResult(alloc, false, s, 3);
+    const json = try formatValidateResult(alloc, false, Stats.zero, 3);
     try testing.expect(std.mem.indexOf(u8, json, "\"valid\":false") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"errors\":3") != null);
 }

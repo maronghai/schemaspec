@@ -59,11 +59,7 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
 
 fn writeUpTable(w: *Writer, table: typed_ast.TypedTable) !void {
     // Comment
-    if (table.comment) |comment| {
-        if (comment.len > 0) {
-            try w.print("  // {s}\n", .{comment});
-        }
-    }
+    try common.writeComment(w, table.comment, "//", "  ");
 
     try w.print("  return knex.schema.createTable('{s}', function(table) {{\n", .{table.name});
 
@@ -138,11 +134,7 @@ fn writeDownTable(w: *Writer, table: typed_ast.TypedTable) !void {
 
 fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable) !void {
     // Comment
-    if (col.comment) |comment| {
-        if (comment.len > 0) {
-            try w.print("    // {s}\n", .{comment});
-        }
-    }
+    try common.writeComment(w, col.comment, "//", "    ");
 
     // Check if this column is an FK — if so, skip it (handled by .foreign())
     if (common.findFkRefTable(col.name, table.fks) != null) {
@@ -185,11 +177,7 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
 
     // Default value
     if (col.default) |dflt| {
-        if (common.shouldEmitDefault(dflt)) {
-            try w.writeAll(".defaultTo(");
-            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.knex));
-            try w.writeAll(")");
-        }
+        try common.writeOrmDefault(w, dflt, ".defaultTo(", ")", .knex);
     }
 
     try w.writeAll(";\n");
@@ -223,10 +211,6 @@ fn writeColumnOptions(w: *Writer, col: typed_ast.TypedColumn) !void {
         try w.writeAll(".notNullable()");
     }
     if (col.default) |dflt| {
-        if (common.shouldEmitDefault(dflt)) {
-            try w.writeAll(".defaultTo(");
-            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.knex));
-            try w.writeAll(")");
-        }
+        try common.writeOrmDefault(w, dflt, ".defaultTo(", ")", .knex);
     }
 }

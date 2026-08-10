@@ -181,17 +181,11 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst, dialect: Dialect, has_enu
 fn writeEnumDef(w: *Writer, col: typed_ast.TypedColumn, dialect: Dialect) !void {
     if (dialect == .pg) {
         try w.print("export const {s}Enum = pgEnum('{s}_type', [", .{ col.name, col.name });
-        for (col.enum_values, 0..) |val, vi| {
-            if (vi > 0) try w.writeAll(", ");
-            try w.print("'{s}'", .{val});
-        }
+        try common.writeEnumValues(w, col.enum_values);
         try w.writeAll("]);\n");
     } else {
         try w.print("export const {s}Values = [", .{col.name});
-        for (col.enum_values, 0..) |val, vi| {
-            if (vi > 0) try w.writeAll(", ");
-            try w.print("'{s}'", .{val});
-        }
+        try common.writeEnumValues(w, col.enum_values);
         try w.writeAll("] as const;\n");
         try w.print("export type {s}Type = (typeof {s}Values)[number];\n", .{ col.name, col.name });
     }
@@ -203,6 +197,9 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
     const table_fn = drizzleTableFn(dialect);
 
     try w.print("export const {s} = {s}('{s}', {{\n", .{ table.name, table_fn, table.name });
+
+    // Comment
+    try common.writeComment(w, table.comment, "#", "");
 
     // Columns
     for (table.columns, 0..) |col, ci| {
@@ -271,11 +268,7 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
 
     // Default value
     if (col.default) |dflt| {
-        if (common.shouldEmitDefault(dflt)) {
-            try w.writeAll(".default(");
-            try common.writeFormattedDefault(w, dflt, common.getOrmFormatter(.drizzle));
-            try w.writeAll(")");
-        }
+        try common.writeOrmDefault(w, dflt, ".default(", ")", .drizzle);
     }
 
     // Enum default

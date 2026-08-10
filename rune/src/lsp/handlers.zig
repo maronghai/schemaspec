@@ -18,6 +18,22 @@ fn safePositionCast(val: i64) u32 {
     return @intCast(val);
 }
 
+/// Parsed LSP position (line and character, zero-based).
+const Position = struct {
+    line: u32,
+    character: u32,
+};
+
+/// Extract line and character from LSP position params.
+/// Returns null if position is missing from params.
+fn parsePosition(params: std.json.Value) ?Position {
+    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return null;
+    return .{
+        .line = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0),
+        .character = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0),
+    };
+}
+
 pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
 
@@ -83,10 +99,8 @@ pub fn handleDidChange(self: *Server, params: std.json.Value) !void {
 
     try self.documents.change(uri, version, text);
 
-    // Debounce: only recompile if enough time has passed since last compile
-    if (self.shouldCompile(uri)) {
-        try self.compileAndPublishDiagnostics(uri);
-    }
+    // Recompile on change
+    try self.compileAndPublishDiagnostics(uri);
 }
 
 pub fn handleDidClose(self: *Server, params: std.json.Value) !void {
@@ -140,9 +154,7 @@ pub fn handleCompletion(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const rid = id orelse return;
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const pos = parsePosition(params) orelse return;
 
     const typed = self.getTypedAst(uri);
 
@@ -150,7 +162,7 @@ pub fn handleCompletion(self: *Server, stdout_file: anytype, id: ?i64, params: s
     if (typed) |t| {
         const doc = self.documents.get(uri);
         const doc_text = if (doc) |d| d.text else null;
-        const list = features_mod.getCompletions(self.arena, t, .{ .line = line, .character = character }, doc_text);
+        const list = features_mod.getCompletions(self.arena, t, .{ .line = pos.line, .character = pos.character }, doc_text);
         try lsp_protocol.writeCompletionList(&body_alloc.writer, list);
     } else {
         try body_alloc.writer.writeAll("{\"isIncomplete\":false,\"items\":[]}");
@@ -163,16 +175,14 @@ pub fn handleHover(self: *Server, stdout_file: anytype, id: ?i64, params: std.js
     const rid = id orelse return;
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const pos = parsePosition(params) orelse return;
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     if (typed) |t| {
-        if (features_mod.getHover(self.arena, t, .{ .line = line, .character = character }, self.dialect)) |hover| {
+        if (features_mod.getHover(self.arena, t, .{ .line = pos.line, .character = pos.character }, self.dialect)) |hover| {
             try lsp_protocol.writeHover(&body_alloc.writer, hover);
         } else {
             try body_alloc.writer.writeAll("null");
@@ -188,16 +198,14 @@ pub fn handleDefinition(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const rid = id orelse return;
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const pos = parsePosition(params) orelse return;
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     if (typed) |t| {
-        if (features_mod.getDefinition(self.arena, t, uri, .{ .line = line, .character = character })) |loc| {
+        if (features_mod.getDefinition(self.arena, t, uri, .{ .line = pos.line, .character = pos.character })) |loc| {
             try lsp_protocol.writeLocation(&body_alloc.writer, loc);
         } else {
             try body_alloc.writer.writeAll("null");
@@ -309,9 +317,7 @@ pub fn handleRename(self: *Server, stdout_file: anytype, id: ?i64, params: std.j
     const rid = id orelse return;
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const pos = parsePosition(params) orelse return;
     const new_name = lsp_protocol.getStringField(params, "newName") orelse return;
 
     const doc = self.documents.get(uri) orelse return;
@@ -320,7 +326,7 @@ pub fn handleRename(self: *Server, stdout_file: anytype, id: ?i64, params: std.j
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     if (typed) |t| {
-        if (features_mod.getRenameLinks(self.arena, t, .{ .line = line, .character = character }, doc.text, new_name)) |rename_result| {
+        if (features_mod.getRenameLinks(self.arena, t, .{ .line = pos.line, .character = pos.character }, doc.text, new_name)) |rename_result| {
             // Build WorkspaceEdit with changes
             try body_alloc.writer.writeAll("{\"changes\":{\"");
             try body_alloc.writer.writeAll(uri);
@@ -344,9 +350,7 @@ pub fn handlePrepareRename(self: *Server, stdout_file: anytype, id: ?i64, params
     const rid = id orelse return;
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const pos = parsePosition(params) orelse return;
 
     const doc = self.documents.get(uri) orelse return;
     const result = self.compile_results.get(uri);
@@ -354,7 +358,7 @@ pub fn handlePrepareRename(self: *Server, stdout_file: anytype, id: ?i64, params
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     if (typed) |t| {
-        if (features_mod.prepareRename(t, .{ .line = line, .character = character }, doc.text)) |symbol_name| {
+        if (features_mod.prepareRename(t, .{ .line = pos.line, .character = pos.character }, doc.text)) |symbol_name| {
             // Return prepare rename result with placeholder
             try body_alloc.writer.writeAll("{\"placeholder\":\"");
             try body_alloc.writer.writeAll(symbol_name);
@@ -373,9 +377,7 @@ pub fn handleReferences(self: *Server, stdout_file: anytype, id: ?i64, params: s
     const rid = id orelse return;
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const pos = parsePosition(params) orelse return;
 
     const doc = self.documents.get(uri);
     const doc_text = if (doc) |d| d.text else "";
@@ -385,7 +387,7 @@ pub fn handleReferences(self: *Server, stdout_file: anytype, id: ?i64, params: s
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     try body_alloc.writer.writeByte('[');
     if (typed) |t| {
-        const refs = features_mod.getReferences(self.arena, t, line, character, uri, doc_text);
+        const refs = features_mod.getReferences(self.arena, t, pos.line, pos.character, uri, doc_text);
         for (refs, 0..) |ref, i| {
             if (i > 0) try body_alloc.writer.writeByte(',');
             try body_alloc.writer.writeByte('{');
@@ -408,9 +410,7 @@ pub fn handleDocumentHighlight(self: *Server, stdout_file: anytype, id: ?i64, pa
     const rid = id orelse return;
     const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
     const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
-    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
-    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+    const pos = parsePosition(params) orelse return;
 
     const doc = self.documents.get(uri);
     const doc_text = if (doc) |d| d.text else "";
@@ -420,7 +420,7 @@ pub fn handleDocumentHighlight(self: *Server, stdout_file: anytype, id: ?i64, pa
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     try body_alloc.writer.writeByte('[');
     if (typed) |t| {
-        const highlights = features_mod.getDocumentHighlights(self.arena, t, line, character, doc_text);
+        const highlights = features_mod.getDocumentHighlights(self.arena, t, pos.line, pos.character, doc_text);
         for (highlights, 0..) |hl, i| {
             if (i > 0) try body_alloc.writer.writeByte(',');
             try body_alloc.writer.writeByte('{');
