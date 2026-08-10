@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.220.0 (2026-08-10) — 58,000+ lines production Zig, 1,651 tests, 34 test suites.
+**Current version**: 0.221.0 (2026-08-10) — 58,000+ lines production Zig, 1,651 tests, 34 test suites.
 
 ---
 
@@ -245,6 +245,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.221.0** — Code quality audit: comprehensive review of production code for undefined fields and unreachable panics; confirmed all `= undefined` usages are safe Zig idioms (stack buffers immediately filled by formatting functions, conditionally initialized variables used only in initialized branches); confirmed `catch unreachable` only exists in test helper functions; fixed formatting issue in semantic/analyzer.zig; 1,651 unit tests pass, benchmarks show no regressions
 - **v0.220.0** — Diff engine optimization & WASM test coverage: optimized `computeFieldOverlap` in diff engine from O(n×m) to O(n+m) using StringHashMap for field name lookup; added 18 new WASM unit tests covering `classifyError` (5 error categories), `storeError`/`clearError` lifecycle, and `parseOption` edge cases (empty key, empty value, multiple keys, equals in value); made `classifyError` public for testability; 1,651 unit tests pass, benchmarks show no regressions
 - **v0.219.0** — Version struct & architecture hardening: added `Version` struct to `version.zig` with `major`/`minor`/`patch` fields, `parse()` for string parsing, `format()` for string output, and `order()`/`gte()`/`lte()`/`gt()`/`lt()`/`eq()` comparison methods; added `CURRENT` comptime constant for compile-time version access; added 15 new unit tests for Version parsing, formatting, and comparison; 1,633 unit tests pass, benchmarks show no regressions
 - **v0.217.0** — LintConfig data-driven refactoring & generator CLI improvements: replaced 33 individual boolean fields in `LintConfig` with a data-driven `RuleSet` struct indexed by `LintRule` enum; eliminated 33-arm `isRuleEnabled` and `setRuleEnabled` switches; simplified `applyLintRules` to use `RuleSet` methods; unified `rune generate --list` to use `generator.listDetailedStderr()` for rich output showing extension, category, and dialects; added `rune generate --check` flag for generator health validation; added `listDetailedStderr()` function to generator module; 7 new RuleSet unit tests; 1,619 unit tests pass, benchmarks show no regressions
