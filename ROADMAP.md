@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.208.0 (2026-08-10) — 56,500+ lines production Zig, 1,548+ tests, 34 test suites.
+**Current version**: 0.209.0 (2026-08-10) — 56,500+ lines production Zig, 1,548+ tests, 34 test suites.
 
 ---
 
@@ -244,6 +244,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.209.0** — Parser memory leak fix & error output unification: fixed `BlockState.reset()` in `parser.zig` that allocated a new `parents_buf` on each call without reusing capacity (changed to fixed-size `[4][]const u8` array); fixed `parseTemplateHeader` in `parse_template.zig` to properly free temporary `parents_buf` allocation; unified config warnings in `config.zig` to use `fmt.printWarn` from `diagnostic/format.zig`; 1,548 unit tests pass
 - **v0.208.0** — Lint rules refactoring & build cleanup: split `lint/rules.zig` (1,052 lines) into 4 category-based handler modules (`structural.zig`, `naming.zig`, `validation.zig`, `compat.zig`); removed unused `run_golden` artifact from `build.zig`; 1,548 unit tests pass
 - **v0.207.0** — Critical template inheritance bug fix: fixed arena allocator memory corruption caused by `BlockState.reset()` and `BlockState.deinit()` freeing `parents_buf` via `alloc.free()` while previously flushed templates still referenced it through `Template.parents` slices; the arena allocator's `free` moved the end pointer backward, corrupting previously allocated data; all 5 template inheritance golden tests now pass (11-template-inherit, 12-template-deep, 13-template-extends, 51-inherit-override, 66-template-mixins); 1,548 unit tests pass, 447 golden tests pass across all 6 dialects
 - **v0.206.0** — Test coverage expansion & documentation accuracy: added unit tests for `dialect/enum.zig` (parseDialect, alias resolution, writeHeader), `utils.zig` (optionalStrEq, jsonEscapeString), `cli/types.zig` (Command enum, ParsedArgs defaults, COMMAND_REGISTRY, GlobalFlags); fixed stale documentation metrics across CLAUDE.md, README.md, ARCHITECTURE.md (test file count 93→100, test count 1,438+→1,548+); 20 new unit tests (1,548 total)

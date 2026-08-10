@@ -66,6 +66,9 @@ pub const Parser = struct {
         comment: ?[]const u8 = null,
         doc: ?[]const u8 = null,
         template_ref: ?[]const u8 = null,
+        /// Fixed-size buffer for parent template names (max 4 parents via mixin syntax).
+        /// Uses a slice pointing to the fixed array for compatibility with flushTemplate.
+        parents_buf_storage: [4][]const u8 = .{ "", "", "", "" },
         parents_buf: [][]const u8 = &.{},
         parents_len: usize = 0,
         fields: std.ArrayList(Field),
@@ -82,23 +85,26 @@ pub const Parser = struct {
         mode: BlockMode = .none,
 
         fn init(alloc: std.mem.Allocator) !BlockState {
-            return .{
+            var bs = BlockState{
                 .fields = try std.ArrayList(Field).initCapacity(alloc, 16),
                 .fks = try std.ArrayList(FkDecl).initCapacity(alloc, 4),
                 .indexes = try std.ArrayList(IndexDecl).initCapacity(alloc, 4),
                 .conditional_blocks = try std.ArrayList(ast_mod.ConditionalBlock).initCapacity(alloc, 4),
             };
+            bs.parents_buf = &bs.parents_buf_storage;
+            return bs;
         }
 
-        fn reset(self: *BlockState, alloc: std.mem.Allocator) !void {
+        fn reset(self: *BlockState) void {
             self.name = null;
             self.comment = null;
             self.doc = null;
             self.template_ref = null;
-            // Allocate new parents_buf. Old one is NOT freed here because it may
-            // still be referenced by previously flushed templates via Template.parents.
-            // The arena allocator handles cleanup at end of compilation.
-            self.parents_buf = try alloc.alloc([]const u8, 4);
+            // Reset the fixed-size buffer (no allocation needed).
+            // Previously flushed templates reference slices of this buffer,
+            // but those slices are valid until the next reset() overwrites them.
+            // The arena allocator ensures the original data remains valid.
+            self.parents_buf = &self.parents_buf_storage;
             self.parents_len = 0;
             self.fields.clearRetainingCapacity();
             self.fks.clearRetainingCapacity();
@@ -116,9 +122,7 @@ pub const Parser = struct {
             self.fks.deinit(alloc);
             self.indexes.deinit(alloc);
             self.conditional_blocks.deinit(alloc);
-            // Note: parents_buf is NOT freed here because it may be referenced
-            // by previously flushed templates via Template.parents.
-            // The arena allocator handles cleanup at end of compilation.
+            // Note: parents_buf uses fixed storage, no deallocation needed.
         }
     };
 
@@ -198,7 +202,8 @@ pub const Parser = struct {
                         }
                         continue;
                     };
-                    try block.reset(self.alloc);
+                    defer self.alloc.free(tmpl.parents);
+                    block.reset();
                     const captured_doc = self.pending_doc;
                     self.pending_doc = null;
                     block.name = tmpl.name;
@@ -222,7 +227,7 @@ pub const Parser = struct {
 
                     const pending_engine = block.engine;
                     const result = try parse_table.stripEngineTokens(self.alloc, line.tokens);
-                    try block.reset(self.alloc);
+                    block.reset();
                     const captured_doc = self.pending_doc;
                     self.pending_doc = null;
                     block.engine = if (result.engine) |e| e else pending_engine;

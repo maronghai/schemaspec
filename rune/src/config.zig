@@ -264,8 +264,7 @@ pub fn warnUnknownKeys(data: []const u8, emit_warnings: bool) void {
                     .output
                 else blk: {
                     if (emit_warnings) {
-                        fmt.printWarn("unknown config section");
-                        std.debug.print("  [{s}]\n", .{section_name});
+                        fmt.printWarn("unknown config section [note: valid sections are [project], [dialect], [output]]");
                     }
                     break :blk .unknown;
                 };
@@ -293,7 +292,6 @@ pub fn warnUnknownKeys(data: []const u8, emit_warnings: bool) void {
                 if (!found and current_section != .unknown) {
                     if (emit_warnings) {
                         fmt.printWarn("unknown config key");
-                        std.debug.print("  {s} in section\n", .{kv.key});
                     }
                 }
             },

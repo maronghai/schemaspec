@@ -20,7 +20,9 @@ pub const TemplateHeader = struct {
 /// Parse a template header line (% name > parent1 + parent2).
 pub fn parseTemplateHeader(alloc: std.mem.Allocator, line: tk.Line) !TemplateHeader {
     var name: ?[]const u8 = null;
-    const parents_buf = try alloc.alloc([]const u8, 4);
+    // Use stack-allocated buffer for parent names (max 4 parents).
+    // Copy results to allocator for long-term storage.
+    var parents_buf: [4][]const u8 = .{ "", "", "", "" };
     var parents_len: usize = 0;
     if (line.tokens.len >= 2) {
         if (!std.mem.eql(u8, line.tokens[1], ">") and !std.mem.eql(u8, line.tokens[1], "+")) {
@@ -50,9 +52,14 @@ pub fn parseTemplateHeader(alloc: std.mem.Allocator, line: tk.Line) !TemplateHea
             }
         }
     }
+    // Copy to allocated slice for long-term storage
+    const result = try alloc.alloc([]const u8, parents_len);
+    for (result, 0..) |*r, idx| {
+        r.* = parents_buf[idx];
+    }
     return .{
         .name = name,
-        .parents = parents_buf[0..parents_len],
+        .parents = result,
         .line_no = line.line_no,
         .loc = locFromLine(line, line.tokens[0]),
     };

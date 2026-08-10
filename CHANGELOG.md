@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.209.0] - 2026-08-10
+
+### Fixed
+- **Parser memory leak** — Fixed `BlockState.reset()` in `parser.zig` that allocated a new `parents_buf` (4 elements) on each call without reusing existing capacity. Changed to use a fixed-size `[4][]const u8` array, eliminating unnecessary allocations. Also fixed `parseTemplateHeader` in `parse_template.zig` to properly free the temporary `parents_buf` allocation after copying parent names.
+
+### Changed
+- **Unified config warnings** — Replaced direct `std.debug.print` calls in `config.zig` with `fmt.printWarn` from `diagnostic/format.zig` for consistent error output format.
+
 ## [0.208.0] - 2026-08-10
 
 ### Changed
