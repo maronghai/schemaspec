@@ -91,6 +91,8 @@ pub const Server = struct {
         .{ .method = "textDocument/documentHighlight", .handler = handleDocumentHighlightDispatch },
         .{ .method = "textDocument/foldingRange", .handler = handleFoldingRangeDispatch },
         .{ .method = "textDocument/typeDefinition", .handler = handleTypeDefinitionDispatch },
+        .{ .method = "workspace/symbol", .handler = handleWorkspaceSymbolDispatch },
+        .{ .method = "textDocument/signatureHelp", .handler = handleSignatureHelpDispatch },
     };
 
     /// Run the LSP server main loop.
@@ -222,6 +224,14 @@ pub const Server = struct {
 
     fn handleTypeDefinitionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
         if (params) |p| try handlers.handleTypeDefinition(self, stdout.?, id, p);
+    }
+
+    fn handleWorkspaceSymbolDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleWorkspaceSymbol(self, stdout.?, id, p);
+    }
+
+    fn handleSignatureHelpDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleSignatureHelp(self, stdout.?, id, p);
     }
 
     /// Send a JSON-RPC response to stdout.

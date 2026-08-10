@@ -96,6 +96,8 @@ pub const DEFAULT_PASSES = [_]SemanticPass{
     .{ .name = "validate_views", .run = @import("pass/validate_views.zig").run, .depends_on = &.{ "validate", "resolve_names" }, .access = .{ .reads_tables = true } },
     // Template type conflict detection for tables (v0.198.0):
     .{ .name = "template_type_conflict", .run = @import("pass/template_type_conflict.zig").run, .depends_on = &.{ "resolve_names", "suffix_inference" }, .access = .{ .reads_tables = true } },
+    // Unused custom type detection (v0.226.0):
+    .{ .name = "validate_unused_enums", .run = @import("pass/validate_unused_enums.zig").run, .depends_on = &.{ "resolve_names" }, .access = .{ .reads_tables = true } },
 };
 
 /// Validate dependency ordering at runtime (comptime safety check).

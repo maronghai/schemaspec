@@ -45,6 +45,8 @@ pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?
         .document_highlight_provider = true,
         .folding_range_provider = true,
         .type_definition_provider = true,
+        .workspace_symbol_provider = true,
+        .signature_help_provider = true,
     });
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
@@ -495,6 +497,77 @@ pub fn handleTypeDefinition(self: *Server, stdout_file: anytype, id: ?i64, param
             try lsp_protocol.writeRange(&body_alloc.writer, "range", loc.range);
             try body_alloc.writer.writeByte('}');
             try body_alloc.writer.writeByte(']');
+        } else {
+            try body_alloc.writer.writeAll("null");
+        }
+    } else {
+        try body_alloc.writer.writeAll("null");
+    }
+
+    try self.sendResponse(stdout_file, rid, &body_alloc);
+}
+
+pub fn handleWorkspaceSymbol(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+    const rid = id orelse return;
+    const query = lsp_protocol.getStringField(params, "query") orelse "";
+
+    var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+
+    // Search all open documents
+    try body_alloc.writer.writeByte('[');
+    var first = true;
+    var doc_iter = self.documents.documents.iterator();
+    while (doc_iter.next()) |entry| {
+        const uri = entry.key_ptr.*;
+        const result = self.compile_results.get(uri);
+        const typed = if (result) |r| r.typed_ast else null;
+        if (typed) |t| {
+            const ws = @import("workspace_symbol.zig");
+            const symbols = ws.getWorkspaceSymbols(self.arena, t, uri, query);
+            for (symbols) |sym| {
+                if (!first) try body_alloc.writer.writeByte(',');
+                first = false;
+                try body_alloc.writer.writeByte('{');
+                try lsp_protocol.writeJsonField(&body_alloc.writer, "name", sym.name);
+                try body_alloc.writer.writeByte(',');
+                try lsp_protocol.writeJsonInt(&body_alloc.writer, "kind", @intFromEnum(sym.kind));
+                try body_alloc.writer.writeAll(",\"location\":{");
+                try lsp_protocol.writeJsonField(&body_alloc.writer, "uri", sym.location.uri);
+                try body_alloc.writer.writeByte(',');
+                try lsp_protocol.writeRange(&body_alloc.writer, "range", sym.location.range);
+                try body_alloc.writer.writeByte('}');
+                if (sym.container_name) |cn| {
+                    try body_alloc.writer.writeByte(',');
+                    try lsp_protocol.writeJsonField(&body_alloc.writer, "containerName", cn);
+                }
+                try body_alloc.writer.writeByte('}');
+            }
+        }
+    }
+    try body_alloc.writer.writeByte(']');
+
+    try self.sendResponse(stdout_file, rid, &body_alloc);
+}
+
+pub fn handleSignatureHelp(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+    const rid = id orelse return;
+    const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+    const uri = lsp_protocol.getStringField(text_doc, "uri") orelse return;
+    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+    const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
+    const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
+
+    const doc = self.documents.get(uri);
+    const doc_text = if (doc) |d| d.text else "";
+    const result = self.compile_results.get(uri);
+    const typed = if (result) |r| r.typed_ast else null;
+
+    var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+    if (typed) |t| {
+        const sig_help = @import("signature_help.zig");
+        const position = lsp_protocol.Position{ .line = line, .character = character };
+        if (sig_help.getSignatureHelp(self.arena, t, doc_text, position)) |help| {
+            try sig_help.writeSignatureHelp(&body_alloc.writer, help);
         } else {
             try body_alloc.writer.writeAll("null");
         }

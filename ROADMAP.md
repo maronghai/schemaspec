@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.225.0 (2026-08-11) — 58,000+ lines production Zig, 1,660 tests, 34 test suites.
+**Current version**: 0.226.0 (2026-08-11) — 58,000+ lines production Zig, 1,670 tests, 34 test suites.
 
 ---
 
@@ -245,6 +245,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.226.0** — LSP enhancements & semantic quality: added `workspace/symbol` LSP support for searching all tables, columns, views, and custom types across the workspace (case-insensitive substring match); added `textDocument/signatureHelp` LSP support with parameter hints for field declarations and FK references; added `validate_unused_enums` semantic pass that warns about custom types (~) defined but never referenced in any table field; fixed missing capability serialization for `referencesProvider`, `documentHighlightProvider`, `foldingRangeProvider`, and `typeDefinitionProvider` in LSP initialize response; 10 new unit tests (1,670 total); benchmarks show no regressions
 - **v0.225.0** — Lint rules expansion: added `view-naming` rule (warns when views don't follow `<entity>_view` or `v_<entity>` convention); added `duplicate-column` rule (warns when a table has columns with the same name, fixable); added 5 new unit tests (1,660 total); benchmarks show no regressions
 - **v0.224.0** — Data-driven help system: replaced 200-line if-else chain in `printSubcommandHelp` with data-driven `COMMAND_HELP` registry (17 commands, zero string matching); fixed help text inaccuracies (lint rule count 30→33, fixable count 8→9); removed orphaned `-T` flag from global help; eliminated duplicate `DocsFormat` enum between `cli/types.zig` and `pipeline/handlers.zig`; added missing help sections for export, docs, stats, version commands; 1,655 unit tests pass, benchmarks show no regressions
 - **v0.222.0** — Lint infrastructure expansion: extracted shared field helpers (`isPrimaryKey`, `isNullable`, `hasExplicitDefault`) to eliminate 60+ lines of duplicated modifier-checking code across 5 validation functions; expanded auto-fix from 8 to 10 rules (added `column-default-required` with type-aware defaults and `no-index-fk` with automatic index creation); enhanced lint text formatter with "(fixable)" indicators next to fixable rules; added `detectDefaultValue` helper for type-aware default value selection; 10 new unit tests for helpers and auto-fix rules

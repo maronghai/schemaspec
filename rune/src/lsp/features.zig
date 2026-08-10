@@ -19,6 +19,8 @@ pub const references_mod = @import("references.zig");
 pub const highlights_mod = @import("highlights.zig");
 pub const folding_range_mod = @import("folding_range.zig");
 pub const type_definition_mod = @import("type_definition.zig");
+pub const workspace_symbol_mod = @import("workspace_symbol.zig");
+pub const signature_help_mod = @import("signature_help.zig");
 
 // Convenience re-exports for callers that import features.zig directly
 pub const getDocumentSymbols = document_symbols.getDocumentSymbols;
@@ -33,5 +35,7 @@ pub const getReferences = references_mod.getReferences;
 pub const getDocumentHighlights = highlights_mod.getDocumentHighlights;
 pub const getFoldingRanges = folding_range_mod.getFoldingRanges;
 pub const getTypeDefinition = type_definition_mod.getTypeDefinition;
+pub const getWorkspaceSymbols = workspace_symbol_mod.getWorkspaceSymbols;
+pub const getSignatureHelp = signature_help_mod.getSignatureHelp;
 
 pub const getFormatting = @import("formatting.zig").getFormatting;

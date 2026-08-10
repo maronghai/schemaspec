@@ -130,6 +130,7 @@ comptime {
     _ = @import("semantic/pass/validate_fk_types.zig");
     _ = @import("semantic/pass/validate_views.zig");
     _ = @import("semantic/pass/template_type_conflict.zig");
+    _ = @import("semantic/pass/validate_unused_enums.zig");
     // ── types ────────────────────────────────────────────────────
     _ = @import("types/ast_test.zig");
     _ = @import("types/ir_version.zig");
@@ -156,6 +157,8 @@ comptime {
     _ = @import("lsp/documents.zig");
     _ = @import("lsp/references.zig");
     _ = @import("lsp/highlights.zig");
+    _ = @import("lsp/workspace_symbol.zig");
+    _ = @import("lsp/signature_help.zig");
     _ = @import("lsp/json.zig");
     _ = @import("lsp/message.zig");
     _ = @import("lsp/features_test.zig");

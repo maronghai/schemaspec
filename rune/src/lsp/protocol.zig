@@ -263,6 +263,8 @@ pub const ServerCapabilities = struct {
     document_highlight_provider: ?bool = null,
     folding_range_provider: ?bool = null,
     type_definition_provider: ?bool = null,
+    workspace_symbol_provider: ?bool = null,
+    signature_help_provider: ?bool = null,
 };
 
 pub const InitializeResult = struct {
@@ -314,6 +316,43 @@ pub const FoldingRangeParams = struct {
 pub const TypeDefinitionParams = struct {
     text_document: TextDocumentIdentifier,
     position: Position,
+};
+
+// ─── Workspace Symbol ────────────────────────────────────────
+
+pub const WorkspaceSymbolParams = struct {
+    query: []const u8,
+};
+
+pub const WorkspaceSymbol = struct {
+    name: []const u8,
+    kind: SymbolKind,
+    location: Location,
+    container_name: ?[]const u8 = null,
+};
+
+// ─── Signature Help ──────────────────────────────────────────
+
+pub const SignatureHelpParams = struct {
+    text_document: TextDocumentIdentifier,
+    position: Position,
+};
+
+pub const SignatureHelp = struct {
+    signatures: []const SignatureInformation,
+    active_signature: u32 = 0,
+    active_parameter: u32 = 0,
+};
+
+pub const SignatureInformation = struct {
+    label: []const u8,
+    documentation: ?[]const u8 = null,
+    parameters: []const ParameterInformation,
+};
+
+pub const ParameterInformation = struct {
+    label: []const u8,
+    documentation: ?[]const u8 = null,
 };
 
 // ─── Response Writers ──────────────────────────────────────────
@@ -390,6 +429,30 @@ pub fn writeInitializeResult(w: anytype, caps: ServerCapabilities) !void {
     if (caps.prepare_rename_provider) |prp| {
         try w.writeAll(",\"prepareRenameProvider\":");
         try w.writeAll(if (prp) "true" else "false");
+    }
+    if (caps.references_provider) |rp| {
+        try w.writeAll(",\"referencesProvider\":");
+        try w.writeAll(if (rp) "true" else "false");
+    }
+    if (caps.document_highlight_provider) |dhp| {
+        try w.writeAll(",\"documentHighlightProvider\":");
+        try w.writeAll(if (dhp) "true" else "false");
+    }
+    if (caps.folding_range_provider) |frp| {
+        try w.writeAll(",\"foldingRangeProvider\":");
+        try w.writeAll(if (frp) "true" else "false");
+    }
+    if (caps.type_definition_provider) |tdp| {
+        try w.writeAll(",\"typeDefinitionProvider\":");
+        try w.writeAll(if (tdp) "true" else "false");
+    }
+    if (caps.workspace_symbol_provider) |wsp| {
+        try w.writeAll(",\"workspaceSymbolProvider\":");
+        try w.writeAll(if (wsp) "true" else "false");
+    }
+    if (caps.signature_help_provider) |_| {
+        try w.writeAll(",\"signatureHelpProvider\":{");
+        try w.writeAll("\"triggerCharacters\":[\" \"]}");
     }
     try w.writeAll("}");
 }

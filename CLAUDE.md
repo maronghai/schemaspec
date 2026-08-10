@@ -146,7 +146,7 @@ See [docs/migration-guide.md](docs/migration-guide.md) for migrating from SQL DD
 cd packaging/vscode && code --install-extension .
 ```
 
-Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), LSP-powered IntelliSense (completion, hover, go-to-definition, diagnostics, code actions, formatting), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). The extension starts `rune lsp` automatically on activation. Configure `rune.schemaPath` for custom binary paths.
+Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), LSP-powered IntelliSense (completion, hover, go-to-definition, diagnostics, code actions, formatting, workspace symbols, signature help), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). The extension starts `rune lsp` automatically on activation. Configure `rune.schemaPath` for custom binary paths.
 
 ## Architecture
 
@@ -165,7 +165,7 @@ rune/src/
   lint/handlers/structural.zig, lint/handlers/naming.zig, lint/handlers/validation.zig, lint/handlers/compat.zig  # handler modules
   cli/lint_cmd.zig                                                 # lint CLI handler (extracted from main.zig)
   generator.zig                                                   # generator registry (pluggable)
-  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights)
+  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights, workspace symbols, signature help)
                 compile_service.zig, server.zig, features.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
   tests.zig                                                       # colocated test index (100 files)
@@ -237,7 +237,7 @@ rune/src/
 
 - **FlagRegistry** (`cli/flag_registry.zig`): All 20 global CLI flags defined once in `GLOBAL_FLAG_REGISTRY` array. `matchesFlag()` matches long and short forms. `isKnownGlobalFlag()` provides unknown-flag detection. `parseGlobalFlags` uses `matchesFlag` for boolean flag detection instead of raw `std.mem.eql` chains.
 
-- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (16 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
+- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (17 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
 
 - **ResolvedAst IR** (`types/resolved_ast.zig`): `ResolvedTable` + `ResolvedAst` — output of template resolution + semantic passes. `ResolvedTable` includes `template_ref` for tracking which template was applied. Separated from `types/ast.zig` (parser output) for clean IR boundary. Re-exported from `ast.zig` for backward compatibility.
 
@@ -338,7 +338,7 @@ rune/src/
 | | `trace.zig` | Shared AST trace formatting |
 | | `diagnostic.zig` | Multi-error diagnostic collector (printAll, formatJson, formatLsp, formatTerminal) |
 | | `template.zig` | Template inheritance resolution |
-| | `pass/*.zig` | 16 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, template_type_conflict, etc.) |
+| | `pass/*.zig` | 17 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, template_type_conflict, validate_unused_enums, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `config_merge.zig` | Config merge logic (CLI flags + config file defaults) |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_format, rune_tune, rune_generate, rune_stats, rune_validate, rune_version, rune_last_error, rune_last_error_code, rune_reset) |
