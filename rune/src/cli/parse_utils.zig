@@ -34,13 +34,24 @@ pub fn parseExportArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect,
 pub fn parseFormatArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
     var diff = false;
+    var write = false;
+    var format_dialect: ?dialect_enum.Dialect = null;
     for (fargs[1..]) |arg| {
         if (std.mem.eql(u8, arg, "--diff")) {
             diff = true;
-            break;
+        } else if (std.mem.eql(u8, arg, "--write")) {
+            write = true;
         }
     }
-    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1), .check = opts.check, .diff = diff } }, opts);
+    // Parse --dialect/-d with value
+    var j: usize = 1;
+    while (j < fargs.len) : (j += 1) {
+        if ((std.mem.eql(u8, fargs[j], "--dialect") or std.mem.eql(u8, fargs[j], "-d")) and j + 1 < fargs.len) {
+            format_dialect = try dialect_enum.parseDialect(fargs[j + 1]);
+            j += 1;
+        }
+    }
+    return shared.parseSimpleSubcommand(dialect, target, .{ .format_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1), .check = opts.check, .diff = diff, .write = write, .dialect = format_dialect } }, opts);
 }
 
 pub fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {

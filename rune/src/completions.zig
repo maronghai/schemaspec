@@ -30,7 +30,7 @@ pub const COMPLETIONS_BASH =
     \\    commands="init validate check stats diff migrate reverse docs format generate completions hooks lint watch lsp"
     \\
     \\    if [[ ${cur} == -* ]]; then
-    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --stat --config --name --dir --incremental --graph --from-sql --generators" -- ${cur}) )
+    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --stat --config --name --dir --incremental --graph --from-sql --generators --write" -- ${cur}) )
     \\        return 0
     \\    fi
     \\
@@ -272,7 +272,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('powershell', 'powershell', 'ParameterValue', 'PowerShell')
     \\    )
     \\
-    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--stat', '--config', '--name', '--dir', '--incremental', '--graph', '--from-sql', '--generators', '-h', '-v', '-d', '-t', '-s', '-q')
+    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--stat', '--config', '--name', '--dir', '--incremental', '--graph', '--from-sql', '--generators', '--write', '-h', '-v', '-d', '-t', '-s', '-q')
     \\
     \\    $cursorToken = $commandAst.CommandElements[-1].Value
     \\    $tokens = $commandAst.CommandElements | ForEach-Object { $_.Value }

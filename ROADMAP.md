@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.249.0 (2026-08-11) — 61,000+ lines production Zig, 1,788+ tests, 42 lint rules, 38 test suites.
+**Current version**: 0.250.0 (2026-08-11) — 61,000+ lines production Zig, 1,796+ tests, 42 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.250.0** — Formatter enhancement & dialect awareness: added `--write` flag to `rune format` for in-place file editing (like `prettier --write`); added `--dialect <d>` flag for dialect-aware SQL keyword formatting (extends keyword uppercasing to dialect-specific keywords: MySQL `AUTO_INCREMENT`/`UNSIGNED`/`ENGINE`, PostgreSQL `SERIAL`/`RETURNING`/`ILIKE`, SQLite `AUTOINCREMENT`/`VACUUM`/`PRAGMA`, MSSQL `IDENTITY`/`TOP`/`NVARCHAR`, Oracle `NUMBER`/`VARCHAR2`/`SYSDATE`, Db2 `GENERATED`/`IDENTITY`/`CLOB`); integrated dialect-aware formatting into LSP server (document formatting uses server dialect configuration); added 8 new formatter unit tests for dialect-specific keyword handling; added 14 format golden tests (`--write`, `--dialect`, `--check` modes); updated completions for `--write` flag; 1,796+ unit tests pass, benchmarks show no regressions
 - **v0.249.0** — Developer experience & watch mode enhancements: added `--fix` flag to `rune validate` (combines schema validation with lint auto-fix in a single command, applies all 11 fixable lint rules); added compile time display to watch mode output (shows milliseconds for initial compilation and per-change recompilation); updated help text with validate --fix examples; added parse test for validate --fix flag; updated golden tests for validate --fix; 1,790+ unit tests pass, benchmarks show no regressions
 - **v0.248.0** — Documentation accuracy & ROADMAP correction: fixed ROADMAP summary table counting inconsistency (was 113/119 = 6 remaining, corrected to 113/129 = 16 remaining — actual count across all phases); verified all 108 colocated test files and 1,788+ unit tests pass; benchmarks show no regressions
 - **v0.247.0** — Architecture cleanup & validate strict mode: decomposed monolithic `lint/fix.zig` (725 lines) into 4 focused modules (`fix_helpers.zig` for shared types/helpers, `fix_structural.zig` for no-pk/no-timestamps/empty-table, `fix_modifier.zig` for serial-type/bool-default/nullable-default/column-default, `fix_index.zig` for duplicate-index/no-index-fk/duplicate-column); eliminated duplicate `LintFix` type, `isWordBoundary`, `replaceWord`, `tableNeedsFix`, `detectDefaultValue`, `FixMaps`, `buildFixMaps` across modules; consolidated `generator.zig` listing functions (eliminated `listDetailedStderr` duplication via `writeDetailedInfo` delegation); added `validate --strict` mode (exits 1 on lint warnings for CI/CD gate); registered 4 new test files in `tests.zig`; 1,788 unit tests pass, benchmarks show no regressions

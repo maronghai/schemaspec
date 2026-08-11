@@ -86,6 +86,8 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune docs schema.ss                   # Generate Markdown documentation
 ./rune/zig-out/bin/rune format schema.ss                    # Auto-format .ss file
 ./rune/zig-out/bin/rune format schema.ss --check            # Check if formatting needed
+./rune/zig-out/bin/rune format schema.ss --write             # Format in-place
+./rune/zig-out/bin/rune format schema.ss --write -d pg       # Format in-place with PostgreSQL keywords
 ./rune/zig-out/bin/rune format schema.ss --diff             # Show formatting differences
 ./rune/zig-out/bin/rune tune schema.ss                      # Extract common fields into templates
 ./rune/zig-out/bin/rune tune schema.ss --dry-run            # Preview template extraction

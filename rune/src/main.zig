@@ -215,7 +215,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         .init => |cmd| return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template),
         .format_cmd => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
-            return handlers.handleFormat(io, alloc, file_data, .{ .output = cmd.output, .check = cmd.check, .diff = cmd.diff, .quiet = parsed.quiet });
+            return handlers.handleFormat(io, alloc, file_data, .{ .output = cmd.output, .check = cmd.check, .diff = cmd.diff, .write = cmd.write, .dialect = cmd.dialect orelse parsed.dialect, .quiet = parsed.quiet, .input_path = cmd.input });
         },
         .completions => |cmd| return completions.handleCompletions(io, alloc, cmd.shell),
         .hooks => |cmd| return hooks_mod.handleHooks(io, alloc, cmd.hook_type),

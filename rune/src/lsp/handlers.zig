@@ -295,7 +295,7 @@ pub fn handleFormatting(self: *Server, stdout_file: anytype, id: ?i64, params: s
     };
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
-    if (features_mod.getFormatting(self.arena, doc.text)) |new_text| {
+    if (features_mod.getFormattingDialect(self.arena, doc.text, self.dialect)) |new_text| {
         defer self.arena.free(new_text);
         const line_count: u32 = @intCast(std.mem.count(u8, doc.text, "\n") + 1);
         try body_alloc.writer.writeByte('[');

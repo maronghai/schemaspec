@@ -1,4 +1,5 @@
 const std = @import("std");
+const Dialect = @import("dialect/enum.zig").Dialect;
 
 // ─── SS Formatter ─────────────────────────────────────────────
 // Auto-formats .ss files with consistent style:
@@ -29,7 +30,7 @@ const SQL_KEYWORDS = [_][]const u8{
     "PRIMARY", "KEY", "UNIQUE", "CHECK", "CONSTRAINT",
     "REFERENCES", "FOREIGN",
     // Modifiers
-    "NULL", "DEFAULT", "AUTO_INCREMENT", "UNSIGNED",
+    "NULL", "DEFAULT",
     // Control
     "IF", "EXISTS", "SET", "CASCADE", "RESTRICT",
     // Metadata
@@ -52,19 +53,78 @@ fn isIdentChar(c: u8) bool {
     return (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or (c >= '0' and c <= '9') or c == '_';
 }
 
+// ─── Dialect-Specific SQL Keywords ──────────────────────────────
+// Additional keywords per dialect that should be uppercased in @if blocks.
+const DIALECT_KEYWORDS_MYSQL = [_][]const u8{
+    "AUTO_INCREMENT", "UNSIGNED", "ENGINE", "CHARSET", "COLLATE",
+    "TINYINT", "MEDIUMTEXT", "LONGTEXT", "LONGBLOB", "MEDIUMBLOB",
+    "ENUM", "SET", "IFNULL", "CONCAT", "GROUP_CONCAT",
+};
+const DIALECT_KEYWORDS_PG = [_][]const u8{
+    "SERIAL", "BIGSERIAL", "SMALLSERIAL", "RETURNING", "ON",
+    "CONFLICT", "ILIKE", "ANY", "ARRAY", "OVER",
+    "PARTITION", "ROW", "ROWS", "ONLY", "FIRST", "LAST",
+    "GENERATED", "ALWAYS", "IDENTITY", "WINDOW",
+};
+const DIALECT_KEYWORDS_SQLITE = [_][]const u8{
+    "AUTOINCREMENT", "VACUUM", "PRAGMA", "EXPLAIN",
+    "REINDEX", "GLOB", "LIMIT", "OFFSET", "CAST",
+};
+const DIALECT_KEYWORDS_MSSQL = [_][]const u8{
+    "IDENTITY", "TOP", "NVARCHAR", "NTEXT", "BIT",
+    "PRINT", "EXEC", "EXECUTE", "BEGIN", "END",
+    "DECLARE", "SET", "GO", "AS", "ISNULL",
+};
+const DIALECT_KEYWORDS_ORACLE = [_][]const u8{
+    "NUMBER", "VARCHAR2", "SYSDATE", "ROWNUM", "NVL",
+    "DECODE", "TO_CHAR", "TO_DATE", "TO_NUMBER", "SUBSTR",
+    "INSTR", "LENGTH", "TRIM", "UPPER", "LOWER",
+    "NVL2", "COALESCE", "EXTRACT", "CONNECT", "BY",
+    "START", "WITH", "MERGE", "INTO", "USING",
+};
+const DIALECT_KEYWORDS_DB2 = [_][]const u8{
+    "GENERATED", "ALWAYS", "IDENTITY", "BIGINT", "CLOB",
+    "BLOB", "DBCLOB", "DECFLOAT", "GRAPHIC", "VARGRAPHIC",
+    "SUM", "COUNT", "AVG", "MIN", "MAX",
+    "FETCH", "FIRST", "ROWS", "ONLY", "FOR",
+};
+
 /// Check if a word matches any SQL keyword (case-insensitive).
-fn isSqlKeyword(word: []const u8) bool {
+/// When dialect is non-null, also checks dialect-specific keywords.
+fn isSqlKeywordDialect(word: []const u8, dialect: ?Dialect) bool {
+    // Check base keywords first
     for (SQL_KEYWORDS) |kw| {
         if (word.len == kw.len and std.ascii.eqlIgnoreCase(word, kw)) {
             return true;
         }
     }
+    // Check dialect-specific keywords
+    if (dialect) |d| {
+        const dialect_kws: []const []const u8 = switch (d) {
+            .mysql => &DIALECT_KEYWORDS_MYSQL,
+            .pg => &DIALECT_KEYWORDS_PG,
+            .sqlite => &DIALECT_KEYWORDS_SQLITE,
+            .mssql => &DIALECT_KEYWORDS_MSSQL,
+            .oracle => &DIALECT_KEYWORDS_ORACLE,
+            .db2 => &DIALECT_KEYWORDS_DB2,
+        };
+        for (dialect_kws) |kw| {
+            if (word.len == kw.len and std.ascii.eqlIgnoreCase(word, kw)) {
+                return true;
+            }
+        }
+    }
     return false;
+}
+
+/// Check if a word matches any SQL keyword (case-insensitive).
+fn isSqlKeyword(word: []const u8) bool {
+    return isSqlKeywordDialect(word, null);
 }
 
 /// Write SQL keywords uppercased directly to the output buffer.
 /// Preserves non-keyword identifiers and string literals.
-fn writeUppercasedSqlKeywords(result: *std.ArrayList(u8), alloc: std.mem.Allocator, line: []const u8) !void {
+fn writeUppercasedSqlKeywords(result: *std.ArrayList(u8), alloc: std.mem.Allocator, line: []const u8, dialect: ?Dialect) !void {
     var i: usize = 0;
     while (i < line.len) {
         const c = line[i];
@@ -73,7 +133,7 @@ fn writeUppercasedSqlKeywords(result: *std.ArrayList(u8), alloc: std.mem.Allocat
             const start = i;
             while (i < line.len and isIdentChar(line[i])) i += 1;
             const word = line[start..i];
-            if (isSqlKeyword(word)) {
+            if (isSqlKeywordDialect(word, dialect)) {
                 // Uppercase the keyword
                 for (word) |wc| {
                     try result.append(alloc, std.ascii.toUpper(wc));
@@ -113,6 +173,11 @@ fn writeUppercasedSqlKeywords(result: *std.ArrayList(u8), alloc: std.mem.Allocat
 }
 
 pub fn format(alloc: std.mem.Allocator, input: []const u8) ![]const u8 {
+    return formatDialect(alloc, input, null);
+}
+
+/// Format with dialect-specific SQL keyword handling.
+pub fn formatDialect(alloc: std.mem.Allocator, input: []const u8, dialect: ?Dialect) ![]const u8 {
     var result = try std.ArrayList(u8).initCapacity(alloc, input.len + INITIAL_PADDING);
     var lines = std.mem.splitScalar(u8, input, '\n');
     var in_block = false; // inside a table or template
@@ -172,7 +237,7 @@ pub fn format(alloc: std.mem.Allocator, input: []const u8) ![]const u8 {
                 try result.appendSlice(alloc, "  ");
             }
             if (in_if_block) {
-                try writeUppercasedSqlKeywords(&result, alloc, line);
+                try writeUppercasedSqlKeywords(&result, alloc, line, dialect);
             } else {
                 try result.appendSlice(alloc, line);
             }
@@ -190,7 +255,7 @@ pub fn format(alloc: std.mem.Allocator, input: []const u8) ![]const u8 {
                 try result.appendSlice(alloc, "  ");
             }
             if (in_if_block) {
-                try writeUppercasedSqlKeywords(&result, alloc, line);
+                try writeUppercasedSqlKeywords(&result, alloc, line, dialect);
             } else {
                 try result.appendSlice(alloc, line);
             }
@@ -371,7 +436,6 @@ test "isSqlKeyword: positive matches" {
     try std.testing.expect(isSqlKeyword("NOT"));
     try std.testing.expect(isSqlKeyword("NULL"));
     try std.testing.expect(isSqlKeyword("DEFAULT"));
-    try std.testing.expect(isSqlKeyword("AUTO_INCREMENT"));
 }
 
 test "isSqlKeyword: negative matches" {
@@ -397,7 +461,7 @@ test "uppercaseSqlKeywords: basic keywords" {
     const alloc = arena.allocator();
     var result = try std.ArrayList(u8).initCapacity(alloc, 64);
 
-    try writeUppercasedSqlKeywords(&result, alloc, "create table users");
+    try writeUppercasedSqlKeywords(&result, alloc, "create table users", null);
     try std.testing.expectEqualStrings("CREATE TABLE users", result.items);
 }
 
@@ -407,7 +471,7 @@ test "uppercaseSqlKeywords: preserves identifiers" {
     const alloc = arena.allocator();
     var result = try std.ArrayList(u8).initCapacity(alloc, 64);
 
-    try writeUppercasedSqlKeywords(&result, alloc, "select id, name from users where id = 1");
+    try writeUppercasedSqlKeywords(&result, alloc, "select id, name from users where id = 1", null);
     try std.testing.expectEqualStrings("SELECT id, name FROM users WHERE id = 1", result.items);
 }
 
@@ -417,7 +481,7 @@ test "uppercaseSqlKeywords: preserves string literals" {
     const alloc = arena.allocator();
     var result = try std.ArrayList(u8).initCapacity(alloc, 64);
 
-    try writeUppercasedSqlKeywords(&result, alloc, "comment 'create table test'");
+    try writeUppercasedSqlKeywords(&result, alloc, "comment 'create table test'", null);
     try std.testing.expectEqualStrings("COMMENT 'create table test'", result.items);
 }
 
@@ -427,7 +491,7 @@ test "uppercaseSqlKeywords: mixed keywords and identifiers" {
     const alloc = arena.allocator();
     var result = try std.ArrayList(u8).initCapacity(alloc, 64);
 
-    try writeUppercasedSqlKeywords(&result, alloc, "primary key (id), not null");
+    try writeUppercasedSqlKeywords(&result, alloc, "primary key (id), not null", null);
     try std.testing.expectEqualStrings("PRIMARY KEY (id), NOT NULL", result.items);
 }
 
@@ -437,7 +501,7 @@ test "uppercaseSqlKeywords: empty string" {
     const alloc = arena.allocator();
     var result = try std.ArrayList(u8).initCapacity(alloc, 64);
 
-    try writeUppercasedSqlKeywords(&result, alloc, "");
+    try writeUppercasedSqlKeywords(&result, alloc, "", null);
     try std.testing.expectEqualStrings("", result.items);
 }
 
@@ -449,7 +513,7 @@ test "uppercaseSqlKeywords: SQL data types (excluded to preserve Rune types)" {
 
     // Type keywords like int, varchar, text are NOT uppercased because they
     // are also Rune type symbols. Only DDL/DML/constraint keywords are uppercased.
-    try writeUppercasedSqlKeywords(&result, alloc, "create table t (id int, name varchar(255))");
+    try writeUppercasedSqlKeywords(&result, alloc, "create table t (id int, name varchar(255))", null);
     try std.testing.expectEqualStrings("CREATE TABLE t (id int, name varchar(255))", result.items);
 }
 
@@ -460,7 +524,7 @@ test "uppercaseSqlKeywords: DDL statements" {
     var result = try std.ArrayList(u8).initCapacity(alloc, 64);
 
     // Type keywords (int) are not uppercased; DDL keywords (DROP, TABLE, IF, EXISTS) are
-    try writeUppercasedSqlKeywords(&result, alloc, "drop table if exists users");
+    try writeUppercasedSqlKeywords(&result, alloc, "drop table if exists users", null);
     try std.testing.expectEqualStrings("DROP TABLE IF EXISTS users", result.items);
 }
 
@@ -484,4 +548,80 @@ test "@if block: mixed Rune and SQL" {
     // 'serial_id' is not a SQL keyword, 'n' is not a SQL keyword
     // 'create', 'table', 'primary', 'key' are SQL keywords; 'int' is not (Rune type)
     try std.testing.expectEqualStrings("# users\n  id n pk\n\n@if(dialect=pg)\n  serial_id n\n  CREATE TABLE log (id int PRIMARY KEY)\n@endif\n", result);
+}
+
+// ─── Dialect-Specific Keyword Tests ──────────────────────────────
+
+test "dialect: MySQL AUTO_INCREMENT uppercased" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const input = "# users\nid n pk\n\n@if(dialect=mysql)\nid int auto_increment\n@endif\n";
+    const result = try formatDialect(alloc, input, .mysql);
+    try std.testing.expectEqualStrings("# users\n  id n pk\n\n@if(dialect=mysql)\n  id int AUTO_INCREMENT\n@endif\n", result);
+}
+
+test "dialect: PostgreSQL SERIAL uppercased" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const input = "# users\nid n pk\n\n@if(dialect=pg)\nid serial\nbio text returning id\n@endif\n";
+    const result = try formatDialect(alloc, input, .pg);
+    try std.testing.expectEqualStrings("# users\n  id n pk\n\n@if(dialect=pg)\n  id SERIAL\n  bio text RETURNING id\n@endif\n", result);
+}
+
+test "dialect: SQLite AUTOINCREMENT uppercased" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const input = "# users\nid n pk\n\n@if(dialect=sqlite)\nid integer primary key autoincrement\n@endif\n";
+    const result = try formatDialect(alloc, input, .sqlite);
+    // 'integer' is not a SQL keyword (it's a type), so stays lowercase
+    // 'primary', 'key', 'autoincrement' are SQL keywords → uppercased
+    try std.testing.expectEqualStrings("# users\n  id n pk\n\n@if(dialect=sqlite)\n  id integer PRIMARY KEY AUTOINCREMENT\n@endif\n", result);
+}
+
+test "dialect: MSSQL IDENTITY uppercased" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const input = "# users\nid n pk\n\n@if(dialect=mssql)\nid int identity(1,1)\nselect top 10 * from users\n@endif\n";
+    const result = try formatDialect(alloc, input, .mssql);
+    try std.testing.expectEqualStrings("# users\n  id n pk\n\n@if(dialect=mssql)\n  id int IDENTITY(1,1)\n  SELECT TOP 10 * FROM users\n@endif\n", result);
+}
+
+test "dialect: Oracle NVL uppercased" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const input = "# users\nid n pk\n\n@if(dialect=oracle)\nname nvl(name, 'unknown')\nsysdate created_on\n@endif\n";
+    const result = try formatDialect(alloc, input, .oracle);
+    // NVL and SYSDATE are Oracle keywords → uppercased; created_on is not a keyword
+    try std.testing.expectEqualStrings("# users\n  id n pk\n\n@if(dialect=oracle)\n  name NVL(name, 'unknown')\n  SYSDATE created_on\n@endif\n", result);
+}
+
+test "dialect: Db2 GENERATED ALWAYS uppercased" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const input = "# users\nid n pk\n\n@if(dialect=db2)\nid int generated always as identity\nname clob\n@endif\n";
+    const result = try formatDialect(alloc, input, .db2);
+    try std.testing.expectEqualStrings("# users\n  id n pk\n\n@if(dialect=db2)\n  id int GENERATED ALWAYS AS IDENTITY\n  name CLOB\n@endif\n", result);
+}
+
+test "dialect: no dialect only uppercases base keywords" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const input = "# users\nid n pk\n\n@if(dialect=pg)\nid serial auto_increment\n@endif\n";
+    const result = try formatDialect(alloc, input, null);
+    // Without dialect: 'serial' and 'auto_increment' are NOT uppercased (only base keywords are)
+    try std.testing.expectEqualStrings("# users\n  id n pk\n\n@if(dialect=pg)\n  id serial auto_increment\n@endif\n", result);
 }

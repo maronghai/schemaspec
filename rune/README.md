@@ -35,7 +35,7 @@ cd rune && zig build                              # Build
 | `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`) |
 | `init` | `rune init [name] [--template <tpl>]` | Create starter `.ss` schema (templates: `default`, `blog`, `ecommerce`, `rest-api`) |
 | `watch` | `rune watch <input> [--recursive]` | Watch file/directory and recompile on change |
-| `format` | `rune format <input.ss>` | Auto-format `.ss` file with consistent style |
+| `format` | `rune format <input.ss> [--write] [--dialect <d>]` | Auto-format `.ss` file with consistent style |
 | `lint` | `rune lint <input.ss>` | Lint schema for quality issues |
 | `tune` | `rune tune <input.ss>` | Extract common fields into templates |
 

@@ -78,4 +78,105 @@ for ss_file in "$TEST_DIR"/*.ss; do
   fi
 done
 
+# Test --write mode (in-place formatting)
+echo ""
+echo "=== --write mode tests ==="
+
+for ss_file in "$TEST_DIR"/*.ss; do
+  [ -f "$ss_file" ] || continue
+  base=$(basename "$ss_file" .ss)
+  [[ "$base" == dialect* ]] && continue  # Skip dialect tests for --write
+
+  expected_file="$EXPECTED_DIR/$base.ss"
+  [ -f "$expected_file" ] || continue
+
+  # Copy input to temp, format in-place with --write, compare to expected
+  tmp_write=$(mktemp)
+  trap "rm -f '$tmp_write'" EXIT
+  cp "$ss_file" "$tmp_write"
+
+  if "$COMPILER" format "$tmp_write" --write 2>/dev/null; then
+    if diff -u "$expected_file" "$tmp_write" > /dev/null 2>&1; then
+      pass "$base --write"
+    else
+      fail "$base --write" "output differs from expected"
+    fi
+  else
+    fail "$base --write" "format command failed"
+  fi
+  rm -f "$tmp_write"
+done
+
+# Test --dialect mode (dialect-aware formatting)
+echo ""
+echo "=== --dialect mode tests ==="
+
+# Test MySQL dialect formatting
+mysql_input=$(mktemp)
+echo '# users
+id n pk
+
+@if(dialect=mysql)
+id int auto_increment
+id2 int unsigned
+@endif' > "$mysql_input"
+
+mysql_expected=$(mktemp)
+echo '# users
+  id n pk
+
+@if(dialect=mysql)
+  id int AUTO_INCREMENT
+  id2 int UNSIGNED
+@endif' > "$mysql_expected"
+
+tmp_dialect=$(mktemp)
+trap "rm -f '$mysql_input' '$mysql_expected' '$tmp_dialect'" EXIT
+
+if "$COMPILER" format "$mysql_input" -d mysql -o "$tmp_dialect" 2>/dev/null; then
+  if diff -u "$mysql_expected" "$tmp_dialect" > /dev/null 2>&1; then
+    pass "dialect-mysql"
+  else
+    fail "dialect-mysql" "output differs"
+    diff -u "$mysql_expected" "$tmp_dialect" | head -20 || true
+  fi
+else
+  fail "dialect-mysql" "format command failed"
+fi
+rm -f "$mysql_input" "$mysql_expected" "$tmp_dialect"
+
+# Test PostgreSQL dialect formatting
+pg_input=$(mktemp)
+echo '# users
+id n pk
+
+@if(dialect=pg)
+id serial
+name text returning id
+@endif' > "$pg_input"
+
+pg_expected=$(mktemp)
+echo '# users
+  id n pk
+
+@if(dialect=pg)
+  id SERIAL
+  name text RETURNING id
+@endif' > "$pg_expected"
+
+tmp_pg=$(mktemp)
+trap "rm -f '$pg_input' '$pg_expected' '$tmp_pg'" EXIT
+
+if "$COMPILER" format "$pg_input" -d pg -o "$tmp_pg" 2>/dev/null; then
+  if diff -u "$pg_expected" "$tmp_pg" > /dev/null 2>&1; then
+    pass "dialect-pg"
+  else
+    fail "dialect-pg" "output differs"
+    diff -u "$pg_expected" "$tmp_pg" | head -20 || true
+  fi
+else
+  fail "dialect-pg" "format command failed"
+fi
+rm -f "$pg_input" "$pg_expected" "$tmp_pg"
+
 summary

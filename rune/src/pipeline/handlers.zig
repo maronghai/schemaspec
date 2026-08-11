@@ -442,6 +442,12 @@ pub const FormatConfig = struct {
     diff: bool = false,
     /// Suppress non-error output.
     quiet: bool = false,
+    /// Write mode: format and write back to the input file in-place.
+    write: bool = false,
+    /// Target SQL dialect for dialect-aware keyword formatting.
+    dialect: ?@import("../dialect/enum.zig").Dialect = null,
+    /// Input file path (needed for --write to write back in-place).
+    input_path: ?[]const u8 = null,
 };
 
 /// Configuration for `handleExport`.
@@ -472,7 +478,7 @@ pub fn handleFormat(
     cfg: FormatConfig,
 ) !void {
     const formatter = @import("../formatter.zig");
-    const formatted = try formatter.format(alloc, file_data);
+    const formatted = try formatter.formatDialect(alloc, file_data, cfg.dialect);
     if (cfg.check) {
         if (!std.mem.eql(u8, formatted, file_data)) {
             if (!cfg.quiet) {
@@ -508,6 +514,20 @@ pub fn handleFormat(
                 try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "\n{d} line(s) would change\n", .{changed}), null, true);
             }
             return error.FormatCheckFailed;
+        }
+        return;
+    }
+    if (cfg.write) {
+        // --write with -o: write to specified output path
+        // --write without -o: write back to the input file in-place
+        const write_path = cfg.output orelse cfg.input_path;
+        if (write_path) |path| {
+            try io_mod.writeOutput(io, formatted, path, cfg.quiet);
+        } else {
+            if (!cfg.quiet) {
+                fmt.printWarn("--write requires a file path (not stdin)");
+            }
+            return error.FormatWriteError;
         }
         return;
     }

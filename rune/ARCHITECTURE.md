@@ -433,6 +433,10 @@ No changes needed in `codegen.zig` — it is fully dialect-agnostic.
 | `bench/medium.ss` | 21 | ~200 | Project management (users, projects, issues, PRs) |
 | `bench/large.ss` | 32 | ~400 | Enterprise platform (tenants, tasks, sprints, audits) |
 
+## SS Formatter
+
+`src/formatter.zig` auto-formats `.ss` files with consistent style: strip trailing whitespace, 2-space indentation for fields, single blank lines between blocks, SQL keyword uppercasing inside `@if`/`@endif` conditional blocks. The formatter supports dialect-aware formatting via `formatDialect(alloc, input, dialect)` — when a dialect is specified (e.g., `.mysql`, `.pg`), dialect-specific SQL keywords are also uppercased (e.g., `AUTO_INCREMENT` for MySQL, `SERIAL` for PostgreSQL). The `--write` flag writes formatted output back to the input file in-place. The LSP server uses the configured dialect for document formatting.
+
 ### Usage
 
 ```bash

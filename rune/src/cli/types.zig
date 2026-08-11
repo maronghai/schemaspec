@@ -24,7 +24,7 @@ pub const Command = union(enum) {
     reverse: struct { input: ?[]const u8, output: ?[]const u8, with_templates: bool, trace: bool, stats: bool, validate_only: bool, format: DiffFormat, check: bool = false },
     docs: struct { input: ?[]const u8, output: ?[]const u8, doc_format: DocsFormat = .markdown },
     export_cmd: struct { input: ?[]const u8, output: ?[]const u8, format: ExportFormat = .json },
-    format_cmd: struct { input: ?[]const u8, output: ?[]const u8, check: bool = false, diff: bool = false },
+    format_cmd: struct { input: ?[]const u8, output: ?[]const u8, check: bool = false, diff: bool = false, write: bool = false, dialect: ?dialect_enum.Dialect = null },
     generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool, check: bool = false, dry_run: bool = false },
     init: struct { name: ?[]const u8, output: ?[]const u8, output_dir: ?[]const u8 = null, template: ?[]const u8 = null },
     completions: struct { shell: []const u8 },
@@ -105,7 +105,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "reverse", .args = "[input.sql]", .description = "Reverse SQL DDL to .ss schema" },
     .{ .name = "docs", .args = "[input.ss]", .description = "Generate Markdown documentation" },
     .{ .name = "export", .args = "[input.ss] [--format json|text|markdown]", .description = "Export schema as structured data" },
-    .{ .name = "format", .args = "[input.ss] [--check] [--diff]", .description = "Auto-format .ss schema file" },
+    .{ .name = "format", .args = "[input.ss] [--check] [--diff] [--write] [--dialect <d>]", .description = "Auto-format .ss schema file" },
     .{ .name = "generate", .args = "<generator> [input.ss]", .description = "Generate output in specified format" },
     .{ .name = "init", .args = "[name] [--output-dir <dir>] [--template <name>]", .description = "Create a starter .ss schema file" },
     .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
@@ -124,7 +124,7 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--name",           "--dir",         "--incremental", "--color",         "--init",       "--summary",
     "--config",         "--template",    "--graph",       "--stream",        "--interval",   "--parallel",
     "--generators",     "--from-sql",    "--fix",         "--rules",         "--output-dir", "--recursive",
-    "--per-table",      "--include-views", "--diff",
+    "--per-table",      "--include-views", "--diff",        "--write",
 };
 
 // ─── Data-Driven Help System ──────────────────────────────────
@@ -346,18 +346,21 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
-        .usage = "[input.ss] [--check] [--diff]",
+        .usage = "[input.ss] [--check] [--diff] [--write] [--dialect <d>]",
         .description = "Auto-format .ss schema file",
         .options = &.{
             "  --check         Exit 1 if formatting changes are needed",
             "  --diff          Show formatting differences without applying",
-            "  -o, --output    Output file path (default: in-place)",
+            "  --write         Format and write back to the input file in-place",
+            "  -d, --dialect   Target SQL dialect for dialect-aware formatting",
+            "  -o, --output    Output file path (default: stdout)",
         },
         .examples = &.{
-            "  rune format schema.ss              # Format in-place",
-            "  rune format schema.ss -o out.ss    # Format to file",
-            "  rune format schema.ss --check      # Check if formatting needed",
-            "  rune format schema.ss --diff       # Show what would change",
+            "  rune format schema.ss --write            # Format in-place",
+            "  rune format schema.ss --write -d pg      # Format in-place with PostgreSQL keywords",
+            "  rune format schema.ss -o out.ss          # Format to file",
+            "  rune format schema.ss --check            # Check if formatting needed",
+            "  rune format schema.ss --diff             # Show what would change",
         },
     },
     .{

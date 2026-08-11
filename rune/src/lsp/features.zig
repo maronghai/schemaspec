@@ -41,3 +41,4 @@ pub const getSignatureHelp = signature_help_mod.getSignatureHelp;
 pub const getCodeLens = code_lens_mod.getCodeLens;
 
 pub const getFormatting = @import("formatting.zig").getFormatting;
+pub const getFormattingDialect = @import("formatting.zig").getFormattingDialect;
