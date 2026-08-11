@@ -195,6 +195,35 @@ pub fn checkFkDepth(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult
     }
 }
 
+pub fn checkFkDuplicate(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Count FK references per target table
+        var target_counts = std.StringHashMap(u32).init(alloc);
+        defer target_counts.deinit();
+
+        for (table.fields) |field| {
+            if (field.fk) |fk| {
+                const entry = try target_counts.getOrPut(fk.ref_table);
+                if (!entry.found_existing) entry.value_ptr.* = 0;
+                entry.value_ptr.* += 1;
+            }
+        }
+
+        var it = target_counts.iterator();
+        while (it.next()) |entry| {
+            if (entry.value_ptr.* > 1) {
+                const msg = try std.fmt.allocPrint(alloc, "table has {d} foreign keys referencing '{s}' — consider if a junction table is needed", .{ entry.value_ptr.*, entry.key_ptr.* });
+                try results.append(alloc, .{
+                    .rule = "fk-duplicate",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 fn detectCircularFkDfs(

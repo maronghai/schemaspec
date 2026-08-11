@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.243.0 (2026-08-11) — 61,000+ lines production Zig, 1,770+ tests, 41 lint rules, 38 test suites.
+**Current version**: 0.244.0 (2026-08-11) — 61,000+ lines production Zig, 1,780+ tests, 42 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.244.0** — Architecture quality & lint expansion: added `fk-duplicate` lint rule (warns when a table has multiple foreign keys referencing the same target table — potential junction table pattern); extracted generate command dispatch from main.zig into `handleGenerate()` in pipeline/handlers.zig (handles --list, --check, and generation modes uniformly); fixed `catch unreachable` in export.zig test helper (now uses proper error propagation with `try`); added `list` and `check` fields to `GenerateConfig` struct; 1,780+ unit tests pass, benchmarks show no regressions
 - **v0.243.0** — CI optimization & RFC process: restructured CI pipeline (reduced sequential steps from 21 to 12 by combining related test suites); established RFC process for formal language change proposals (rfcs/ directory with template and inaugural RFC-0001); fixed ROADMAP summary table counting inconsistencies (was 109/117, corrected to 113/119); 1,770+ unit tests pass, benchmarks show no regressions
 - **v0.242.0** — Architecture quality & deduplication: replaced hardcoded 41-entry SARIF rule list in lint/format.zig with data-driven approach using RULE_INFO from rules.zig (single source of truth); added `lintLevel()` method to LintRule enum for SARIF severity mapping; fixed misleading `count` lint rule description (was "Table has more than 50 columns", now correctly "Table has fewer than minimum field count"); deduplicated WASM tests (removed 17 overlapping tests from wasm.zig, consolidated into wasm_test.zig); completed tests.zig index with 5 previously unlisted files (version.zig, lsp/handlers.zig, pipeline/export.zig, diagnostic/format.zig, cli/flag_registry.zig); 1,770+ unit tests pass, benchmarks show no regressions
 - **v0.241.0** — LSP Code Lens & WASM completeness: added `textDocument/codeLens` LSP support with inline action triggers (Validate, Generate SQL, Lint) on file-level and per-table definitions; added `rune_export` WASM export for schema export as JSON/text/markdown; added `rune_docs` WASM export for Markdown documentation generation; added `codeLensProvider` capability to LSP server; added 4 unit tests for code lens generation; 1,767+ unit tests pass, benchmarks show no regressions

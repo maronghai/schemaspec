@@ -77,6 +77,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .fk_self_reference, .handler = fk_rules.checkFkSelfReference },
     .{ .rule = .circular_fk, .handler = fk_rules.checkCircularFk },
     .{ .rule = .fk_depth, .handler = fk_rules.checkFkDepth },
+    .{ .rule = .fk_duplicate, .handler = fk_rules.checkFkDuplicate },
     // Index validation rules (moved to index.zig)
     .{ .rule = .index_unused, .handler = index_rules.checkIndexUnused },
     .{ .rule = .duplicate_index, .handler = index_rules.checkDuplicateIndex },

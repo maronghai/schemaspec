@@ -187,8 +187,8 @@ const ast_mod = @import("../types/ast.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
-fn makeTestPipeline(alloc: std.mem.Allocator) forward.PipelineResult {
-    var tables = std.ArrayList(ResolvedTable).initCapacity(alloc, 2) catch unreachable;
+fn makeTestPipeline(alloc: std.mem.Allocator) !forward.PipelineResult {
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 2);
     tables.append(alloc, .{
         .name = "users",
         .comment = null,
@@ -274,7 +274,7 @@ test "exportAsJson: produces valid JSON structure" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const pipeline = makeTestPipeline(alloc);
+    const pipeline = try makeTestPipeline(alloc);
     const json = try exportAsJson(alloc, pipeline);
     try testing.expect(std.mem.indexOf(u8, json, "\"schema\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"tables\"") != null);
@@ -286,7 +286,7 @@ test "exportAsText: produces readable text" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const pipeline = makeTestPipeline(alloc);
+    const pipeline = try makeTestPipeline(alloc);
     const text = try exportAsText(alloc, pipeline);
     try testing.expect(std.mem.indexOf(u8, text, "Schema: test_db") != null);
     try testing.expect(std.mem.indexOf(u8, text, "# users") != null);
@@ -297,7 +297,7 @@ test "exportAsMarkdown: produces markdown tables" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const pipeline = makeTestPipeline(alloc);
+    const pipeline = try makeTestPipeline(alloc);
     const md = try exportAsMarkdown(alloc, pipeline);
     try testing.expect(std.mem.indexOf(u8, md, "# Schema: test_db") != null);
     try testing.expect(std.mem.indexOf(u8, md, "## Tables") != null);

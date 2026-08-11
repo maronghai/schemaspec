@@ -48,6 +48,7 @@ pub const LintRule = enum {
     fk_depth,
     unique_constraint,
     composite_pk,
+    fk_duplicate,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -93,6 +94,7 @@ pub const LintRule = enum {
             .fk_depth => "fk-depth",
             .unique_constraint => "unique-constraint",
             .composite_pk => "composite-pk",
+            .fk_duplicate => "fk-duplicate",
         };
     }
 
@@ -171,6 +173,7 @@ pub const LintRule = enum {
             .fk_depth => "Foreign key reference chain exceeds 3 levels",
             .unique_constraint => "UNIQUE constraint on column that is already the primary key",
             .composite_pk => "Multiple auto-increment primary keys in one table",
+            .fk_duplicate => "Multiple foreign keys reference the same target table",
         };
     }
 
@@ -218,6 +221,7 @@ pub const LintRule = enum {
             .fk_depth => "warning",
             .unique_constraint => "note",
             .composite_pk => "warning",
+            .fk_duplicate => "note",
         };
     }
 };

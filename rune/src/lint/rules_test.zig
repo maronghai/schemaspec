@@ -2210,3 +2210,67 @@ test "lint: view with AS alias passes" {
         }
     }
 }
+
+// ─── fk-duplicate tests ───────────────────────────────────────
+
+test "lint: multiple FKs to same table triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "posts", &.{
+        makePkField("id"),
+        makeFkFieldTo("author_id", "users", "id"),
+        makeFkFieldTo("reviewer_id", "users", "id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-duplicate")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: FKs to different tables passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "orders", &.{
+        makePkField("id"),
+        makeFkFieldTo("user_id", "users", "id"),
+        makeFkFieldTo("product_id", "products", "id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-duplicate")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: single FK passes fk-duplicate" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "orders", &.{
+        makePkField("id"),
+        makeFkFieldTo("user_id", "users", "id"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-duplicate")) {
+            try testing.expect(false);
+        }
+    }
+}

@@ -12,6 +12,7 @@ const codegen = @import("../codegen/codegen.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const TypedAst = @import("../types/typed_ast.zig").TypedAst;
 const json_schema = @import("../generators/json_schema.zig");
+const generator = @import("../generator.zig");
 const stats_mod = @import("stats.zig");
 const StatsFormat = @import("../types/enums.zig").StatsFormat;
 const fmt = @import("../diagnostic/format.zig");
@@ -56,6 +57,10 @@ pub const GenerateConfig = struct {
     quiet: bool = false,
     /// Preview output without writing to files.
     dry_run: bool = false,
+    /// List available generators and exit.
+    list: bool = false,
+    /// Run generator health check and exit.
+    check: bool = false,
 };
 
 /// Unified compile handler for all combinations of input (stdin/file) and output (sql/json).
@@ -246,7 +251,6 @@ pub fn generateFromSchema(
 ) !void {
     const typed = try compileToTypedAst(alloc, file_data, dialect);
 
-    const generator = @import("../generator.zig");
     if (generator.get(generator_name)) |gen| {
         const output_text = try gen.generate(alloc, typed, dialect);
         if (dry_run) {
@@ -276,8 +280,6 @@ pub fn generateFromSchemaBatch(
     dry_run: bool,
 ) !void {
     const typed = try compileToTypedAst(alloc, file_data, dialect);
-
-    const generator = @import("../generator.zig");
 
     // Split comma-separated generator names
     var gen_names = try std.ArrayList([]const u8).initCapacity(alloc, 8);
@@ -342,20 +344,32 @@ pub fn generateFromSchemaBatch(
 }
 
 /// Unified generate handler using GenerateConfig struct.
-/// Handles both single and batch generation based on whether generators contains a comma.
+/// Handles list, check, and generation modes.
 pub fn handleGenerate(
     io: std.Io,
     alloc: std.mem.Allocator,
-    file_data: []const u8,
+    file_data: ?[]const u8,
     cfg: GenerateConfig,
 ) !void {
-    // Check if this is batch mode (comma-separated generator names)
+    if (cfg.list) {
+        generator.listDetailedStderr();
+        return;
+    }
+    if (cfg.check) {
+        if (generator.check(alloc)) |err_msg| {
+            try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Generator health check failed: {s}\n", .{err_msg}), null, false);
+            std.process.exit(1);
+        } else {
+            try io_mod.writeOutput(io, "All generators OK\n", null, false);
+        }
+        return;
+    }
+    const data = file_data orelse return error.NoInput;
     const is_batch = std.mem.indexOf(u8, cfg.generators, ",") != null;
-
     if (is_batch) {
-        try generateFromSchemaBatch(io, alloc, file_data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run);
+        try generateFromSchemaBatch(io, alloc, data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run);
     } else {
-        try generateFromSchema(io, alloc, file_data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run);
+        try generateFromSchema(io, alloc, data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run);
     }
 }
 

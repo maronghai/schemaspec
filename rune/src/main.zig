@@ -7,7 +7,6 @@ const migrate_pipe = @import("pipeline/migrate.zig");
 const reverse_pipe = @import("pipeline/reverse.zig");
 const io_mod = @import("io.zig");
 const version = @import("version.zig");
-const generator = @import("generator.zig");
 const completions = @import("completions.zig");
 const init_mod = @import("cli/init.zig");
 const hooks_mod = @import("cli/hooks.zig");
@@ -202,24 +201,16 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             }, .quiet = parsed.quiet });
         },
         .generate => |cmd| {
-            if (cmd.list) {
-                generator.listDetailedStderr();
-                return;
-            }
-            if (cmd.check) {
-                if (generator.check(alloc)) |err_msg| {
-                    try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Generator health check failed: {s}\n", .{err_msg}), null, false);
-                    std.process.exit(1);
-                } else {
-                    try io_mod.writeOutput(io, "All generators OK\n", null, false);
-                }
-                return;
-            }
-            const file_data = try readFileOrStdin(io, alloc, cmd.input);
-            if (cmd.generators_str) |gens_str| {
-                return handlers.generateFromSchemaBatch(io, alloc, file_data, gens_str, parsed.dialect, cmd.output, parsed.quiet, cmd.dry_run);
-            }
-            return handlers.generateFromSchema(io, alloc, file_data, cmd.generator, parsed.dialect, cmd.output, parsed.quiet, cmd.dry_run);
+            const file_data = if (cmd.list or cmd.check) null else try readFileOrStdin(io, alloc, cmd.input);
+            return handlers.handleGenerate(io, alloc, file_data, .{
+                .generators = cmd.generators_str orelse cmd.generator,
+                .output = cmd.output,
+                .dialect = parsed.dialect,
+                .quiet = parsed.quiet,
+                .dry_run = cmd.dry_run,
+                .list = cmd.list,
+                .check = cmd.check,
+            });
         },
         .init => |cmd| return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template),
         .format_cmd => |cmd| {
