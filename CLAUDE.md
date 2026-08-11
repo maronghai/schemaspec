@@ -175,7 +175,8 @@ rune/src/
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
   tests.zig                                                       # colocated test index (110 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
-  pipeline/    forward.zig, handlers.zig, validation.zig,  # pipeline orchestration + CLI handlers
+  pipeline/    forward.zig, handlers.zig, generate.zig,      # pipeline orchestration + CLI handlers
+               validation.zig,                             # validation handler (extracted for SRP)
                reverse.zig, diff.zig, migrate.zig, export.zig, stats.zig
   parser/      tokenizer.zig, parser.zig, parse_*.zig,   # forward parser (13 files)
                sql_parser*.zig
@@ -230,7 +231,7 @@ rune/src/
 
 - **Config Merge** (`config_merge.zig`): Extracted from `main.zig` for testability. `mergeCliConfig(parsed, cfg)` merges CLI flags with config file defaults (CLI takes precedence). Handles 7 merge cases: dialect, quiet, json_errors, color, target, stream, parallel. Each case has unit tests verifying precedence semantics.
 
-- **`generateFromSchema`** (`pipeline/handlers.zig`): Shared helper that handles the full compile→generate→write pipeline. Used by both `rune generate` and `rune docs` in `main.zig`, eliminating duplicate dispatch logic.
+- **`GenerateConfig`** (`pipeline/generate.zig`): Configuration struct for the generate handler, replacing 8 positional parameters with a named struct. Handles single and batch generation modes. `handleGenerate(io, alloc, file_data, cfg)` is the unified entry point for `rune generate`. Used by `rune generate` and `rune docs` in `main.zig`, eliminating duplicate dispatch logic.
 
 - **Export Command** (`pipeline/handlers.zig`): `handleExport()` compiles a schema and exports it as structured data (JSON, text, or Markdown) for tooling integration. JSON export includes schema metadata, table names, field counts, index counts, and FK counts. Text export provides a concise summary. Markdown export generates a table documentation with field types.
 
@@ -274,6 +275,8 @@ rune/src/
 
 - **Shared Generator Test Helpers** (`generators/common_test.zig`): Centralized test utilities (`makeTestTable`, `makeTestTableWithFks`, `makeTestTableWithIndexes`, `makeTestAst`, `makeTestAstWithName`, `makeTestColumn`, `makeTestColumnWithFlags`) used by all 10 generator `*_test.zig` files. Eliminates ~120 lines of duplicated helper definitions. Each test file imports from `common_test.zig` instead of defining its own copy.
 
+- **Shared Lint Test Helpers** (`lint/test_helpers.zig`): Centralized test utilities (`makeTestTable`, `makeField`, `makePkField`, `makeFkField`, `makeFkFieldTo`, `makeFkFieldWithActions`, `makeIndex`, `makeAst`, `makeAstWithCustomTypes`, `makeCustomType`, `makeSimpleField`, `findRule`, `countRule`, `findRuleWithSubstring`) used by 7 lint test files. Eliminates ~140 lines of duplicated helper definitions from the monolithic `rules_test.zig`. Split into focused per-rule-group test files: `rules_structural_test.zig`, `rules_naming_test.zig`, `rules_validation_test.zig`, `rules_fk_test.zig`, `rules_compat_test.zig`, `rules_index_test.zig`, `rules_view_enum_test.zig`.
+
 - **ORM Default Formatter** (`generators/common.zig`): `OrmTarget` enum + `getOrmFormatter()` factory returns pre-configured `DefaultFormatter` for each ORM (drizzle, knex, sqlalchemy, typeorm). Shared callbacks (`formatStringSingleQuoted`, `jsBoolTrue`/`jsBoolFalse`/`jsNull`) eliminate ~60 lines of duplicated callback functions across 4 ORM generators.
 
 - **Migration Plan IR** (`diff/plan.zig`): Explicit intermediate representation between `SchemaDiff` and SQL generation. `MigrationPlan` struct contains `operations: []Operation` where each `Operation` is a tagged union (`drop_table`, `create_table`, `alter_table`, `drop_view`, `create_view`, `modify_view`). `planFromDiff()` converts diffs to plans, `invertPlan()` transforms plans for rollback. The existing `generateFromDiff` and `generateRollback` functions delegate through the plan layer, producing identical output while enabling future dry-run inspection and plan-level validation.
@@ -285,7 +288,8 @@ rune/src/
 | Directory | Module | Role |
 |-----------|--------|------|
 | `pipeline/` | `forward.zig` | `.ss` → SQL compilation pipeline (tokenizer → parser → semantic → ResolvedAst) |
-| | `handlers.zig` | CLI output handlers (compile, stats, generate, docs, format, export) |
+| | `handlers.zig` | CLI output handlers (compile, stats, docs, format, export) |
+| | `generate.zig` | Schema generation handlers (single + batch generation, generator health check) |
 | | `validation.zig` | Validation handlers (validate, check) with summary output |
 | | `reverse.zig` | SQL → `.ss` orchestration + dialect auto-detection |
 | | `diff.zig` | Diff pipeline orchestration (`rune diff` handler) |

@@ -82,7 +82,13 @@ comptime {
     _ = @import("generators/common_defaults_test.zig");
     _ = @import("generator_test.zig");
     // ── lint ─────────────────────────────────────────────────────
-    _ = @import("lint/rules_test.zig");
+    _ = @import("lint/rules_structural_test.zig");
+    _ = @import("lint/rules_naming_test.zig");
+    _ = @import("lint/rules_validation_test.zig");
+    _ = @import("lint/rules_fk_test.zig");
+    _ = @import("lint/rules_compat_test.zig");
+    _ = @import("lint/rules_index_test.zig");
+    _ = @import("lint/rules_view_enum_test.zig");
     _ = @import("lint/format_test.zig");
     _ = @import("lint/config_test.zig");
     _ = @import("lint/fix.zig");
@@ -105,6 +111,7 @@ comptime {
     _ = @import("pipeline/diff_test.zig");
     _ = @import("pipeline/forward_test.zig");
     _ = @import("pipeline/handlers_test.zig");
+    _ = @import("pipeline/generate.zig");
     _ = @import("pipeline/validation.zig");
     _ = @import("pipeline/validation_test.zig");
     _ = @import("pipeline/import_resolver_test.zig");
@@ -194,4 +201,6 @@ comptime {
     // ── wasm ──────────────────────────────────────────────────────
     _ = @import("wasm.zig");
     _ = @import("wasm_test.zig");
+    // ── architecture ────────────────────────────────────────────
+    _ = @import("tests/architecture_test.zig");
 }

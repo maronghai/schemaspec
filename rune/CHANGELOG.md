@@ -4,6 +4,17 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.264.0] - 2026-08-12
+
+### Changed
+- **Lint test infrastructure cleanup** — Extracted shared test helpers (`makeTestTable`, `makeField`, `makePkField`, `makeFkField`, `makeIndex`, `makeAst`, `findRule`, `countRule`, `findRuleWithSubstring`) from monolithic `lint/rules_test.zig` (2,719 lines, 108 tests) into `lint/test_helpers.zig`. Split into 7 focused per-rule-group test files: `rules_structural_test.zig` (22 tests), `rules_naming_test.zig` (14 tests), `rules_validation_test.zig` (23 tests), `rules_fk_test.zig` (5 tests), `rules_compat_test.zig` (11 tests), `rules_index_test.zig` (17 tests), `rules_view_enum_test.zig` (16 tests). Deleted 2,719-line monolithic file.
+
+## [0.263.0] - 2026-08-12
+
+### Changed
+- **Pipeline generate module extraction** — Extracted schema generation logic from `pipeline/handlers.zig` (452 lines) into focused `pipeline/generate.zig` module (single-responsibility for `GenerateConfig`, `handleGenerate`, `generateFromSchema`, `generateFromSchemaBatch`). Updated `main.zig` to import from new module.
+- **Architecture health test suite** — Added `tests/architecture_test.zig` with 7 comptime checks for module API stability (generator registry count, semantic pass count, dialect backend count, lint rule count, public API existence).
+
 ## [0.260.0] - 2026-08-12
 
 ### Changed

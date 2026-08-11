@@ -1,6 +1,7 @@
 const std = @import("std");
 const cli = @import("cli.zig");
 const handlers = @import("pipeline/handlers.zig");
+const generate = @import("pipeline/generate.zig");
 const forward = @import("pipeline/forward.zig");
 const diff_pipe = @import("pipeline/diff.zig");
 const migrate_pipe = @import("pipeline/migrate.zig");
@@ -202,7 +203,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .generate => |cmd| {
             const file_data = if (cmd.list or cmd.check) null else try readFileOrStdin(io, alloc, cmd.input);
-            return handlers.handleGenerate(io, alloc, file_data, .{
+            return generate.handleGenerate(io, alloc, file_data, .{
                 .generators = cmd.generators_str orelse cmd.generator,
                 .output = cmd.output,
                 .dialect = parsed.dialect,
