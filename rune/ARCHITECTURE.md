@@ -66,7 +66,8 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `diff/engine.zig` | `diff/format.zig` | Human-readable diff formatting |
 | `diff/migrate.zig` | `diff/migrate_helpers.zig` | Shared `emitSingleTable` helper for forward and rollback paths |
 | `pipeline/forward.zig` | `pipeline/import_resolver.zig` | `@import` directive resolution — `ImportContext`, `resolveImports`, `splitLines`, `tokenizeAndParseWithLines` |
-| `pipeline/handlers.zig` | `pipeline/forward.zig` | CLI output handlers — `handleCompileRequest`, `handleValidate`, `handleCheck`, `handleStats`, `generateFromSchema`, `generateFromSchemaBatch` |
+| `pipeline/handlers.zig` | `pipeline/forward.zig` | CLI output handlers — `handleCompileRequest`, `handleStats`, `generateFromSchema`, `generateFromSchemaBatch`, `handleGenerate`, `handleDocs`, `handleFormat`, `handleExport` |
+| `pipeline/validation.zig` | `pipeline/forward.zig` | Validation handlers — `ValidateConfig`, `handleValidate`, `handleCheck` (extracted from handlers.zig for single-responsibility) |
 | `pipeline/diff.zig` | `pipeline/forward.zig` | Diff pipeline orchestration — `DiffConfig`, `handleDiff`, `prepareDiff`, `prepareDiffFromSql`, `emitTraceAndStats` |
 | `pipeline/migrate.zig` | `pipeline/diff.zig` | Migrate pipeline orchestration — `MigrateConfig`, `handleMigrate`, `handleMigrateStatus`, `filterIncrementalChanges`, `collectMigrateFiles`, `findNextSequenceNumber`, `formatMigrationFileName` |
 | `codegen/codegen.zig` | `codegen/columns.zig` | Column definition rendering (emitColumnDef, emitColumnDefEx, emitDefault) + shared `isDominatedByExplicitIndex()` |
@@ -460,7 +461,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 108 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,788+ | Core logic + pipeline + colocated |
+| Unit tests | 109 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,808+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 87 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |
