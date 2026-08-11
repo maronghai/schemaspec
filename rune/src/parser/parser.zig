@@ -130,6 +130,7 @@ pub const Parser = struct {
 
     pub fn parse(self: *Parser, lines: []const tk.Line) !Ast {
         var schema: ?Schema = null;
+        var version: ?[]const u8 = null;
         var templates = try std.ArrayList(Template).initCapacity(self.alloc, 8);
         var tables = try std.ArrayList(Table).initCapacity(self.alloc, 8);
         var views = try std.ArrayList(ast_mod.View).initCapacity(self.alloc, 8);
@@ -441,6 +442,34 @@ pub const Parser = struct {
                         });
                     }
                 },
+                .Version => {
+                    // @version X.Y.Z — schema version metadata
+                    // The tokenizer splits @version into @ and version, so we need to extract
+                    // the version string from the raw line after the @version prefix.
+                    const raw = line.trimmed;
+                    if (raw.len > 8) { // "@version" is 8 chars
+                        const ver_str = std.mem.trim(u8, raw[8..], " \t");
+                        if (ver_str.len > 0) {
+                            version = try self.alloc.dupe(u8, ver_str);
+                        } else {
+                            diag.printDiagnostic(self.alloc, .{
+                                .severity = .warning,
+                                .line_no = line.line_no,
+                                .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
+                                .message = "@version requires a version string — ignored",
+                                .source_line = line.raw,
+                            });
+                        }
+                    } else {
+                        diag.printDiagnostic(self.alloc, .{
+                            .severity = .warning,
+                            .line_no = line.line_no,
+                            .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
+                            .message = "@version requires a version string — ignored",
+                            .source_line = line.raw,
+                        });
+                    }
+                },
             }
         }
 
@@ -473,6 +502,7 @@ pub const Parser = struct {
                     .charset = s.charset,
                     .autofk = s.autofk,
                     .custom_types = try custom_types.toOwnedSlice(self.alloc),
+                    .version = version,
                     .line_no = s.line_no,
                     .loc = s.loc,
                 };
@@ -482,6 +512,7 @@ pub const Parser = struct {
                 .charset = s.charset,
                 .autofk = s.autofk,
                 .custom_types = &.{},
+                .version = version,
                 .line_no = s.line_no,
                 .loc = s.loc,
             };

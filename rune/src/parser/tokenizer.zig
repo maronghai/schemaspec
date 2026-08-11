@@ -19,6 +19,7 @@ pub const LineType = enum {
     SQLComment,
     SpecComment,
     Empty,
+    Version,
 };
 
 pub const Line = struct {
@@ -82,6 +83,7 @@ pub const Tokenizer = struct {
         if (line.len >= 7 and line[0] == '@' and std.mem.eql(u8, line[0..7], "@import")) return .Import;
         if (line.len >= 4 and line[0] == '@' and std.mem.eql(u8, line[0..4], "@if(")) return .ConditionalIf;
         if (line.len >= 6 and line[0] == '@' and std.mem.eql(u8, line[0..6], "@endif")) return .ConditionalEnd;
+        if (line.len >= 8 and line[0] == '@' and std.mem.eql(u8, line[0..8], "@version")) return .Version;
         if (line[0] == '@') return .Index;
         if (line[0] == '+') return .Doc;
         return .Field;

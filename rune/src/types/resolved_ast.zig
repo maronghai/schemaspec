@@ -33,6 +33,8 @@ pub const ResolvedAst = struct {
     schema_charset: ?[]const u8,
     /// Custom type definitions from ~ directives
     custom_types: []const CustomType,
+    /// Schema version from @version directive
+    schema_version: ?[]const u8 = null,
     tables: []const ResolvedTable,
     views: []const View,
     sql_comments: []const SqlComment,

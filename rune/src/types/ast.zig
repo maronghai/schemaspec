@@ -271,6 +271,8 @@ pub const Schema = struct {
     autofk: bool,
     /// User-defined type aliases via ~ directive
     custom_types: []const CustomType,
+    /// Schema version via @version directive
+    version: ?[]const u8 = null,
     line_no: usize,
     loc: ?SourceLocation = null,
 };

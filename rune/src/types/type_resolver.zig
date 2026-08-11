@@ -53,6 +53,7 @@ pub const TypeResolver = struct {
             .schema_name = resolved.schema_name,
             .schema_charset = resolved.schema_charset,
             .custom_types = resolved.custom_types,
+            .schema_version = resolved.schema_version,
             .tables = try tables.toOwnedSlice(alloc),
             .views = try resolveViews(alloc, resolved.views),
             .sql_comments = resolved.sql_comments,

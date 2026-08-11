@@ -100,6 +100,11 @@ pub const Codegen = struct {
     fn fillWriter(self: *Codegen, w: *Writer, typed: typed_ast_mod.TypedAst) !void {
         try dialect_enum.writeHeader(w, self.dialect);
 
+        // Emit schema version as SQL comment if present
+        if (typed.schema_version) |ver| {
+            try w.print("-- Schema version: {s}\n\n", .{ver});
+        }
+
         if (typed.schema_name) |name| {
             try self.backend.emitCreateDatabase(w, name, typed.schema_charset);
         }

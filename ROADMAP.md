@@ -119,7 +119,7 @@ Extend the `.ss` language and pipeline for new use cases. **In progress — 3/10
 ### Advanced Schema Features
 
 - [ ] Composite types — reusable field groupings beyond templates
-- [ ] Schema versioning — `@version` directive for forward/backward compatibility
+- [x] Schema versioning — `@version` directive for forward/backward compatibility (v0.237.0)
 - [x] Conditional schemas — `@if(dialect=pg)` blocks for dialect-specific fields (v0.191.0)
 - [x] Schema documentation — `+` doc directive for inline documentation generation (v0.199.0)
 
@@ -199,10 +199,10 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
 | 6: Ecosystem & Community | 🔲 In Progress | 3/8 | 5 |
 | 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
-| 8: Language Evolution | 🔲 In Progress | 3/10 | 7 |
+| 8: Language Evolution | 🔲 In Progress | 4/10 | 6 |
 | Architecture Targets | 🔲 In Progress | 19/22 | 3 |
 | Technical Debt | ✅ Complete | 13/13 | 0 |
-| **Total** | | **106/117** | **11** |
+| **Total** | | **107/117** | **10** |
 
 ---
 
@@ -250,6 +250,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.237.0** — Schema versioning directive: added `@version X.Y.Z` directive for declaring schema version metadata (flowing through AST → ResolvedAst → TypedAst pipeline); version emitted as SQL comment (`-- Schema version: X.Y.Z`) after header; parser correctly handles tokenizer splitting `@version` into `@` and `version` tokens; updated schema spec documentation with version directive examples; 1,705 unit tests pass, benchmarks show no regressions
 - **v0.236.0** — LSP code quality & deduplication: extracted `writeDiagnosticAsJson` helper in `lsp/protocol.zig` to eliminate diagnostic serialization duplication (was duplicated in `writePublishDiagnostics` and `writeCodeAction`); added `parseDocumentUri` helper in `lsp/handlers.zig` to extract document URI from LSP params (replaces 18 occurrences of 2-line pattern); 1,705 unit tests pass, benchmarks show no regressions
 - **v0.235.0** — Generator deduplication & lint test coverage: extracted `writeDetailedInfo` helper in `generator.zig` to consolidate detailed generator listing logic (used by `listDetailedTo`); added 10 new unit tests for 5 previously uncovered lint rules (cross-dialect-types, column-default-required, unique-constraint, composite-pk, view-no-alias); fixed version mismatch between `build.zig.zon` (was 0.233.0) and `VERSION` file; 1,705 unit tests pass, benchmarks show no regressions
 - **v0.234.0** — Architecture cleanup & code deduplication: extracted CLI error handling from `main.zig` into `cli/errors.zig` (reduced main.zig by 150 lines); added shared `writeSqlTypeString` helper to `generators/common.zig` (eliminates SQL type rendering duplication across generators); refactored `generators/docs.zig` and `generators/symbol_index.zig` to use shared helper; decomposed monolithic `lint/fix.zig` (370-line `fix()` function) into per-rule handler functions (`fixSerialType`, `fixBoolDefault`, `fixNullableColumnDefault`, `fixColumnDefaultRequired`, `fixNoIndexFk`) with extracted `buildFixMaps` pre-scan; expanded SARIF output in `lint/format.zig` to include all 41 lint rules (was 14); SARIF rule descriptions now derived from `LintRule.description()` (single source of truth); added 6 new unit tests for `cli/errors.zig`; 1,690+ unit tests pass, benchmarks show no regressions

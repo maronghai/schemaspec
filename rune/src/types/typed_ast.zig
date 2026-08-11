@@ -45,6 +45,8 @@ pub const TypedAst = struct {
     schema_charset: ?[]const u8,
     /// Custom type definitions from ~ directives (carried from ResolvedAst).
     custom_types: []const ast_mod.CustomType = &.{},
+    /// Schema version from @version directive.
+    schema_version: ?[]const u8 = null,
     tables: []const TypedTable,
     views: []const TypedView,
     sql_comments: []const SqlComment,

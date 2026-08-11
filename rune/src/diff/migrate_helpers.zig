@@ -29,6 +29,7 @@ pub fn emitSingleTable(
             .schema_name = resolved.schema_name,
             .schema_charset = resolved.schema_charset,
             .custom_types = resolved.custom_types,
+            .schema_version = resolved.schema_version,
             .tables = try single_tables.toOwnedSlice(alloc),
             .views = &.{},
             .sql_comments = &.{},

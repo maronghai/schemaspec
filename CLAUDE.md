@@ -250,6 +250,8 @@ rune/src/
 
 - **Conditional Schema Blocks** (`parser/parser.zig`, `semantic/pass/resolve_conditionals.zig`): `@if(dialect=pg|sqlite)` ... `@endif` blocks within table definitions allow dialect-specific fields. Fields inside the block are only included when compiling for a matching dialect. The parser records conditional blocks in `Table.conditional_blocks`, and the `resolve_conditionals` semantic pass filters them based on the target dialect. The pass runs after `resolve_names` and before `autofk`.
 
+- **Schema Version Directive** (`parser/parser.zig`, `types/ast.zig`): `@version X.Y.Z` declares schema version metadata. The version flows through the pipeline (AST → ResolvedAst → TypedAst) and is emitted as a SQL comment (`-- Schema version: X.Y.Z`) after the header. Used for forward/backward compatibility tracking and schema evolution.
+
 - **Multi-Error Recovery** (`pipeline/import_resolver.zig`, `types/ast.zig`): Parser records all syntax errors via `DiagnosticCollector` and returns a partial AST with `error_count` field. `tokenizeAndParseWithLines` always returns the tree (even with errors), enabling the pipeline to report all errors in one pass. When `error_count > 0`, the AST is partial (some tables/templates may be missing). Future: semantic analysis on partial ASTs for additional error discovery.
 
 - **Self-contained SqlType** (`types/sql_type.zig`): `SqlType.toSql()` delegates to `DialectBackend.renderType` for dialect-aware rendering. `toJsonSchema()` provides dialect-agnostic JSON Schema output.
