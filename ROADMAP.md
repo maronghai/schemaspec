@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.239.0 (2026-08-11) — 60,000+ lines production Zig, 1,750+ tests, 41 lint rules, 38 test suites.
+**Current version**: 0.240.0 (2026-08-11) — 60,000+ lines production Zig, 1,750+ tests, 41 lint rules, 38 test suites.
 
 ---
 
@@ -180,6 +180,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 - [x] Table-driven LSP method dispatch — replace if-else chain with dispatch table (v0.186.0)
 - [x] Data-driven lint rule dispatch — replace repetitive guard-then-call blocks (v0.186.0)
 - [x] Standardize error output — unified all modules to use diagnostic/format.zig (v0.187.0)
+- [x] Standardize handler I/O — replaced all `std.debug.print` in handlers with `io_mod.writeOutput` (v0.240.0)
+- [x] Standardize handler parameters — added `FormatConfig`, `ExportConfig`, `StatsConfig` structs (v0.240.0)
 - [x] Extract config merge logic — moved from main.zig to config_merge.zig for testability (v0.212.0)
 - [x] Extract CLI error handling — moved error-to-message mapping from main.zig to cli/errors.zig (v0.234.0)
 - [x] Shared SQL type-to-string helper — extracted duplicated SQL type rendering from generators into common.zig (v0.234.0)
@@ -201,8 +203,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
 | 8: Language Evolution | 🔲 In Progress | 4/10 | 6 |
 | Architecture Targets | 🔲 In Progress | 19/22 | 3 |
-| Technical Debt | ✅ Complete | 13/13 | 0 |
-| **Total** | | **107/117** | **10** |
+| Technical Debt | ✅ Complete | 15/15 | 0 |
+| **Total** | | **109/117** | **8** |
 
 ---
 
@@ -250,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.240.0** — Architecture cleanup & I/O consistency: standardized all handler output to use `io_mod.writeOutput` instead of raw `std.debug.print` (handleFormat diff mode, generateFromSchemaBatch status messages, main.zig generator health check); added `FormatConfig`, `ExportConfig`, `StatsConfig` structs to replace positional parameters (consistent with `CompileConfig`, `ValidateConfig`, `GenerateConfig` patterns); updated documentation with accurate test file counts (103 colocated test files); 1,757 unit tests pass, benchmarks show no regressions
 - **v0.239.0** — SQL keyword formatting & quality improvements: added SQL keyword uppercasing to the .ss formatter for content inside @if/@endif conditional blocks (CREATE, TABLE, SELECT, PRIMARY, KEY, etc. are uppercased while Rune type symbols like int, text, varchar remain lowercase); added comprehensive WASM module test coverage (25 new tests for wasm/common.zig: classifyError, storeError/clearError, containsSubstring, parseOption, parseDialectOption, parseDiffFormatOption); added version utility methods (formatAlloc, writeMajorMinor) with unit tests; 1,752 unit tests pass, benchmarks show no regressions
 - **v0.238.0** — LSP handler tests & documentation sync: added 11 unit tests for `lsp/handlers.zig` helper functions (`safePositionCast` boundary values, `parsePosition` valid/missing cases, `parseDocumentUri` valid/missing/missing-uri cases); created `lsp/handlers_test.zig` test file and registered in `tests.zig`; fixed stale test count in README.md (1548+ → 1,715+); updated version to 0.238.0; 1,715 unit tests pass, benchmarks show no regressions
 - **v0.237.0** — Schema versioning directive: added `@version X.Y.Z` directive for declaring schema version metadata (flowing through AST → ResolvedAst → TypedAst pipeline); version emitted as SQL comment (`-- Schema version: X.Y.Z`) after header; parser correctly handles tokenizer splitting `@version` into `@` and `version` tokens; updated schema spec documentation with version directive examples; 1,705 unit tests pass, benchmarks show no regressions

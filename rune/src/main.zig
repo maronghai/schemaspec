@@ -138,7 +138,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .stats => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
-            return handlers.handleStats(io, alloc, file_data, cmd.format, cmd.per_table);
+            return handlers.handleStats(io, alloc, file_data, .{ .format = cmd.format, .per_table = cmd.per_table });
         },
         .diff => |cmd| return diff_pipe.handleDiff(io, alloc, .{
             .old_path = cmd.old,
@@ -195,11 +195,11 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .export_cmd => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
-            return handlers.handleExport(io, alloc, file_data, cmd.output, switch (cmd.format) {
+            return handlers.handleExport(io, alloc, file_data, .{ .output = cmd.output, .format = switch (cmd.format) {
                 .json => .json,
                 .text => .text,
                 .markdown => .markdown,
-            }, parsed.quiet);
+            }, .quiet = parsed.quiet });
         },
         .generate => |cmd| {
             if (cmd.list) {
@@ -208,10 +208,10 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             }
             if (cmd.check) {
                 if (generator.check(alloc)) |err_msg| {
-                    std.debug.print("Generator health check failed: {s}\n", .{err_msg});
+                    try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Generator health check failed: {s}\n", .{err_msg}), null, false);
                     std.process.exit(1);
                 } else {
-                    std.debug.print("All generators OK\n", .{});
+                    try io_mod.writeOutput(io, "All generators OK\n", null, false);
                 }
                 return;
             }
@@ -224,7 +224,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         .init => |cmd| return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template),
         .format_cmd => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
-            return handlers.handleFormat(io, alloc, file_data, cmd.output, cmd.check, cmd.diff, parsed.quiet);
+            return handlers.handleFormat(io, alloc, file_data, .{ .output = cmd.output, .check = cmd.check, .diff = cmd.diff, .quiet = parsed.quiet });
         },
         .completions => |cmd| return completions.handleCompletions(io, alloc, cmd.shell),
         .hooks => |cmd| return hooks_mod.handleHooks(io, alloc, cmd.hook_type),

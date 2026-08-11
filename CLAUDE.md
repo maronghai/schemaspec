@@ -169,7 +169,7 @@ rune/src/
   lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights, workspace symbols, signature help)
                 compile_service.zig, server.zig, features.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
-  tests.zig                                                       # colocated test index (100 files)
+  tests.zig                                                       # colocated test index (103 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, handlers.zig, reverse.zig,  # pipeline orchestration + CLI handlers
                diff.zig, migrate.zig, export.zig, stats.zig
@@ -221,6 +221,8 @@ rune/src/
 - **PipelineOptions** (`pipeline/forward.zig`): Configuration struct for the unified compilation pipeline. Replaces three separate functions (`compilePipeline`, `compilePipelineVerbose`, `compilePipelineWithImports`) with a single `compilePipeline(alloc, file_data, opts)`. Fields: `io`, `import_ctx`, `resolve_imports`, `merge_imports`, `run_semantic`, `verbose_passes`, `json_errors`.
 
 - **DiffConfig / MigrateConfig** (`pipeline/diff.zig`, `pipeline/migrate.zig`): Configuration structs for diff and migrate handlers, replacing 8-11 positional parameters each. Follows the `CompileConfig` pattern. `handleDiff(io, alloc, DiffConfig)`, `handleMigrate(io, alloc, MigrateConfig)`, and `handleReverse(io, alloc, file_data, ReverseConfig)` are the unified entry points.
+
+- **FormatConfig / ExportConfig / StatsConfig** (`pipeline/handlers.zig`): Configuration structs for format, export, and stats handlers, replacing 5-7 positional parameters each. Follows the `CompileConfig` pattern. All handlers now use `io_mod.writeOutput` for consistent I/O instead of mixing `std.debug.print` and `io_mod.writeOutput`.
 
 - **Config Merge** (`config_merge.zig`): Extracted from `main.zig` for testability. `mergeCliConfig(parsed, cfg)` merges CLI flags with config file defaults (CLI takes precedence). Handles 7 merge cases: dialect, quiet, json_errors, color, target, stream, parallel. Each case has unit tests verifying precedence semantics.
 
@@ -368,7 +370,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 95 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 103 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 30 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

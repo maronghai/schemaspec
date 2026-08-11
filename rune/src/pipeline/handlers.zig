@@ -117,7 +117,7 @@ pub fn handleCompileRequest(
 
     if (pipeline.partial and !cfg.quiet) {
         fmt.printWarn("schema has parse errors");
-        std.debug.print("  {d} table(s) skipped, emitting SQL for valid tables only\n", .{pipeline.skipped_tables});
+        try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "  {d} table(s) skipped, emitting SQL for valid tables only\n", .{pipeline.skipped_tables}), null, cfg.quiet);
     }
 
     if (cfg.check) {
@@ -189,13 +189,13 @@ pub fn handleCheck(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
 }
 
 /// Stats a .ss file — runs the full semantic pipeline and prints table/field/view counts.
-pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, format: StatsFormat, per_table: bool) !void {
+pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, cfg: StatsConfig) !void {
     const result = try compilePipeline(alloc, file_data, .{});
     const s = computeStats(result.resolved);
 
-    if (per_table) {
+    if (cfg.per_table) {
         const table_stats = stats_mod.computePerTableStats(result.resolved);
-        switch (format) {
+        switch (cfg.format) {
             .json, .sarif => {
                 const json = try stats_mod.formatPerTableStatsJson(alloc, table_stats);
                 try io_mod.writeOutput(io, json, null, false);
@@ -211,7 +211,7 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
         return;
     }
 
-    switch (format) {
+    switch (cfg.format) {
         .json, .sarif => {
             const json = try stats_mod.formatStatsJson(alloc, s);
             try io_mod.writeOutput(io, json, null, false);
@@ -310,7 +310,7 @@ pub fn generateFromSchemaBatch(
             if (dry_run) {
                 // Dry run: output to stdout with header
                 if (!quiet) {
-                    std.debug.print("--- {s} ---\n", .{gen_name});
+                    try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "--- {s} ---\n", .{gen_name}), null, quiet);
                 }
                 try io_mod.writeOutput(io, output_text, null, quiet);
             } else {
@@ -327,12 +327,12 @@ pub fn generateFromSchemaBatch(
                         .data = output_text,
                     });
                     if (!quiet) {
-                        std.debug.print("Written to {s}\n", .{path});
+                        try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Written to {s}\n", .{path}), null, quiet);
                     }
                 } else {
                     // Write to stdout with header
                     if (!quiet) {
-                        std.debug.print("--- {s} ---\n", .{gen_name});
+                        try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "--- {s} ---\n", .{gen_name}), null, quiet);
                     }
                     try io_mod.writeOutput(io, output_text, null, quiet);
                 }
@@ -381,25 +381,55 @@ pub fn handleDocs(
 
 pub const DocsFormat = @import("../cli/types.zig").DocsFormat;
 
+/// Configuration for `handleFormat`.
+/// Replaces 7 positional parameters with a named struct.
+pub const FormatConfig = struct {
+    /// Output file path. null = stdout.
+    output: ?[]const u8 = null,
+    /// Check mode: return error if formatting would change the file.
+    check: bool = false,
+    /// Diff mode: show line-by-line differences.
+    diff: bool = false,
+    /// Suppress non-error output.
+    quiet: bool = false,
+};
+
+/// Configuration for `handleExport`.
+/// Replaces 6 positional parameters with a named struct.
+pub const ExportConfig = struct {
+    /// Output file path. null = stdout.
+    output: ?[]const u8 = null,
+    /// Export format: json, text, or markdown.
+    format: ExportFormat = .json,
+    /// Suppress non-error output.
+    quiet: bool = false,
+};
+
+/// Configuration for `handleStats`.
+/// Replaces 5 positional parameters with a named struct.
+pub const StatsConfig = struct {
+    /// Output format: text, json, sarif, markdown, or summary.
+    format: StatsFormat = .text,
+    /// Show per-table breakdown.
+    per_table: bool = false,
+};
+
 /// Format a .ss file.
 pub fn handleFormat(
     io: std.Io,
     alloc: std.mem.Allocator,
     file_data: []const u8,
-    output_path: ?[]const u8,
-    check: bool,
-    diff: bool,
-    quiet: bool,
+    cfg: FormatConfig,
 ) !void {
     const formatter = @import("../formatter.zig");
     const formatted = try formatter.format(alloc, file_data);
-    if (check) {
+    if (cfg.check) {
         if (!std.mem.eql(u8, formatted, file_data)) {
             return error.FormatCheckFailed;
         }
         return;
     }
-    if (diff) {
+    if (cfg.diff) {
         // Show line-by-line differences between original and formatted
         var original_lines = std.mem.splitScalar(u8, file_data, '\n');
         var formatted_lines = std.mem.splitScalar(u8, formatted, '\n');
@@ -413,9 +443,9 @@ pub fn handleFormat(
             const f = fmt_line orelse "";
             if (!std.mem.eql(u8, o, f)) {
                 has_diff = true;
-                if (!quiet) {
-                    std.debug.print("- {d}: {s}\n", .{ line_no, o });
-                    std.debug.print("+ {d}: {s}\n", .{ line_no, f });
+                if (!cfg.quiet) {
+                    try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "- {d}: {s}\n", .{ line_no, o }), null, true);
+                    try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "+ {d}: {s}\n", .{ line_no, f }), null, true);
                 }
             }
             line_no += 1;
@@ -425,7 +455,7 @@ pub fn handleFormat(
         }
         return;
     }
-    try io_mod.writeOutput(io, formatted, output_path, quiet);
+    try io_mod.writeOutput(io, formatted, cfg.output, cfg.quiet);
 }
 
 /// Export schema as structured data for tooling integration.
@@ -433,10 +463,8 @@ pub fn handleExport(
     io: std.Io,
     alloc: std.mem.Allocator,
     file_data: []const u8,
-    output_path: ?[]const u8,
-    export_format: ExportFormat,
-    quiet: bool,
+    cfg: ExportConfig,
 ) !void {
     const pipeline = try compilePipeline(alloc, file_data, .{});
-    try export_mod.exportSchema(io, alloc, pipeline, output_path, export_format, quiet);
+    try export_mod.exportSchema(io, alloc, pipeline, cfg.output, cfg.format, cfg.quiet);
 }
