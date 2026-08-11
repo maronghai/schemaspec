@@ -181,6 +181,7 @@ pub fn listDetailedStderr() void {
 }
 
 /// Health check: verify all generators can produce output for a minimal schema.
+/// Tests all 6 dialects to ensure dialect-specific generators work correctly.
 /// Returns null on success, error message on failure.
 pub fn check(alloc: std.mem.Allocator) ?[]const u8 {
     // Create a minimal typed_ast for testing
@@ -191,11 +192,14 @@ pub fn check(alloc: std.mem.Allocator) ?[]const u8 {
         .views = &.{},
         .sql_comments = &.{},
     };
+    const dialects = [_]Dialect{ .mysql, .pg, .sqlite, .mssql, .oracle, .db2 };
     for (REGISTRY) |gen| {
-        const result = gen.generate(alloc, test_ast, .mysql) catch |err| {
-            return @errorName(err);
-        };
-        alloc.free(result);
+        for (dialects) |dialect| {
+            const result = gen.generate(alloc, test_ast, dialect) catch |err| {
+                return @errorName(err);
+            };
+            alloc.free(result);
+        }
     }
     return null;
 }

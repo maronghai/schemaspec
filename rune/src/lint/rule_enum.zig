@@ -127,6 +127,7 @@ pub const LintRule = enum {
     }
 
     /// Check if this rule supports auto-fix via `rune lint --fix`.
+    /// Exhaustive switch — new rules must declare fixability explicitly.
     pub fn isFixable(self: LintRule) bool {
         return switch (self) {
             .no_pk => true,
@@ -140,16 +141,47 @@ pub const LintRule = enum {
             .no_index_fk => true,
             .duplicate_column => true,
             .index_missing_fk_columns => true,
+            // Non-fixable rules — listed explicitly for compile-time safety
+            .naming => false,
+            .wide_table => false,
+            .enum_case => false,
+            .count => false,
+            .fk_cascade => false,
+            .nullable_pk => false,
+            .orphan_type => false,
+            .index_unused => false,
+            .circular_fk => false,
+            .table_comment => false,
+            .table_name_length => false,
+            .column_length => false,
+            .index_column_missing => false,
+            .naming_prefix => false,
+            .fk_naming => false,
+            .view_no_select => false,
+            .index_naming => false,
+            .timestamp_naming => false,
+            .enum_value_naming => false,
+            .fk_null => false,
+            .cross_dialect_types => false,
+            .view_no_alias => false,
+            .fk_self_reference => false,
+            .enum_empty => false,
+            .view_naming => false,
+            .view_select_star => false,
+            .enum_value_duplicate => false,
+            .column_boolean_naming => false,
+            .fk_depth => false,
+            .unique_constraint => false,
+            .composite_pk => false,
+            .fk_duplicate => false,
+            .reserved_word => false,
+            .column_type_portability => false,
+            .index_columns_max => false,
             .column_name_too_long => false,
             .index_redundant_with_pk => false,
             .view_dependency_cycle => false,
             .column_unique_nullable => false,
             .fk_column_type_mismatch => false,
-            .view_select_star => false,
-            .enum_value_duplicate => false,
-            .column_boolean_naming => false,
-            .fk_depth => false,
-            else => false,
         };
     }
 
@@ -211,6 +243,7 @@ pub const LintRule = enum {
     }
 
     /// SARIF severity level for this rule. Used by formatSarif to emit rule metadata.
+    /// Exhaustive switch — new rules must declare severity explicitly.
     pub fn lintLevel(self: LintRule) []const u8 {
         return switch (self) {
             .no_pk => "error",

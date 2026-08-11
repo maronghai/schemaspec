@@ -4,6 +4,12 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.260.0] - 2026-08-12
+
+### Changed
+- **LintRule exhaustive switches** — `LintRule.isFixable()` and `LintRule.lintLevel()` now use exhaustive switches instead of `else =>` catch-all. New lint rules must explicitly declare their fixability and SARIF severity level, preventing silent incorrect defaults.
+- **Generator health check all dialects** — `generator.check()` now tests all 6 dialects (MySQL, PostgreSQL, SQLite, MSSQL, Oracle, Db2) instead of only MySQL. Catches dialect-specific generation failures in health validation.
+
 ## [0.258.0] - 2026-08-12
 
 ### Changed
