@@ -594,3 +594,76 @@ pub fn handleInlayHint(self: *Server, stdout_file: anytype, id: ?i64, params: st
 
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
+
+// ─── Unit Tests ────────────────────────────────────────────────
+
+const testing = std.testing;
+
+test "safePositionCast: zero" {
+    try testing.expectEqual(@as(u32, 0), safePositionCast(0));
+}
+
+test "safePositionCast: positive value" {
+    try testing.expectEqual(@as(u32, 42), safePositionCast(42));
+}
+
+test "safePositionCast: max u32" {
+    try testing.expectEqual(@as(u32, std.math.maxInt(u32)), safePositionCast(std.math.maxInt(u32)));
+}
+
+test "safePositionCast: negative value clamps to 0" {
+    try testing.expectEqual(@as(u32, 0), safePositionCast(-1));
+    try testing.expectEqual(@as(u32, 0), safePositionCast(-100));
+}
+
+test "safePositionCast: overflow clamps to max u32" {
+    try testing.expectEqual(@as(u32, std.math.maxInt(u32)), safePositionCast(std.math.maxInt(u32) + 1));
+}
+
+test "parsePosition: valid position" {
+    var obj: std.json.ObjectMap = .empty;
+    var pos_obj: std.json.ObjectMap = .empty;
+    try pos_obj.put(testing.allocator, "line", .{ .integer = 5 });
+    try pos_obj.put(testing.allocator, "character", .{ .integer = 10 });
+    try obj.put(testing.allocator, "position", .{ .object = pos_obj });
+    const params = std.json.Value{ .object = obj };
+    const pos = parsePosition(params);
+    try testing.expect(pos != null);
+    try testing.expectEqual(@as(u32, 5), pos.?.line);
+    try testing.expectEqual(@as(u32, 10), pos.?.character);
+    pos_obj.deinit(testing.allocator);
+    obj.deinit(testing.allocator);
+}
+
+test "parsePosition: missing position" {
+    const params = std.json.Value{ .object = .{} };
+    try testing.expect(parsePosition(params) == null);
+}
+
+test "parseDocumentUri: valid URI" {
+    var obj: std.json.ObjectMap = .empty;
+    var doc_obj: std.json.ObjectMap = .empty;
+    try doc_obj.put(testing.allocator, "uri", .{ .string = "file:///tmp/schema.ss" });
+    try obj.put(testing.allocator, "textDocument", .{ .object = doc_obj });
+    const params = std.json.Value{ .object = obj };
+    const uri = parseDocumentUri(params);
+    try testing.expect(uri != null);
+    try testing.expectEqualStrings("file:///tmp/schema.ss", uri.?);
+    doc_obj.deinit(testing.allocator);
+    obj.deinit(testing.allocator);
+}
+
+test "parseDocumentUri: missing textDocument" {
+    const obj: std.json.ObjectMap = .empty;
+    const params = std.json.Value{ .object = obj };
+    try testing.expect(parseDocumentUri(params) == null);
+}
+
+test "parseDocumentUri: missing uri" {
+    var obj: std.json.ObjectMap = .empty;
+    const doc_obj: std.json.ObjectMap = .empty;
+    try obj.put(testing.allocator, "textDocument", .{ .object = doc_obj });
+    const params = std.json.Value{ .object = obj };
+    try testing.expect(parseDocumentUri(params) == null);
+    obj.deinit(testing.allocator);
+}
