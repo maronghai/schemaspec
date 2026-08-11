@@ -4,6 +4,7 @@ const utils = @import("../utils.zig");
 const common = @import("common.zig");
 const version = @import("../version.zig");
 const Writer = std.Io.Writer;
+const Dialect = @import("../dialect/enum.zig").Dialect;
 
 // ─── OpenAPI 3.1 Generator ────────────────────────────────────
 // Produces an OpenAPI 3.1 specification from TypedAst.
@@ -18,7 +19,7 @@ const Writer = std.Io.Writer;
 //   Enum values → enum array
 //   FK columns → $ref to referenced table's schema
 
-pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import("../dialect/enum.zig").Dialect) ![]const u8 {
+pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 

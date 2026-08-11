@@ -3,6 +3,7 @@ const ResolvedAst = @import("../../types/resolved_ast.zig").ResolvedAst;
 const ast_mod = @import("../../types/ast.zig");
 const LintConfig = @import("../config.zig").LintConfig;
 const LintResult = @import("../config.zig").LintResult;
+const validation = @import("validation.zig");
 
 // ─── Index Validation Rules ───────────────────────────────────
 // Rules that validate index integrity: unused indexes, duplicates,
@@ -96,4 +97,66 @@ fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
         if (!std.mem.eql(u8, field_a, b.fields[idx])) return false;
     }
     return true;
+}
+
+pub fn checkIndexRedundantWithPk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Collect PK columns
+        var pk_columns = try std.ArrayList([]const u8).initCapacity(alloc, table.fields.len);
+        defer pk_columns.deinit(alloc);
+
+        for (table.fields) |field| {
+            if (validation.isPrimaryKey(field)) {
+                try pk_columns.append(alloc, field.name);
+            }
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key) {
+                for (idx.fields) |f| {
+                    // Avoid duplicates
+                    var found = false;
+                    for (pk_columns.items) |pk| {
+                        if (std.mem.eql(u8, pk, f)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) try pk_columns.append(alloc, f);
+                }
+            }
+        }
+
+        if (pk_columns.items.len == 0) continue;
+
+        // Check each non-PK index
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key) continue;
+            if (idx.fields.len != pk_columns.items.len) continue;
+
+            var matches_pk = true;
+            for (idx.fields) |idx_field| {
+                var found = false;
+                for (pk_columns.items) |pk| {
+                    if (std.mem.eql(u8, idx_field, pk)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    matches_pk = false;
+                    break;
+                }
+            }
+
+            if (matches_pk) {
+                const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates the primary key columns", .{idx.name});
+                try results.append(alloc, .{
+                    .rule = "index-redundant-with-pk",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
 }

@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.256.0 (2026-08-11) — 64,000+ lines production Zig, 1,820+ tests, 46 lint rules, 38 test suites.
+**Current version**: 0.257.0 (2026-08-12) — 64,000+ lines production Zig, 1,850+ tests, 49 lint rules, 38 test suites.
 
 ---
 

@@ -145,3 +145,19 @@ pub fn checkIndexColumnsMax(alloc: std.mem.Allocator, results: *std.ArrayList(Li
         }
     }
 }
+
+pub fn checkColumnNameTooLong(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (field.name.len > cfg.column_name_max) {
+                const msg = try std.fmt.allocPrint(alloc, "column name '{s}' on table '{s}' is {d} chars (max: {d})", .{ field.name, table.name, field.name.len, cfg.column_name_max });
+                try results.append(alloc, .{
+                    .rule = "column-name-too-long",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}

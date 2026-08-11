@@ -2453,3 +2453,164 @@ test "lint: FK with index passes index-missing-fk-columns" {
         }
     }
 }
+
+// ─── Column Name Too Long Tests ──────────────────────────────
+
+test "lint: long column name detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const long_name = "this_is_a_very_long_column_name_that_exceeds_the_default_character_limit_of_sixty_four";
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField(long_name, .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-name-too-long")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: short column name passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-name-too-long")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Index Redundant With PK Tests ────────────────────────────
+
+test "lint: index duplicating PK detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{
+        makeIndex("idx_id", .regular, &.{"id"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-redundant-with-pk")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: non-PK index passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeSimpleField("name"),
+    }, &.{
+        makeIndex("idx_name", .regular, &.{"name"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-redundant-with-pk")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── View Dependency Cycle Tests ──────────────────────────────
+
+test "lint: view cycle detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const tables = try alloc.dupe(ResolvedTable, &.{});
+    const views = try alloc.dupe(ast_mod.View, &.{
+        .{
+            .name = "view_a",
+            .query = "SELECT * FROM view_b",
+            .comment = null,
+            .line_no = 1,
+        },
+        .{
+            .name = "view_b",
+            .query = "SELECT * FROM view_a",
+            .comment = null,
+            .line_no = 2,
+        },
+    });
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = tables,
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lintSchema(alloc, test_ast, cfg);
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-dependency-cycle")) found = true;
+    }
+    try testing.expect(found);
+}
+
+test "lint: no view cycle passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const tables = try alloc.dupe(ResolvedTable, &.{});
+    const views = try alloc.dupe(ast_mod.View, &.{
+        .{
+            .name = "view_a",
+            .query = "SELECT * FROM users",
+            .comment = null,
+            .line_no = 1,
+        },
+        .{
+            .name = "view_b",
+            .query = "SELECT * FROM view_a",
+            .comment = null,
+            .line_no = 2,
+        },
+    });
+    const test_ast = ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .custom_types = &.{},
+        .tables = tables,
+        .views = views,
+        .sql_comments = &.{},
+    };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lintSchema(alloc, test_ast, cfg);
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "view-dependency-cycle")) {
+            try testing.expect(false);
+        }
+    }
+}

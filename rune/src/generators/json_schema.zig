@@ -3,6 +3,7 @@ const typed_ast = @import("../types/typed_ast.zig");
 const utils = @import("../utils.zig");
 const common = @import("common.zig");
 const Writer = std.Io.Writer;
+const Dialect = @import("../dialect/enum.zig").Dialect;
 
 // ─── JSON Schema Generator ──────────────────────────────────────
 // Enhanced JSON Schema draft-07 output from TypedAst.
@@ -17,7 +18,7 @@ const Writer = std.Io.Writer;
 //   Enum values → enum array or $ref to named definition
 //   FK columns → $ref to referenced table's definition
 
-pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import("../dialect/enum.zig").Dialect) ![]const u8 {
+pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 

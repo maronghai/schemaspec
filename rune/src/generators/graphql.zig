@@ -5,6 +5,7 @@ const utils = @import("../utils.zig");
 const version = @import("../version.zig");
 const common = @import("common.zig");
 const Writer = std.Io.Writer;
+const Dialect = @import("../dialect/enum.zig").Dialect;
 
 // ─── GraphQL Generator ─────────────────────────────────────────
 // Produces GraphQL type definitions from TypedAst.
@@ -26,7 +27,7 @@ const Writer = std.Io.Writer;
 //   json/jsonb → JSON (custom scalar)
 //   enum_values → generated enum type
 
-pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: @import("../dialect/enum.zig").Dialect) ![]const u8 {
+pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 

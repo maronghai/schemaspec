@@ -114,3 +114,74 @@ fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
     }
     return false;
 }
+
+pub fn checkViewDependencyCycle(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    if (!cfg.include_views) return;
+    if (ast.views.len < 2) return;
+
+    // Build dependency graph: view_name -> list of referenced view names
+    var deps = std.StringHashMap(std.ArrayList([]const u8)).init(alloc);
+    defer {
+        var iter = deps.iterator();
+        while (iter.next()) |entry| {
+            entry.value_ptr.deinit(alloc);
+        }
+        deps.deinit();
+    }
+
+    for (ast.views) |view| {
+        var view_deps = try std.ArrayList([]const u8).initCapacity(alloc, 4);
+        // Check if view query references other views
+        for (ast.views) |other| {
+            if (std.mem.eql(u8, view.name, other.name)) continue;
+            if (containsIgnoreCase(view.query, other.name)) {
+                try view_deps.append(alloc, other.name);
+            }
+        }
+        try deps.put(view.name, view_deps);
+    }
+
+    // Detect cycles using DFS
+    var visited = std.StringHashMap(void).init(alloc);
+    defer visited.deinit();
+    var in_stack = std.StringHashMap(void).init(alloc);
+    defer in_stack.deinit();
+
+    for (ast.views) |view| {
+        if (visited.contains(view.name)) continue;
+        try detectCycle(alloc, view.name, &deps, &visited, &in_stack, results);
+    }
+}
+
+fn detectCycle(
+    alloc: std.mem.Allocator,
+    node: []const u8,
+    deps: *const std.StringHashMap(std.ArrayList([]const u8)),
+    visited: *std.StringHashMap(void),
+    in_stack: *std.StringHashMap(void),
+    results: *std.ArrayList(LintResult),
+) !void {
+    if (in_stack.contains(node)) {
+        // Found a cycle
+        const msg = try std.fmt.allocPrint(alloc, "view '{s}' is part of a dependency cycle", .{node});
+        try results.append(alloc, .{
+            .rule = "view-dependency-cycle",
+            .table = node,
+            .message = msg,
+            .severity = .warning,
+        });
+        return;
+    }
+    if (visited.contains(node)) return;
+
+    try visited.put(node, {});
+    try in_stack.put(node, {});
+
+    if (deps.get(node)) |node_deps| {
+        for (node_deps.items) |dep| {
+            try detectCycle(alloc, dep, deps, visited, in_stack, results);
+        }
+    }
+
+    _ = in_stack.fetchRemove(node);
+}

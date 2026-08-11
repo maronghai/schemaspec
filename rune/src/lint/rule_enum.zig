@@ -53,6 +53,9 @@ pub const LintRule = enum {
     column_type_portability,
     index_missing_fk_columns,
     index_columns_max,
+    column_name_too_long,
+    index_redundant_with_pk,
+    view_dependency_cycle,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -103,6 +106,9 @@ pub const LintRule = enum {
             .column_type_portability => "column-type-portability",
             .index_missing_fk_columns => "index-missing-fk-columns",
             .index_columns_max => "index-columns-max",
+            .column_name_too_long => "column-name-too-long",
+            .index_redundant_with_pk => "index-redundant-with-pk",
+            .view_dependency_cycle => "view-dependency-cycle",
         };
     }
 
@@ -130,6 +136,9 @@ pub const LintRule = enum {
             .no_index_fk => true,
             .duplicate_column => true,
             .index_missing_fk_columns => true,
+            .column_name_too_long => false,
+            .index_redundant_with_pk => false,
+            .view_dependency_cycle => false,
             .view_select_star => false,
             .enum_value_duplicate => false,
             .column_boolean_naming => false,
@@ -187,6 +196,9 @@ pub const LintRule = enum {
             .column_type_portability => "Column type may not be portable across dialects",
             .index_missing_fk_columns => "Table has foreign keys but no index on FK columns",
             .index_columns_max => "Index has too many columns (configurable threshold)",
+            .column_name_too_long => "Column name exceeds max length (configurable, default: 64)",
+            .index_redundant_with_pk => "Index duplicates the primary key columns",
+            .view_dependency_cycle => "Views reference each other in a cycle",
         };
     }
 
@@ -238,6 +250,9 @@ pub const LintRule = enum {
             .reserved_word => "warning",
             .column_type_portability => "note",
             .index_missing_fk_columns => "warning",
+            .column_name_too_long => "note",
+            .index_redundant_with_pk => "warning",
+            .view_dependency_cycle => "warning",
             .index_columns_max => "note",
         };
     }

@@ -63,6 +63,7 @@ pub const LintConfig = struct {
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
+    column_name_max: usize = 64,
     index_columns_max: usize = 5,
     include_views: bool = false,
 };
@@ -136,6 +137,8 @@ pub const LintRulesConfig = struct {
         wide_table_max: ?usize = null,
         count_min: ?usize = null,
         table_name_max: ?usize = null,
+        column_name_max: ?usize = null,
+        index_columns_max: ?usize = null,
     };
 };
 
@@ -191,6 +194,10 @@ pub fn parseLintRules(alloc: std.mem.Allocator, data: []const u8) !LintRulesConf
                     result.thresholds.count_min = std.fmt.parseInt(usize, val_str, 10) catch return error.InvalidConfigValue;
                 } else if (std.mem.eql(u8, key, "table_name_max")) {
                     result.thresholds.table_name_max = std.fmt.parseInt(usize, val_str, 10) catch return error.InvalidConfigValue;
+                } else if (std.mem.eql(u8, key, "column_name_max")) {
+                    result.thresholds.column_name_max = std.fmt.parseInt(usize, val_str, 10) catch return error.InvalidConfigValue;
+                } else if (std.mem.eql(u8, key, "index_columns_max")) {
+                    result.thresholds.index_columns_max = std.fmt.parseInt(usize, val_str, 10) catch return error.InvalidConfigValue;
                 }
             }
             continue;
@@ -260,6 +267,8 @@ pub fn applyLintRules(base: LintConfig, rules: LintRulesConfig) LintConfig {
     if (rules.thresholds.wide_table_max) |max| cfg.wide_table_max = max;
     if (rules.thresholds.count_min) |min| cfg.count_min = min;
     if (rules.thresholds.table_name_max) |max| cfg.table_name_max = max;
+    if (rules.thresholds.column_name_max) |max| cfg.column_name_max = max;
+    if (rules.thresholds.index_columns_max) |max| cfg.index_columns_max = max;
 
     return cfg;
 }
