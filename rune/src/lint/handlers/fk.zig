@@ -224,6 +224,55 @@ pub fn checkFkDuplicate(alloc: std.mem.Allocator, results: *std.ArrayList(LintRe
     }
 }
 
+/// Check if FK column type matches the referenced column type.
+/// Warns when a FK column's SS type doesn't match the referenced column's type,
+/// which could cause runtime errors or data truncation.
+pub fn checkFkColumnTypeMismatch(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fks) |fk| {
+            // Skip if FK data is invalid
+            if (fk.ref_table.len == 0 or fk.ref_fields.len == 0 or fk.fields.len == 0) continue;
+            const fk_col_name = fk.fields[0];
+            const ref_col_name = fk.ref_fields[0];
+            if (fk_col_name.len == 0 or ref_col_name.len == 0) continue;
+
+            // Find the FK column in this table to get its type
+            var fk_col_type: ?ast_mod.TypeInfo = null;
+            for (table.fields) |field| {
+                if (field.name.len > 0 and std.mem.eql(u8, field.name, fk_col_name)) {
+                    fk_col_type = field.type_info;
+                    break;
+                }
+            }
+            if (fk_col_type == null) continue;
+
+            // Find the referenced table and column to get its type
+            for (ast.tables) |ref_table| {
+                if (ref_table.name.len == 0) continue;
+                if (std.mem.eql(u8, ref_table.name, fk.ref_table)) {
+                    for (ref_table.fields) |ref_field| {
+                        if (ref_field.name.len == 0) continue;
+                        if (std.mem.eql(u8, ref_field.name, ref_col_name)) {
+                            // Compare types
+                            if (!fk_col_type.?.eql(ref_field.type_info)) {
+                                const msg = try std.fmt.allocPrint(alloc, "FK column '{s}' type doesn't match referenced '{s}.{s}'", .{ fk_col_name, fk.ref_table, ref_col_name });
+                                try results.append(alloc, .{
+                                    .rule = "fk-column-type-mismatch",
+                                    .table = table.name,
+                                    .message = msg,
+                                    .severity = .warning,
+                                });
+                            }
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+    }
+}
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 fn detectCircularFkDfs(

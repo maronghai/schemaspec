@@ -81,6 +81,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .circular_fk, .handler = fk_rules.checkCircularFk },
     .{ .rule = .fk_depth, .handler = fk_rules.checkFkDepth },
     .{ .rule = .fk_duplicate, .handler = fk_rules.checkFkDuplicate },
+    .{ .rule = .fk_column_type_mismatch, .handler = fk_rules.checkFkColumnTypeMismatch },
     // Index validation rules (moved to index.zig)
     .{ .rule = .index_unused, .handler = index_rules.checkIndexUnused },
     .{ .rule = .duplicate_index, .handler = index_rules.checkDuplicateIndex },
@@ -105,6 +106,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .duplicate_column, .handler = validation.checkDuplicateColumn },
     .{ .rule = .unique_constraint, .handler = validation.checkUniqueConstraint },
     .{ .rule = .composite_pk, .handler = validation.checkCompositePk },
+    .{ .rule = .column_unique_nullable, .handler = validation.checkColumnUniqueNullable },
     // Compatibility rules
     .{ .rule = .serial_type, .handler = compat.checkSerialType },
     .{ .rule = .column_length, .handler = compat.checkColumnLength },

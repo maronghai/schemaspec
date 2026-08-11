@@ -2614,3 +2614,106 @@ test "lint: no view cycle passes" {
         }
     }
 }
+
+test "lint: nullable unique column detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const tables = try alloc.dupe(ResolvedTable, &.{
+        try makeTestTable(alloc, "users", &.{
+            makeField("email", .{ .varchar_explicit = 128 }, &.{
+                .{ .kind = .inline_unique, .line_no = 1 },
+                .{ .kind = .nullable, .line_no = 1 },
+            }, null),
+        }, &.{}),
+    });
+    const results = try lintSchema(alloc, makeAst(tables), .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-unique-nullable")) {
+            found = true;
+            try testing.expect(std.mem.indexOf(u8, r.message, "email") != null);
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: non-nullable unique column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const tables = try alloc.dupe(ResolvedTable, &.{
+        try makeTestTable(alloc, "users", &.{
+            makeField("email", .{ .varchar_explicit = 128 }, &.{
+                .{ .kind = .inline_unique, .line_no = 1 },
+            }, null),
+        }, &.{}),
+    });
+    const results = try lintSchema(alloc, makeAst(tables), .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-unique-nullable")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+test "lint: FK type mismatch detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const users_table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+    }, &.{});
+    const posts_table = try makeTestTableWithFkDecls(alloc, "posts", &.{
+        makeField("user_id", .{ .varchar_explicit = 32 }, &.{}, null),
+    }, &.{
+        .{
+            .fields = &.{"user_id"},
+            .ref_table = "users",
+            .ref_fields = &.{"id"},
+            .actions = &.{},
+            .line_no = 2,
+        },
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{ users_table, posts_table });
+    const results = try lintSchema(alloc, makeAst(tables), .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-column-type-mismatch")) {
+            found = true;
+            try testing.expect(std.mem.indexOf(u8, r.message, "user_id") != null);
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: FK type match passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const users_table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+    }, &.{});
+    const posts_table = try makeTestTableWithFkDecls(alloc, "posts", &.{
+        makeField("user_id", .{ .simple = "n" }, &.{}, null),
+    }, &.{
+        .{
+            .fields = &.{"user_id"},
+            .ref_table = "users",
+            .ref_fields = &.{"id"},
+            .actions = &.{},
+            .line_no = 2,
+        },
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{ users_table, posts_table });
+    const results = try lintSchema(alloc, makeAst(tables), .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "fk-column-type-mismatch")) {
+            try testing.expect(false);
+        }
+    }
+}

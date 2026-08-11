@@ -56,6 +56,8 @@ pub const LintRule = enum {
     column_name_too_long,
     index_redundant_with_pk,
     view_dependency_cycle,
+    column_unique_nullable,
+    fk_column_type_mismatch,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -109,6 +111,8 @@ pub const LintRule = enum {
             .column_name_too_long => "column-name-too-long",
             .index_redundant_with_pk => "index-redundant-with-pk",
             .view_dependency_cycle => "view-dependency-cycle",
+            .column_unique_nullable => "column-unique-nullable",
+            .fk_column_type_mismatch => "fk-column-type-mismatch",
         };
     }
 
@@ -139,6 +143,8 @@ pub const LintRule = enum {
             .column_name_too_long => false,
             .index_redundant_with_pk => false,
             .view_dependency_cycle => false,
+            .column_unique_nullable => false,
+            .fk_column_type_mismatch => false,
             .view_select_star => false,
             .enum_value_duplicate => false,
             .column_boolean_naming => false,
@@ -199,6 +205,8 @@ pub const LintRule = enum {
             .column_name_too_long => "Column name exceeds max length (configurable, default: 64)",
             .index_redundant_with_pk => "Index duplicates the primary key columns",
             .view_dependency_cycle => "Views reference each other in a cycle",
+            .column_unique_nullable => "UNIQUE constraint on nullable column (multiple NULLs allowed)",
+            .fk_column_type_mismatch => "FK column type doesn't match referenced column type",
         };
     }
 
@@ -253,6 +261,8 @@ pub const LintRule = enum {
             .column_name_too_long => "note",
             .index_redundant_with_pk => "warning",
             .view_dependency_cycle => "warning",
+            .column_unique_nullable => "warning",
+            .fk_column_type_mismatch => "warning",
             .index_columns_max => "note",
         };
     }

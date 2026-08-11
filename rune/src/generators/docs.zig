@@ -73,19 +73,38 @@ fn generateMarkdown(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]cons
             for (table.columns) |col| {
                 const type_str = try colTypeToMermaid(alloc, col);
                 defer alloc.free(type_str);
-                // Mark primary key
-                const pk_suffix = if (col.flags.primary_key) " PK" else "";
-                try w.print("        {s} {s}{s}\n", .{ type_str, col.name, pk_suffix });
+                // Mark primary key and unique
+                var suffix_buf: [16]u8 = undefined;
+                var suffix_len: usize = 0;
+                if (col.flags.primary_key) {
+                    @memcpy(suffix_buf[suffix_len..][0..3], " PK");
+                    suffix_len += 3;
+                }
+                if (col.flags.inline_unique) {
+                    @memcpy(suffix_buf[suffix_len..][0..3], " UQ");
+                    suffix_len += 3;
+                }
+                try w.print("        {s} {s}{s}\n", .{ type_str, col.name, suffix_buf[0..suffix_len] });
             }
             try w.writeAll("    }\n");
         }
-        // FK relationships
+        // FK relationships with cardinality
         for (typed.tables) |table| {
             for (table.fks) |fk| {
-                // Only render first FK field pair for simplicity
                 if (fk.fields.len > 0 and fk.ref_fields.len > 0) {
-                    try w.print("    {s} }}|--|| {s} : \"{s}\"\n", .{
+                    // Determine cardinality: nullable FK = optional, non-nullable = mandatory
+                    var is_nullable = false;
+                    for (table.columns) |col| {
+                        if (std.mem.eql(u8, col.name, fk.fields[0])) {
+                            is_nullable = col.flags.nullable;
+                            break;
+                        }
+                    }
+                    // Mermaid cardinality: }|--|| = mandatory many-to-one, }|o--o| = optional many-to-one
+                    const rel = if (is_nullable) "}|o--o|" else "}|--||";
+                    try w.print("    {s} {s} {s} : \"{s}\"\n", .{
                         table.name,
+                        rel,
                         fk.ref_table,
                         fk.fields[0],
                     });

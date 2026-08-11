@@ -185,3 +185,28 @@ pub fn checkCompositePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintRe
         }
     }
 }
+
+/// Check if a nullable column has a UNIQUE constraint (inline_unique modifier).
+/// Multiple NULLs are allowed in UNIQUE columns in most databases (SQL standard),
+/// which is often unintended and leads to data integrity issues.
+pub fn checkColumnUniqueNullable(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            var has_unique = false;
+            var has_nullable = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .inline_unique) has_unique = true;
+                if (mod.kind == .nullable) has_nullable = true;
+            }
+            if (has_unique and has_nullable) {
+                const msg = try std.fmt.allocPrint(alloc, "UNIQUE constraint on nullable column '{s}' — multiple NULLs are allowed", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "column-unique-nullable",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
