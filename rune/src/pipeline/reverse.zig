@@ -3,7 +3,7 @@ const diag = @import("../semantic/diagnostic.zig");
 const sql_parser = @import("../parser/sql_parser.zig");
 const reverse_codegen = @import("../reverse/codegen.zig");
 const dialect_detect = @import("../reverse/dialect_detect.zig");
-const codegen = @import("../codegen/codegen.zig");
+const dialect_enum = @import("../dialect/enum.zig");
 const io_mod = @import("../io.zig");
 const DiffFormat = @import("../types/enums.zig").DiffFormat;
 
@@ -13,7 +13,7 @@ const DiffFormat = @import("../types/enums.zig").DiffFormat;
 pub const ReverseConfig = struct {
     input_name: []const u8 = "<stdin>",
     output_path: ?[]const u8 = null,
-    dialect: codegen.Dialect = .mysql,
+    dialect: dialect_enum.Dialect = .mysql,
     format: DiffFormat = .text,
     with_templates: bool = false,
     trace: bool = false,

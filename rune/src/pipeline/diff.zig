@@ -1,5 +1,5 @@
 const std = @import("std");
-const codegen = @import("../codegen/codegen.zig");
+const dialect_enum = @import("../dialect/enum.zig");
 const diff = @import("../diff/engine.zig");
 const diff_types = @import("../diff/types.zig");
 const diff_format = @import("../diff/format.zig");
@@ -14,7 +14,7 @@ const enums = @import("../types/enums.zig");
 pub const DiffConfig = struct {
     old_path: []const u8,
     new_path: []const u8,
-    dialect: codegen.Dialect = .mysql,
+    dialect: dialect_enum.Dialect = .mysql,
     format: enums.DiffFormat = .text,
     output_path: ?[]const u8 = null,
     trace: bool = false,
@@ -46,7 +46,7 @@ pub fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, n
 /// Reverse-engineers the SQL file to .ss internally, then compiles and diffs.
 /// When sql_path is "-", reads SQL from stdin.
 /// Uses in-memory compilation — no temp files.
-fn prepareDiffFromSql(io: std.Io, alloc: std.mem.Allocator, ss_path: []const u8, sql_path: []const u8, dialect: codegen.Dialect) !DiffResult {
+fn prepareDiffFromSql(io: std.Io, alloc: std.mem.Allocator, ss_path: []const u8, sql_path: []const u8, dialect: dialect_enum.Dialect) !DiffResult {
     // 1. Compile the .ss file → old_resolved
     const old_ast = try pipeline_forward.compileToAst(io, alloc, ss_path);
 

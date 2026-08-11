@@ -13,7 +13,7 @@ pub const IrVersionError = error{UnsupportedIrVersion};
 
 /// Validate that an IR version is supported by this Rune build.
 /// Returns error.UnsupportedIrVersion for major version mismatches.
-pub fn validateIrVersion(version: u32) IrVersionError!void {
+fn validateIrVersion(version: u32) IrVersionError!void {
     if (version == 0 or version > CURRENT_IR_VERSION) {
         return error.UnsupportedIrVersion;
     }

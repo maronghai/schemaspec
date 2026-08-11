@@ -53,13 +53,13 @@ pub const Version = struct {
 
     /// Format version to an allocated string "major.minor.patch".
     /// Caller owns the returned memory.
-    pub fn formatAlloc(self: Version, alloc: std.mem.Allocator) ![]const u8 {
+    fn formatAlloc(self: Version, alloc: std.mem.Allocator) ![]const u8 {
         return try std.fmt.allocPrint(alloc, "{d}.{d}.{d}", .{ self.major, self.minor, self.patch });
     }
 
     /// Write "major.minor" to the provided writer (e.g. "0.238").
     /// Useful for docs references without patch number.
-    pub fn writeMajorMinor(self: Version, writer: *std.Io.Writer) !void {
+    fn writeMajorMinor(self: Version, writer: *std.Io.Writer) !void {
         try writer.print("{d}.{d}", .{ self.major, self.minor });
     }
 

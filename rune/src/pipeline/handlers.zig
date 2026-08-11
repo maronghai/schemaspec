@@ -8,6 +8,7 @@ const computeStats = forward.computeStats;
 const printStats = forward.printStats;
 const io_mod = @import("../io.zig");
 const codegen = @import("../codegen/codegen.zig");
+const dialect_enum = @import("../dialect/enum.zig");
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
 const TypedAst = @import("../types/typed_ast.zig").TypedAst;
 const json_schema = @import("../generators/json_schema.zig");
@@ -32,7 +33,7 @@ pub const formatValidateSarif = export_mod.formatValidateSarif;
 /// Compile schema text to a TypedAst for use by generators.
 /// Single entry point for the compile → resolve pattern used by
 /// generateFromSchema, generateFromSchemaBatch, and handleDocs.
-pub fn compileToTypedAst(alloc: std.mem.Allocator, file_data: []const u8, dialect: codegen.Dialect) !TypedAst {
+fn compileToTypedAst(alloc: std.mem.Allocator, file_data: []const u8, dialect: dialect_enum.Dialect) !TypedAst {
     const pipeline = try compilePipeline(alloc, file_data, .{});
     return TypeResolver.resolve(alloc, pipeline.resolved, dialect);
 }
@@ -45,7 +46,7 @@ pub const GenerateConfig = struct {
     /// Output file path or directory for batch mode. null = stdout.
     output: ?[]const u8 = null,
     /// Target dialect for dialect-specific output.
-    dialect: codegen.Dialect = .mysql,
+    dialect: dialect_enum.Dialect = .mysql,
     /// Suppress non-error output.
     quiet: bool = false,
     /// Preview output without writing to files.
@@ -180,12 +181,12 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
 /// read input → compile → resolve types → lookup generator → generate → write output.
 /// Used by both `rune generate <name>` and `rune docs` (which delegates to the "docs" generator).
 /// When dry_run is true, output is written to stdout instead of the output file.
-pub fn generateFromSchema(
+fn generateFromSchema(
     io: std.Io,
     alloc: std.mem.Allocator,
     file_data: []const u8,
     generator_name: []const u8,
-    dialect: codegen.Dialect,
+    dialect: dialect_enum.Dialect,
     output_path: ?[]const u8,
     quiet: bool,
     dry_run: bool,
@@ -210,12 +211,12 @@ pub fn generateFromSchema(
 /// Each generator's output is written to a separate file: `<output_dir>/<generator_name>.<ext>`.
 /// When output_path is null, outputs are written to stdout separated by headers.
 /// When dry_run is true, all outputs are written to stdout instead of files.
-pub fn generateFromSchemaBatch(
+fn generateFromSchemaBatch(
     io: std.Io,
     alloc: std.mem.Allocator,
     file_data: []const u8,
     generators_str: []const u8,
-    dialect: codegen.Dialect,
+    dialect: dialect_enum.Dialect,
     output_path: ?[]const u8,
     quiet: bool,
     dry_run: bool,

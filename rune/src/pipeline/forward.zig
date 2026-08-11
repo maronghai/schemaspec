@@ -5,6 +5,7 @@ const ast_mod = @import("../types/ast.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const semantic = @import("../semantic/analyzer.zig");
 const codegen = @import("../codegen/codegen.zig");
+const dialect_enum = @import("../dialect/enum.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const import_res = @import("import_resolver.zig");
 const stats_mod = @import("stats.zig");
@@ -49,7 +50,7 @@ pub const CompileConfig = struct {
     /// Print compilation trace (tokens, AST, passes).
     trace: bool = false,
     /// Target SQL dialect.
-    dialect: codegen.Dialect = .mysql,
+    dialect: dialect_enum.Dialect = .mysql,
     /// Output format (SQL or JSON Schema).
     format: OutputFormat = .sql,
     /// Print compilation stats (table count, type distribution).
@@ -216,7 +217,7 @@ pub fn compileToAst(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !res
 /// Compile in-memory SQL text to ResolvedAst via reverse engineering.
 /// Used by `rune diff --from-sql` to avoid writing a temp file.
 /// The SQL text is parsed, reverse-engineered to .ss, then compiled through the forward pipeline.
-pub fn compileSqlToAst(alloc: std.mem.Allocator, sql_text: []const u8, dialect: codegen.Dialect) !resolved_ast.ResolvedAst {
+pub fn compileSqlToAst(alloc: std.mem.Allocator, sql_text: []const u8, dialect: dialect_enum.Dialect) !resolved_ast.ResolvedAst {
     const sql_parser = @import("../parser/sql_parser.zig");
     const reverse_codegen_mod = @import("../reverse/codegen.zig");
     const dialect_detect_mod = @import("../reverse/dialect_detect.zig");

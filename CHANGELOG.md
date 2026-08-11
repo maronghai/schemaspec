@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.253.0] - 2026-08-11
+
+### Fixed
+- **VERSION file inconsistency** — VERSION file was stale at 0.251.0 while build.zig.zon was 0.252.0. Now both are synchronized.
+
+### Changed
+- **Dead code cleanup** — Removed pub visibility from 11 functions across 6 modules that had zero external references: `mmapFile` (io.zig), `parseConfig`/`warnUnknownKeys` (config.zig), `generateFromSchema`/`generateFromSchemaBatch`/`compileToTypedAst` (handlers.zig), `initVerbose` (analyzer.zig), `printDiagnosticColor` (diagnostic.zig), `validateIrVersion` (ir_version.zig), `formatAlloc`/`writeMajorMinor` (version.zig).
+- **Dialect import consistency** — Pipeline modules (diff.zig, migrate.zig, handlers.zig, forward.zig, reverse.zig) now import `Dialect` from `dialect/enum.zig` instead of through `codegen/codegen.zig`. Reduces unnecessary coupling between pipeline and codegen layers.
+- **Packaging versions** — Updated npm and VS Code extension manifests from 0.243.0 to 0.253.0.
+
 ## [0.246.0] - 2026-08-11
 
 ### Added

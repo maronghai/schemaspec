@@ -27,7 +27,7 @@ pub const SemanticAnalyzer = struct {
         return .{ .alloc = alloc, .verbose = false };
     }
 
-    pub fn initVerbose(alloc: std.mem.Allocator) SemanticAnalyzer {
+    fn initVerbose(alloc: std.mem.Allocator) SemanticAnalyzer {
         return .{ .alloc = alloc, .verbose = true };
     }
 

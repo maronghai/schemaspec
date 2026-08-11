@@ -1,5 +1,5 @@
 const std = @import("std");
-const codegen = @import("../codegen/codegen.zig");
+const dialect_enum = @import("../dialect/enum.zig");
 const diff_types = @import("../diff/types.zig");
 const diff_format = @import("../diff/format.zig");
 const migrate = @import("../diff/migrate.zig");
@@ -19,7 +19,7 @@ const diff_pipe = @import("diff.zig");
 pub const MigrateConfig = struct {
     old_path: []const u8,
     new_path: []const u8,
-    dialect: codegen.Dialect = .mysql,
+    dialect: dialect_enum.Dialect = .mysql,
     format: enums.DiffFormat = .text,
     output_path: ?[]const u8 = null,
     trace: bool = false,

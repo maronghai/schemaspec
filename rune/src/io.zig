@@ -43,7 +43,7 @@ pub const MmapResult = struct {
 
 /// Memory-map a file for efficient large-file access.
 /// Caller must call result.deinit() when done.
-pub fn mmapFile(io: std.Io, path: []const u8) !MmapResult {
+fn mmapFile(io: std.Io, path: []const u8) !MmapResult {
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     defer file.close(io);
 

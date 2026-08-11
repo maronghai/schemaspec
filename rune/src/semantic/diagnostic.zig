@@ -117,7 +117,7 @@ pub fn printDiagnostic(alloc: std.mem.Allocator, d: Diagnostic) void {
 }
 
 /// Print a diagnostic with color support.
-pub fn printDiagnosticColor(alloc: std.mem.Allocator, d: Diagnostic, use_color: bool) void {
+fn printDiagnosticColor(alloc: std.mem.Allocator, d: Diagnostic, use_color: bool) void {
     var diag = d;
     diag.use_color = use_color;
     printDiagnostic(alloc, diag);

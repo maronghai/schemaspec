@@ -118,7 +118,7 @@ pub fn loadConfigWithDiscoveryAndWarnings(io: std.Io, alloc: std.mem.Allocator) 
 }
 
 /// Parse TOML content into a Config struct.
-pub fn parseConfig(_: std.mem.Allocator, data: []const u8) !Config {
+fn parseConfig(_: std.mem.Allocator, data: []const u8) !Config {
     var config = Config{};
     var current_section: Section = .unknown;
     var iter = TomlLineIterator.init(data);
@@ -249,7 +249,7 @@ const VALID_OUTPUT_KEYS = [_][]const u8{ "color", "quiet", "json_errors", "stats
 /// Check a TOML string for unknown sections or keys.
 /// Prints warnings to stderr when emit_warnings is true.
 /// Called after parseConfig to alert users about typos.
-pub fn warnUnknownKeys(data: []const u8, emit_warnings: bool) void {
+fn warnUnknownKeys(data: []const u8, emit_warnings: bool) void {
     var current_section: Section = .unknown;
     var iter = TomlLineIterator.init(data);
 
