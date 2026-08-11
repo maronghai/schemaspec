@@ -19,10 +19,8 @@ fn safePositionCast(val: i64) u32 {
 }
 
 /// Parsed LSP position (line and character, zero-based).
-const Position = struct {
-    line: u32,
-    character: u32,
-};
+/// Re-exported from protocol.zig for backward compatibility.
+const Position = lsp_protocol.Position;
 
 /// Extract line and character from LSP position params.
 /// Returns null if position is missing from params.
