@@ -141,7 +141,7 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
     const s = computeStats(result.resolved);
 
     if (cfg.per_table) {
-        const table_stats = stats_mod.computePerTableStats(result.resolved);
+        const table_stats = stats_mod.computePerTableStats(alloc, result.resolved);
         switch (cfg.format) {
             .json, .sarif => {
                 const json = try stats_mod.formatPerTableStatsJson(alloc, table_stats);
@@ -171,7 +171,7 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
             printStats(s);
         },
         .summary => {
-            const summary = try stats_mod.formatSummary(s);
+            const summary = try stats_mod.formatSummary(alloc, s);
             try io_mod.writeOutput(io, summary, null, false);
         },
     }

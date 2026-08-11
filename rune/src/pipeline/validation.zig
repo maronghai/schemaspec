@@ -66,7 +66,7 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
             printStats(s);
         }
         if (cfg.per_table) {
-            const table_stats = stats_mod.computePerTableStats(result.resolved);
+            const table_stats = stats_mod.computePerTableStats(alloc, result.resolved);
             stats_mod.printPerTableStats(table_stats);
         }
         // Show summary line for text output

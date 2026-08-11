@@ -8,6 +8,34 @@ const pipeline_forward = @import("../pipeline/forward.zig");
 const io_mod = @import("../io.zig");
 const enums = @import("../types/enums.zig");
 
+// ─── SQL-to-AST Compilation (moved from forward.zig) ──────────
+
+/// Compile in-memory SQL text to ResolvedAst via reverse engineering.
+/// Used by `rune diff --from-sql` to avoid writing a temp file.
+/// The SQL text is parsed, reverse-engineered to .ss, then compiled through the forward pipeline.
+fn compileSqlToAst(alloc: std.mem.Allocator, sql_text: []const u8, dialect: dialect_enum.Dialect) !resolved_ast.ResolvedAst {
+    const sql_parser = @import("../parser/sql_parser.zig");
+    const reverse_codegen_mod = @import("../reverse/codegen.zig");
+    const dialect_detect_mod = @import("../reverse/dialect_detect.zig");
+
+    // Auto-detect dialect from SQL content when using default MySQL
+    const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect_mod.detectSqlDialect(sql_text) else dialect;
+
+    // Parse SQL → SqlSchema
+    var sp_parser = try sql_parser.SqlParser.init(alloc, sql_text, sql_dialect);
+    const parse_result = sp_parser.parse() catch {
+        return error.SqlParseError;
+    };
+
+    // Reverse-engineer SqlSchema → .ss text
+    var rcg = reverse_codegen_mod.ReverseCodegen.init(alloc, sql_dialect);
+    const ss_text = try rcg.generate(parse_result.schema);
+
+    // Compile .ss text through the forward pipeline
+    const pipeline = try pipeline_forward.compilePipeline(alloc, ss_text, .{});
+    return pipeline.resolved;
+}
+
 // ─── Diff Pipeline ────────────────────────────────────────────
 
 /// Configuration for `rune diff` — replaces 8-9 positional parameters.
@@ -54,7 +82,7 @@ fn prepareDiffFromSql(io: std.Io, alloc: std.mem.Allocator, ss_path: []const u8,
     const sql_data = try io_mod.readFileOrStdin(io, alloc, sql_path);
 
     // 3. Compile SQL text in-memory (reverse-engineer + forward pipeline)
-    const new_ast = try pipeline_forward.compileSqlToAst(alloc, sql_data, dialect);
+    const new_ast = try compileSqlToAst(alloc, sql_data, dialect);
 
     // 4. Diff old_resolved vs new_resolved
     const schema_diff = try diff.diff(old_ast, new_ast, alloc);

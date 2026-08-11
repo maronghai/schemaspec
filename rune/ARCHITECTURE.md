@@ -68,7 +68,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 | `pipeline/forward.zig` | `pipeline/import_resolver.zig` | `@import` directive resolution — `ImportContext`, `resolveImports`, `splitLines`, `tokenizeAndParseWithLines` |
 | `pipeline/handlers.zig` | `pipeline/forward.zig` | CLI output handlers — `handleCompileRequest`, `handleStats`, `generateFromSchema`, `generateFromSchemaBatch`, `handleGenerate`, `handleDocs`, `handleFormat`, `handleExport` |
 | `pipeline/validation.zig` | `pipeline/forward.zig` | Validation handlers — `ValidateConfig`, `handleValidate`, `handleCheck` (extracted from handlers.zig for single-responsibility) |
-| `pipeline/diff.zig` | `pipeline/forward.zig` | Diff pipeline orchestration — `DiffConfig`, `handleDiff`, `prepareDiff`, `prepareDiffFromSql`, `emitTraceAndStats` |
+| `pipeline/diff.zig` | `pipeline/forward.zig` | Diff pipeline orchestration — `DiffConfig`, `handleDiff`, `prepareDiff`, `prepareDiffFromSql`, `emitTraceAndStats`, `compileSqlToAst` (SQL-to-AST reverse compilation for `--from-sql`) |
 | `pipeline/migrate.zig` | `pipeline/diff.zig` | Migrate pipeline orchestration — `MigrateConfig`, `handleMigrate`, `handleMigrateStatus`, `filterIncrementalChanges`, `collectMigrateFiles`, `findNextSequenceNumber`, `formatMigrationFileName` |
 | `codegen/codegen.zig` | `codegen/columns.zig` | Column definition rendering (emitColumnDef, emitColumnDefEx, emitDefault) + shared `isDominatedByExplicitIndex()` |
 | `codegen/codegen.zig` | `codegen/indexes.zig` | Inline and standalone index emission |
@@ -647,7 +647,6 @@ The WASM module exports C-compatible functions:
 - `rune_reset() → void` — free all allocated memory
 
 Key WASM adaptations:
-- `io.zig`: mmap falls back to heap allocation (same as Windows)
 - `codegen/parallel.zig`: sequential compilation fallback (no threads on WASM)
 - `build.zig`: automatically selects `wasm.zig` entry point for wasm32 targets
 

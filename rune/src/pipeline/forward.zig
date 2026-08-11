@@ -9,7 +9,6 @@ const dialect_enum = @import("../dialect/enum.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const import_res = @import("import_resolver.zig");
 const stats_mod = @import("stats.zig");
-const fmt = @import("../diagnostic/format.zig");
 
 // ─── Forward Pipeline: .ss → SQL ─────────────────────────────
 // No dependency on cli.zig — output format dispatch is the caller's responsibility.
@@ -211,33 +210,6 @@ pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []c
 /// Compile a .ss file path to ResolvedAst (used by diff/migrate pipelines).
 pub fn compileToAst(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !resolved_ast.ResolvedAst {
     const pipeline = try compileFile(io, alloc, path, false);
-    return pipeline.resolved;
-}
-
-/// Compile in-memory SQL text to ResolvedAst via reverse engineering.
-/// Used by `rune diff --from-sql` to avoid writing a temp file.
-/// The SQL text is parsed, reverse-engineered to .ss, then compiled through the forward pipeline.
-pub fn compileSqlToAst(alloc: std.mem.Allocator, sql_text: []const u8, dialect: dialect_enum.Dialect) !resolved_ast.ResolvedAst {
-    const sql_parser = @import("../parser/sql_parser.zig");
-    const reverse_codegen_mod = @import("../reverse/codegen.zig");
-    const dialect_detect_mod = @import("../reverse/dialect_detect.zig");
-
-    // Auto-detect dialect from SQL content when using default MySQL
-    const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect_mod.detectSqlDialect(sql_text) else dialect;
-
-    // Parse SQL → SqlSchema
-    var sp_parser = try sql_parser.SqlParser.init(alloc, sql_text, sql_dialect);
-    const parse_result = sp_parser.parse() catch {
-        fmt.printError("sql-parse", "SQL parse error");
-        return error.SqlParseError;
-    };
-
-    // Reverse-engineer SqlSchema → .ss text
-    var rcg = reverse_codegen_mod.ReverseCodegen.init(alloc, sql_dialect);
-    const ss_text = try rcg.generate(parse_result.schema);
-
-    // Compile .ss text through the forward pipeline
-    const pipeline = try compilePipeline(alloc, ss_text, .{});
     return pipeline.resolved;
 }
 

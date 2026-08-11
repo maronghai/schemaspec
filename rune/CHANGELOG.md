@@ -4,6 +4,16 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.258.0] - 2026-08-12
+
+### Changed
+- **Pipeline boundary cleanup** — Moved `compileSqlToAst` from `pipeline/forward.zig` to `pipeline/diff.zig`. This function crosses the forward/reverse pipeline boundary and is only called by `prepareDiffFromSql`. Removing it from `forward.zig` eliminates the dependency on `parser/sql_parser.zig`, `reverse/codegen.zig`, and `reverse/dialect_detect.zig` from the forward pipeline.
+- **Allocator consistency in diagnostic/format.zig** — `ErrorFormatter` methods (`formatError`, `formatWarning`, `formatErrorWithContext`, `formatWarningWithContext`) now accept an `Allocator` parameter instead of using `std.heap.page_allocator` directly. Follows project convention that all modules accept an allocator.
+- **Allocator consistency in pipeline/stats.zig** — `computePerTableStats` and `formatSummary` now accept an `Allocator` parameter instead of using `std.heap.page_allocator` directly.
+
+### Removed
+- **Dead code in io.zig** — Removed unused `MMAP_THRESHOLD`, `MmapResult`, and `mmapFile` from `io.zig`. These were never called in production code.
+
 ## [0.239.0] - 2026-08-11
 
 ### Added

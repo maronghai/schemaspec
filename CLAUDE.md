@@ -173,7 +173,7 @@ rune/src/
   lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights, workspace symbols, signature help, code lens)
                 compile_service.zig, server.zig, features.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
-  tests.zig                                                       # colocated test index (109 files)
+  tests.zig                                                       # colocated test index (110 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, handlers.zig, validation.zig,  # pipeline orchestration + CLI handlers
                reverse.zig, diff.zig, migrate.zig, export.zig, stats.zig
@@ -356,7 +356,7 @@ rune/src/
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli/errors.zig` | CLI error handling (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |
-| | `io.zig` | File I/O, stdin reading, output writing, memory-mapped I/O |
+| | `io.zig` | File I/O, stdin reading, output writing |
 | | `bench.zig` | Benchmark entry point |
 | | `color.zig` | ANSI color output (ColorMode, writeColorized) |
 | | `version.zig` | Centralized version constant |
@@ -375,7 +375,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 109 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 110 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 30 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

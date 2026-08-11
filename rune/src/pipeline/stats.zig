@@ -66,8 +66,8 @@ fn classifyFieldType(type_info: ast_mod.TypeInfo) enum { numeric, string, dateti
 }
 
 /// Compute per-table statistics from a ResolvedAst.
-pub fn computePerTableStats(resolved: resolved_ast.ResolvedAst) []TableStats {
-    var stats = std.ArrayList(TableStats).initCapacity(std.heap.page_allocator, resolved.tables.len) catch return &.{};
+pub fn computePerTableStats(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst) []TableStats {
+    var stats = std.ArrayList(TableStats).initCapacity(alloc, resolved.tables.len) catch return &.{};
     for (resolved.tables) |table| {
         var field_count: usize = 0;
         var not_null: usize = 0;
@@ -96,7 +96,7 @@ pub fn computePerTableStats(resolved: resolved_ast.ResolvedAst) []TableStats {
             }
             if (field.check != null) check_count += 1;
         }
-        stats.append(std.heap.page_allocator, .{
+        stats.append(alloc, .{
             .name = table.name,
             .fields = field_count,
             .not_null_fields = not_null,
@@ -110,7 +110,7 @@ pub fn computePerTableStats(resolved: resolved_ast.ResolvedAst) []TableStats {
             .check_constraints = check_count,
         }) catch {};
     }
-    return stats.toOwnedSlice(std.heap.page_allocator) catch return &.{};
+    return stats.toOwnedSlice(alloc) catch return &.{};
 }
 
 /// Compute stats from a ResolvedAst.
@@ -205,9 +205,9 @@ pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
 }
 
 /// Format stats as a compact one-line summary.
-pub fn formatSummary(stats: Stats) ![]const u8 {
+pub fn formatSummary(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
     return std.fmt.allocPrint(
-        std.heap.page_allocator,
+        alloc,
         "{d} table(s), {d} field(s), {d} view(s), {d} FK(s), {d} index(es), {d} check(s), {d} type(s)",
         .{ stats.tables, stats.fields, stats.views, stats.foreign_keys, stats.indexes, stats.check_constraints, stats.custom_types },
     );
