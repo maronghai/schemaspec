@@ -194,3 +194,31 @@ test "parseDiffFormatOption: default to text" {
 test "parseDiffFormatOption: format with other options" {
     try testing.expectEqual(.sarif, common.parseDiffFormatOption("dialect=pg format=sarif"));
 }
+
+// ─── WASM Export Lifecycle Tests ─────────────────────────────────
+
+test "rune_last_error after successful compile" {
+    const compile = @import("wasm/compile.zig");
+    const err_mod = @import("wasm/error.zig");
+
+    // Successful compile should leave no error state
+    const valid = "# users\nid N ++\nname s\n";
+    _ = compile.rune_compile(valid.ptr, valid.len, "dialect=pg", 11);
+    try testing.expect(err_mod.rune_last_error() == null);
+
+    // Reset clears state
+    err_mod.rune_reset();
+    try testing.expect(err_mod.rune_last_error() == null);
+}
+
+test "rune_last_error_code after success" {
+    const compile = @import("wasm/compile.zig");
+    const err_mod = @import("wasm/error.zig");
+
+    const schema = "# users\nid N ++\nname s\n";
+    _ = compile.rune_compile(schema.ptr, schema.len, "dialect=pg", 11);
+    try testing.expectEqual(@as(i32, 0), err_mod.rune_last_error_code());
+
+    err_mod.rune_reset();
+    try testing.expectEqual(@as(i32, 0), err_mod.rune_last_error_code());
+}

@@ -136,7 +136,7 @@ pub const LintRule = enum {
             .no_timestamps => "Table missing create_at/update_at timestamps",
             .wide_table => "Table has more than 30 columns",
             .enum_case => "Custom type enum values should be UPPER_CASE",
-            .count => "Table has more than 50 columns",
+            .count => "Table has fewer than minimum field count",
             .fk_cascade => "Foreign key without explicit ON DELETE/UPDATE actions",
             .nullable_pk => "Primary key column is nullable",
             .orphan_type => "Custom type defined but not used by any table",
@@ -171,6 +171,53 @@ pub const LintRule = enum {
             .fk_depth => "Foreign key reference chain exceeds 3 levels",
             .unique_constraint => "UNIQUE constraint on column that is already the primary key",
             .composite_pk => "Multiple auto-increment primary keys in one table",
+        };
+    }
+
+    /// SARIF severity level for this rule. Used by formatSarif to emit rule metadata.
+    pub fn lintLevel(self: LintRule) []const u8 {
+        return switch (self) {
+            .no_pk => "error",
+            .naming => "note",
+            .no_index_fk => "warning",
+            .no_timestamps => "note",
+            .wide_table => "warning",
+            .enum_case => "note",
+            .count => "note",
+            .fk_cascade => "note",
+            .nullable_pk => "warning",
+            .orphan_type => "note",
+            .index_unused => "note",
+            .circular_fk => "warning",
+            .duplicate_index => "warning",
+            .empty_table => "warning",
+            .table_comment => "note",
+            .serial_type => "note",
+            .table_name_length => "note",
+            .column_length => "note",
+            .index_column_missing => "warning",
+            .naming_prefix => "note",
+            .fk_naming => "note",
+            .bool_default => "note",
+            .view_no_select => "note",
+            .column_default_required => "warning",
+            .index_naming => "note",
+            .nullable_column_default => "note",
+            .timestamp_naming => "note",
+            .enum_value_naming => "note",
+            .fk_null => "warning",
+            .cross_dialect_types => "warning",
+            .view_no_alias => "note",
+            .fk_self_reference => "note",
+            .enum_empty => "warning",
+            .view_naming => "note",
+            .duplicate_column => "warning",
+            .view_select_star => "note",
+            .enum_value_duplicate => "warning",
+            .column_boolean_naming => "note",
+            .fk_depth => "warning",
+            .unique_constraint => "note",
+            .composite_pk => "warning",
         };
     }
 };
@@ -209,5 +256,19 @@ test "LintRule: isFixable returns bool" {
     inline for (std.meta.fields(LintRule)) |field| {
         const rule = @field(LintRule, field.name);
         _ = rule.isFixable();
+    }
+}
+
+test "LintRule: lintLevel returns valid level" {
+    inline for (std.meta.fields(LintRule)) |field| {
+        const rule = @field(LintRule, field.name);
+        const level = rule.lintLevel();
+        try testing.expect(level.len > 0);
+        // Must be one of the three SARIF severity levels
+        try testing.expect(
+            std.mem.eql(u8, level, "error") or
+                std.mem.eql(u8, level, "warning") or
+                std.mem.eql(u8, level, "note"),
+        );
     }
 }

@@ -1,6 +1,7 @@
 const std = @import("std");
 const LintResult = @import("config.zig").LintResult;
 const LintRule = @import("config.zig").LintRule;
+const RULE_INFO = @import("rules.zig").RULE_INFO;
 
 // ─── Lint Output Formatters ──────────────────────────────────
 // Human-readable text, machine-readable JSON, and CI/CD SARIF output.
@@ -104,68 +105,19 @@ pub fn formatSarif(alloc: std.mem.Allocator, results: []const LintResult, versio
     try writeJsonString(&aw.writer, version_str);
     try aw.writer.writeAll("\",\"rules\":[");
 
-    // Derive rules from LintRule enum — single source of truth for descriptions.
-    // SARIF requires rule metadata in the output; we emit all rules that have
-    // appeared in results, plus a minimal set for common rules.
-    const rule_names = [_]struct { id: []const u8, name: []const u8, level: []const u8 }{
-        .{ .id = "no-pk", .name = "no-primary-key", .level = "error" },
-        .{ .id = "naming", .name = "naming-conventions", .level = "note" },
-        .{ .id = "no-index-fk", .name = "no-index-fk", .level = "warning" },
-        .{ .id = "no-timestamps", .name = "no-timestamps", .level = "note" },
-        .{ .id = "wide-table", .name = "wide-table", .level = "warning" },
-        .{ .id = "enum-case", .name = "enum-case", .level = "note" },
-        .{ .id = "count", .name = "low-field-count", .level = "note" },
-        .{ .id = "fk-cascade", .name = "fk-cascade", .level = "note" },
-        .{ .id = "nullable-pk", .name = "nullable-pk", .level = "warning" },
-        .{ .id = "orphan-type", .name = "orphan-type", .level = "note" },
-        .{ .id = "index-unused", .name = "index-unused", .level = "note" },
-        .{ .id = "circular-fk", .name = "circular-fk", .level = "warning" },
-        .{ .id = "duplicate-index", .name = "duplicate-index", .level = "warning" },
-        .{ .id = "serial-type", .name = "serial-type", .level = "note" },
-        .{ .id = "column-length", .name = "column-length", .level = "note" },
-        .{ .id = "index-column-missing", .name = "index-column-missing", .level = "warning" },
-        .{ .id = "naming-prefix", .name = "naming-prefix", .level = "note" },
-        .{ .id = "fk-naming", .name = "fk-naming", .level = "note" },
-        .{ .id = "bool-default", .name = "bool-default", .level = "note" },
-        .{ .id = "column-default-required", .name = "column-default-required", .level = "warning" },
-        .{ .id = "index-naming", .name = "index-naming", .level = "note" },
-        .{ .id = "nullable-column-default", .name = "nullable-column-default", .level = "note" },
-        .{ .id = "timestamp-naming", .name = "timestamp-naming", .level = "note" },
-        .{ .id = "enum-value-naming", .name = "enum-value-naming", .level = "note" },
-        .{ .id = "fk-null", .name = "fk-null", .level = "warning" },
-        .{ .id = "cross-dialect-types", .name = "cross-dialect-types", .level = "warning" },
-        .{ .id = "view-no-select", .name = "view-no-select", .level = "note" },
-        .{ .id = "view-no-alias", .name = "view-no-alias", .level = "note" },
-        .{ .id = "fk-self-reference", .name = "fk-self-reference", .level = "note" },
-        .{ .id = "enum-empty", .name = "enum-empty", .level = "warning" },
-        .{ .id = "view-naming", .name = "view-naming", .level = "note" },
-        .{ .id = "duplicate-column", .name = "duplicate-column", .level = "warning" },
-        .{ .id = "view-select-star", .name = "view-select-star", .level = "note" },
-        .{ .id = "enum-value-duplicate", .name = "enum-value-duplicate", .level = "warning" },
-        .{ .id = "column-boolean-naming", .name = "column-boolean-naming", .level = "note" },
-        .{ .id = "fk-depth", .name = "fk-depth", .level = "warning" },
-        .{ .id = "unique-constraint", .name = "unique-constraint", .level = "note" },
-        .{ .id = "composite-pk", .name = "composite-pk", .level = "warning" },
-        .{ .id = "table-name-length", .name = "table-name-length", .level = "note" },
-        .{ .id = "table-comment", .name = "table-comment", .level = "note" },
-        .{ .id = "empty-table", .name = "empty-table", .level = "warning" },
-    };
-
-    for (rule_names, 0..) |rule, i| {
+    // Derive rules from RULE_INFO — single source of truth for all rule metadata.
+    // SARIF requires rule metadata in the output; we emit all rules so consumers
+    // can filter by any rule ID without missing entries.
+    for (RULE_INFO, 0..) |info, i| {
         if (i > 0) try aw.writer.writeAll(",");
         try aw.writer.writeAll("{\"id\":\"");
-        try writeJsonString(&aw.writer, rule.id);
+        try writeJsonString(&aw.writer, info.rule.name());
         try aw.writer.writeAll("\",\"name\":\"");
-        try writeJsonString(&aw.writer, rule.name);
+        try writeJsonString(&aw.writer, info.rule.name());
         try aw.writer.writeAll("\",\"shortDescription\":{\"text\":\"");
-        // Derive description from LintRule enum (single source of truth)
-        if (LintRule.fromName(rule.id)) |lint_rule| {
-            try writeJsonString(&aw.writer, lint_rule.description());
-        } else {
-            try writeJsonString(&aw.writer, rule.name);
-        }
+        try writeJsonString(&aw.writer, info.description);
         try aw.writer.writeAll("\"},\"defaultConfiguration\":{\"level\":\"");
-        try aw.writer.writeAll(rule.level);
+        try writeJsonString(&aw.writer, info.rule.lintLevel());
         try aw.writer.writeAll("\"}}");
     }
 

@@ -13,6 +13,7 @@ comptime {
     _ = @import("cli/parse_test.zig");
     _ = @import("cli/types_test.zig");
     _ = @import("cli/errors.zig");
+    _ = @import("cli/flag_registry.zig");
     // ── color ────────────────────────────────────────────────────
     _ = @import("color_test.zig");
     // ── completions ──────────────────────────────────────────────
@@ -20,6 +21,7 @@ comptime {
     // ── config ───────────────────────────────────────────────────
     _ = @import("config.zig");
     _ = @import("config_merge.zig");
+    _ = @import("diagnostic/format.zig");
     // ── codegen ──────────────────────────────────────────────────
     _ = @import("codegen/codegen_test.zig");
     _ = @import("codegen/columns_test.zig");
@@ -102,6 +104,7 @@ comptime {
     _ = @import("pipeline/import_resolver_test.zig");
     _ = @import("pipeline/stats_test.zig");
     _ = @import("pipeline/reverse_test.zig");
+    _ = @import("pipeline/export.zig");
     // ── reverse ──────────────────────────────────────────────────
     _ = @import("reverse/map_test.zig");
     _ = @import("reverse/column_test.zig");
@@ -144,6 +147,8 @@ comptime {
     // ── utils ────────────────────────────────────────────────────
     _ = @import("utils_test.zig");
     _ = @import("utils/edit_distance_test.zig");
+    // ── version ──────────────────────────────────────────────────
+    _ = @import("version.zig");
     // ── tune ─────────────────────────────────────────────────────
     _ = @import("tune.zig");
     // ── lsp ──────────────────────────────────────────────────────
@@ -170,6 +175,7 @@ comptime {
     _ = @import("lsp/inlay_hints.zig");
     _ = @import("lsp/inlay_hints_test.zig");
     _ = @import("lsp/handlers_test.zig");
+    _ = @import("lsp/handlers.zig");
     _ = @import("lsp/code_lens.zig");
     // ── wasm ──────────────────────────────────────────────────────
     _ = @import("wasm.zig");
