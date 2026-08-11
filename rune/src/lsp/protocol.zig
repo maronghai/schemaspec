@@ -266,6 +266,7 @@ pub const ServerCapabilities = struct {
     workspace_symbol_provider: ?bool = null,
     signature_help_provider: ?bool = null,
     inlay_hint_provider: ?bool = null,
+    code_lens_provider: ?bool = null,
 };
 
 pub const InitializeResult = struct {
@@ -373,6 +374,24 @@ pub const SignatureInformation = struct {
 pub const ParameterInformation = struct {
     label: []const u8,
     documentation: ?[]const u8 = null,
+};
+
+// ─── Code Lens ───────────────────────────────────────────────
+
+pub const CodeLensParams = struct {
+    text_document: TextDocumentIdentifier,
+};
+
+pub const CodeLens = struct {
+    range: Range,
+    command: ?Command = null,
+    data: ?std.json.Value = null,
+};
+
+pub const Command = struct {
+    title: []const u8,
+    command: []const u8,
+    arguments: ?[]const std.json.Value = null,
 };
 
 // ─── Response Writers ──────────────────────────────────────────
@@ -497,6 +516,10 @@ pub fn writeInitializeResult(w: anytype, caps: ServerCapabilities) !void {
     if (caps.inlay_hint_provider) |ihp| {
         try w.writeAll(",\"inlayHintProvider\":");
         try w.writeAll(if (ihp) "true" else "false");
+    }
+    if (caps.code_lens_provider) |clp| {
+        try w.writeAll(",\"codeLensProvider\":");
+        try w.writeAll(if (clp) "true" else "false");
     }
     try w.writeAll("}");
 }

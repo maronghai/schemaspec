@@ -71,6 +71,7 @@ pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?
         .workspace_symbol_provider = true,
         .signature_help_provider = true,
         .inlay_hint_provider = true,
+        .code_lens_provider = true,
     });
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
@@ -591,6 +592,45 @@ pub fn handleInlayHint(self: *Server, stdout_file: anytype, id: ?i64, params: st
     } else {
         try body_alloc.writer.writeAll("[]");
     }
+
+    try self.sendResponse(stdout_file, rid, &body_alloc);
+}
+
+pub fn handleCodeLens(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+    const rid = id orelse return;
+    const uri = parseDocumentUri(params) orelse return;
+
+    const doc = self.documents.get(uri) orelse {
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        try body_alloc.writer.writeAll("[]");
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+        return;
+    };
+
+    const compile_result = self.compile_results.get(uri);
+    const code_lens = @import("code_lens.zig");
+    const lenses = code_lens.getCodeLens(self.arena, doc.text, compile_result) catch {
+        var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+        try body_alloc.writer.writeAll("[]");
+        try self.sendResponse(stdout_file, rid, &body_alloc);
+        return;
+    };
+
+    var body_alloc = std.Io.Writer.Allocating.init(self.arena);
+    try body_alloc.writer.writeAll("[");
+    for (lenses, 0..) |lens, i| {
+        if (i > 0) try body_alloc.writer.writeByte(',');
+        try body_alloc.writer.writeAll("{\"range\":{\"start\":{\"line\":");
+        try body_alloc.writer.print("{d}", .{lens.line});
+        try body_alloc.writer.writeAll(",\"character\":0},\"end\":{\"line\":");
+        try body_alloc.writer.print("{d}", .{lens.line});
+        try body_alloc.writer.writeAll(",\"character\":0}},\"command\":{\"title\":");
+        try lsp_protocol.writeJsonString(&body_alloc.writer, lens.title);
+        try body_alloc.writer.writeAll(",\"command\":");
+        try lsp_protocol.writeJsonString(&body_alloc.writer, lens.command);
+        try body_alloc.writer.writeAll("}}");
+    }
+    try body_alloc.writer.writeAll("]");
 
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }

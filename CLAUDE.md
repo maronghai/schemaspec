@@ -146,7 +146,7 @@ See [docs/migration-guide.md](docs/migration-guide.md) for migrating from SQL DD
 cd packaging/vscode && code --install-extension .
 ```
 
-Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), LSP-powered IntelliSense (completion, hover, go-to-definition, diagnostics, code actions, formatting, workspace symbols, signature help, inlay hints), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). The extension starts `rune lsp` automatically on activation. Configure `rune.schemaPath` for custom binary paths.
+Provides: syntax highlighting (TextMate grammar), language configuration (brackets, comments, folding), LSP-powered IntelliSense (completion, hover, go-to-definition, diagnostics, code actions, formatting, workspace symbols, signature help, inlay hints, code lens), and commands (`Rune: Validate`, `Rune: Generate SQL`, `Rune: Initialize Schema`). The extension starts `rune lsp` automatically on activation. Configure `rune.schemaPath` for custom binary paths.
 
 ## Architecture
 
@@ -158,7 +158,8 @@ rune/src/
   wasm.zig                                                   # WASM library entry point (wasm32-wasi)
   wasm/common.zig, wasm/error.zig, wasm/compile.zig,        # WASM sub-modules (split from monolith)
   wasm/diff.zig, wasm/reverse.zig, wasm/lint.zig,
-  wasm/format.zig, wasm/generate.zig
+  wasm/format.zig, wasm/generate.zig, wasm/export.zig,
+  wasm/docs.zig
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
   bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules (lint.zig = barrel for lint/ sub-modules)
   lint/rules.zig, lint/format.zig, lint/config.zig, lint/fix.zig  # lint engine split
@@ -166,7 +167,7 @@ rune/src/
   cli/lint_cmd.zig                                                 # lint CLI handler (extracted from main.zig)
   cli/errors.zig                                                   # CLI error handling (extracted from main.zig)
   generator.zig                                                   # generator registry (pluggable)
-  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights, workspace symbols, signature help)
+  lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights, workspace symbols, signature help, code lens)
                 compile_service.zig, server.zig, features.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
   tests.zig                                                       # colocated test index (103 files)
@@ -290,7 +291,7 @@ rune/src/
 | | `documents.zig` | Document state manager (open/change/close tracking) |
 | | `compile_service.zig` | Pipeline wrapper for LSP diagnostics + TypedAst capture (dialect-aware) |
 | | `server.zig` | LSP server main loop (JSON-RPC over stdio) |
-| | `features.zig` | LSP interactive features (document symbols, completion, hover, go-to-definition, code actions, formatting, inlay hints) |
+| | `features.zig` | LSP interactive features (document symbols, completion, hover, go-to-definition, code actions, formatting, inlay hints, code lens) |
 | `parser/` | `parser.zig` | Token-level `.ss` parser → AST, dispatches to parse_* modules |
 | | `parse_field.zig` | Field declaration parsing (type, modifiers, default, inline FK) |
 | | `parse_fk.zig`, `parse_check.zig`, `parse_index.zig` | FK/Check/Index parsing |
@@ -346,7 +347,7 @@ rune/src/
 | | `pass/*.zig` | 17 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, template_type_conflict, validate_unused_enums, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `config_merge.zig` | Config merge logic (CLI flags + config file defaults) |
-| | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_format, rune_tune, rune_generate, rune_stats, rune_validate, rune_version, rune_last_error, rune_last_error_code, rune_reset) |
+| | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_format, rune_tune, rune_generate, rune_export, rune_docs, rune_stats, rune_validate, rune_version, rune_last_error, rune_last_error_code, rune_reset) |
 | | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (41 rules + `RuleInfo` + `RULE_INFO`), `lint/handlers/*.zig` (8 handler modules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum with `name()`, `description()`, `isFixable()`, TOML parsing), `lint/fix.zig` (auto-fix for 11 rules) |
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli/errors.zig` | CLI error handling (extracted from main.zig) |

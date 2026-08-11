@@ -13,6 +13,8 @@ comptime {
     _ = @import("wasm/lint.zig");
     _ = @import("wasm/format.zig");
     _ = @import("wasm/generate.zig");
+    _ = @import("wasm/export.zig");
+    _ = @import("wasm/docs.zig");
 }
 
 // ─── Tests ──────────────────────────────────────────────────────

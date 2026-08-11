@@ -82,6 +82,7 @@ pub const Server = struct {
         .{ .method = "workspace/symbol", .handler = handleWorkspaceSymbolDispatch },
         .{ .method = "textDocument/signatureHelp", .handler = handleSignatureHelpDispatch },
         .{ .method = "textDocument/inlayHint", .handler = handleInlayHintDispatch },
+        .{ .method = "textDocument/codeLens", .handler = handleCodeLensDispatch },
     };
 
     /// Run the LSP server main loop.
@@ -222,6 +223,10 @@ pub const Server = struct {
 
     fn handleInlayHintDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
         if (params) |p| try handlers.handleInlayHint(self, stdout.?, id, p);
+    }
+
+    fn handleCodeLensDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
+        if (params) |p| try handlers.handleCodeLens(self, stdout.?, id, p);
     }
 
     /// Send a JSON-RPC response to stdout.

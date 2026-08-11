@@ -278,7 +278,7 @@ bash tests/test_coverage.sh --quick   # skip benchmark regression
 
 ### Unit Tests
 
-Zig `test` blocks in colocated `*_test.zig` files alongside their production modules. 95 test files wired via `tests.zig` comptime index.
+Zig `test` blocks in colocated `*_test.zig` files alongside their production modules. 103 test files wired via `tests.zig` comptime index.
 
 ```bash
 cd rune && zig build test             # run all unit tests
@@ -546,11 +546,11 @@ cd packaging/vscode && code --install-extension .
 rune lsp    # Starts the LSP server over stdio
 ```
 
-Features: diagnostics, completion, hover, go-to-definition, document symbols, references, highlights, rename, code actions, formatting.
+Features: diagnostics, completion, hover, go-to-definition, document symbols, references, highlights, rename, code actions, formatting, code lens.
 
 ## Roadmap
 
-- [x] LSP language server (completion, diagnostics, hover, go-to-definition, document symbols, references, highlights, rename, code actions, formatting)
+- [x] LSP language server (completion, diagnostics, hover, go-to-definition, document symbols, references, highlights, rename, code actions, formatting, code lens)
 - [x] Oracle dialect support
 - [x] Microsoft SQL Server dialect support
 - [x] IBM Db2 dialect support
