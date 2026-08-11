@@ -220,6 +220,20 @@ test "parseArgs: subcommand dispatch" {
     }
 }
 
+test "parseArgs: validate --fix" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const result = try parse.parseArgs(alloc, &.{ "rune", "validate", "schema.ss", "--fix" });
+    switch (result.command) {
+        .validate => |cmd| {
+            try testing.expectEqualStrings("schema.ss", cmd.input.?);
+            try testing.expect(cmd.fix);
+        },
+        else => try testing.expect(false),
+    }
+}
+
 test "parseArgs: --dialect flag" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();

@@ -65,6 +65,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune schema.ss -d db2                 # Db2 output
 ./rune/zig-out/bin/rune validate schema.ss               # Validate schema (no output)
 ./rune/zig-out/bin/rune validate schema.ss -s            # Validate with stats
+./rune/zig-out/bin/rune validate schema.ss --fix        # Validate and auto-fix issues
 ./rune/zig-out/bin/rune validate schema.ss --format json # Validate as JSON
 ./rune/zig-out/bin/rune validate schema.ss --format sarif # Validate as SARIF
 ./rune/zig-out/bin/rune stats schema.ss                  # Print schema statistics

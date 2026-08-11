@@ -19,7 +19,7 @@ fn parseSimpleInputArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect
             .json => .json,
             .sarif => .sarif,
             else => .text,
-        }, .per_table = c.per_table } },
+        }, .per_table = c.per_table, .fix = c.fix } },
         .check => |c| .{ .check = .{ .input = input orelse c.input, .stats = c.stats, .verbose_passes = c.verbose_passes, .format = if (opts.format == .json) .json else .text } },
         .stats => |c| .{ .stats = .{ .input = input orelse c.input, .format = c.format } },
         else => cmd,
@@ -240,15 +240,17 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
 }
 
 pub fn parseValidateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
-    // Scan for --per-table flag
+    // Scan for --per-table and --fix flags
     var per_table = false;
+    var fix = false;
     for (fargs[1..]) |arg| {
         if (std.mem.eql(u8, arg, "--per-table")) {
             per_table = true;
-            break;
+        } else if (std.mem.eql(u8, arg, "--fix")) {
+            fix = true;
         }
     }
-    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .validate = .{ .input = null, .stats = opts.stats, .verbose_passes = opts.verbose_passes, .per_table = per_table } });
+    return parseSimpleInputArgs(fargs, dialect, target, opts, .{ .validate = .{ .input = null, .stats = opts.stats, .verbose_passes = opts.verbose_passes, .per_table = per_table, .fix = fix } });
 }
 
 pub fn parseCheckArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {

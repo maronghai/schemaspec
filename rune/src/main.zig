@@ -129,7 +129,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         }),
         .validate => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
-            return handlers.handleValidate(io, alloc, file_data, .{ .stats = cmd.stats, .verbose_passes = cmd.verbose_passes, .json_errors = parsed.json_errors, .strict = parsed.strict, .format = cmd.format, .per_table = cmd.per_table });
+            return handlers.handleValidate(io, alloc, file_data, .{ .stats = cmd.stats, .verbose_passes = cmd.verbose_passes, .json_errors = parsed.json_errors, .strict = parsed.strict, .format = cmd.format, .per_table = cmd.per_table, .fix = cmd.fix, .input = cmd.input });
         },
         .check => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);

@@ -15,7 +15,7 @@ pub const ExportFormat = enum { json, text, markdown };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
-    validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text, per_table: bool = false },
+    validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text, per_table: bool = false, fix: bool = false },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text },
     stats: struct { input: ?[]const u8, format: StatsFormat = .text, per_table: bool = false },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false, from_sql: ?[]const u8 = null },
@@ -97,7 +97,7 @@ pub const CommandInfo = struct {
 };
 
 pub const COMMAND_REGISTRY = [_]CommandInfo{
-    .{ .name = "validate", .args = "[input.ss]", .description = "Validate .ss schema (no output)" },
+    .{ .name = "validate", .args = "[input.ss] [--fix]", .description = "Validate .ss schema (no output)" },
     .{ .name = "check", .args = "[input.ss]", .description = "Check schema validity (exit 1 on error)" },
     .{ .name = "stats", .args = "[input.ss]", .description = "Print schema statistics (table/field/view counts)" },
     .{ .name = "diff", .args = "<old.ss> <new.ss>", .description = "Show schema differences" },
@@ -224,6 +224,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
         .examples = &.{
             "  rune validate schema.ss              # Validate schema",
             "  rune validate schema.ss -s           # Validate with stats",
+            "  rune validate schema.ss --fix        # Validate and auto-fix issues",
             "  rune validate schema.ss --format json # Validate as JSON",
         },
     },

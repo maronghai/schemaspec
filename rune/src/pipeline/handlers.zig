@@ -43,6 +43,10 @@ pub const ValidateConfig = struct {
     strict: bool = false,
     format: StatsFormat = .text,
     per_table: bool = false,
+    /// Apply lint auto-fixes to the source file.
+    fix: bool = false,
+    /// Input file path (needed for --fix to write back).
+    input: ?[]const u8 = null,
 };
 
 /// Configuration for `generateFromSchema` and `generateFromSchemaBatch`.
@@ -192,7 +196,31 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
                 if (r.severity == .warning) return error.StrictWarnings;
             }
         }
-        fmt.printOk("schema is valid");
+        // Apply lint auto-fixes when --fix is active
+        if (cfg.fix and cfg.input != null) {
+            const lint_results = try lint_mod.lintSchema(alloc, result.resolved, .{});
+            if (lint_results.items.len > 0) {
+                const fixed = try lint_mod.lintFix(alloc, file_data, lint_results.items);
+                if (cfg.input) |input_path| {
+                    std.Io.Dir.cwd().writeFile(io, .{
+                        .sub_path = input_path,
+                        .data = fixed.source,
+                    }) catch return error.AccessDenied;
+                }
+                for (fixed.fixes) |fix| {
+                    std.debug.print("fixed: [{s}] {s} — {s}\n", .{ fix.rule, fix.table, fix.description });
+                }
+                if (!cfg.json_errors and cfg.format != .json and cfg.format != .sarif) {
+                    std.debug.print("Applied {d} fix(es)\n", .{fixed.fixes.len});
+                }
+            } else {
+                if (!cfg.json_errors and cfg.format != .json and cfg.format != .sarif) {
+                    fmt.printOk("schema is valid (no fixes needed)");
+                }
+            }
+        } else {
+            fmt.printOk("schema is valid");
+        }
     }
 }
 
