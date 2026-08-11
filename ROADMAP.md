@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.245.0 (2026-08-11) — 61,000+ lines production Zig, 1,780+ tests, 42 lint rules, 38 test suites.
+**Current version**: 0.246.0 (2026-08-11) — 61,000+ lines production Zig, 1,785+ tests, 42 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.246.0** — Test coverage & format UX: added 5 unit tests for `lsp/go_to_definition.zig` (FK reference navigation, FK column navigation, non-FK column null, table name line null, same-table FK navigation); improved `rune format --check` with "formatting needed" message; improved `rune format --diff` with "N line(s) would change" summary; 1,785 unit tests pass, benchmarks show no regressions
 - **v0.245.0** — LSP test coverage & code quality: extracted shared `wordAtPosition` helper in `lsp/helpers.zig` to eliminate duplicated word-finding logic between `prepareRename` and `getRenameLinks` in `lsp/rename.zig`; fixed `isTableDeclaration` and `isFkReference` functions in `lsp/rename.zig` to support Rune syntax (`#` prefix for tables, `->` for FK references); fixed `getRenameLinks` memory management (now uses `toOwnedSlice` to transfer ownership); added 3 new tests for `lsp/rename.zig` (prepareRename positive cases, FK reference updates); added 2 new tests for `lsp/references.zig` (multiple FK references, table references with FKs); registered 4 new test files in `tests.zig` (lsp/highlights_test.zig, lsp/references_test.zig, lsp/rename_test.zig, pipeline/migrate_test.zig); 1,780 unit tests pass, benchmarks show no regressions
 - **v0.244.0** — Architecture quality & lint expansion: added `fk-duplicate` lint rule (warns when a table has multiple foreign keys referencing the same target table — potential junction table pattern); extracted generate command dispatch from main.zig into `handleGenerate()` in pipeline/handlers.zig (handles --list, --check, and generation modes uniformly); fixed `catch unreachable` in export.zig test helper (now uses proper error propagation with `try`); added `list` and `check` fields to `GenerateConfig` struct; 1,780+ unit tests pass, benchmarks show no regressions
 - **v0.243.0** — CI optimization & RFC process: restructured CI pipeline (reduced sequential steps from 21 to 12 by combining related test suites); established RFC process for formal language change proposals (rfcs/ directory with template and inaugural RFC-0001); fixed ROADMAP summary table counting inconsistencies (was 109/117, corrected to 113/119); 1,770+ unit tests pass, benchmarks show no regressions

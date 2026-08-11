@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.246.0] - 2026-08-11
+
+### Added
+- **`go_to_definition` tests** — Added 5 unit tests for LSP go-to-definition: FK reference navigation, FK column navigation, non-FK column returns null, table name line returns null, FK in same table navigation.
+- **Format check UX** — `rune format --check` now prints "formatting needed" message when file requires formatting. `rune format --diff` now shows "N line(s) would change" summary after displaying differences.
+
+### Changed
+- **Test count** — 108 colocated test files, 1,785+ unit tests (up from 107 / 1,780+).
+- **Documentation** — Updated CLAUDE.md and README.md with current test metrics.
+
 ## [0.229.0] - 2026-08-11
 
 ### Added

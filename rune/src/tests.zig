@@ -157,6 +157,8 @@ comptime {
     _ = @import("lsp/protocol_test.zig");
     _ = @import("lsp/server.zig");
     _ = @import("lsp/hover.zig");
+    _ = @import("lsp/go_to_definition.zig");
+    _ = @import("lsp/go_to_definition_test.zig");
     _ = @import("lsp/completions.zig");
     _ = @import("lsp/document_symbols.zig");
     _ = @import("lsp/code_actions.zig");

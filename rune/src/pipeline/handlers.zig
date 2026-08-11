@@ -439,6 +439,9 @@ pub fn handleFormat(
     const formatted = try formatter.format(alloc, file_data);
     if (cfg.check) {
         if (!std.mem.eql(u8, formatted, file_data)) {
+            if (!cfg.quiet) {
+                fmt.printWarn("formatting needed");
+            }
             return error.FormatCheckFailed;
         }
         return;
@@ -448,7 +451,7 @@ pub fn handleFormat(
         var original_lines = std.mem.splitScalar(u8, file_data, '\n');
         var formatted_lines = std.mem.splitScalar(u8, formatted, '\n');
         var line_no: usize = 1;
-        var has_diff = false;
+        var changed: usize = 0;
         while (true) {
             const orig = original_lines.next();
             const fmt_line = formatted_lines.next();
@@ -456,7 +459,7 @@ pub fn handleFormat(
             const o = orig orelse "";
             const f = fmt_line orelse "";
             if (!std.mem.eql(u8, o, f)) {
-                has_diff = true;
+                changed += 1;
                 if (!cfg.quiet) {
                     try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "- {d}: {s}\n", .{ line_no, o }), null, true);
                     try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "+ {d}: {s}\n", .{ line_no, f }), null, true);
@@ -464,7 +467,10 @@ pub fn handleFormat(
             }
             line_no += 1;
         }
-        if (has_diff) {
+        if (changed > 0) {
+            if (!cfg.quiet) {
+                try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "\n{d} line(s) would change\n", .{changed}), null, true);
+            }
             return error.FormatCheckFailed;
         }
         return;
