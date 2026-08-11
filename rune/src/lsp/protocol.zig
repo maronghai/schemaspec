@@ -377,6 +377,26 @@ pub const ParameterInformation = struct {
 
 // ─── Response Writers ──────────────────────────────────────────
 
+/// Write a Diagnostic as inline JSON (range + severity + source + message).
+/// Used by writePublishDiagnostics and writeCodeAction to avoid duplication.
+pub fn writeDiagnosticAsJson(w: anytype, diag: Diagnostic) !void {
+    try w.writeAll("{\"range\":{\"start\":{\"line\":");
+    try w.print("{d}", .{diag.range.start.line});
+    try w.writeAll(",\"character\":");
+    try w.print("{d}", .{diag.range.start.character});
+    try w.writeAll("},\"end\":{\"line\":");
+    try w.print("{d}", .{diag.range.end.line});
+    try w.writeAll(",\"character\":");
+    try w.print("{d}", .{diag.range.end.character});
+    try w.writeAll("}},\"severity\":");
+    try w.print("{d}", .{@intFromEnum(diag.severity)});
+    try w.writeAll(",\"source\":");
+    try json_utils.writeJsonString(w, diag.source);
+    try w.writeAll(",\"message\":");
+    try json_utils.writeJsonString(w, diag.message);
+    try w.writeAll("}");
+}
+
 /// Write a JSON-RPC success response.
 pub fn writeResponse(w: anytype, id: i64, result: anytype) !void {
     try w.writeAll("{\"jsonrpc\":\"2.0\",\"id\":");
@@ -488,21 +508,7 @@ pub fn writePublishDiagnostics(w: anytype, params: PublishDiagnosticsParams) !vo
     try w.writeAll(",\"diagnostics\":[");
     for (params.diagnostics, 0..) |diag, i| {
         if (i > 0) try w.writeByte(',');
-        try w.writeAll("{\"range\":{\"start\":{\"line\":");
-        try w.print("{d}", .{diag.range.start.line});
-        try w.writeAll(",\"character\":");
-        try w.print("{d}", .{diag.range.start.character});
-        try w.writeAll("},\"end\":{\"line\":");
-        try w.print("{d}", .{diag.range.end.line});
-        try w.writeAll(",\"character\":");
-        try w.print("{d}", .{diag.range.end.character});
-        try w.writeAll("}},\"severity\":");
-        try w.print("{d}", .{@intFromEnum(diag.severity)});
-        try w.writeAll(",\"source\":");
-        try json_utils.writeJsonString(w, diag.source);
-        try w.writeAll(",\"message\":");
-        try json_utils.writeJsonString(w, diag.message);
-        try w.writeAll("}");
+        try writeDiagnosticAsJson(w, diag);
     }
     try w.writeAll("]}");
 }
@@ -661,21 +667,7 @@ pub fn writeCodeAction(w: anytype, action: CodeAction, doc_uri: []const u8) !voi
         try w.writeAll(",\"diagnostics\":[");
         for (diags, 0..) |diag, i| {
             if (i > 0) try w.writeByte(',');
-            try w.writeAll("{\"range\":{\"start\":{\"line\":");
-            try w.print("{d}", .{diag.range.start.line});
-            try w.writeAll(",\"character\":");
-            try w.print("{d}", .{diag.range.start.character});
-            try w.writeAll("},\"end\":{\"line\":");
-            try w.print("{d}", .{diag.range.end.line});
-            try w.writeAll(",\"character\":");
-            try w.print("{d}", .{diag.range.end.character});
-            try w.writeAll("}},\"severity\":");
-            try w.print("{d}", .{@intFromEnum(diag.severity)});
-            try w.writeAll(",\"source\":");
-            try json_utils.writeJsonString(w, diag.source);
-            try w.writeAll(",\"message\":");
-            try json_utils.writeJsonString(w, diag.message);
-            try w.writeAll("}");
+            try writeDiagnosticAsJson(w, diag);
         }
         try w.writeByte(']');
     }
