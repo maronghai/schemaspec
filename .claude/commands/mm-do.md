@@ -30,3 +30,8 @@ allowed-tools: Bash(git *), Bash(ls *), Read, Glob, Bash(rg *)
 - zig build bench
 - zig build bench -- --check
 
+## 本地部署
+
+- zig build --release=small --prefix-exe-dir upx
+- upx -9 --lzma zig-out/upx/rune"
+- cp zig-out/upx/rune /mnt/d/zbin/rune

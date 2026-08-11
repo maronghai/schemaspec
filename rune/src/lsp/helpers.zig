@@ -38,6 +38,43 @@ pub fn lineLength(text: []const u8, target_line: u32) u32 {
     return @intCast(getLineText(text, target_line).len);
 }
 
+/// Extract the word under the cursor at the given position.
+/// Returns the word if found, null otherwise.
+/// Shared by rename.zig's prepareRename and getRenameLinks.
+pub fn wordAtPosition(doc_text: []const u8, line: u32, character: u32) ?[]const u8 {
+    var line_start: usize = 0;
+    var current_line: u32 = 0;
+    for (doc_text, 0..) |c, i| {
+        if (c == '\n' or i == doc_text.len - 1) {
+            if (current_line == line) {
+                const line_text = if (c == '\n') doc_text[line_start..i] else doc_text[line_start .. i + 1];
+                if (character > line_text.len) return null;
+                // Find word boundaries by scanning backwards and forwards from cursor
+                var word_end = character;
+                while (word_end < line_text.len) : (word_end += 1) {
+                    const wc = line_text[word_end];
+                    if (std.ascii.isAlphanumeric(wc) or wc == '_') continue;
+                    break;
+                }
+                var word_start = character;
+                while (word_start > 0) : (word_start -= 1) {
+                    const wc = line_text[word_start - 1];
+                    if (std.ascii.isAlphanumeric(wc) or wc == '_') continue;
+                    break;
+                }
+                const word = line_text[word_start..word_end];
+                if (word.len == 0) return null;
+                return word;
+            }
+            if (c == '\n') {
+                line_start = i + 1;
+                current_line += 1;
+            }
+        }
+    }
+    return null;
+}
+
 /// Find the precise character range of `name` on the given 0-indexed line in doc_text.
 /// Returns the Range if found as a whole word, null otherwise.
 /// Shared by highlights.zig and references.zig to avoid duplication.

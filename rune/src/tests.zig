@@ -105,6 +105,7 @@ comptime {
     _ = @import("pipeline/stats_test.zig");
     _ = @import("pipeline/reverse_test.zig");
     _ = @import("pipeline/export.zig");
+    _ = @import("pipeline/migrate_test.zig");
     // ── reverse ──────────────────────────────────────────────────
     _ = @import("reverse/map_test.zig");
     _ = @import("reverse/column_test.zig");
@@ -177,6 +178,10 @@ comptime {
     _ = @import("lsp/handlers_test.zig");
     _ = @import("lsp/handlers.zig");
     _ = @import("lsp/code_lens.zig");
+    _ = @import("lsp/rename.zig");
+    _ = @import("lsp/rename_test.zig");
+    _ = @import("lsp/references_test.zig");
+    _ = @import("lsp/highlights_test.zig");
     // ── wasm ──────────────────────────────────────────────────────
     _ = @import("wasm.zig");
     _ = @import("wasm_test.zig");
