@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.242.0 (2026-08-11) — 61,000+ lines production Zig, 1,770+ tests, 41 lint rules, 38 test suites.
+**Current version**: 0.243.0 (2026-08-11) — 61,000+ lines production Zig, 1,770+ tests, 41 lint rules, 38 test suites.
 
 ---
 
@@ -54,7 +54,7 @@ LSP server with JSON-RPC 2.0, document sync, real-time diagnostics, completion, 
 
 ## Phase 6: Ecosystem & Community 🔲
 
-Build the community and ecosystem around Rune. **In progress — 3/8 items done.**
+Build the community and ecosystem around Rune. **In progress — 7/11 items done.**
 
 ### Distribution
 
@@ -72,7 +72,7 @@ Build the community and ecosystem around Rune. **In progress — 3/8 items done.
 
 ### Community
 
-- [ ] RFC process — formal proposal mechanism for language changes
+- [x] RFC process — formal proposal mechanism for language changes (v0.243.0)
 - [ ] Schema registry — shared template library
 - [ ] Playground sharing — share `.ss` snippets via URL
 
@@ -80,7 +80,7 @@ Build the community and ecosystem around Rune. **In progress — 3/8 items done.
 
 ## Phase 7: Editor Extensions 🔲
 
-Extend the LSP foundation into full editor experiences. **In progress — 9/10 items done.**
+Extend the LSP foundation into full editor experiences. **In progress — 10/13 items done.**
 
 ### VS Code Extension
 
@@ -108,7 +108,7 @@ Extend the LSP foundation into full editor experiences. **In progress — 9/10 i
 
 ## Phase 8: Language Evolution 🔲
 
-Extend the `.ss` language and pipeline for new use cases. **In progress — 3/10 items done.**
+Extend the `.ss` language and pipeline for new use cases. **In progress — 3/9 items done.**
 
 ### Generator Plugin System
 
@@ -199,12 +199,12 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| 6: Ecosystem & Community | 🔲 In Progress | 3/8 | 5 |
-| 7: Editor Extensions | 🔲 In Progress | 9/10 | 1 |
-| 8: Language Evolution | 🔲 In Progress | 4/10 | 6 |
+| 6: Ecosystem & Community | 🔲 In Progress | 7/11 | 4 |
+| 7: Editor Extensions | 🔲 In Progress | 10/13 | 3 |
+| 8: Language Evolution | 🔲 In Progress | 3/9 | 6 |
 | Architecture Targets | 🔲 In Progress | 19/22 | 3 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
-| **Total** | | **109/117** | **8** |
+| **Total** | | **113/119** | **6** |
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.243.0** — CI optimization & RFC process: restructured CI pipeline (reduced sequential steps from 21 to 12 by combining related test suites); established RFC process for formal language change proposals (rfcs/ directory with template and inaugural RFC-0001); fixed ROADMAP summary table counting inconsistencies (was 109/117, corrected to 113/119); 1,770+ unit tests pass, benchmarks show no regressions
 - **v0.242.0** — Architecture quality & deduplication: replaced hardcoded 41-entry SARIF rule list in lint/format.zig with data-driven approach using RULE_INFO from rules.zig (single source of truth); added `lintLevel()` method to LintRule enum for SARIF severity mapping; fixed misleading `count` lint rule description (was "Table has more than 50 columns", now correctly "Table has fewer than minimum field count"); deduplicated WASM tests (removed 17 overlapping tests from wasm.zig, consolidated into wasm_test.zig); completed tests.zig index with 5 previously unlisted files (version.zig, lsp/handlers.zig, pipeline/export.zig, diagnostic/format.zig, cli/flag_registry.zig); 1,770+ unit tests pass, benchmarks show no regressions
 - **v0.241.0** — LSP Code Lens & WASM completeness: added `textDocument/codeLens` LSP support with inline action triggers (Validate, Generate SQL, Lint) on file-level and per-table definitions; added `rune_export` WASM export for schema export as JSON/text/markdown; added `rune_docs` WASM export for Markdown documentation generation; added `codeLensProvider` capability to LSP server; added 4 unit tests for code lens generation; 1,767+ unit tests pass, benchmarks show no regressions
 - **v0.240.0** — Architecture cleanup & I/O consistency: standardized all handler output to use `io_mod.writeOutput` instead of raw `std.debug.print` (handleFormat diff mode, generateFromSchemaBatch status messages, main.zig generator health check); added `FormatConfig`, `ExportConfig`, `StatsConfig` structs to replace positional parameters (consistent with `CompileConfig`, `ValidateConfig`, `GenerateConfig` patterns); updated documentation with accurate test file counts (103 colocated test files); 1,757 unit tests pass, benchmarks show no regressions

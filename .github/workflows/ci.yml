@@ -26,68 +26,38 @@ jobs:
       - name: Unit tests
         run: cd rune && zig build test
 
-      - name: MySQL golden tests
+      - name: Golden tests (MySQL)
         run: bash tests/test.sh
 
-      - name: PostgreSQL golden tests
+      - name: Golden tests (PostgreSQL)
         run: bash tests/test_postgres.sh
 
-      - name: SQLite golden tests
+      - name: Golden tests (SQLite)
         run: bash tests/test_sqlite.sh
 
-      - name: MSSQL golden tests
+      - name: Golden tests (MSSQL)
         run: bash tests/test_mssql.sh
 
-      - name: Oracle golden tests
+      - name: Golden tests (Oracle)
         run: bash tests/test_oracle.sh
 
-      - name: Db2 golden tests
+      - name: Golden tests (Db2)
         run: bash tests/test_db2.sh
 
       - name: Migration tests
-        run: bash tests/test_migrate.sh
-
-      - name: Migration status tests
-        run: bash tests/test_migrate_status.sh
+        run: bash tests/test_migrate.sh && bash tests/test_migrate_status.sh
 
       - name: Reverse engineering tests
-        run: bash tests/test_reverse.sh
+        run: bash tests/test_reverse.sh && bash tests/test_reverse_oracle.sh && bash tests/test_reverse_db2.sh
 
-      - name: Reverse Oracle tests
-        run: bash tests/test_reverse_oracle.sh
+      - name: Diff & recovery tests
+        run: bash tests/test_diff.sh && bash tests/test_error_recovery.sh
 
-      - name: Reverse Db2 tests
-        run: bash tests/test_reverse_db2.sh
+      - name: Schema tests
+        run: bash tests/test_json_schema.sh && bash tests/test_roundtrip.sh
 
-      - name: Diff tests
-        run: bash tests/test_diff.sh
-
-      - name: Error recovery tests
-        run: bash tests/test_error_recovery.sh
-
-      - name: JSON Schema tests
-        run: bash tests/test_json_schema.sh
-
-      - name: Roundtrip tests
-        run: bash tests/test_roundtrip.sh
-
-      - name: Import tests
-        run: bash tests/test_imports.sh
-
-      - name: Stdin tests
-        run: bash tests/test_stdin.sh
-
-      - name: Init tests
-        run: bash tests/test_init.sh
-
-      - name: Color tests
-        run: bash tests/test_color.sh
-
-      - name: Validate tests
-        run: bash tests/test_validate.sh
-
-      - name: Stats JSON tests
-        run: bash tests/test_stats_json.sh
+      - name: Pipeline tests
+        run: bash tests/test_imports.sh && bash tests/test_stdin.sh && bash tests/test_init.sh && bash tests/test_color.sh && bash tests/test_validate.sh && bash tests/test_stats_json.sh
 
   test-windows:
     runs-on: windows-latest
