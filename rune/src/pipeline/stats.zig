@@ -144,6 +144,7 @@ pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
                 .other => other += 1,
             }
             if (field.check != null) check_count += 1;
+            if (field.fk != null) fk_count += 1;
         }
         fk_count += table.fks.len;
         idx_count += table.indexes.len;

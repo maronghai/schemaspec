@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.255.0 (2026-08-11) — 64,000+ lines production Zig, 1,820+ tests, 46 lint rules, 38 test suites.
+**Current version**: 0.256.0 (2026-08-11) — 64,000+ lines production Zig, 1,820+ tests, 46 lint rules, 38 test suites.
 
 ---
 
@@ -80,7 +80,7 @@ Build the community and ecosystem around Rune. **In progress — 7/11 items done
 
 ## Phase 7: Editor Extensions 🔲
 
-Extend the LSP foundation into full editor experiences. **In progress — 10/13 items done.**
+Extend the LSP foundation into full editor experiences. **In progress — 11/13 items done.**
 
 ### VS Code Extension
 
@@ -96,7 +96,7 @@ Extend the LSP foundation into full editor experiences. **In progress — 10/13 
 ### Neovim Plugin
 
 - [x] LSP-based setup — `lspconfig` integration (v0.191.0)
-- [ ] Treesitter grammar — `.ss` file highlighting
+- [x] Treesitter grammar — `.ss` file highlighting (v0.256.0)
 - [x] Keybindings — `gd` (go-to-def), `K` (hover), `<leader>rn` (generate) (v0.191.0)
 
 ### JetBrains IDE Plugin
@@ -163,7 +163,7 @@ Ongoing improvements pursued alongside feature work.
 - [x] Cross-compile to WASM — enable browser and Deno usage (v0.143.0)
 - [x] Windows native builds — test and document MSVC/MinGW paths (v0.143.0)
 - [x] ARM64 CI — test on Apple Silicon and ARM Linux (v0.143.0)
-- [ ] FreeBSD CI — test on FreeBSD for server deployments
+- [x] FreeBSD CI — test on FreeBSD for server deployments (v0.256.0)
 - [ ] CI pipeline optimization — reduce test suite runtime below 5 minutes
 
 ---
@@ -199,12 +199,12 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| 6: Ecosystem & Community | 🔲 In Progress | 7/11 | 4 |
-| 7: Editor Extensions | 🔲 In Progress | 10/13 | 3 |
+| Phase 6: Ecosystem & Community | 🔲 In Progress | 7/11 | 4 |
+| 7: Editor Extensions | 🔲 In Progress | 11/13 | 2 |
 | 8: Language Evolution | 🔲 In Progress | 3/9 | 6 |
-| Architecture Targets | 🔲 In Progress | 19/22 | 3 |
+| Architecture Targets | 🔲 In Progress | 20/22 | 2 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
-| **Total** | | **113/129** | **16** |
+| **Total** | | **115/129** | **14** |
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.256.0** — Treesitter grammar & CI expansion: added Treesitter grammar for `.ss` files (syntax highlighting for Neovim, Helix, Zed); grammar covers all syntax elements (schema, type, template, table, view, field, FK, index, composite PK, conditional blocks, version, import, doc directives); created highlights.scm, folds.scm, injections.scm query files; registered unregistered `pipeline/validation_test.zig` in tests.zig; added FreeBSD CI cross-compilation (x86_64 and aarch64 targets) to CI pipeline; 1,820+ unit tests pass, benchmarks show no regressions
 - **v0.255.0** — LSP code actions & lint UX: expanded LSP code actions with 9 quick fixes (add PK, add comment, snake_case rename, add timestamps, bool default, nullable default, serial replacement, duplicate index removal, FK index); fixed `findLineEnd` hardcoded value (removed dead function, callers now use `diag.range.end.character`); fixed memory safety in `freeCodeActions` (all `new_text` values now heap-allocated via `alloc.dupe` for uniform freeing); added `--summary` flag to `rune lint` (shows "N warning(s), M error(s)" for CI scripts); added `formatLintSummary` function for consistent summary formatting; 7 new lint format tests (JSON, SARIF, text, summary output); 1,820+ unit tests pass, benchmarks show no regressions
 - **v0.254.0** — Lint optimization & rule expansion: optimized `lintDiff` algorithm from O(n*m) to O(n) using StringHashMap for deduplication; added `index-columns-max` lint rule (warns when indexes have more than N columns, configurable threshold default 5); added `index_columns_max` field to LintConfig; updated lint rule count from 45 to 46; 1,820+ unit tests pass, benchmarks show no regressions
 - **v0.253.0** — Architecture quality & dependency cleanup: fixed VERSION file inconsistency (was 0.251.0, should have been 0.252.0); cleaned up dead pub functions across 6 modules (io.zig: mmapFile, config.zig: parseConfig/warnUnknownKeys, handlers.zig: generateFromSchema/generateFromSchemaBatch/compileToTypedAst, semantic/analyzer.zig: initVerbose, semantic/diagnostic.zig: printDiagnosticColor, types/ir_version.zig: validateIrVersion, version.zig: formatAlloc/writeMajorMinor — all changed from pub to non-pub for correct visibility); fixed Dialect import path consistency across 4 pipeline modules (diff.zig, migrate.zig, handlers.zig, forward.zig, reverse.zig now import Dialect from dialect/enum.zig instead of codegen.zig); 1,820+ unit tests pass, benchmarks show no regressions

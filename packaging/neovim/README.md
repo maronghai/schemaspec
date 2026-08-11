@@ -5,6 +5,7 @@ LSP-powered schema language support for `.ss` files in Neovim.
 ## Features
 
 - **LSP Integration** — Real-time diagnostics, completion, hover, go-to-definition, rename
+- **Treesitter Syntax Highlighting** — Full `.ss` syntax highlighting via Treesitter
 - **Keybindings** — Standard LSP keybindings (`gd`, `K`, `<leader>rn`, etc.)
 - **Commands** — `RuneGenerate`, `RuneValidate`, `RuneLint`
 - **Zero Dependencies** — Uses Neovim's built-in LSP client (no lspconfig required)
@@ -93,3 +94,21 @@ require("rune").setup({
 
 - Neovim 0.9+ (for built-in LSP)
 - `rune` binary in PATH (see [installation](https://github.com/rune-lang/rune#installation))
+
+## Treesitter (Optional)
+
+For syntax highlighting, install the Treesitter grammar:
+
+```lua
+-- Using nvim-treesitter
+require("nvim-treesitter.install").define_grammar("rune", {
+  install_info = {
+    url = "https://github.com/rune-lang/tree-sitter-rune",
+    branch = "main",
+    files = { "src/parser.c", "src/scanner.c" },
+  },
+  filetype = "ss",
+})
+```
+
+Or see `packaging/treesitter/rune/README.md` for manual installation.

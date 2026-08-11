@@ -9,8 +9,8 @@ const stats_mod = @import("stats.zig");
 const StatsFormat = @import("../types/enums.zig").StatsFormat;
 const fmt = @import("../diagnostic/format.zig");
 const lint_mod = @import("../lint.zig");
-const formatValidateResult = @import("export.zig").formatValidateResult;
-const formatValidateSarif = @import("export.zig").formatValidateSarif;
+pub const formatValidateResult = @import("export.zig").formatValidateResult;
+pub const formatValidateSarif = @import("export.zig").formatValidateSarif;
 
 // ─── Validation Handlers ─────────────────────────────────────
 // Handles `rune validate` and `rune check` CLI commands.

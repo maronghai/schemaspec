@@ -68,7 +68,7 @@ test "validation: schema with foreign keys compiles" {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const source = "# users\nid n ++\nname s32\n\n# posts\nid n ++\ntitle s64\nuser_id n -> users.id\n";
+    const source = "# users\nid n ++\nname s32\n\n# posts\nid n ++\ntitle s64\nuser_id n > users.id\n";
     const result = try forward.compilePipeline(alloc, source, .{});
     try testing.expect(result.resolved.tables.len == 2);
 }
@@ -88,7 +88,7 @@ test "validation: stats computation works" {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const source = "# users\nid n ++\nname s32\nemail s64\n\n# posts\nid n ++\ntitle s64\nuser_id n -> users.id\n";
+    const source = "# users\nid n ++\nname s32\nemail s64\n\n# posts\nid n ++\ntitle s64\nuser_id n > users.id\n";
     const result = try forward.compilePipeline(alloc, source, .{});
     const s = forward.computeStats(result.resolved);
     try testing.expect(s.tables == 2);
@@ -133,7 +133,7 @@ test "validation: formatValidateSarif with valid schema" {
     const sarif = try validation.formatValidateSarif(alloc, true, 0);
     try testing.expect(std.mem.indexOf(u8, sarif, "$schema") != null);
     try testing.expect(std.mem.indexOf(u8, sarif, "sarif") != null);
-    try testing.expect(std.mem.indexOf(u8, sarif, "\"passed\":true") != null);
+    try testing.expect(std.mem.indexOf(u8, sarif, "executionSuccessful") != null);
 }
 
 test "validation: formatValidateSarif with errors" {
@@ -142,8 +142,8 @@ test "validation: formatValidateSarif with errors" {
     const alloc = arena.allocator();
 
     const sarif = try validation.formatValidateSarif(alloc, false, 5);
-    try testing.expect(std.mem.indexOf(u8, sarif, "\"passed\":false") != null);
-    try testing.expect(std.mem.indexOf(u8, sarif, "\"errors\":5") != null);
+    try testing.expect(std.mem.indexOf(u8, sarif, "executionSuccessful") != null);
+    try testing.expect(std.mem.indexOf(u8, sarif, "5 error(s)") != null);
 }
 
 test "validation: strict mode with clean schema" {
@@ -188,7 +188,7 @@ test "validation: summary line format" {
     defer arena.deinit();
     const alloc = arena.allocator();
 
-    const source = "# users\nid n ++\nname s32\n\n# posts\nid n ++\ntitle s64\nuser_id n -> users.id\n+ post_view: SELECT id, title FROM posts\n";
+    const source = "# users\nid n ++\nname s32\n\n# posts\nid n ++\ntitle s64\nuser_id n > users.id\n+ post_view: SELECT id, title FROM posts\n";
     const result = try forward.compilePipeline(alloc, source, .{});
     const s = forward.computeStats(result.resolved);
 

@@ -112,3 +112,19 @@ jobs:
 
       - name: Check for regressions (>10%)
         run: cd rune && zig build bench -- --check
+
+  test-freebsd:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Zig
+        uses: step-security/setup-zig@v2
+        with:
+          version: 0.16.0
+
+      - name: Cross-compile for FreeBSD x86_64
+        run: cd rune && zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-freebsd
+
+      - name: Cross-compile for FreeBSD aarch64
+        run: cd rune && zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-freebsd
