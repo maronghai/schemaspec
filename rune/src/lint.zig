@@ -35,4 +35,5 @@ pub const applyLintRules = config.applyLintRules;
 pub const formatLintResults = fmt.formatText;
 pub const formatLintJson = fmt.formatJson;
 pub const formatLintSarif = fmt.formatSarif;
+pub const formatLintSummary = fmt.formatSummary;
 pub const lintFix = fix_mod.fix;

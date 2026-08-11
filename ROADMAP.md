@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.254.0 (2026-08-11) — 64,000+ lines production Zig, 1,820+ tests, 46 lint rules, 38 test suites.
+**Current version**: 0.255.0 (2026-08-11) — 64,000+ lines production Zig, 1,820+ tests, 46 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.255.0** — LSP code actions & lint UX: expanded LSP code actions with 9 quick fixes (add PK, add comment, snake_case rename, add timestamps, bool default, nullable default, serial replacement, duplicate index removal, FK index); fixed `findLineEnd` hardcoded value (removed dead function, callers now use `diag.range.end.character`); fixed memory safety in `freeCodeActions` (all `new_text` values now heap-allocated via `alloc.dupe` for uniform freeing); added `--summary` flag to `rune lint` (shows "N warning(s), M error(s)" for CI scripts); added `formatLintSummary` function for consistent summary formatting; 7 new lint format tests (JSON, SARIF, text, summary output); 1,820+ unit tests pass, benchmarks show no regressions
 - **v0.254.0** — Lint optimization & rule expansion: optimized `lintDiff` algorithm from O(n*m) to O(n) using StringHashMap for deduplication; added `index-columns-max` lint rule (warns when indexes have more than N columns, configurable threshold default 5); added `index_columns_max` field to LintConfig; updated lint rule count from 45 to 46; 1,820+ unit tests pass, benchmarks show no regressions
 - **v0.253.0** — Architecture quality & dependency cleanup: fixed VERSION file inconsistency (was 0.251.0, should have been 0.252.0); cleaned up dead pub functions across 6 modules (io.zig: mmapFile, config.zig: parseConfig/warnUnknownKeys, handlers.zig: generateFromSchema/generateFromSchemaBatch/compileToTypedAst, semantic/analyzer.zig: initVerbose, semantic/diagnostic.zig: printDiagnosticColor, types/ir_version.zig: validateIrVersion, version.zig: formatAlloc/writeMajorMinor — all changed from pub to non-pub for correct visibility); fixed Dialect import path consistency across 4 pipeline modules (diff.zig, migrate.zig, handlers.zig, forward.zig, reverse.zig now import Dialect from dialect/enum.zig instead of codegen.zig); 1,820+ unit tests pass, benchmarks show no regressions
 - **v0.252.0** — Lint rules expansion & quality: added 3 new lint rules (`reserved-word` warns when table/column names use SQL reserved words, `column-type-portability` warns about non-portable type choices like MySQL-specific TINYINT/MEDIUMTEXT, `index-missing-fk-columns` warns when tables have FKs but no index on FK columns — 12 fixable rules total); added auto-fix support for `index-missing-fk-columns` rule; added new portability handler module (`lint/handlers/portability.zig`); added 8 new unit tests for new lint rules and format output; 1,820+ unit tests pass, benchmarks show no regressions

@@ -148,3 +148,30 @@ test "lint: SARIF contains version" {
     const sarif = try lint_mod.formatLintSarif(alloc, results.items, "0.252.0", "test.ss");
     try testing.expect(std.mem.indexOf(u8, sarif, "0.252.0") != null);
 }
+
+// ─── Summary Output Tests ────────────────────────────────────
+
+test "lint: summary output with warnings" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "logs", &.{
+        makeField("msg", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    const summary = try lint_mod.formatLintSummary(alloc, results.items);
+    try testing.expect(std.mem.indexOf(u8, summary, "warning(s)") != null);
+    try testing.expect(results.items.len > 0);
+}
+
+test "lint: summary output empty results" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const summary = try lint_mod.formatLintSummary(alloc, &.{});
+    try testing.expect(std.mem.indexOf(u8, summary, "0 warning(s)") != null);
+    try testing.expect(std.mem.indexOf(u8, summary, "0 info(s)") != null);
+}

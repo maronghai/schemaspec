@@ -24,6 +24,7 @@ pub const LintCmd = struct {
     show_rules: bool = false,
     init_config: bool = false,
     include_views: bool = false,
+    summary: bool = false,
 };
 
 /// Format and output lint results in the requested format (sarif/json/text).
@@ -89,6 +90,25 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
 
     // When --fix is active, skip normal output (fix summary goes to stderr)
     if (!cmd.fix) {
+        // --summary: output only the summary line
+        if (cmd.summary) {
+            if (cmd.input2) |input2_path| {
+                const file_data2 = try io_mod.readFileOrStdin(io, alloc, input2_path);
+                const pipeline2 = forward.compilePipeline(alloc, file_data2, .{
+                    .io = io,
+                    .dialect = parsed.dialect,
+                    .json_errors = false,
+                }) catch return error.DiagnosticsError;
+                const results2 = try lint_mod.lintSchema(alloc, pipeline2.resolved, lint_cfg);
+                const diff = try lint_mod.lintDiff(results.items, results2.items, alloc);
+                const summary = try lint_mod.formatLintSummary(alloc, diff.added);
+                try io_mod.writeOutput(io, summary, null, parsed.quiet);
+            } else {
+                const summary = try lint_mod.formatLintSummary(alloc, results.items);
+                try io_mod.writeOutput(io, summary, null, parsed.quiet);
+            }
+            return;
+        }
         const use_color = parsed.color.shouldUseColor(io);
         // Diff-aware lint: if second file provided, compare results
         if (cmd.input2) |input2_path| {

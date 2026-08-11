@@ -18,6 +18,25 @@ fn writeJsonString(writer: anytype, str: []const u8) !void {
     }
 }
 
+/// Format lint results as a one-line summary.
+pub fn formatSummary(alloc: std.mem.Allocator, results: []const LintResult) ![]u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    defer aw.deinit();
+
+    if (results.len == 0) {
+        try aw.writer.writeAll("0 warning(s), 0 info(s)\n");
+        return try aw.toOwnedSlice();
+    }
+
+    var warnings: usize = 0;
+    var infos: usize = 0;
+    for (results) |r| {
+        if (r.severity == .warning) warnings += 1 else infos += 1;
+    }
+    try aw.writer.print("{d} warning(s), {d} info(s)\n", .{ warnings, infos });
+    return try aw.toOwnedSlice();
+}
+
 /// Format lint results as human-readable text.
 pub fn formatText(alloc: std.mem.Allocator, results: []const LintResult, use_color: bool) ![]u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);

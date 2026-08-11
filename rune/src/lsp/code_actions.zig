@@ -62,7 +62,7 @@ pub fn getCodeActions(
                         .diagnostics = &.{diag},
                         .edit = .{ .changes = &.{.{
                             .range = makeRange(table_line, name_end, table_line, name_end),
-                            .new_text = " # Add a description here",
+                            .new_text = alloc.dupe(u8, " # Add a description here") catch continue,
                         }} },
                     }) catch {};
                     break;
@@ -88,6 +88,119 @@ pub fn getCodeActions(
                     }) catch {};
                 }
             }
+        }
+
+        // Missing timestamps suggestion
+        if (std.mem.indexOf(u8, diag.message, "no timestamps") != null or
+            std.mem.indexOf(u8, diag.message, "missing created_at") != null)
+        {
+            for (ast.tables) |table| {
+                const table_line = lineNoToZeroBased(table.line_no);
+                if (table_line == diag.range.start.line) {
+                    // Find the last column line to insert after it
+                    var last_col_line: u32 = table_line;
+                    if (table.columns.len > 0) {
+                        last_col_line = lineNoToZeroBased(table.columns[table.columns.len - 1].line_no);
+                    }
+                    actions.append(alloc, .{
+                        .title = "Add created_at and updated_at timestamps",
+                        .kind = .quick_fix,
+                        .diagnostics = &.{diag},
+                        .edit = .{ .changes = &.{.{
+                            .range = makeRange(last_col_line, 0, last_col_line, 0),
+                            .new_text = alloc.dupe(u8, "  created_at t @u\n  updated_at t @u\n") catch continue,
+                        }} },
+                    }) catch {};
+                    break;
+                }
+            }
+        }
+
+        // Bool default suggestion
+        if (std.mem.indexOf(u8, diag.message, "boolean") != null and
+            std.mem.indexOf(u8, diag.message, "no default") != null)
+        {
+            for (ast.tables) |table| {
+                for (table.columns) |col| {
+                    if (col.sql_type == .boolean and col.default == null) {
+                        const col_line = lineNoToZeroBased(col.line_no);
+                        const col_name_end: u32 = @intCast(col.name.len);
+                        // Find the end of the line
+                        const line_end: u32 = diag.range.end.character;
+                        actions.append(alloc, .{
+                            .title = "Add default value (false)",
+                            .kind = .quick_fix,
+                            .diagnostics = &.{diag},
+                            .edit = .{ .changes = &.{.{
+                                .range = makeRange(col_line, col_name_end, col_line, line_end),
+                                .new_text = std.fmt.allocPrint(alloc, "{s} = false", .{col.name}) catch continue,
+                            }} },
+                        }) catch {};
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Nullable column default suggestion
+        if (std.mem.indexOf(u8, diag.message, "nullable") != null and
+            std.mem.indexOf(u8, diag.message, "no default") != null)
+        {
+            for (ast.tables) |table| {
+                for (table.columns) |col| {
+                    if (col.flags.nullable and col.default == null and !col.flags.primary_key) {
+                        const col_line = lineNoToZeroBased(col.line_no);
+                        const col_name_end: u32 = @intCast(col.name.len);
+                        const line_end: u32 = diag.range.end.character;
+                        actions.append(alloc, .{
+                            .title = "Add default value (null)",
+                            .kind = .quick_fix,
+                            .diagnostics = &.{diag},
+                            .edit = .{ .changes = &.{.{
+                                .range = makeRange(col_line, col_name_end, col_line, line_end),
+                                .new_text = std.fmt.allocPrint(alloc, "{s} = null", .{col.name}) catch continue,
+                            }} },
+                        }) catch {};
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Serial type suggestion (cross-dialect)
+        if (std.mem.indexOf(u8, diag.message, "serial") != null and
+            std.mem.indexOf(u8, diag.message, "not portable") != null)
+        {
+            for (ast.tables) |table| {
+                for (table.columns) |col| {
+                    if (col.sql_type == .serial) {
+                        const col_line = lineNoToZeroBased(col.line_no);
+                        actions.append(alloc, .{
+                            .title = "Replace serial with int auto_increment",
+                            .kind = .quick_fix,
+                            .diagnostics = &.{diag},
+                            .edit = .{ .changes = &.{.{
+                                .range = makeRange(col_line, 0, col_line, @intCast(col.name.len + 8)), // name + " serial"
+                                .new_text = std.fmt.allocPrint(alloc, "{s} n ++", .{col.name}) catch continue,
+                            }} },
+                        }) catch {};
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Duplicate index suggestion
+        if (std.mem.indexOf(u8, diag.message, "duplicate index") != null) {
+            actions.append(alloc, .{
+                .title = "Remove duplicate index",
+                .kind = .quick_fix,
+                .diagnostics = &.{diag},
+                .edit = .{ .changes = &.{.{
+                    .range = diag.range,
+                    .new_text = alloc.dupe(u8, "") catch continue,
+                }} },
+            }) catch {};
         }
     }
 
@@ -126,7 +239,7 @@ pub fn getCodeActions(
                             .kind = .quick_fix,
                             .edit = .{ .changes = &.{.{
                                 .range = makeRange(col_line, col_name_end, col_line, col_name_end),
-                                .new_text = " +",
+                                .new_text = alloc.dupe(u8, " +") catch continue,
                             }} },
                         }) catch {};
                         break;
@@ -145,7 +258,6 @@ pub fn freeCodeActions(alloc: std.mem.Allocator, actions: []CodeAction) void {
         if (action.edit) |edit| {
             if (edit.changes) |changes| {
                 for (changes) |*change| {
-                    // new_text is allocated by toOwnedSlice in getCodeActions
                     alloc.free(change.new_text);
                 }
             }
@@ -299,4 +411,95 @@ test "toSnakeCase" {
     const result3 = try toSnakeCase(std.testing.allocator, "already_snake");
     defer std.testing.allocator.free(result3);
     try std.testing.expectEqualStrings("already_snake", result3);
+}
+
+test "CodeActions: duplicate index suggestion" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const diags = [_]Diagnostic{
+        .{
+            .range = .{
+                .start = .{ .line = 2, .character = 0 },
+                .end = .{ .line = 2, .character = 20 },
+            },
+            .severity = .warning,
+            .message = "duplicate index 'idx_name' on table 'users'",
+        },
+    };
+    const actions = getCodeActions(std.testing.allocator, ast, &diags, .{
+        .start = .{ .line = 0, .character = 0 },
+        .end = .{ .line = 5, .character = 0 },
+    });
+    defer freeCodeActions(std.testing.allocator, @constCast(actions));
+    try std.testing.expect(actions.len > 0);
+    try std.testing.expectEqualStrings("Remove duplicate index", actions[0].title);
+}
+
+test "CodeActions: FK index suggestion" {
+    const ast = TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{
+            .{
+                .name = "orders",
+                .comment = null,
+                .doc = null,
+                .engine = null,
+                .columns = &.{
+                    .{
+                        .name = "id",
+                        .sql_type = .int,
+                        .flags = .{ .primary_key = true, .auto_increment = true },
+                        .default = null,
+                        .check = null,
+                        .comment = null,
+                        .enum_values = &.{},
+                        .line_no = 2,
+                    },
+                    .{
+                        .name = "user_id",
+                        .sql_type = .int,
+                        .flags = .{},
+                        .default = null,
+                        .check = null,
+                        .comment = null,
+                        .enum_values = &.{},
+                        .line_no = 3,
+                    },
+                },
+                .fks = &.{
+                    .{
+                        .fields = &.{"user_id"},
+                        .ref_table = "users",
+                        .ref_fields = &.{"id"},
+                        .actions = &.{},
+                        .line_no = 3,
+                    },
+                },
+                .indexes = &.{},
+                .line_no = 1,
+            },
+        },
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const actions = getCodeActions(std.testing.allocator, ast, &.{}, .{
+        .start = .{ .line = 0, .character = 0 },
+        .end = .{ .line = 10, .character = 0 },
+    });
+    defer freeCodeActions(std.testing.allocator, @constCast(actions));
+    // Should have FK index action
+    var found_fk_index = false;
+    for (actions) |action| {
+        if (std.mem.indexOf(u8, action.title, "FK") != null) {
+            found_fk_index = true;
+            break;
+        }
+    }
+    try std.testing.expect(found_fk_index);
 }
