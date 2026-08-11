@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.264.0 (2026-08-12) — 64,000+ lines production Zig, 1,868+ tests, 51 lint rules, 38 test suites.
+**Current version**: 0.265.0 (2026-08-12) — 64,000+ lines production Zig, 1,868+ tests, 51 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.265.0** — Documentation & packaging synchronization: synchronized version numbers across all 6 packaging manifests (homebrew 0.175.0→0.265.0, scoop 0.175.0→0.265.0, npm 0.254.0→0.265.0, vscode 0.254.0→0.265.0, build.zig.zon 0.262.0→0.265.0); fixed ARCHITECTURE.md internal contradictions (unit test count ~1,808+→~1,868+, colocated files 110→117, MySQL golden 86→85, PG golden 87→86, roundtrip 68→112, reverse confidence 4→3, total ~1,788+→~1,868+); updated rune/README.md and root README.md test file counts (110→117); 1,868 unit tests pass, benchmarks show no regressions
 - **v0.264.0** — Lint test infrastructure cleanup: extracted shared test helpers (`makeTestTable`, `makeField`, `makePkField`, `makeFkField`, `makeIndex`, `makeAst`, `findRule`, `countRule`, `findRuleWithSubstring`) from monolithic `lint/rules_test.zig` (2,719 lines, 108 tests) into `lint/test_helpers.zig`; split into 7 focused per-rule-group test files (`rules_structural_test.zig`, `rules_naming_test.zig`, `rules_validation_test.zig`, `rules_fk_test.zig`, `rules_compat_test.zig`, `rules_index_test.zig`, `rules_view_enum_test.zig`); deleted 2,719-line monolithic file; 1,868 unit tests pass, benchmarks show no regressions
 - **v0.263.0** — Architecture quality & module decomposition: extracted schema generation logic from `pipeline/handlers.zig` (452 lines) into focused `pipeline/generate.zig` module (single-responsibility for `GenerateConfig`, `handleGenerate`, `generateFromSchema`, `generateFromSchemaBatch`); added architecture health test suite (`tests/architecture_test.zig`) with 7 comptime checks for module API stability (generator registry count, semantic pass count, dialect backend count, lint rule count, public API existence); updated `tests.zig` with new test registrations; 1,860+ unit tests pass, 243 golden tests pass (MySQL, PostgreSQL, SQLite, migration, diff), benchmarks show no regressions
 - **v0.260.0** — Lint rule exhaustiveness & generator health: made `LintRule.isFixable()` and `LintRule.lintLevel()` exhaustive switches (new rules must declare fixability and severity explicitly); expanded `generator.check()` to test all 6 dialects (was MySQL-only); 1,850+ unit tests pass, benchmarks show no regressions
