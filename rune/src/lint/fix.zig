@@ -27,6 +27,7 @@ const index = @import("fix_index.zig");
 //   column-default-required    — adds "= 0" for numeric, "= ''" for string, "= false" for boolean
 //   no-index-fk                — adds "index idx_<table>_<field> <field>" after FK field
 //   duplicate-column           — removes duplicate column declarations
+//   index-missing-fk-columns   — adds "index idx_<table>_<field> <field>" for FK columns
 
 pub const LintFix = helpers.LintFix;
 
@@ -56,6 +57,17 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
     defer seen_indexes.deinit();
     var seen_columns = std.StringHashMap(void).init(alloc);
     defer seen_columns.deinit();
+    var fk_col_index_inserted = std.StringHashMap(void).init(alloc);
+    defer fk_col_index_inserted.deinit();
+
+    // Pre-scan for index-missing-fk-columns tables
+    var needs_fk_col_index = std.StringHashMap(void).init(alloc);
+    defer needs_fk_col_index.deinit();
+    for (results) |result| {
+        if (std.mem.eql(u8, result.rule, "index-missing-fk-columns")) {
+            try needs_fk_col_index.put(result.table, {});
+        }
+    }
 
     while (i < source.len) {
         const line_start = i;
@@ -134,6 +146,41 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
 
         // duplicate-column fix: track seen column names and skip duplicates
         if (try index.fixDuplicateColumn(alloc, line, current_table, &maps.needs_column_dedup, &seen_columns, &fixes)) continue;
+
+        // index-missing-fk-columns fix: add index after FK fields in tables that need them
+        if (in_table and line.len > 0 and
+            line[0] != '#' and line[0] != ';' and line[0] != '@' and line[0] != '$')
+        {
+            if (current_table) |tbl| {
+                if (needs_fk_col_index.contains(tbl) and !fk_col_index_inserted.contains(tbl)) {
+                    // Check if this line is an FK field (contains " -> ")
+                    if (std.mem.indexOf(u8, line, " -> ") != null) {
+                        const trimmed = std.mem.trim(u8, line, " \t");
+                        if (trimmed.len > 0) {
+                            var field_end: usize = 0;
+                            while (field_end < trimmed.len and trimmed[field_end] != ' ' and trimmed[field_end] != '\t') : (field_end += 1) {}
+                            const field_name = trimmed[0..field_end];
+                            try output.appendSlice(alloc, line);
+                            if (line_end < source.len) try output.append(alloc, '\n');
+                            try output.appendSlice(alloc, "index idx_");
+                            try output.appendSlice(alloc, tbl);
+                            try output.append(alloc, '_');
+                            try output.appendSlice(alloc, field_name);
+                            try output.append(alloc, ' ');
+                            try output.appendSlice(alloc, field_name);
+                            try output.append(alloc, '\n');
+                            try fixes.append(alloc, .{
+                                .rule = "index-missing-fk-columns",
+                                .table = tbl,
+                                .description = "added index for FK column",
+                            });
+                            try fk_col_index_inserted.put(tbl, {});
+                            continue;
+                        }
+                    }
+                }
+            }
+        }
 
         try output.appendSlice(alloc, line);
         if (line_end < source.len) {
@@ -377,4 +424,19 @@ test "fix: detectDefaultValue returns correct defaults" {
     try testing.expectEqualStrings(" = 0", helpers.detectDefaultValue("score e").?);
     try testing.expectEqualStrings(" = 0", helpers.detectDefaultValue("amount m").?);
     try testing.expect(helpers.detectDefaultValue("") == null);
+}
+
+test "fix: index-missing-fk-columns adds index for FK column" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const results = [_]LintResult{
+        .{ .rule = "index-missing-fk-columns", .table = "posts", .message = "FK column user_id has no index", .severity = .warning },
+    };
+    const source = "# posts\nid n ++\nuser_id n -> users.id\n";
+    const result = try fix(alloc, source, &results);
+    try testing.expect(std.mem.indexOf(u8, result.source, "index idx_posts_user_id user_id") != null);
+    try testing.expect(result.fixes.len > 0);
+    try testing.expectEqualStrings("index-missing-fk-columns", result.fixes[0].rule);
 }

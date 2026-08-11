@@ -106,3 +106,45 @@ test "lint: SARIF empty results" {
     const sarif = try lint_mod.formatLintSarif(alloc, results.items, "0.137.0", null);
     try testing.expect(std.mem.indexOf(u8, sarif, "\"results\":[]") != null);
 }
+
+// ─── Text Output Tests ───────────────────────────────────────
+
+test "lint: text output contains rule name" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "logs", &.{
+        makeField("msg", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    const text = try lint_mod.formatLintResults(alloc, results.items, false);
+    try testing.expect(std.mem.indexOf(u8, text, "no-pk") != null);
+}
+
+test "lint: JSON output contains table name" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "logs", &.{
+        makeField("msg", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    const json = try lint_mod.formatLintJson(alloc, results.items);
+    try testing.expect(std.mem.indexOf(u8, json, "logs") != null);
+}
+
+test "lint: SARIF contains version" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const results = try lintSchema(alloc, makeAst(&.{}), .{});
+    const sarif = try lint_mod.formatLintSarif(alloc, results.items, "0.252.0", "test.ss");
+    try testing.expect(std.mem.indexOf(u8, sarif, "0.252.0") != null);
+}

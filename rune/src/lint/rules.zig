@@ -18,6 +18,7 @@ const fk_rules = @import("handlers/fk.zig");
 const index_rules = @import("handlers/index.zig");
 const view_rules = @import("handlers/view.zig");
 const enum_rules = @import("handlers/enum.zig");
+const portability_rules = @import("handlers/portability.zig");
 
 /// Metadata for a lint rule — single source of truth for `--show-rules` and `--init`.
 pub const RuleInfo = struct {
@@ -104,6 +105,10 @@ const RULES = [_]RuleEntry{
     .{ .rule = .serial_type, .handler = compat.checkSerialType },
     .{ .rule = .column_length, .handler = compat.checkColumnLength },
     .{ .rule = .cross_dialect_types, .handler = compat.checkCrossDialectTypes },
+    // Portability & quality rules
+    .{ .rule = .reserved_word, .handler = portability_rules.checkReservedWord },
+    .{ .rule = .column_type_portability, .handler = portability_rules.checkColumnTypePortability },
+    .{ .rule = .index_missing_fk_columns, .handler = portability_rules.checkIndexMissingFkColumns },
 };
 
 /// Run all enabled lint checks on a resolved schema.

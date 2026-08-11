@@ -2274,3 +2274,182 @@ test "lint: single FK passes fk-duplicate" {
         }
     }
 }
+
+// ─── Reserved Word Tests ─────────────────────────────────────
+
+test "lint: reserved word table name detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "select", &.{
+        makePkField("id"),
+        makeField("name", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "reserved-word")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: reserved word column name detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("order", .{ .simple = "n" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "reserved-word") and std.mem.indexOf(u8, r.message, "column name") != null) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: non-reserved word passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("name", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "reserved-word")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Column Type Portability Tests ───────────────────────────
+
+test "lint: MySQL-specific tinyint detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("age", .{ .simple = "tinyint" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-type-portability")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: portable types pass" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try makeTestTable(alloc, "users", &.{
+        makePkField("id"),
+        makeField("name", .{ .simple = "s" }, &.{}, null),
+        makeField("age", .{ .simple = "n" }, &.{}, null),
+        makeField("active", .{ .simple = "b" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.column_default_required, false);
+    cfg.rules.setEnabled(.column_length, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-type-portability")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── Index Missing FK Columns Tests ──────────────────────────
+
+test "lint: FK without index detected by index-missing-fk-columns" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Create a table with FK declaration but no index
+    const table = try makeTestTableWithFkDecls(alloc, "posts", &.{
+        makePkField("id"),
+        makeField("user_id", .{ .simple = "n" }, &.{}, null),
+    }, &.{
+        .{
+            .fields = &.{"user_id"},
+            .ref_table = "users",
+            .ref_fields = &.{"id"},
+            .actions = &.{},
+            .line_no = 1,
+        },
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    var found = false;
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-missing-fk-columns")) {
+            found = true;
+            break;
+        }
+    }
+    try testing.expect(found);
+}
+
+test "lint: FK with index passes index-missing-fk-columns" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Create a table with FK declaration AND an index on the FK column
+    const table = try makeTestTableWithFkDecls(alloc, "posts", &.{
+        makePkField("id"),
+        makeField("user_id", .{ .simple = "n" }, &.{}, null),
+    }, &.{
+        .{
+            .fields = &.{"user_id"},
+            .ref_table = "users",
+            .ref_fields = &.{"id"},
+            .actions = &.{},
+            .line_no = 1,
+        },
+    });
+    // Add an index on user_id
+    var table_with_idx = table;
+    table_with_idx.indexes = &.{
+        makeIndex("idx_user_id", .regular, &.{"user_id"}),
+    };
+    const tables = try alloc.dupe(ResolvedTable, &.{table_with_idx});
+    const test_ast = makeAst(tables);
+    const results = try lintSchema(alloc, test_ast, .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "index-missing-fk-columns")) {
+            try testing.expect(false);
+        }
+    }
+}

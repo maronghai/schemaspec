@@ -49,6 +49,9 @@ pub const LintRule = enum {
     unique_constraint,
     composite_pk,
     fk_duplicate,
+    reserved_word,
+    column_type_portability,
+    index_missing_fk_columns,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -95,6 +98,9 @@ pub const LintRule = enum {
             .unique_constraint => "unique-constraint",
             .composite_pk => "composite-pk",
             .fk_duplicate => "fk-duplicate",
+            .reserved_word => "reserved-word",
+            .column_type_portability => "column-type-portability",
+            .index_missing_fk_columns => "index-missing-fk-columns",
         };
     }
 
@@ -121,6 +127,7 @@ pub const LintRule = enum {
             .column_default_required => true,
             .no_index_fk => true,
             .duplicate_column => true,
+            .index_missing_fk_columns => true,
             .view_select_star => false,
             .enum_value_duplicate => false,
             .column_boolean_naming => false,
@@ -174,6 +181,9 @@ pub const LintRule = enum {
             .unique_constraint => "UNIQUE constraint on column that is already the primary key",
             .composite_pk => "Multiple auto-increment primary keys in one table",
             .fk_duplicate => "Multiple foreign keys reference the same target table",
+            .reserved_word => "Table or column name uses a SQL reserved word",
+            .column_type_portability => "Column type may not be portable across dialects",
+            .index_missing_fk_columns => "Table has foreign keys but no index on FK columns",
         };
     }
 
@@ -222,6 +232,9 @@ pub const LintRule = enum {
             .unique_constraint => "note",
             .composite_pk => "warning",
             .fk_duplicate => "note",
+            .reserved_word => "warning",
+            .column_type_portability => "note",
+            .index_missing_fk_columns => "warning",
         };
     }
 };
