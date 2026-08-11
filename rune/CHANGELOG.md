@@ -4,6 +4,16 @@ All notable changes to Rune will be documented in this file.
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 
+## [0.239.0] - 2026-08-11
+
+### Added
+- **SQL keyword formatting** — The `.ss` formatter now uppercases SQL keywords (CREATE, TABLE, SELECT, PRIMARY, KEY, etc.) inside `@if`/`@endif` conditional blocks. Rune type symbols (int, text, varchar) remain lowercase to preserve compatibility with the Rune type system.
+- **WASM module tests** — 25 new unit tests for `wasm/common.zig` covering `classifyError` (all 6 error categories), `storeError`/`clearError` lifecycle, `containsSubstring`, `parseOption`, `parseDialectOption`, and `parseDiffFormatOption`.
+- **Version utilities** — Added `formatAlloc()` for allocating formatted version strings and `writeMajorMinor()` for writing "major.minor" format to a writer.
+
+### Changed
+- Test count increased from 1,715+ to 1,752+.
+
 ## [0.218.0] - 2026-08-10
 
 ### Changed

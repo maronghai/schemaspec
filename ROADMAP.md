@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.238.0 (2026-08-11) — 60,000+ lines production Zig, 1,715+ tests, 41 lint rules, 38 test suites.
+**Current version**: 0.239.0 (2026-08-11) — 60,000+ lines production Zig, 1,750+ tests, 41 lint rules, 38 test suites.
 
 ---
 
@@ -250,6 +250,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.239.0** — SQL keyword formatting & quality improvements: added SQL keyword uppercasing to the .ss formatter for content inside @if/@endif conditional blocks (CREATE, TABLE, SELECT, PRIMARY, KEY, etc. are uppercased while Rune type symbols like int, text, varchar remain lowercase); added comprehensive WASM module test coverage (25 new tests for wasm/common.zig: classifyError, storeError/clearError, containsSubstring, parseOption, parseDialectOption, parseDiffFormatOption); added version utility methods (formatAlloc, writeMajorMinor) with unit tests; 1,752 unit tests pass, benchmarks show no regressions
 - **v0.238.0** — LSP handler tests & documentation sync: added 11 unit tests for `lsp/handlers.zig` helper functions (`safePositionCast` boundary values, `parsePosition` valid/missing cases, `parseDocumentUri` valid/missing/missing-uri cases); created `lsp/handlers_test.zig` test file and registered in `tests.zig`; fixed stale test count in README.md (1548+ → 1,715+); updated version to 0.238.0; 1,715 unit tests pass, benchmarks show no regressions
 - **v0.237.0** — Schema versioning directive: added `@version X.Y.Z` directive for declaring schema version metadata (flowing through AST → ResolvedAst → TypedAst pipeline); version emitted as SQL comment (`-- Schema version: X.Y.Z`) after header; parser correctly handles tokenizer splitting `@version` into `@` and `version` tokens; updated schema spec documentation with version directive examples; 1,705 unit tests pass, benchmarks show no regressions
 - **v0.236.0** — LSP code quality & deduplication: extracted `writeDiagnosticAsJson` helper in `lsp/protocol.zig` to eliminate diagnostic serialization duplication (was duplicated in `writePublishDiagnostics` and `writeCodeAction`); added `parseDocumentUri` helper in `lsp/handlers.zig` to extract document URI from LSP params (replaces 18 occurrences of 2-line pattern); 1,705 unit tests pass, benchmarks show no regressions

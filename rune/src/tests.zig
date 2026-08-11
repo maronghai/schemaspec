@@ -172,4 +172,5 @@ comptime {
     _ = @import("lsp/handlers_test.zig");
     // ── wasm ──────────────────────────────────────────────────────
     _ = @import("wasm.zig");
+    _ = @import("wasm_test.zig");
 }
