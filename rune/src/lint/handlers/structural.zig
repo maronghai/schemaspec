@@ -129,3 +129,19 @@ pub fn checkTableNameLength(alloc: std.mem.Allocator, results: *std.ArrayList(Li
         }
     }
 }
+
+pub fn checkIndexColumnsMax(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.indexes) |idx| {
+            if (idx.fields.len > cfg.index_columns_max) {
+                const msg = try std.fmt.allocPrint(alloc, "index on '{s}' has {d} columns (max: {d})", .{ table.name, idx.fields.len, cfg.index_columns_max });
+                try results.append(alloc, .{
+                    .rule = "index-columns-max",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}

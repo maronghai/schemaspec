@@ -63,6 +63,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .empty_table, .handler = structural.checkEmptyTable },
     .{ .rule = .table_comment, .handler = structural.checkTableComment },
     .{ .rule = .table_name_length, .handler = structural.checkTableNameLength },
+    .{ .rule = .index_columns_max, .handler = structural.checkIndexColumnsMax },
     // Naming rules
     .{ .rule = .naming, .handler = naming.checkNaming },
     .{ .rule = .naming_prefix, .handler = naming.checkNamingPrefix },

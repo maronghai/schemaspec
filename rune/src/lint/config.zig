@@ -63,6 +63,7 @@ pub const LintConfig = struct {
     wide_table_max: usize = 30,
     count_min: usize = 2,
     table_name_max: usize = 64,
+    index_columns_max: usize = 5,
     include_views: bool = false,
 };
 
@@ -75,22 +76,38 @@ pub const LintDiffResult = struct {
 };
 
 /// Compare lint results between two schemas, returning only newly introduced issues.
+/// Uses a hash set for O(n) deduplication instead of O(n*m) nested loop.
 pub fn lintDiff(old_results: []const LintResult, new_results: []const LintResult, alloc: std.mem.Allocator) !LintDiffResult {
     var added = try std.ArrayList(LintResult).initCapacity(alloc, new_results.len);
     errdefer added.deinit(alloc);
 
+    // Build hash set of old result keys for O(1) lookup
+    var seen = std.StringHashMap(void).init(alloc);
+    defer seen.deinit();
+
+    for (old_results) |old_r| {
+        // Combine rule+table+message into a single key for deduplication
+        const key_len = old_r.rule.len + old_r.table.len + old_r.message.len + 2;
+        const key = try alloc.alloc(u8, key_len);
+        @memcpy(key[0..old_r.rule.len], old_r.rule);
+        key[old_r.rule.len] = '|';
+        @memcpy(key[old_r.rule.len + 1 ..][0..old_r.table.len], old_r.table);
+        key[old_r.rule.len + 1 + old_r.table.len] = '|';
+        @memcpy(key[old_r.rule.len + 2 + old_r.table.len ..][0..old_r.message.len], old_r.message);
+        try seen.put(key, {});
+    }
+
     for (new_results) |new_r| {
-        var found = false;
-        for (old_results) |old_r| {
-            if (std.mem.eql(u8, old_r.rule, new_r.rule) and
-                std.mem.eql(u8, old_r.table, new_r.table) and
-                std.mem.eql(u8, old_r.message, new_r.message))
-            {
-                found = true;
-                break;
-            }
-        }
-        if (!found) {
+        // Build same key format for lookup
+        const key_len = new_r.rule.len + new_r.table.len + new_r.message.len + 2;
+        const key = try alloc.alloc(u8, key_len);
+        @memcpy(key[0..new_r.rule.len], new_r.rule);
+        key[new_r.rule.len] = '|';
+        @memcpy(key[new_r.rule.len + 1 ..][0..new_r.table.len], new_r.table);
+        key[new_r.rule.len + 1 + new_r.table.len] = '|';
+        @memcpy(key[new_r.rule.len + 2 + new_r.table.len ..][0..new_r.message.len], new_r.message);
+
+        if (!seen.contains(key)) {
             try added.append(alloc, new_r);
         }
     }

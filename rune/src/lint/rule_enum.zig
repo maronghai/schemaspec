@@ -52,6 +52,7 @@ pub const LintRule = enum {
     reserved_word,
     column_type_portability,
     index_missing_fk_columns,
+    index_columns_max,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -101,6 +102,7 @@ pub const LintRule = enum {
             .reserved_word => "reserved-word",
             .column_type_portability => "column-type-portability",
             .index_missing_fk_columns => "index-missing-fk-columns",
+            .index_columns_max => "index-columns-max",
         };
     }
 
@@ -184,6 +186,7 @@ pub const LintRule = enum {
             .reserved_word => "Table or column name uses a SQL reserved word",
             .column_type_portability => "Column type may not be portable across dialects",
             .index_missing_fk_columns => "Table has foreign keys but no index on FK columns",
+            .index_columns_max => "Index has too many columns (configurable threshold)",
         };
     }
 
@@ -235,6 +238,7 @@ pub const LintRule = enum {
             .reserved_word => "warning",
             .column_type_portability => "note",
             .index_missing_fk_columns => "warning",
+            .index_columns_max => "note",
         };
     }
 };
