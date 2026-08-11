@@ -125,7 +125,7 @@ Rune includes a built-in LSP server. Any editor with LSP support can connect:
 rune lsp    # Starts the LSP server over stdio
 ```
 
-Supported features: diagnostics, completion, hover, go-to-definition, document symbols, code actions, formatting.
+Supported features: diagnostics, completion, hover, go-to-definition, document symbols, references, highlights, rename, code actions, formatting, inlay hints, code lens.
 
 ## Architecture
 

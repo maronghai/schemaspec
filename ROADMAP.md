@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.260.0 (2026-08-12) — 64,000+ lines production Zig, 1,850+ tests, 51 lint rules, 38 test suites.
+**Current version**: 0.261.0 (2026-08-12) — 64,000+ lines production Zig, 1,850+ tests, 51 lint rules, 38 test suites.
 
 ---
 
@@ -108,7 +108,7 @@ Extend the LSP foundation into full editor experiences. **In progress — 11/13 
 
 ## Phase 8: Language Evolution 🔲
 
-Extend the `.ss` language and pipeline for new use cases. **In progress — 3/9 items done.**
+Extend the `.ss` language and pipeline for new use cases. **In progress — 4/9 items done.**
 
 ### Generator Plugin System
 
@@ -125,7 +125,7 @@ Extend the `.ss` language and pipeline for new use cases. **In progress — 3/9 
 
 ### Pipeline Extensions
 
-- [ ] SQL formatting — `rune format --dialect pg` for dialect-aware SQL formatting
+- [x] SQL formatting — `rune format --dialect pg` for dialect-aware SQL formatting (v0.250.0)
 - [x] Schema visualization — generate ER diagrams from `.ss` files (v0.191.0, Mermaid in docs generator)
 - [ ] Live collaboration — multi-user schema editing via LSP extensions
 
@@ -201,10 +201,10 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
 | Phase 6: Ecosystem & Community | 🔲 In Progress | 7/11 | 4 |
 | 7: Editor Extensions | 🔲 In Progress | 11/13 | 2 |
-| 8: Language Evolution | 🔲 In Progress | 3/9 | 6 |
+| 8: Language Evolution | 🔲 In Progress | 4/9 | 5 |
 | Architecture Targets | 🔲 In Progress | 20/22 | 2 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
-| **Total** | | **115/129** | **14** |
+| **Total** | | **116/130** | **14** |
 
 ---
 

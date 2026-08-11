@@ -106,7 +106,7 @@ Input (.ss text)
     Output: []ResolvedTable (templates applied to each table)
     │
     ▼
-[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 16 pass implementations)
+[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 17 pass implementations)
     Pass manager: validate_template_types, resolve_names, resolve_conditionals, autofk,
     suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_duplicates,
     validate_circular_fk, validate_fk_targets, validate_unused_templates, validate_fk_types,
@@ -372,6 +372,8 @@ Rune uses a three-layer type mapping system:
 13. **SQLite roundtrip preservation**: `-- @sym col_name type` metadata comments preserve original SS types through lossy SQLite type affinity. Forward compiler emits comments; reverse compiler parses them for exact type restoration.
 14. **Unified ReverseResult**: `dialect.zig` defines the single `ReverseResult` struct (`sym`, `omit`, `score`). Both `reverse/map.zig` and `reverse/column.zig` re-export it — zero type duplication across the reverse pipeline.
 15. **Generator Registry**: `generator.zig` defines a `Generator` struct (name, description, extension, category, dialects, version, author, generate fn ptr) and a `REGISTRY` array. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. `generator.check()` validates all generators against all 6 dialects (MySQL, PostgreSQL, SQLite, MSSQL, Oracle, Db2) for health validation. Shared helper `generators/common.zig` provides `DefaultFormatter` + `OrmTarget` enum + `getOrmFormatter()` factory for ORM generators (drizzle, knex, typeorm, sqlalchemy) to eliminate duplicated default-value formatting, plus `parseRange`, `parseComparison`, `parseInList`, `writeJsonValue`, and `findFkRefTable` shared by json-schema and openapi generators. Shared test helpers `generators/common_test.zig` provides `makeTestTable`, `makeTestTableWithFks`, `makeTestTableWithIndexes`, `makeTestAst`, `makeTestAstWithName`, `makeTestColumn`, `makeTestColumnWithFlags` for all generator test files. Current generators: `json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`.
+
+16. **Generator Plugin Extensibility**: The planned WASM plugin system extends the existing `Generator` registry by allowing external generators to be discovered and loaded from `.rune-generators/` manifests or WASM modules. Each plugin generator implements the same `generate(alloc, TypedAst, Dialect)` interface. Template overrides can be provided via `.rune-template` files to customize generator output without changing built-in code. The current registry design is intentionally stable so that plugin-based generators remain interoperable with batch generation, CLI metadata, and health checks.
 16. **View UNION support**: Views support set operations (UNION, UNION ALL, INTERSECT, EXCEPT). The tokenizer keeps the entire query as a single token. The parser (`parse_table.zig`) detects set operation keywords at the top level (outside quotes) and splits into `query` + `union_op` + `second_query`. The codegen recombines the parts. The diff engine compares views using `viewQueriesEql()` which checks query, union_op, and second_query.
 
 ## Custom Type System
@@ -461,7 +463,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 109 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,808+ | Core logic + pipeline + colocated |
+| Unit tests | 110 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,808+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 86 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 87 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |
@@ -484,7 +486,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 ## Lint Module
 
-The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 42 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
+The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 51 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
 
 ### Sub-modules
 
@@ -535,10 +537,10 @@ The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It
 
 | Module | Lines | Responsibility |
 |--------|-------|---------------|
-| `lsp/server.zig` | ~629 | JSON-RPC main loop, request dispatch |
+| `lsp/server.zig` | ~629 | JSON-RPC main loop, request dispatch (22 methods) |
 | `lsp/protocol.zig` | ~869 | LSP protocol types and JSON serialization |
 | `lsp/documents.zig` | ~188 | Document state manager (open/change/close) |
-| `lsp/handlers.zig` | ~380 | Request handlers (initialize, shutdown, didOpen/didChange/didClose/didSave, completion, hover, definition, codeAction, formatting, rename) |
+| `lsp/handlers.zig` | ~380 | Request handlers (initialize, shutdown, didOpen/didChange/didClose/didSave, completion, hover, definition, codeAction, formatting, rename, references, highlights, workspace symbol, signature help, inlay hints, code lens) |
 | `lsp/compile_service.zig` | ~202 | Pipeline wrapper for LSP diagnostics |
 | `lsp/features.zig` | ~30 | Thin facade re-exporting sub-modules |
 | `lsp/helpers.zig` | ~50 | Shared `makeRange`, `getLineText`, `lineLength`, `formatFlagsForHover` utilities |

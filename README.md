@@ -247,7 +247,7 @@ Three IR boundaries: `Line[]` → `Ast` → `ResolvedAst` → `TypedAst` → SQL
 ### Key Design
 
 - **DialectBackend vtable**: 25 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`). Zero `switch(dialect)` in codegen or type mapping. Adding a dialect = new `dialect_<name>.zig` (~200 lines, self-contained type mapping). Vtable organized into 6 logical sections: Shared, Forward, Alter, TypeMapping, Optional, and Behavioral flags.
-- **Semantic Pass Manager**: 12 dependency-ordered passes with access pattern declarations (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). New pass = new `pass/<name>.zig`. Cross-table index name collision detection (v0.125.0).
+- **Semantic Pass Manager**: 17 dependency-ordered passes with access pattern declarations (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). New pass = new `pass/<name>.zig`. Cross-table index name collision detection (v0.125.0).
 - **Import Cache**: Memoized import resolution prevents re-parsing the same file when imported by multiple parents.
 - **AST-level diff**: Semantic comparison, not text diff. Detects renames, type changes, structural differences.
 
@@ -278,7 +278,7 @@ bash tests/test_coverage.sh --quick   # skip benchmark regression
 
 ### Unit Tests
 
-Zig `test` blocks in colocated `*_test.zig` files alongside their production modules. 103 test files wired via `tests.zig` comptime index.
+Zig `test` blocks in colocated `*_test.zig` files alongside their production modules. 110 test files wired via `tests.zig` comptime index.
 
 ```bash
 cd rune && zig build test             # run all unit tests
@@ -465,7 +465,7 @@ rune generate --list                  # → list available generators
 rune generate schema.ss --generators prisma,drizzle,openapi  # → Batch generation
 ```
 
-10 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, OpenAPI 3.1, GraphQL, and Markdown docs. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output. Batch generation runs multiple generators from a single compilation.
+12 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, OpenAPI 3.1, GraphQL, Markdown docs, and symbol-index. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output. Batch generation runs multiple generators from a single compilation.
 
 ### Init
 
@@ -523,7 +523,7 @@ rune watch schema.ss -s                 # Watch with compilation stats
 rune watch ./schemas --recursive        # Watch all .ss files in directory recursively
 
 # Lint schema for quality issues (30 rules)
-rune lint schema.ss                     # Check for PK, naming, FK indexes, timestamps, duplicates, circular FK
+rune lint schema.ss                     # Check for PK, naming, FK indexes, timestamps, duplicates, circular FK (51 rules)
 rune lint schema.ss --json-errors       # Lint as JSON (machine-readable)
 rune lint schema.ss --strict            # Exit 1 if any warnings (CI/CD)
 rune lint --show-rules                  # List all available rules
