@@ -86,6 +86,10 @@ comptime {
     _ = @import("lint/format_test.zig");
     _ = @import("lint/config_test.zig");
     _ = @import("lint/fix.zig");
+    _ = @import("lint/fix_helpers.zig");
+    _ = @import("lint/fix_index.zig");
+    _ = @import("lint/fix_modifier.zig");
+    _ = @import("lint/fix_structural.zig");
     // ── parser ───────────────────────────────────────────────────
     _ = @import("parser/tokenizer_test.zig");
     _ = @import("parser/parser_test.zig");

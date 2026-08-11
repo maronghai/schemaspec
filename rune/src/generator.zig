@@ -144,7 +144,6 @@ pub fn listAll(writer: anytype) !void {
 }
 
 /// Shared helper: write detailed generator info to any writer.
-/// Used by both `listDetailedTo` (fallible) and `listDetailedStderr` (infallible).
 fn writeDetailedInfo(writer: anytype) !void {
     try writer.print("Available generators:\n\n", .{});
     for (REGISTRY) |gen| {
@@ -167,34 +166,18 @@ fn writeDetailedInfo(writer: anytype) !void {
     }
 }
 
-/// Print detailed generator information including dialect support.
-/// Generic writer version — used by both stdout and stderr callers.
+/// Print detailed generator information to any writer (fallible).
 pub fn listDetailedTo(writer: anytype) !void {
     try writeDetailedInfo(writer);
 }
 
 /// Print detailed generator information to stderr.
-/// Uses std.debug.print which always writes to stderr and ignores errors.
+/// Delegates to writeDetailedInfo via an allocating buffer.
 pub fn listDetailedStderr() void {
-    std.debug.print("Available generators:\n\n", .{});
-    for (REGISTRY) |gen| {
-        std.debug.print("  {s:<16} {s}\n", .{ gen.name, gen.description });
-        std.debug.print("    Extension:  {s}\n", .{gen.extension});
-        std.debug.print("    Category:   {s}\n", .{@tagName(gen.category)});
-        std.debug.print("    Version:    {s}\n", .{gen.version});
-        std.debug.print("    Author:     {s}\n", .{gen.author});
-        if (gen.dialects) |dialects| {
-            std.debug.print("    Dialects:   ", .{});
-            for (dialects, 0..) |d, i| {
-                if (i > 0) std.debug.print(", ", .{});
-                std.debug.print("{s}", .{d});
-            }
-            std.debug.print("\n", .{});
-        } else {
-            std.debug.print("    Dialects:   all (agnostic)\n", .{});
-        }
-        std.debug.print("\n", .{});
-    }
+    var buf = std.Io.Writer.Allocating.init(std.heap.page_allocator);
+    defer buf.deinit();
+    writeDetailedInfo(&buf.writer) catch return;
+    std.debug.print("{s}", .{buf.toOwnedSlice() catch return});
 }
 
 /// Health check: verify all generators can produce output for a minimal schema.

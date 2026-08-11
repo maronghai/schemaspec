@@ -17,6 +17,7 @@ const stats_mod = @import("stats.zig");
 const StatsFormat = @import("../types/enums.zig").StatsFormat;
 const fmt = @import("../diagnostic/format.zig");
 const export_mod = @import("export.zig");
+const lint_mod = @import("../lint.zig");
 pub const ExportFormat = export_mod.ExportFormat;
 pub const formatValidateResult = export_mod.formatValidateResult;
 pub const formatValidateSarif = export_mod.formatValidateSarif;
@@ -183,6 +184,13 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
             fmt.printError("schema", "has errors (partial)");
             if (cfg.strict) return error.DiagnosticsError;
             return;
+        }
+        // In strict mode, also run lint and fail on warnings
+        if (cfg.strict) {
+            const lint_results = try lint_mod.lintSchema(alloc, result.resolved, .{});
+            for (lint_results.items) |r| {
+                if (r.severity == .warning) return error.StrictWarnings;
+            }
         }
         fmt.printOk("schema is valid");
     }

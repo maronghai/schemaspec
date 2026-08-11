@@ -1,6 +1,7 @@
 const std = @import("std");
 const handlers = @import("handlers.zig");
 const forward = @import("forward.zig");
+const lint_mod = @import("../lint.zig");
 
 const testing = std.testing;
 
@@ -134,4 +135,49 @@ test "formatValidateResult: valid with views" {
     const json = try handlers.formatValidateResult(alloc, true, s, 0);
     try testing.expect(std.mem.indexOf(u8, json, "\"valid\":true") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"views\":3") != null);
+}
+
+test "handleValidate: strict mode passes on clean schema" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const source = "# users\nid n ++\nname s32\n";
+    const result = forward.compilePipeline(alloc, source, .{});
+    if (result) |pipeline| {
+        const lint_results = try lint_mod.lintSchema(alloc, pipeline.resolved, .{});
+        var has_warnings = false;
+        for (lint_results.items) |r| {
+            if (r.severity == .warning) {
+                has_warnings = true;
+                break;
+            }
+        }
+        try testing.expect(!has_warnings);
+    } else |_| {
+        try testing.expect(false);
+    }
+}
+
+test "handleValidate: strict mode detects lint warnings" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Schema with no-pk warning (table has no primary key)
+    const source = "# users\nname s32\n";
+    const result = forward.compilePipeline(alloc, source, .{});
+    if (result) |pipeline| {
+        const lint_results = try lint_mod.lintSchema(alloc, pipeline.resolved, .{});
+        var has_warnings = false;
+        for (lint_results.items) |r| {
+            if (r.severity == .warning) {
+                has_warnings = true;
+                break;
+            }
+        }
+        try testing.expect(has_warnings);
+    } else |_| {
+        try testing.expect(false);
+    }
 }

@@ -1,10 +1,15 @@
 // ─── Lint: Re-export Barrel ─────────────────────────────────────
 //
 // Split from the original 1017-line monolith into focused modules:
-//   lint/rules.zig   — individual lint rule implementations (30 rules)
-//   lint/format.zig  — text/JSON/SARIF output formatters
-//   lint/config.zig  — LintConfig, TOML config parsing, apply
-//   lint/fix.zig     — auto-fix logic (no-pk, no-timestamps)
+//   lint/rules.zig        — individual lint rule implementations (42 rules)
+//   lint/format.zig       — text/JSON/SARIF output formatters
+//   lint/config.zig       — LintConfig, TOML config parsing, apply
+//   lint/fix.zig          — auto-fix orchestrator (line-by-line dispatch)
+//   lint/fix_helpers.zig  — shared types and helpers (LintFix, buildFixMaps)
+//   lint/fix_structural.zig — no-pk, no-timestamps, empty-table handlers
+//   lint/fix_modifier.zig — serial-type, bool-default, nullable-default, column-default
+//   lint/fix_index.zig    — duplicate-index, no-index-fk, duplicate-column handlers
+//   lint/handlers/        — category-based rule handlers (structural, naming, validation, etc.)
 //
 // This barrel re-exports everything so existing callers keep working.
 
