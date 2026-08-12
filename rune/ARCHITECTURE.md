@@ -463,7 +463,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 118 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,882+ | Core logic + pipeline + colocated |
+| Unit tests | 118 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,913+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 85 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 86 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |
@@ -482,7 +482,7 @@ zig build bench -- bench/large.ss 5         # large schema
 | Stdin | `tests/test_stdin.sh` | 4 | Stdin pipeline |
 | Reverse confidence | `tests/test_reverse_confidence.sh` | 3 | Reverse confidence scores |
 | Init & completions | `tests/test_init.sh` | 12 | Init & completions |
-| **Total** | | **~1,882+** | |
+| **Total** | | **~1,913+** | |
 
 ## Lint Module
 

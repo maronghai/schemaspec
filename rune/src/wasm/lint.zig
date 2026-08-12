@@ -53,3 +53,32 @@ test "rune_lint basic" {
     try std.testing.expect(result != null);
     @import("error.zig").rune_reset();
 }
+
+test "rune_lint invalid schema" {
+    const schema = "this is not valid ss";
+    const result = rune_lint(schema.ptr, schema.len, "", 0);
+    // Parser is lenient — invalid input produces warnings but compiles.
+    // Just verify the function doesn't crash.
+    _ = result;
+    @import("error.zig").rune_reset();
+}
+
+test "rune_lint JSON format" {
+    const schema = "# users\nid N ++\nname s\n";
+    const result = rune_lint(schema.ptr, schema.len, "format=json", 11);
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        const output = std.mem.span(r);
+        try std.testing.expect(output.len > 0);
+        // JSON output should start with { or [
+        try std.testing.expect(output[0] == '{' or output[0] == '[');
+    }
+    @import("error.zig").rune_reset();
+}
+
+test "rune_lint dialect option" {
+    const schema = "# users\nid N ++\nname s\n";
+    const result = rune_lint(schema.ptr, schema.len, "dialect=pg", 10);
+    try std.testing.expect(result != null);
+    @import("error.zig").rune_reset();
+}

@@ -66,3 +66,22 @@ test "rune_reverse with templates" {
     try std.testing.expect(result != null);
     @import("error.zig").rune_reset();
 }
+
+test "rune_reverse invalid SQL" {
+    const sql = "NOT VALID SQL STATEMENT";
+    const result = rune_reverse(sql.ptr, sql.len, "", 0);
+    // Invalid SQL may produce empty output or error — just verify no crash
+    _ = result;
+    @import("error.zig").rune_reset();
+}
+
+test "rune_reverse MySQL dialect" {
+    const sql = "CREATE TABLE users (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100)) ENGINE=InnoDB;\n";
+    const result = rune_reverse(sql.ptr, sql.len, "dialect=mysql", 12);
+    try std.testing.expect(result != null);
+    if (result) |r| {
+        const ss = std.mem.span(r);
+        try std.testing.expect(ss.len > 0);
+    }
+    @import("error.zig").rune_reset();
+}
