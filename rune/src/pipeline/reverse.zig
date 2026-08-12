@@ -1,5 +1,5 @@
 const std = @import("std");
-const diag = @import("../semantic/diagnostic.zig");
+const diag = @import("../diagnostic.zig");
 const sql_parser = @import("../parser/sql_parser.zig");
 const reverse_codegen = @import("../reverse/codegen.zig");
 const dialect_detect = @import("../reverse/dialect_detect.zig");

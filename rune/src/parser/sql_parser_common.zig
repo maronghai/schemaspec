@@ -1,6 +1,6 @@
 const ast_mod = @import("../types/ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
-const diag = @import("../semantic/diagnostic.zig");
+const diag = @import("../diagnostic.zig");
 
 pub const Dialect = dialect_enum.Dialect;
 pub const IndexKind = ast_mod.IndexType;

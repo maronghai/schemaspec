@@ -1,6 +1,6 @@
 const std = @import("std");
 const ast = @import("../../types/ast.zig");
-const diag = @import("../diagnostic.zig");
+const diag = @import("../../diagnostic.zig");
 const ast_visitor = @import("../../ast_visitor.zig");
 const PassContext = @import("../analyzer.zig").PassContext;
 const Field = ast.Field;
@@ -62,7 +62,7 @@ pub fn run(ctx: *PassContext) !void {
 
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 

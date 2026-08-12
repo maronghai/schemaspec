@@ -65,7 +65,7 @@ fn validateFk(
             (fk_field_type.isDatetime() and ref_field_type.isDatetime()) or
             (fk_field_type.isBoolean() and ref_field_type.isBoolean());
 
-        const severity: @import("../diagnostic.zig").Severity = if (same_category) .note else .warning;
+        const severity: @import("../../diagnostic.zig").Severity = if (same_category) .note else .warning;
 
         ctx.diagnostics.push(.{
             .severity = severity,
@@ -93,7 +93,7 @@ fn findFieldType(table: ResolvedTable, field_name: []const u8) ?*const TypeInfo 
 
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 
 fn makeTable(name: []const u8, fields: []ast.Field, fks: []const FkDecl) ResolvedTable {
     return .{
@@ -199,7 +199,7 @@ test "validate_fk_types: string FK to integer PK emits warning (cross-category)"
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
     const d = diagnostics.diagnostics.items[0];
-    try testing.expectEqual(@import("../diagnostic.zig").Severity.warning, d.severity);
+    try testing.expectEqual(@import("../../diagnostic.zig").Severity.warning, d.severity);
 }
 
 test "validate_fk_types: integer FK to string PK emits warning (cross-category)" {
@@ -232,7 +232,7 @@ test "validate_fk_types: integer FK to string PK emits warning (cross-category)"
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
     const d = diagnostics.diagnostics.items[0];
-    try testing.expectEqual(@import("../diagnostic.zig").Severity.warning, d.severity);
+    try testing.expectEqual(@import("../../diagnostic.zig").Severity.warning, d.severity);
 }
 
 test "validate_fk_types: same-category mismatch emits note" {
@@ -265,7 +265,7 @@ test "validate_fk_types: same-category mismatch emits note" {
 
     try testing.expect(diagnostics.diagnostics.items.len > 0);
     const d = diagnostics.diagnostics.items[0];
-    try testing.expectEqual(@import("../diagnostic.zig").Severity.note, d.severity);
+    try testing.expectEqual(@import("../../diagnostic.zig").Severity.note, d.severity);
 }
 
 test "validate_fk_types: same type FK to PK produces no diagnostic" {

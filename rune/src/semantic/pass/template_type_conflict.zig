@@ -61,7 +61,7 @@ fn resolveTemplateFields(ctx: *PassContext, tmpl_name: []const u8) ?[]const ast.
 
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 

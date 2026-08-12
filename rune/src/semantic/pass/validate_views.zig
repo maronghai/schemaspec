@@ -6,7 +6,7 @@ const View = @import("../../types/ast.zig").View;
 const ResolvedTable = @import("../../types/resolved_ast.zig").ResolvedTable;
 const Field = @import("../../types/ast.zig").Field;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 
 // ─── Validate Views ──────────────────────────────────────────
 // Semantic pass that validates view definitions:

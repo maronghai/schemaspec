@@ -83,7 +83,7 @@ pub fn run(ctx: *PassContext) !void {
 
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 
 fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector, schema: ?ast.Schema) PassContext {
     return test_helpers.makePassCtx(alloc, tables, diagnostics, .{ .schema = schema });

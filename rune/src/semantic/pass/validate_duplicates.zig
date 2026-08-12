@@ -24,7 +24,7 @@ pub fn run(ctx: *PassContext) !void {
 
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
 fn makeCtx(alloc: std.mem.Allocator, tables: *std.ArrayList(ResolvedTable), diagnostics: *diag_mod.DiagnosticCollector) PassContext {

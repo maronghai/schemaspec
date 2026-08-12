@@ -1,6 +1,6 @@
 const std = @import("std");
 const tk = @import("tokenizer.zig");
-const diag = @import("../semantic/diagnostic.zig");
+const diag = @import("../diagnostic.zig");
 const ast_mod = @import("../types/ast.zig");
 const FkDecl = ast_mod.FkDecl;
 const FkAction = ast_mod.FkAction;

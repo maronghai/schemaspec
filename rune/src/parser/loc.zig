@@ -1,6 +1,6 @@
 const ast_mod = @import("../types/ast.zig");
 const tk = @import("tokenizer.zig");
-const diag = @import("../semantic/diagnostic.zig");
+const diag = @import("../diagnostic.zig");
 
 const SourceLocation = ast_mod.SourceLocation;
 

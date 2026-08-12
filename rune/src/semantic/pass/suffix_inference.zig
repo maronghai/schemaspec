@@ -43,7 +43,7 @@ pub fn run(ctx: *PassContext) !void {
 // ─── Unit Tests ─────────────────────────────────────────────
 
 const testing = std.testing;
-const diag = @import("../diagnostic.zig");
+const diag = @import("../../diagnostic.zig");
 
 const makeTestField = @import("../test_helpers.zig").makeTestField;
 

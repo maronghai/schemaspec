@@ -1,5 +1,5 @@
 const std = @import("std");
-const color = @import("../color.zig");
+const color = @import("color.zig");
 
 pub const Severity = enum {
     warning,

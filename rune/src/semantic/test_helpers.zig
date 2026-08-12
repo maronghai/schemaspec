@@ -4,7 +4,7 @@ const typed_ast_mod = @import("../types/typed_ast.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
 const pass_manager = @import("pass_manager.zig");
-const diag_mod = @import("diagnostic.zig");
+const diag_mod = @import("../diagnostic.zig");
 
 const ResolvedTable = resolved_ast.ResolvedTable;
 const PassContext = pass_manager.PassContext;

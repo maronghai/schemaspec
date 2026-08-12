@@ -97,7 +97,7 @@ fn checkColumnRefs(ctx: *PassContext, table: *const resolved_ast.ResolvedTable) 
 
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
 test "validate_indexes: duplicate index name emits diagnostic" {

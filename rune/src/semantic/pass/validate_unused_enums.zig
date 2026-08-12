@@ -5,7 +5,7 @@ const resolved_ast = @import("../../types/resolved_ast.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 const TypeInfo = ast_mod.TypeInfo;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 
 // ─── Validate Unused Custom Types ────────────────────────────
 // Detects custom types (~) that are defined but never referenced

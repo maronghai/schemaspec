@@ -37,7 +37,7 @@ pub fn run(ctx: *PassContext) !void {
 
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 const ResolvedTable = resolved_ast.ResolvedTable;
 
 fn makeIndex(alloc: std.mem.Allocator, name: []const u8, field: []const u8, line_no: u32) !ast.IndexDecl {

@@ -1,5 +1,5 @@
 const std = @import("std");
-const diag = @import("../semantic/diagnostic.zig");
+const diag = @import("../diagnostic.zig");
 const ast_mod = @import("../types/ast.zig");
 const CheckConstraint = ast_mod.CheckConstraint;
 const CheckKind = ast_mod.CheckKind;

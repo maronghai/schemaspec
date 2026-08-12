@@ -86,7 +86,7 @@ pub fn run(ctx: *PassContext) !void {
 
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 
 test "validate: duplicate field name emits diagnostic" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);

@@ -1,6 +1,6 @@
 const std = @import("std");
 const tk = @import("tokenizer.zig");
-const diag = @import("../semantic/diagnostic.zig");
+const diag = @import("../diagnostic.zig");
 const ast_mod = @import("../types/ast.zig");
 const parse_fk = @import("parse_fk.zig");
 const parse_check = @import("parse_check.zig");

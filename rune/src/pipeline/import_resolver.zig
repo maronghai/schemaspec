@@ -2,7 +2,7 @@ const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const tokenizer = @import("../parser/tokenizer.zig");
 const parser = @import("../parser/parser.zig");
-const diag = @import("../semantic/diagnostic.zig");
+const diag = @import("../diagnostic.zig");
 
 // ─── Import Resolution ─────────────────────────────────────────
 // Handles @import directives during .ss file compilation.

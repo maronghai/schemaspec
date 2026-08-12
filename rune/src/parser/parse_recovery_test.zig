@@ -1,7 +1,7 @@
 const std = @import("std");
 const recovery = @import("parse_recovery.zig");
 const tk = @import("tokenizer.zig");
-const diag = @import("../semantic/diagnostic.zig");
+const diag = @import("../diagnostic.zig");
 const ast_mod = @import("../types/ast.zig");
 const LineType = tk.LineType;
 

@@ -132,7 +132,7 @@ comptime {
     _ = @import("reverse/template_extraction_test.zig");
     // ── semantic ─────────────────────────────────────────────────
     _ = @import("semantic/analyzer_test.zig");
-    _ = @import("semantic/diagnostic_test.zig");
+    _ = @import("diagnostic_test.zig");
     _ = @import("semantic/pass_manager_test.zig");
     _ = @import("semantic/template_test.zig");
     _ = @import("semantic/pass/validate_duplicates.zig");

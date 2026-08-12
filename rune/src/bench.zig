@@ -6,7 +6,7 @@ const semantic = @import("semantic/analyzer.zig");
 const codegen = @import("codegen/codegen.zig");
 const typed_ast = @import("types/typed_ast.zig");
 const TypeResolver = @import("types/type_resolver.zig").TypeResolver;
-const diag = @import("semantic/diagnostic.zig");
+const diag = @import("diagnostic.zig");
 const dialect_enum = @import("dialect/enum.zig");
 
 // ─── Rune Benchmark ─────────────────────────────────────────

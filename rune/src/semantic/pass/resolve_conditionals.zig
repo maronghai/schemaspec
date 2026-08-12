@@ -6,7 +6,7 @@ const Field = @import("../../types/ast.zig").Field;
 const ConditionalBlock = @import("../../types/ast.zig").ConditionalBlock;
 const testing = std.testing;
 const test_helpers = @import("../test_helpers.zig");
-const diag_mod = @import("../diagnostic.zig");
+const diag_mod = @import("../../diagnostic.zig");
 
 // ─── Resolve Conditional Blocks ───────────────────────────────
 // Filters fields in @if(dialect=...) blocks based on the target dialect.

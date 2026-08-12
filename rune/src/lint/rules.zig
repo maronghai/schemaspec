@@ -143,7 +143,6 @@ pub fn runAll(alloc: std.mem.Allocator, ast: ResolvedAst, cfg: LintConfig) !std.
 // ─── Helpers (re-exported for backward compatibility) ──────────
 
 pub const isSnakeCase = naming.isSnakeCase;
-pub const isUpperSnakeCase = naming.isUpperSnakeCase;
 
 // ─── Tests ──────────────────────────────────────────────────
 

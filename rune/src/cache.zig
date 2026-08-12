@@ -59,14 +59,6 @@ pub const TableCache = struct {
         self.entries.deinit(self.alloc);
     }
 
-    /// Enable disk cache in the given directory.
-    /// Note: disk persistence is not yet implemented. Cache is in-memory only.
-    pub fn enableDiskCache(self: *TableCache, dir: []const u8) !void {
-        _ = dir;
-        // Disk caching requires IO handle — reserved for future implementation.
-        _ = self;
-    }
-
     /// Compute content hash for a TypedTable.
     /// The hash captures columns, FKs, and indexes — everything that affects generated SQL.
     /// Template inheritance is handled naturally: after resolution, TypedTable has resolved fields.

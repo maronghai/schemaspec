@@ -4,34 +4,6 @@ const std = @import("std");
 // Consistent error message format across all modules.
 // Format: "error[rule]: message" or "warning[rule]: message"
 
-pub const ErrorFormatter = struct {
-    /// Format a standard error message.
-    /// Returns: "error[{rule}]: {message}"
-    pub fn formatError(alloc: std.mem.Allocator, rule: []const u8, message: []const u8) ![]const u8 {
-        return std.fmt.allocPrint(alloc, "error[{s}]: {s}", .{ rule, message });
-    }
-
-    /// Format a standard warning message.
-    /// Returns: "warning[{rule}]: {message}"
-    pub fn formatWarning(alloc: std.mem.Allocator, rule: []const u8, message: []const u8) ![]const u8 {
-        return std.fmt.allocPrint(alloc, "warning[{s}]: {s}", .{ rule, message });
-    }
-
-    /// Format an error with context.
-    /// Returns: "error[{rule}]: {message} in {context}"
-    pub fn formatErrorWithContext(alloc: std.mem.Allocator, rule: []const u8, message: []const u8, context: []const u8) ![]const u8 {
-        return std.fmt.allocPrint(alloc, "error[{s}]: {s} in {s}", .{ rule, message, context });
-    }
-
-    /// Format a warning with context.
-    /// Returns: "warning[{rule}]: {message} in {context}"
-    pub fn formatWarningWithContext(alloc: std.mem.Allocator, rule: []const u8, message: []const u8, context: []const u8) ![]const u8 {
-        return std.fmt.allocPrint(alloc, "warning[{s}]: {s} in {s}", .{ rule, message, context });
-    }
-};
-
-// ─── Convenience Functions ────────────────────────────────────
-
 /// Print a standardized error to stderr.
 pub fn printError(rule: []const u8, message: []const u8) void {
     std.debug.print("error[{s}]: {s}\n", .{ rule, message });
@@ -69,30 +41,19 @@ pub fn printOk(message: []const u8) void {
 
 // ─── Tests ────────────────────────────────────────────────────
 
-test "ErrorFormatter.formatError" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const result = try ErrorFormatter.formatError(arena.allocator(), "E001", "file not found");
-    try std.testing.expectEqualStrings("error[E001]: file not found", result);
+test "printError" {
+    // Smoke test — just verify it doesn't crash
+    printError("E001", "file not found");
 }
 
-test "ErrorFormatter.formatWarning" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const result = try ErrorFormatter.formatWarning(arena.allocator(), "W001", "unused variable");
-    try std.testing.expectEqualStrings("warning[W001]: unused variable", result);
+test "printWarn" {
+    printWarn("W001");
 }
 
-test "ErrorFormatter.formatErrorWithContext" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const result = try ErrorFormatter.formatErrorWithContext(arena.allocator(), "E002", "parse error", "input.ss");
-    try std.testing.expectEqualStrings("error[E002]: parse error in input.ss", result);
+test "printErrorWithContext" {
+    printErrorWithContext("E002", "parse error", "input.ss");
 }
 
-test "ErrorFormatter.formatWarningWithContext" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const result = try ErrorFormatter.formatWarningWithContext(arena.allocator(), "W002", "deprecated syntax", "schema.ss");
-    try std.testing.expectEqualStrings("warning[W002]: deprecated syntax in schema.ss", result);
+test "printOk" {
+    printOk("success message");
 }
