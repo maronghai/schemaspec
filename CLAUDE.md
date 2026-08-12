@@ -166,7 +166,7 @@ rune/src/
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
   bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules (lint.zig = barrel for lint/ sub-modules)
   lint/rules.zig, lint/format.zig, lint/config.zig, lint/fix.zig  # lint engine split
-  lint/handlers/structural.zig, lint/handlers/naming.zig, lint/handlers/validation.zig, lint/handlers/compat.zig  # handler modules
+  lint/handlers/structural.zig, lint/handlers/naming.zig, lint/handlers/validation.zig, lint/handlers/compat.zig, lint/handlers/fk.zig, lint/handlers/index.zig, lint/handlers/view.zig, lint/handlers/enum.zig, lint/handlers/portability.zig  # 9 handler modules
   cli/lint_cmd.zig                                                 # lint CLI handler (extracted from main.zig)
   cli/errors.zig                                                   # CLI error handling (extracted from main.zig)
   generator.zig                                                   # generator registry (pluggable)
@@ -202,7 +202,7 @@ rune/src/
                reverse_map.zig                            # shared REVERSE_MAP data
   semantic/    analyzer.zig, pass_manager.zig,            # semantic analysis (6 files)
                trace.zig, diagnostic.zig, template.zig,
-               test_helpers.zig, pass/*.zig               # 14 pass implementations
+               test_helpers.zig, pass/*.zig               # 17 pass implementations
 ```
 
 ### Three Pipelines
@@ -219,7 +219,7 @@ rune/src/
 
 - **Generator Registry** (`generator.zig`): `Generator` struct (name, description, extension, category, dialects, version, author, generate fn ptr) + `REGISTRY` array + `get(name)` lookup + `listDetailed()` for rich output + `check()` for health validation. Generator implementations live in `generators/<name>.zig`. Adding a new generator = create `generators/<name>.zig` + add entry to `REGISTRY`. The CLI dispatches via `generator.get(name)` — no main.zig modification needed. The `extension` field specifies the output file extension (e.g. `.prisma`, `.sql`, `.json`) used in batch mode. The `category` field indicates schema-based vs standalone generators. The `dialects` field lists supported dialects (null = dialect-agnostic). The `version` and `author` fields provide metadata for display. The `dialect` parameter enables dialect-specific output. Current generators: `json-schema` (standalone, agnostic), `sql-ddl` (all 6 dialects), `prisma` (agnostic), `docs` (agnostic), `drizzle` (mysql/pg/sqlite), `typeorm` (mysql/pg/sqlite/mssql), `sqlalchemy` (mysql/pg/sqlite), `knex` (mysql/pg/sqlite/mssql), `openapi` (mysql/pg/sqlite/mssql/oracle), `graphql` (agnostic), `symbol-index` (all 6 dialects).
 
-- **DialectBackend vtable** (`dialect/dialect.zig`): 33 function pointers (26 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. `getBackend()` returns `*const DialectBackend` (pointer to static const, avoids 136-byte copy). Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). Comptime validation via `comptimeValidateAllPointers()` auto-validates all function pointer fields.
+- **DialectBackend vtable** (`dialect/dialect.zig`): 32 function pointers (25 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL rendering and type mapping. `getBackend()` returns `*const DialectBackend` (pointer to static const, avoids 136-byte copy). Includes `lookupSym` (SS symbol → SqlType) and `quoteChar` for forward mapping and diff output. `codegen/codegen.zig` is fully dialect-agnostic (zero `switch(dialect)` in production code). Per-dialect: `dialect/mysql.zig`, `dialect/pg.zig`, `dialect/sqlite.zig`, `dialect/mssql.zig`, `dialect/oracle.zig`, `dialect/db2.zig`; shared logic in `dialect/common.zig`. Adding a new SQL dialect = new enum variant + new `dialect/<name>.zig` (~300 lines, self-contained type mapping). Comptime validation via `comptimeValidateAllPointers()` auto-validates all function pointer fields.
 
 - **CompileConfig** (`pipeline/forward.zig`): Configuration struct for the compile handler, replacing 13 positional parameters. All fields have named defaults; callers specify only what they need. Used by `handleCompileRequest(io, alloc, cfg)` in `pipeline/handlers.zig`.
 
@@ -241,7 +241,7 @@ rune/src/
 
 - **Table-Driven LSP Method Dispatch** (`lsp/server.zig`): LSP method routing uses a `DISPATCH_TABLE` array of `{method, handler}` entries. Each handler has a uniform signature `(self, stdout, id, params)`. Adding a new LSP method = add entry to `DISPATCH_TABLE` + add handler in `lsp/handlers.zig`. Eliminates the 22-branch if-else chain that previously existed in the `run()` method.
 
-- **Data-Driven Lint Rule Dispatch** (`lint/rules.zig`): Lint rule execution uses a `RULES` array of `{rule, handler}` entries. Each handler receives the full AST + config and iterates over relevant entities (tables, custom types, or entire schema). Handlers are organized into category modules: `lint/handlers/structural.zig` (9 rules), `lint/handlers/naming.zig` (8 rules), `lint/handlers/validation.zig` (7 rules), `lint/handlers/compat.zig` (3 rules), `lint/handlers/fk.zig` (6 rules), `lint/handlers/index.zig` (4 rules), `lint/handlers/view.zig` (4 rules), `lint/handlers/enum.zig` (4 rules), `lint/handlers/portability.zig` (3 rules). Adding a new lint rule = add entry to `RULES` + implement handler function in appropriate module. Replaces 22 repetitive guard-then-call blocks with a single loop.
+- **Data-Driven Lint Rule Dispatch** (`lint/rules.zig`): Lint rule execution uses a `RULES` array of `{rule, handler}` entries. Each handler receives the full AST + config and iterates over relevant entities (tables, custom types, or entire schema). Handlers are organized into category modules: `lint/handlers/structural.zig` (9 rules), `lint/handlers/naming.zig` (8 rules), `lint/handlers/validation.zig` (11 rules), `lint/handlers/compat.zig` (3 rules), `lint/handlers/fk.zig` (9 rules), `lint/handlers/index.zig` (5 rules), `lint/handlers/view.zig` (4 rules), `lint/handlers/enum.zig` (4 rules), `lint/handlers/portability.zig` (3 rules). Adding a new lint rule = add entry to `RULES` + implement handler function in appropriate module. Replaces 22 repetitive guard-then-call blocks with a single loop.
 
 - **FlagRegistry** (`cli/flag_registry.zig`): All 20 global CLI flags defined once in `GLOBAL_FLAG_REGISTRY` array. `matchesFlag()` matches long and short forms. `isKnownGlobalFlag()` provides unknown-flag detection. `parseGlobalFlags` uses `matchesFlag` for boolean flag detection instead of raw `std.mem.eql` chains.
 

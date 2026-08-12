@@ -90,18 +90,18 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 Input (.ss text)
     │
     ▼
-[1] Tokenizer (tokenizer.zig, 399 lines)
+[1] Tokenizer (tokenizer.zig, 251 lines)
     Line classification + token splitting
     Output: []Line (line_type + tokens)
     │
     ▼
-[2] Parser (parser.zig, 456 lines + 9 parse_*.zig modules)
+[2] Parser (parser.zig, 623 lines + 9 parse_*.zig modules)
     Token-level parsing into AST
     BlockState struct encapsulates block-level parsing state (12 fields)
     Output: Ast (schema, templates, tables, sql_comments)
     │
     ▼
-[3] Template Resolution (template.zig, 351 lines)
+[3] Template Resolution (template.zig, 212 lines)
     Template inheritance merging + slot-based field injection
     Output: []ResolvedTable (templates applied to each table)
     │
@@ -114,7 +114,7 @@ Input (.ss text)
     Output: ResolvedAst (templates resolved + passes applied)
     │
     ▼
-[5] Type Resolver (type_resolver.zig, 189 lines + typed_ast.zig, 132 lines)
+[5] Type Resolver (type_resolver.zig, 224 lines + typed_ast.zig, 101 lines)
     Abstract TypeInfo → concrete SqlType per dialect
     Modifier classification into ColumnFlags bitflags
     Output: TypedAst (dialect-agnostic IR)
@@ -163,12 +163,12 @@ The pipeline supports graceful degradation:
 Input (SQL DDL text)
     │
     ▼
-[1] SQL Parser (sql_parser.zig, 413 lines + 8 sql_parser_*.zig modules)
+[1] SQL Parser (sql_parser.zig, 545 lines + 8 sql_parser_*.zig modules)
     Recursive-descent DDL parsing (independent of forward tokenizer)
     Output: SqlSchema (tables, columns, indexes, FKs, checks)
     │
     ▼
-[2] Reverse Codegen (reverse_codegen.zig, 298 lines, 4 sub-functions)
+[2] Reverse Codegen (reverse_codegen.zig, 261 lines, 4 sub-functions)
     SQL types → SS symbols (via reverse_map.zig reverse lookup)
     Template extraction (greedy + scoring algorithm)
     Index inline detection: recognizes both MySQL-style "idx_field" and
