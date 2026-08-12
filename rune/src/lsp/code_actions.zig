@@ -179,10 +179,12 @@ pub fn getCodeActions(
                             .title = "Replace serial with int auto_increment",
                             .kind = .quick_fix,
                             .diagnostics = &.{diag},
-                            .edit = .{ .changes = &.{.{
-                                .range = makeRange(col_line, 0, col_line, @intCast(col.name.len + 8)), // name + " serial"
-                                .new_text = std.fmt.allocPrint(alloc, "{s} n ++", .{col.name}) catch continue,
-                            }} },
+                            .edit = .{
+                                .changes = &.{.{
+                                    .range = makeRange(col_line, 0, col_line, @intCast(col.name.len + 8)), // name + " serial"
+                                    .new_text = std.fmt.allocPrint(alloc, "{s} n ++", .{col.name}) catch continue,
+                                }},
+                            },
                         }) catch {};
                         break;
                     }

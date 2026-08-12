@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.266.0] - 2026-08-12
+
+### Fixed
+- **Double-lint in validation** — `rune validate --strict --fix` no longer runs `lintSchema` twice. Lint results are now cached and shared between strict check and fix application.
+- **`std.process.exit` in library code** — `pipeline/generate.zig` now returns `error.GeneratorHealthCheckFailed` instead of calling `std.process.exit(1)`, improving testability.
+
+### Changed
+- **Shared compile helper** — Extracted duplicate `compileToTypedAst` function from `pipeline/generate.zig` and `pipeline/handlers.zig` into `pipeline/compile_helper.zig` (DRY fix, net -11 lines across 4 files).
+- **Dead code removal** — Removed unused private methods `formatAlloc` and `writeMajorMinor` from `version.zig` (never called from production code).
+- **Free functions** — Converted `emitSchemaHeader` and `emitStandaloneIndexes` in `reverse/codegen.zig` from struct methods to free functions (removed unused `self` parameters).
+- **Formatting** — Fixed zig fmt violations in 5 files (`cli/types.zig`, `formatter.zig`, `lint/handlers/portability.zig`, `lsp/code_actions.zig`, `semantic/pass_manager.zig`).
+
 ## [0.253.0] - 2026-08-11
 
 ### Fixed

@@ -35,7 +35,7 @@ pub const ReverseCodegen = struct {
         var aw = std.Io.Writer.Allocating.init(self.alloc);
         const w = &aw.writer;
 
-        try emitSchemaHeader(self, w, schema);
+        try emitSchemaHeader(w, schema);
 
         var my_tmpl: []template_ext.TemplateCandidate = &.{};
         if (extract_templates) {
@@ -59,8 +59,7 @@ pub const ReverseCodegen = struct {
 
 // ─── Sub-functions ──────────────────────────────────────────────
 
-fn emitSchemaHeader(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema) !void {
-    _ = self;
+fn emitSchemaHeader(w: anytype, schema: sp.SqlSchema) !void {
     if (schema.name) |name| {
         try w.print("$ {s}", .{name});
         if (schema.charset) |cs| {
@@ -197,15 +196,14 @@ fn emitTables(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_list
             try w.writeAll("\n");
         }
 
-        try emitStandaloneIndexes(self, w, table);
+        try emitStandaloneIndexes(w, table);
         try emitForeignKeys(self, w, table);
 
         if (ti < schema.tables.len - 1) try w.writeAll("\n");
     }
 }
 
-fn emitStandaloneIndexes(self: *ReverseCodegen, w: anytype, table: sp.SqlTable) !void {
-    _ = self;
+fn emitStandaloneIndexes(w: anytype, table: sp.SqlTable) !void {
     for (table.indexes) |idx| {
         if (idx.kind == .primary_key) continue;
         if (rc.isInlineIndex(idx)) continue;

@@ -79,34 +79,38 @@ pub fn handleValidate(io: std.Io, alloc: std.mem.Allocator, file_data: []const u
             if (cfg.strict) return error.DiagnosticsError;
             return;
         }
-        // In strict mode, also run lint and fail on warnings
-        if (cfg.strict) {
+        // Run lint once, share results for strict check and fix
+        if (cfg.strict or cfg.fix) {
             const lint_results = try lint_mod.lintSchema(alloc, result.resolved, .{});
-            for (lint_results.items) |r| {
-                if (r.severity == .warning) return error.StrictWarnings;
+            // In strict mode, fail on warnings
+            if (cfg.strict) {
+                for (lint_results.items) |r| {
+                    if (r.severity == .warning) return error.StrictWarnings;
+                }
             }
-        }
-        // Apply lint auto-fixes when --fix is active
-        if (cfg.fix and cfg.input != null) {
-            const lint_results = try lint_mod.lintSchema(alloc, result.resolved, .{});
-            if (lint_results.items.len > 0) {
-                const fixed = try lint_mod.lintFix(alloc, file_data, lint_results.items);
-                if (cfg.input) |input_path| {
-                    std.Io.Dir.cwd().writeFile(io, .{
-                        .sub_path = input_path,
-                        .data = fixed.source,
-                    }) catch return error.AccessDenied;
-                }
-                for (fixed.fixes) |fix| {
-                    try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "fixed: [{s}] {s} — {s}\n", .{ fix.rule, fix.table, fix.description }), null, false);
-                }
-                if (!cfg.json_errors and cfg.format != .json and cfg.format != .sarif) {
-                    try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Applied {d} fix(es)\n", .{fixed.fixes.len}), null, false);
+            // Apply lint auto-fixes when --fix is active
+            if (cfg.fix and cfg.input != null) {
+                if (lint_results.items.len > 0) {
+                    const fixed = try lint_mod.lintFix(alloc, file_data, lint_results.items);
+                    if (cfg.input) |input_path| {
+                        std.Io.Dir.cwd().writeFile(io, .{
+                            .sub_path = input_path,
+                            .data = fixed.source,
+                        }) catch return error.AccessDenied;
+                    }
+                    for (fixed.fixes) |fix| {
+                        try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "fixed: [{s}] {s} — {s}\n", .{ fix.rule, fix.table, fix.description }), null, false);
+                    }
+                    if (!cfg.json_errors and cfg.format != .json and cfg.format != .sarif) {
+                        try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Applied {d} fix(es)\n", .{fixed.fixes.len}), null, false);
+                    }
+                } else {
+                    if (!cfg.json_errors and cfg.format != .json and cfg.format != .sarif) {
+                        fmt.printOk("schema is valid (no fixes needed)");
+                    }
                 }
             } else {
-                if (!cfg.json_errors and cfg.format != .json and cfg.format != .sarif) {
-                    fmt.printOk("schema is valid (no fixes needed)");
-                }
+                fmt.printOk("schema is valid");
             }
         } else {
             fmt.printOk("schema is valid");

@@ -9,8 +9,9 @@ const printStats = forward.printStats;
 const io_mod = @import("../io.zig");
 const codegen = @import("../codegen/codegen.zig");
 const dialect_enum = @import("../dialect/enum.zig");
+const compile_helper = @import("compile_helper.zig");
+const compileToTypedAst = compile_helper.compileToTypedAst;
 const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
-const TypedAst = @import("../types/typed_ast.zig").TypedAst;
 const json_schema = @import("../generators/json_schema.zig");
 const stats_mod = @import("stats.zig");
 const StatsFormat = @import("../types/enums.zig").StatsFormat;
@@ -28,14 +29,6 @@ pub const formatValidateSarif = export_mod.formatValidateSarif;
 // CLI-level handlers that orchestrate compilation + output.
 // Extracted from forward.zig for single-responsibility.
 // Validation handlers (handleValidate, handleCheck) live in validation.zig.
-
-/// Compile schema text to a TypedAst for use by generators.
-/// Single entry point for the compile → resolve pattern used by
-/// generateFromSchema, generateFromSchemaBatch, and handleDocs.
-fn compileToTypedAst(alloc: std.mem.Allocator, file_data: []const u8, dialect: dialect_enum.Dialect) !TypedAst {
-    const pipeline = try compilePipeline(alloc, file_data, .{});
-    return TypeResolver.resolve(alloc, pipeline.resolved, dialect);
-}
 
 /// Unified compile handler for all combinations of input (stdin/file) and output (sql/json).
 pub fn handleCompileRequest(

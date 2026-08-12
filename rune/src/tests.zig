@@ -112,6 +112,7 @@ comptime {
     _ = @import("pipeline/forward_test.zig");
     _ = @import("pipeline/handlers_test.zig");
     _ = @import("pipeline/generate.zig");
+    _ = @import("pipeline/compile_helper.zig");
     _ = @import("pipeline/validation.zig");
     _ = @import("pipeline/validation_test.zig");
     _ = @import("pipeline/import_resolver_test.zig");

@@ -112,6 +112,10 @@ pub fn handleDispatchError(err: anyerror, parsed: cli.ParsedArgs) noreturn {
             }
             std.process.exit(1);
         },
+        error.GeneratorHealthCheckFailed => {
+            // Error message already printed by handler
+            std.process.exit(1);
+        },
         error.StrictWarnings => {
             if (!parsed.quiet) {
                 fmt.printErr("lint strict mode: found warnings");

@@ -51,18 +51,6 @@ pub const Version = struct {
         try writer.print("{d}.{d}.{d}", .{ self.major, self.minor, self.patch });
     }
 
-    /// Format version to an allocated string "major.minor.patch".
-    /// Caller owns the returned memory.
-    fn formatAlloc(self: Version, alloc: std.mem.Allocator) ![]const u8 {
-        return try std.fmt.allocPrint(alloc, "{d}.{d}.{d}", .{ self.major, self.minor, self.patch });
-    }
-
-    /// Write "major.minor" to the provided writer (e.g. "0.238").
-    /// Useful for docs references without patch number.
-    fn writeMajorMinor(self: Version, writer: *std.Io.Writer) !void {
-        try writer.print("{d}.{d}", .{ self.major, self.minor });
-    }
-
     /// Compare two versions. Returns ordering.
     pub fn order(self: Version, other: Version) std.math.Order {
         if (self.major != other.major) return if (self.major < other.major) .lt else .gt;
@@ -213,38 +201,6 @@ test "Version comparisons: eq" {
     const c = Version{ .major = 1, .minor = 2, .patch = 4 };
     try std.testing.expect(a.eq(b));
     try std.testing.expect(!a.eq(c));
-}
-
-// ─── formatAlloc Tests ───────────────────────────────────────
-
-test "formatAlloc: basic version" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    const v = Version{ .major = 0, .minor = 238, .patch = 0 };
-    const str = try v.formatAlloc(alloc);
-    try std.testing.expectEqualStrings("0.238.0", str);
-}
-
-test "formatAlloc: large version" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    const v = Version{ .major = 10, .minor = 200, .patch = 999 };
-    const str = try v.formatAlloc(alloc);
-    try std.testing.expectEqualStrings("10.200.999", str);
-}
-
-test "formatAlloc: zero version" {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const alloc = arena.allocator();
-
-    const v = Version{ .major = 0, .minor = 0, .patch = 0 };
-    const str = try v.formatAlloc(alloc);
-    try std.testing.expectEqualStrings("0.0.0", str);
 }
 
 // ─── Additional Parse Edge Cases ─────────────────────────────

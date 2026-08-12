@@ -1,22 +1,14 @@
 const std = @import("std");
-const forward = @import("forward.zig");
-const compilePipeline = forward.compilePipeline;
+const compile_helper = @import("compile_helper.zig");
+const compileToTypedAst = compile_helper.compileToTypedAst;
 const io_mod = @import("../io.zig");
 const dialect_enum = @import("../dialect/enum.zig");
-const TypeResolver = @import("../types/type_resolver.zig").TypeResolver;
-const TypedAst = @import("../types/typed_ast.zig").TypedAst;
 const generator = @import("../generator.zig");
 const fmt = @import("../diagnostic/format.zig");
 
 // ─── Generate Handlers ──────────────────────────────────────────
 // Schema generation: compile → resolve → generate → write output.
 // Extracted from handlers.zig for single-responsibility.
-
-/// Compile schema text to a TypedAst for use by generators.
-fn compileToTypedAst(alloc: std.mem.Allocator, file_data: []const u8, dialect: dialect_enum.Dialect) !TypedAst {
-    const pipeline = try compilePipeline(alloc, file_data, .{});
-    return TypeResolver.resolve(alloc, pipeline.resolved, dialect);
-}
 
 /// Configuration for `generateFromSchema` and `generateFromSchemaBatch`.
 /// Replaces 8 positional parameters with a named struct.
@@ -160,7 +152,7 @@ pub fn handleGenerate(
     if (cfg.check) {
         if (generator.check(alloc)) |err_msg| {
             try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Generator health check failed: {s}\n", .{err_msg}), null, false);
-            std.process.exit(1);
+            return error.GeneratorHealthCheckFailed;
         } else {
             try io_mod.writeOutput(io, "All generators OK\n", null, false);
         }

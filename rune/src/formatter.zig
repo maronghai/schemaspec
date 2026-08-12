@@ -21,31 +21,35 @@ const INITIAL_PADDING = 64;
 // they are also Rune type symbols used in field definitions.
 const SQL_KEYWORDS = [_][]const u8{
     // DDL
-    "CREATE", "TABLE", "INDEX", "VIEW", "DROP", "ALTER",
+    "CREATE",     "TABLE",       "INDEX",    "VIEW",    "DROP",      "ALTER",
     // DML
-    "SELECT", "INSERT", "UPDATE", "DELETE", "FROM", "WHERE",
+    "SELECT",     "INSERT",      "UPDATE",   "DELETE",  "FROM",      "WHERE",
     // Logical
-    "AND", "OR", "NOT", "IN", "ON", "AS", "IS",
+    "AND",        "OR",          "NOT",      "IN",      "ON",        "AS",
+    "IS",
     // Constraints
-    "PRIMARY", "KEY", "UNIQUE", "CHECK", "CONSTRAINT",
+            "PRIMARY",     "KEY",      "UNIQUE",  "CHECK",     "CONSTRAINT",
     "REFERENCES", "FOREIGN",
     // Modifiers
-    "NULL", "DEFAULT",
+        "NULL",     "DEFAULT",
     // Control
-    "IF", "EXISTS", "SET", "CASCADE", "RESTRICT",
+    "IF",        "EXISTS",
+    "SET",        "CASCADE",     "RESTRICT",
     // Metadata
-    "COMMENT", "ENGINE", "CHARSET", "COLLATE",
+    "COMMENT", "ENGINE",    "CHARSET",
+    "COLLATE",
     // Alter
-    "ADD", "COLUMN", "MODIFY", "RENAME", "TO",
+       "ADD",         "COLUMN",   "MODIFY",  "RENAME",    "TO",
     // Pagination
-    "RETURNING", "VALUES", "INTO", "OVER", "PARTITION",
-    "ROW", "ROWS", "ONLY", "FIRST", "LAST",
+    "RETURNING",  "VALUES",      "INTO",     "OVER",    "PARTITION", "ROW",
+    "ROWS",       "ONLY",        "FIRST",    "LAST",
     // Transactions
-    "BEGIN", "COMMIT", "ROLLBACK", "TRANSACTION",
+       "BEGIN",     "COMMIT",
+    "ROLLBACK",   "TRANSACTION",
     // Privileges
-    "GRANT", "REVOKE", "ALL", "PRIVILEGES",
+    "GRANT",    "REVOKE",  "ALL",       "PRIVILEGES",
     // Literals
-    "TRUE", "FALSE",
+    "TRUE",       "FALSE",
 };
 
 /// Check if a byte is a valid identifier character (letter, digit, or underscore).
@@ -56,37 +60,38 @@ fn isIdentChar(c: u8) bool {
 // ─── Dialect-Specific SQL Keywords ──────────────────────────────
 // Additional keywords per dialect that should be uppercased in @if blocks.
 const DIALECT_KEYWORDS_MYSQL = [_][]const u8{
-    "AUTO_INCREMENT", "UNSIGNED", "ENGINE", "CHARSET", "COLLATE",
-    "TINYINT", "MEDIUMTEXT", "LONGTEXT", "LONGBLOB", "MEDIUMBLOB",
-    "ENUM", "SET", "IFNULL", "CONCAT", "GROUP_CONCAT",
+    "AUTO_INCREMENT", "UNSIGNED",   "ENGINE",   "CHARSET",  "COLLATE",
+    "TINYINT",        "MEDIUMTEXT", "LONGTEXT", "LONGBLOB", "MEDIUMBLOB",
+    "ENUM",           "SET",        "IFNULL",   "CONCAT",   "GROUP_CONCAT",
 };
 const DIALECT_KEYWORDS_PG = [_][]const u8{
-    "SERIAL", "BIGSERIAL", "SMALLSERIAL", "RETURNING", "ON",
-    "CONFLICT", "ILIKE", "ANY", "ARRAY", "OVER",
-    "PARTITION", "ROW", "ROWS", "ONLY", "FIRST", "LAST",
-    "GENERATED", "ALWAYS", "IDENTITY", "WINDOW",
+    "SERIAL",    "BIGSERIAL", "SMALLSERIAL", "RETURNING", "ON",
+    "CONFLICT",  "ILIKE",     "ANY",         "ARRAY",     "OVER",
+    "PARTITION", "ROW",       "ROWS",        "ONLY",      "FIRST",
+    "LAST",      "GENERATED", "ALWAYS",      "IDENTITY",  "WINDOW",
 };
 const DIALECT_KEYWORDS_SQLITE = [_][]const u8{
     "AUTOINCREMENT", "VACUUM", "PRAGMA", "EXPLAIN",
-    "REINDEX", "GLOB", "LIMIT", "OFFSET", "CAST",
+    "REINDEX",       "GLOB",   "LIMIT",  "OFFSET",
+    "CAST",
 };
 const DIALECT_KEYWORDS_MSSQL = [_][]const u8{
-    "IDENTITY", "TOP", "NVARCHAR", "NTEXT", "BIT",
-    "PRINT", "EXEC", "EXECUTE", "BEGIN", "END",
-    "DECLARE", "SET", "GO", "AS", "ISNULL",
+    "IDENTITY", "TOP",  "NVARCHAR", "NTEXT", "BIT",
+    "PRINT",    "EXEC", "EXECUTE",  "BEGIN", "END",
+    "DECLARE",  "SET",  "GO",       "AS",    "ISNULL",
 };
 const DIALECT_KEYWORDS_ORACLE = [_][]const u8{
-    "NUMBER", "VARCHAR2", "SYSDATE", "ROWNUM", "NVL",
-    "DECODE", "TO_CHAR", "TO_DATE", "TO_NUMBER", "SUBSTR",
-    "INSTR", "LENGTH", "TRIM", "UPPER", "LOWER",
-    "NVL2", "COALESCE", "EXTRACT", "CONNECT", "BY",
-    "START", "WITH", "MERGE", "INTO", "USING",
+    "NUMBER", "VARCHAR2", "SYSDATE", "ROWNUM",    "NVL",
+    "DECODE", "TO_CHAR",  "TO_DATE", "TO_NUMBER", "SUBSTR",
+    "INSTR",  "LENGTH",   "TRIM",    "UPPER",     "LOWER",
+    "NVL2",   "COALESCE", "EXTRACT", "CONNECT",   "BY",
+    "START",  "WITH",     "MERGE",   "INTO",      "USING",
 };
 const DIALECT_KEYWORDS_DB2 = [_][]const u8{
-    "GENERATED", "ALWAYS", "IDENTITY", "BIGINT", "CLOB",
-    "BLOB", "DBCLOB", "DECFLOAT", "GRAPHIC", "VARGRAPHIC",
-    "SUM", "COUNT", "AVG", "MIN", "MAX",
-    "FETCH", "FIRST", "ROWS", "ONLY", "FOR",
+    "GENERATED", "ALWAYS", "IDENTITY", "BIGINT",  "CLOB",
+    "BLOB",      "DBCLOB", "DECFLOAT", "GRAPHIC", "VARGRAPHIC",
+    "SUM",       "COUNT",  "AVG",      "MIN",     "MAX",
+    "FETCH",     "FIRST",  "ROWS",     "ONLY",    "FOR",
 };
 
 /// Check if a word matches any SQL keyword (case-insensitive).
