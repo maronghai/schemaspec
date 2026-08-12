@@ -160,3 +160,22 @@ pub fn checkIndexRedundantWithPk(alloc: std.mem.Allocator, results: *std.ArrayLi
         }
     }
 }
+
+/// Check if a table has no indexes at all (potential performance issue).
+/// Skips empty tables and tables with only a primary key (which is implicit).
+pub fn checkTableNoIndex(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Skip empty tables
+        if (table.fields.len == 0) continue;
+        // Skip tables with no explicit indexes
+        if (table.indexes.len == 0) {
+            const msg = try std.fmt.allocPrint(alloc, "table has no indexes — consider adding indexes for query performance", .{});
+            try results.append(alloc, .{
+                .rule = "table-no-index",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}

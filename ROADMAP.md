@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.268.0 (2026-08-12) — 58,000+ lines production Zig, 1,876+ tests, 54 lint rules, 38 test suites.
+**Current version**: 0.269.0 (2026-08-12) — 58,000+ lines production Zig, 1,882+ tests, 56 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.269.0** — Lint expansion & documentation accuracy: added 2 new lint rules (`column-auto-increment-nullable` warns when auto-increment modifier is used on nullable columns — should be NOT NULL; `table-no-index` warns when a table has no indexes — potential performance issue — 56 lint rules total, 11 fixable); added 6 new unit tests for new lint rules; updated architecture health test comment (51→56 rules); updated documentation with accurate rule and test counts; 1,882+ unit tests pass, benchmarks show no regressions
 - **v0.267.0** — Lint rules expansion & architecture quality: added 3 new lint rules (`column-auto-increment-type` warns when auto-increment modifier is used on non-integer types, `column-unique-naming` warns when columns in the same table differ only by case, `fk-on-delete-cascade` warns when FK uses ON DELETE CASCADE with potential data loss risk — 54 lint rules total, 11 fixable); added 8 new unit tests for new lint rules; updated documentation with accurate rule counts; 1,876+ unit tests pass, benchmarks show no regressions
 - **v0.266.0** — Architecture cleanup & code quality: extracted shared `compileToTypedAst` helper from duplicate definitions in `pipeline/generate.zig` and `pipeline/handlers.zig` into `pipeline/compile_helper.zig` (DRY fix); replaced `std.process.exit(1)` in `pipeline/generate.zig` with proper error propagation (`error.GeneratorHealthCheckFailed`); fixed double-lint execution in `pipeline/validation.zig` (when `--strict` + `--fix` both active, `lintSchema` now runs once and shares results); removed dead code in `version.zig` (`formatAlloc`, `writeMajorMinor` — private methods never called from production); converted `emitSchemaHeader` and `emitStandaloneIndexes` in `reverse/codegen.zig` from struct methods to free functions (removed unused `self` parameters); fixed zig fmt violations in 5 files; 1,868 unit tests pass, benchmarks show no regressions
 - **v0.265.0** — Documentation & packaging synchronization: synchronized version numbers across all 6 packaging manifests (homebrew 0.175.0→0.265.0, scoop 0.175.0→0.265.0, npm 0.254.0→0.265.0, vscode 0.254.0→0.265.0, build.zig.zon 0.262.0→0.265.0); fixed ARCHITECTURE.md internal contradictions (unit test count ~1,808+→~1,868+, colocated files 110→117, MySQL golden 86→85, PG golden 87→86, roundtrip 68→112, reverse confidence 4→3, total ~1,788+→~1,868+); updated rune/README.md and root README.md test file counts (110→117); 1,868 unit tests pass, benchmarks show no regressions

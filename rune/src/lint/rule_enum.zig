@@ -61,6 +61,8 @@ pub const LintRule = enum {
     column_auto_increment_type,
     column_unique_naming,
     fk_on_delete_cascade,
+    column_auto_increment_nullable,
+    table_no_index,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -119,6 +121,8 @@ pub const LintRule = enum {
             .column_auto_increment_type => "column-auto-increment-type",
             .column_unique_naming => "column-unique-naming",
             .fk_on_delete_cascade => "fk-on-delete-cascade",
+            .column_auto_increment_nullable => "column-auto-increment-nullable",
+            .table_no_index => "table-no-index",
         };
     }
 
@@ -191,6 +195,8 @@ pub const LintRule = enum {
             .column_auto_increment_type => false,
             .column_unique_naming => false,
             .fk_on_delete_cascade => false,
+            .column_auto_increment_nullable => false,
+            .table_no_index => false,
         };
     }
 
@@ -251,6 +257,8 @@ pub const LintRule = enum {
             .column_auto_increment_type => "Auto-increment used on non-integer type",
             .column_unique_naming => "Columns differ only by case (potential naming conflict)",
             .fk_on_delete_cascade => "Foreign key uses ON DELETE CASCADE (potential data loss)",
+            .column_auto_increment_nullable => "Auto-increment on nullable column (should be NOT NULL)",
+            .table_no_index => "Table has no indexes (potential performance issue)",
         };
     }
 
@@ -311,6 +319,8 @@ pub const LintRule = enum {
             .column_auto_increment_type => "warning",
             .column_unique_naming => "warning",
             .fk_on_delete_cascade => "warning",
+            .column_auto_increment_nullable => "warning",
+            .table_no_index => "note",
             .index_columns_max => "note",
         };
     }

@@ -102,6 +102,7 @@ test "lint: SARIF empty results" {
     var cfg = lint_mod.LintConfig{};
     cfg.rules.setEnabled(.column_length, false);
     cfg.rules.setEnabled(.column_default_required, false);
+    cfg.rules.setEnabled(.table_no_index, false);
     const results = try lintSchema(alloc, test_ast, cfg);
     const sarif = try lint_mod.formatLintSarif(alloc, results.items, "0.137.0", null);
     try testing.expect(std.mem.indexOf(u8, sarif, "\"results\":[]") != null);

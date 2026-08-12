@@ -1,5 +1,5 @@
 // Index rule tests — no-index-fk, unused-index, duplicate-index, index-column-missing,
-// index-missing-fk-columns, column-name-too-long, index-redundant-with-pk.
+// index-missing-fk-columns, column-name-too-long, index-redundant-with-pk, table-no-index.
 
 const std = @import("std");
 const testing = std.testing;
@@ -177,4 +177,36 @@ test "lint: non-PK index passes" {
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "index-redundant-with-pk"));
+}
+
+// ─── table-no-index tests ─────────────────────────────────────
+
+test "lint: table with no indexes detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "table-no-index"));
+}
+
+test "lint: table with indexes passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{th.makeIndex("idx_name", .regular, &.{"name"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "table-no-index"));
+}
+
+test "lint: empty table skips table-no-index" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "empty", &.{}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "table-no-index"));
 }

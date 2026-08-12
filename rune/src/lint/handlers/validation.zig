@@ -272,3 +272,28 @@ pub fn checkColumnUniqueNaming(alloc: std.mem.Allocator, results: *std.ArrayList
         }
     }
 }
+
+/// Check if auto-increment modifier (@/++) is used on a nullable column.
+/// Auto-increment columns should always be NOT NULL — nullable auto-increment
+/// is contradictory and indicates a schema design error.
+pub fn checkColumnAutoIncrementNullable(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            var has_auto_inc = false;
+            var has_nullable = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .auto_inc) has_auto_inc = true;
+                if (mod.kind == .nullable) has_nullable = true;
+            }
+            if (has_auto_inc and has_nullable) {
+                const msg = try std.fmt.allocPrint(alloc, "auto-increment on nullable column '{s}' — should be NOT NULL", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "column-auto-increment-nullable",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}

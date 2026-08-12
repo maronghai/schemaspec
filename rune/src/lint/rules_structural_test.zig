@@ -24,9 +24,11 @@ test "lint: clean schema passes" {
     const test_ast = th.makeAst(tables);
     // Disable column-length rule since test fields use bare 's' type
     // Disable column-default-required since test fields have no defaults
+    // Disable table-no-index since test tables have no explicit indexes
     var cfg = lint_mod.LintConfig{};
     cfg.rules.setEnabled(.column_length, false);
     cfg.rules.setEnabled(.column_default_required, false);
+    cfg.rules.setEnabled(.table_no_index, false);
     const results = try lintSchema(alloc, test_ast, cfg);
     try testing.expectEqual(@as(usize, 0), results.items.len);
 }

@@ -88,6 +88,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .duplicate_index, .handler = index_rules.checkDuplicateIndex },
     .{ .rule = .index_column_missing, .handler = index_rules.checkIndexColumnMissing },
     .{ .rule = .index_redundant_with_pk, .handler = index_rules.checkIndexRedundantWithPk },
+    .{ .rule = .table_no_index, .handler = index_rules.checkTableNoIndex },
     // View validation rules (moved to view.zig)
     .{ .rule = .view_no_select, .handler = view_rules.checkViewNoSelect },
     .{ .rule = .view_no_alias, .handler = view_rules.checkViewNoAlias },
@@ -110,6 +111,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .column_unique_nullable, .handler = validation.checkColumnUniqueNullable },
     .{ .rule = .column_auto_increment_type, .handler = validation.checkColumnAutoIncrementType },
     .{ .rule = .column_unique_naming, .handler = validation.checkColumnUniqueNaming },
+    .{ .rule = .column_auto_increment_nullable, .handler = validation.checkColumnAutoIncrementNullable },
     // Compatibility rules
     .{ .rule = .serial_type, .handler = compat.checkSerialType },
     .{ .rule = .column_length, .handler = compat.checkColumnLength },

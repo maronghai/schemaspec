@@ -47,12 +47,12 @@ test "dialect backend count matches documentation" {
 }
 
 test "lint rule count matches documentation" {
-    // Verify lint rules have expected count (51 rules per ROADMAP)
+    // Verify lint rules have expected count (56 rules per ROADMAP)
     const lint_config = @import("../lint/config.zig");
     const LintRule = lint_config.LintRule;
     const fields = @typeInfo(LintRule).@"enum".fields;
-    try std.testing.expect(fields.len >= 48); // At least 48 rules
-    try std.testing.expect(fields.len <= 55); // Sanity upper bound
+    try std.testing.expect(fields.len >= 54); // At least 54 rules
+    try std.testing.expect(fields.len <= 60); // Sanity upper bound
 }
 
 test "no catch unreachable in production code" {

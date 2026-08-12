@@ -1,5 +1,6 @@
 // Validation rule tests — fk-cascade, nullable-pk, fk-null, fk-depth, unique-constraint,
-// composite-pk, column-default-required, nullable-column-default, bool-default.
+// composite-pk, column-default-required, nullable-column-default, bool-default,
+// column-auto-increment-type, column-unique-naming, column-auto-increment-nullable.
 
 const std = @import("std");
 const testing = std.testing;
@@ -350,4 +351,40 @@ test "lint: FK ON DELETE SET NULL passes" {
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "fk-on-delete-cascade"));
+}
+
+// ─── column-auto-increment-nullable tests ──────────────────────
+
+test "lint: auto-increment on nullable column detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{
+        th.makeField("id", .{ .simple = "n" }, &.{ .{ .kind = .auto_inc_pk, .line_no = 1 }, .{ .kind = .nullable, .line_no = 1 } }, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-auto-increment-nullable"));
+}
+
+test "lint: auto-increment on non-nullable column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{th.makePkField("id")}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-auto-increment-nullable"));
+}
+
+test "lint: auto_inc (non-pk) on nullable column detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "counters", &.{
+        th.makeField("seq", .{ .simple = "n" }, &.{ .{ .kind = .auto_inc, .line_no = 1 }, .{ .kind = .nullable, .line_no = 1 } }, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-auto-increment-nullable"));
 }
