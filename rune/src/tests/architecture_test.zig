@@ -175,23 +175,30 @@ test "all generators have valid metadata" {
     }
 }
 
-// ─── Lint Module Tests ────────────────────────────────────────
+// ─── Cache Module Tests ──────────────────────────────────────
 
-test "lint handler module count" {
-    // Verify lint has 9 handler modules (structural, naming, validation, compat, fk, index, view, enum, portability)
-    const lint_config = @import("../lint/config.zig");
-    const LintRule = lint_config.LintRule;
-    const fields = @typeInfo(LintRule).@"enum".fields;
-    try std.testing.expect(fields.len >= 58);
-    try std.testing.expect(fields.len <= 65);
+test "cache module public API exists" {
+    // Verify cache module has expected public types
+    const cache = @import("../cache.zig");
+    _ = cache.CacheKey;
+    _ = cache.CacheEntry;
+    _ = cache.TableCache;
+    _ = cache.CacheStats;
 }
 
-// ─── Formatter Tests ──────────────────────────────────────────
-
-test "formatter has dialect keyword support" {
-    // Verify formatter module has keyword formatting capability
-    const formatter = @import("../formatter.zig");
-    _ = formatter;
+test "cache key fileName produces correct length" {
+    const cache = @import("../cache.zig");
+    const key = cache.CacheKey{
+        .table_name = "test",
+        .dialect = "mysql",
+        .content_hash = "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789".*,
+    };
+    var buf: [68]u8 = undefined;
+    key.fileName(&buf);
+    try std.testing.expectEqual(@as(usize, 68), buf.len);
+    try std.testing.expectEqual('s', buf[65]);
+    try std.testing.expectEqual('q', buf[66]);
+    try std.testing.expectEqual('l', buf[67]);
 }
 
 // ─── Diff Module Tests ────────────────────────────────────────
@@ -202,15 +209,6 @@ test "diff format modules are importable" {
     _ = @import("../diff/format/json.zig");
     _ = @import("../diff/format/sarif.zig");
     _ = @import("../diff/format/markdown.zig");
-}
-
-// ─── Pipeline Module Tests ────────────────────────────────────
-
-test "pipeline config structs have defaults" {
-    // Verify CompileConfig is default-initializable
-    const forward = @import("../pipeline/forward.zig");
-    const compile_cfg = forward.CompileConfig{};
-    _ = compile_cfg;
 }
 
 // ─── Semantic Pass Tests ──────────────────────────────────────

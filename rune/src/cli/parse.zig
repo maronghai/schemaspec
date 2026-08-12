@@ -166,6 +166,7 @@ const FlagResult = struct {
     want_stream: bool,
     want_parallel: bool,
     want_cache: bool,
+    cache_dir: ?[]const u8,
     want_color: ColorMode,
 };
 
@@ -194,6 +195,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
     var want_stream = false;
     var want_parallel = false;
     var want_cache = false;
+    var cache_dir: ?[]const u8 = null;
     var config_path: ?[]const u8 = null;
     var diff_format: DiffFormat = .text;
 
@@ -237,7 +239,14 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             want_cache = true;
         }
         // ─── Value flags (require next argument) ───
-        else if (flag_reg.matchesFlag(arg, .{ .long = "--dialect", .short = "-d" })) {
+        else if (std.mem.eql(u8, arg, "--cache-dir")) {
+            if (i + 1 < raw_args.len) {
+                cache_dir = raw_args[i + 1];
+                i += 1;
+            } else {
+                return error.MissingImportPathValue; // Reuse existing error
+            }
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--dialect", .short = "-d" })) {
             if (i + 1 < raw_args.len) {
                 dialect = dialect_enum.parseDialect(raw_args[i + 1]) catch |e| {
                     if (e == error.UnknownDialect) return error.UnknownDialect;
@@ -339,6 +348,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
         .want_stream = want_stream,
         .want_parallel = want_parallel,
         .want_cache = want_cache,
+        .cache_dir = cache_dir,
         .want_color = want_color,
     };
 }
@@ -404,6 +414,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             .stream = flags.want_stream,
             .parallel = flags.want_parallel,
             .cache = flags.want_cache,
+            .cache_dir = flags.cache_dir,
         } });
     }
 
@@ -460,5 +471,6 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .stream = flags.want_stream,
         .parallel = flags.want_parallel,
         .cache = flags.want_cache,
+        .cache_dir = flags.cache_dir,
     } });
 }

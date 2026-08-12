@@ -36,14 +36,16 @@ pub const CacheEntry = struct {
 /// Thread-safe for single-threaded use (streaming compilation path).
 pub const TableCache = struct {
     alloc: std.mem.Allocator,
+    io: std.Io,
     entries: std.StringHashMapUnmanaged(CacheEntry),
     cache_dir: ?[]const u8,
     hit_count: u32,
     miss_count: u32,
 
-    pub fn init(alloc: std.mem.Allocator) TableCache {
+    pub fn init(alloc: std.mem.Allocator, io: std.Io) TableCache {
         return .{
             .alloc = alloc,
+            .io = io,
             .entries = .{},
             .cache_dir = null,
             .hit_count = 0,
@@ -54,7 +56,7 @@ pub const TableCache = struct {
     pub fn deinit(self: *TableCache) void {
         var it = self.entries.iterator();
         while (it.next()) |entry| {
-            self.alloc.free(entry.value_ptr.sql);
+            self.alloc.free(entry.value_ptr.*.sql);
         }
         self.entries.deinit(self.alloc);
     }
@@ -157,21 +159,222 @@ pub const TableCache = struct {
     }
 
     /// Write all cached entries to disk.
-    /// Note: disk persistence is not yet implemented. This is a no-op.
+    /// Creates `.rune-cache/<dialect>/` directories and writes each entry as `<hash>.sql`.
+    /// Writes a manifest file (`manifest.json`) for fast lookup on load.
+    /// Uses atomic writes (write to temp, then rename) for crash safety.
     pub fn flushToDisk(self: *TableCache) void {
-        _ = self;
+        const dir = self.cache_dir orelse return;
+
+        // Ensure cache directory exists
+        std.Io.Dir.cwd().createDir(self.io, dir, .default_dir) catch |err| {
+            if (err != error.PathAlreadyExists) return;
+        };
+
+        // Write each entry to disk
+        var it = self.entries.iterator();
+        while (it.next()) |entry| {
+            self.writeEntryToDisk(dir, entry.value_ptr) catch continue;
+        }
+
+        // Write manifest file for fast lookup
+        self.writeManifest(dir) catch {};
+    }
+
+    /// Write a single cache entry to disk as `<hash>.sql`.
+    fn writeEntryToDisk(self: *TableCache, dir: []const u8, entry: *const CacheEntry) !void {
+        // Ensure dialect subdirectory exists
+        var dialect_buf: [256]u8 = undefined;
+        const dialect_path = std.fmt.bufPrint(&dialect_buf, "{s}/{s}", .{ dir, entry.key.dialect }) catch return;
+        std.Io.Dir.cwd().createDir(self.io, dialect_path, .default_dir) catch |err| {
+            if (err != error.PathAlreadyExists) return;
+        };
+
+        // Build file path: <dir>/<dialect>/<hash>.sql
+        var file_buf: [68]u8 = undefined;
+        entry.key.fileName(&file_buf);
+        const file_path = std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ dialect_path, &file_buf }) catch return;
+        defer self.alloc.free(file_path);
+
+        // Write to temp file, then rename for atomicity
+        const tmp_path = std.fmt.allocPrint(self.alloc, "{s}.tmp", .{file_path}) catch return;
+        defer self.alloc.free(tmp_path);
+
+        {
+            const file = std.Io.Dir.cwd().createFile(self.io, tmp_path, .{}) catch return;
+            defer file.close(self.io);
+            file.writeStreamingAll(self.io, entry.sql) catch return;
+        }
+        std.Io.Dir.renameAbsolute(tmp_path, file_path, self.io) catch {};
+    }
+
+    /// Write manifest file mapping table_name → {dialect, hash} for fast lookup.
+    fn writeManifest(self: *TableCache, dir: []const u8) !void {
+        var buf = std.ArrayList(u8).initCapacity(self.alloc, 4096) catch return;
+        defer buf.deinit(self.alloc);
+
+        try buf.appendSlice(self.alloc, "{\"entries\":{");
+
+        var first = true;
+        var it = self.entries.iterator();
+        while (it.next()) |entry| {
+            if (!first) try buf.appendSlice(self.alloc, ",");
+            first = false;
+
+            // Escape table name for JSON
+            try buf.append(self.alloc, '"');
+            for (entry.value_ptr.*.key.table_name) |c| {
+                if (c == '"') {
+                    try buf.appendSlice(self.alloc, "\\\"");
+                } else if (c == '\\') {
+                    try buf.appendSlice(self.alloc, "\\\\");
+                } else {
+                    try buf.append(self.alloc, c);
+                }
+            }
+            try buf.appendSlice(self.alloc, "\":{\"dialect\":\"");
+            try buf.appendSlice(self.alloc, entry.value_ptr.*.key.dialect);
+            try buf.appendSlice(self.alloc, "\",\"hash\":\"");
+            try buf.appendSlice(self.alloc, &entry.value_ptr.*.key.content_hash);
+            try buf.appendSlice(self.alloc, "\"}");
+        }
+
+        try buf.appendSlice(self.alloc, "}}");
+
+        // Write manifest atomically
+        var manifest_buf: [512]u8 = undefined;
+        const manifest_path = std.fmt.bufPrint(&manifest_buf, "{s}/manifest.json", .{dir}) catch return;
+        const tmp_path = std.fmt.bufPrint(&manifest_buf, "{s}/manifest.json.tmp", .{dir}) catch return;
+
+        {
+            const file = std.Io.Dir.cwd().createFile(self.io, tmp_path, .{}) catch return;
+            defer file.close(self.io);
+            file.writeStreamingAll(self.io, buf.items) catch return;
+        }
+        std.Io.Dir.renameAbsolute(tmp_path, manifest_path, self.io) catch {};
     }
 
     /// Load cache entries from disk into memory.
-    /// Note: disk persistence is not yet implemented. This is a no-op.
+    /// Reads the manifest file to find entries, then loads each .sql file.
     pub fn loadFromDisk(self: *TableCache, dir: []const u8) void {
-        _ = dir;
-        _ = self;
+        self.cache_dir = dir;
+
+        // Read manifest file
+        const manifest_path = std.fmt.allocPrint(self.alloc, "{s}/manifest.json", .{dir}) catch return;
+        defer self.alloc.free(manifest_path);
+
+        const content = std.Io.Dir.cwd().readFileAlloc(self.io, manifest_path, self.alloc, .unlimited) catch return;
+        defer self.alloc.free(content);
+
+        // Parse simple JSON manifest: {"entries":{"table":{"dialect":"mysql","hash":"abc..."}}}
+        // Simple parser — doesn't need full JSON library
+        var pos: usize = 0;
+        while (pos < content.len) {
+            // Find table name (key in outer object)
+            if (findJsonString(content, &pos)) |table_name| {
+                // Skip : and {
+                skipToChar(content, &pos, ':');
+                skipToChar(content, &pos, '{');
+
+                // Find dialect
+                if (findJsonString(content, &pos)) |dialect| {
+                    // Skip : and "
+                    skipToChar(content, &pos, ':');
+                    skipToChar(content, &pos, '"');
+
+                    // Find hash value
+                    if (readJsonValue(content, &pos)) |hash| {
+                        // Build file path and load SQL
+                        var file_buf: [68]u8 = undefined;
+                        var hash_bytes: [64]u8 = undefined;
+                        const hash_len = @min(hash.len, 64);
+                        @memcpy(hash_bytes[0..hash_len], hash[0..hash_len]);
+                        if (hash_len < 64) {
+                            @memset(hash_bytes[hash_len..64], '0');
+                        }
+
+                        const key = CacheKey{
+                            .table_name = table_name,
+                            .dialect = dialect,
+                            .content_hash = hash_bytes,
+                        };
+                        key.fileName(&file_buf);
+
+                        var dialect_buf: [256]u8 = undefined;
+                        const dialect_path = std.fmt.bufPrint(&dialect_buf, "{s}/{s}", .{ dir, dialect }) catch continue;
+                        const file_path = std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ dialect_path, &file_buf }) catch continue;
+                        defer self.alloc.free(file_path);
+
+                        const sql = std.Io.Dir.cwd().readFileAlloc(self.io, file_path, self.alloc, .unlimited) catch continue;
+                        _ = self.store(key, sql) catch continue;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
     }
 
-    /// Remove the cache directory and all its contents.
-    /// Note: disk persistence is not yet implemented. This clears in-memory state only.
+    /// Helper: find next JSON string value starting at pos. Returns slice of string content.
+    fn findJsonString(content: []const u8, pos: *usize) ?[]const u8 {
+        // Skip to next quote
+        while (pos.* < content.len and content[pos.*] != '"') : (pos.* += 1) {}
+        if (pos.* >= content.len) return null;
+        pos.* += 1; // skip opening quote
+
+        const start = pos.*;
+        while (pos.* < content.len and content[pos.*] != '"') : (pos.* += 1) {}
+        if (pos.* >= content.len) return null;
+        const result = content[start..pos.*];
+        pos.* += 1; // skip closing quote
+        return result;
+    }
+
+    /// Helper: skip to next occurrence of char.
+    fn skipToChar(content: []const u8, pos: *usize, c: u8) void {
+        while (pos.* < content.len and content[pos.*] != c) : (pos.* += 1) {}
+        if (pos.* < content.len) pos.* += 1;
+    }
+
+    /// Helper: read a JSON string value (after opening quote).
+    fn readJsonValue(content: []const u8, pos: *usize) ?[]const u8 {
+        return findJsonString(content, pos);
+    }
+
+    /// Remove the cache directory and all its contents, then clear in-memory state.
     pub fn clean(self: *TableCache) void {
+        if (self.cache_dir) |dir| {
+            // Remove all .sql files we know about
+            var it = self.entries.iterator();
+            while (it.next()) |entry| {
+                var file_buf: [68]u8 = undefined;
+                entry.value_ptr.*.key.fileName(&file_buf);
+                var dialect_buf: [256]u8 = undefined;
+                const dialect_path = std.fmt.bufPrint(&dialect_buf, "{s}/{s}", .{ dir, entry.value_ptr.*.key.dialect }) catch continue;
+                const file_path = std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ dialect_path, &file_buf }) catch continue;
+                defer self.alloc.free(file_path);
+                std.Io.Dir.cwd().deleteFile(self.io, file_path) catch {};
+            }
+            // Remove manifest
+            const manifest_path = std.fmt.allocPrint(self.alloc, "{s}/manifest.json", .{dir}) catch null;
+            if (manifest_path) |mp| {
+                defer self.alloc.free(mp);
+                std.Io.Dir.cwd().deleteFile(self.io, mp) catch {};
+            }
+            // Remove dialect subdirectories (will fail if non-empty, which is fine)
+            var it2 = self.entries.iterator();
+            var seen_dirs = std.BufSet.init(self.alloc);
+            defer seen_dirs.deinit();
+            while (it2.next()) |entry| {
+                var dialect_buf: [256]u8 = undefined;
+                const dialect_path = std.fmt.bufPrint(&dialect_buf, "{s}/{s}", .{ dir, entry.value_ptr.*.key.dialect }) catch continue;
+                if (!seen_dirs.contains(dialect_path)) {
+                    seen_dirs.insert(dialect_path) catch {};
+                    std.Io.Dir.cwd().deleteDir(self.io, dialect_path) catch {};
+                }
+            }
+            // Remove root cache dir
+            std.Io.Dir.cwd().deleteDir(self.io, dir) catch {};
+        }
         self.entries.clearRetainingCapacity();
         self.hit_count = 0;
         self.miss_count = 0;
@@ -261,7 +464,8 @@ test "computeTableHash produces stable hash" {
 }
 
 test "lookup returns cached SQL" {
-    var cache = TableCache.init(std.testing.allocator);
+    const io = std.Io{ .vtable = undefined, .userdata = undefined };
+    var cache = TableCache.init(std.testing.allocator, io);
     defer cache.deinit();
 
     const key = testKey("users", "mysql", "aaa");
@@ -273,7 +477,8 @@ test "lookup returns cached SQL" {
 }
 
 test "lookup returns null for cache miss" {
-    var cache = TableCache.init(std.testing.allocator);
+    const io = std.Io{ .vtable = undefined, .userdata = undefined };
+    var cache = TableCache.init(std.testing.allocator, io);
     defer cache.deinit();
 
     const key = testKey("users", "mysql", "aaa");
@@ -283,7 +488,8 @@ test "lookup returns null for cache miss" {
 }
 
 test "lookup returns null for different dialect" {
-    var cache = TableCache.init(std.testing.allocator);
+    const io = std.Io{ .vtable = undefined, .userdata = undefined };
+    var cache = TableCache.init(std.testing.allocator, io);
     defer cache.deinit();
 
     const key_mysql = testKey("users", "mysql", "aaa");
@@ -295,7 +501,8 @@ test "lookup returns null for different dialect" {
 }
 
 test "lookup returns null for different content hash" {
-    var cache = TableCache.init(std.testing.allocator);
+    const io = std.Io{ .vtable = undefined, .userdata = undefined };
+    var cache = TableCache.init(std.testing.allocator, io);
     defer cache.deinit();
 
     const key1 = testKey("users", "mysql", "aaa");
@@ -307,7 +514,8 @@ test "lookup returns null for different content hash" {
 }
 
 test "stats tracks hits and misses" {
-    var cache = TableCache.init(std.testing.allocator);
+    const io = std.Io{ .vtable = undefined, .userdata = undefined };
+    var cache = TableCache.init(std.testing.allocator, io);
     defer cache.deinit();
 
     const key = testKey("users", "mysql", "aaa");
@@ -335,7 +543,8 @@ test "cacheKey fileName formats correctly" {
 }
 
 test "store replaces existing entry" {
-    var cache = TableCache.init(std.testing.allocator);
+    const io = std.Io{ .vtable = undefined, .userdata = undefined };
+    var cache = TableCache.init(std.testing.allocator, io);
     defer cache.deinit();
 
     const key = testKey("users", "mysql", "aaa");

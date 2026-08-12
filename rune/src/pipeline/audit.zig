@@ -160,16 +160,8 @@ pub fn auditSchema(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst)
         }
     }
 
-    // Compute health score (100 = perfect, deductions for findings)
-    var score: i32 = 100;
-    for (findings.items) |f| {
-        score -= switch (f.severity) {
-            .critical => 15,
-            .warning => 5,
-            .info => 1,
-        };
-    }
-    if (score < 0) score = 0;
+    // Compute score before transferring ownership to the report
+    const score = computeScore(findings.items);
 
     return .{
         .findings = findings.toOwnedSlice(alloc) catch return .{
@@ -178,8 +170,22 @@ pub fn auditSchema(alloc: std.mem.Allocator, resolved: resolved_ast.ResolvedAst)
             .score = 100,
         },
         .stats = s,
-        .score = @intCast(score),
+        .score = score,
     };
+}
+
+/// Compute health score from findings (100 = perfect, deductions for findings).
+pub fn computeScore(findings: []const AuditFinding) u8 {
+    var score: i32 = 100;
+    for (findings) |f| {
+        score -= switch (f.severity) {
+            .critical => 15,
+            .warning => 5,
+            .info => 1,
+        };
+    }
+    if (score < 0) score = 0;
+    return @intCast(score);
 }
 
 // ─── Output Formatting ───────────────────────────────────────

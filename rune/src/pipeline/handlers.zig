@@ -70,18 +70,37 @@ pub fn handleCompileRequest(
         var table_cache: cache_mod.TableCache = undefined;
         var cache_ptr: ?*cache_mod.TableCache = null;
         if (cfg.cache) {
-            table_cache = cache_mod.TableCache.init(alloc);
+            table_cache = cache_mod.TableCache.init(alloc, io);
+            // Set cache directory (default: .rune-cache relative to schema)
+            if (cfg.cache_dir) |dir| {
+                table_cache.cache_dir = dir;
+            } else if (cfg.input) |input_path| {
+                // Resolve cache dir relative to schema file directory
+                if (std.fs.path.dirname(input_path)) |dir| {
+                    const cache_path = std.fmt.allocPrint(alloc, "{s}/.rune-cache", .{dir}) catch null;
+                    table_cache.cache_dir = cache_path;
+                } else {
+                    table_cache.cache_dir = ".rune-cache";
+                }
+            } else {
+                table_cache.cache_dir = ".rune-cache";
+            }
+            // Load existing cache from disk
+            if (table_cache.cache_dir) |dir| {
+                table_cache.loadFromDisk(dir);
+            }
             cache_ptr = &table_cache;
         }
         sc.cache = cache_ptr;
 
         const result = try sc.generateStreaming(typed);
 
-        // Report cache statistics after compilation
+        // Flush cache to disk and report statistics
         if (cfg.cache) {
+            table_cache.flushToDisk();
             const s = table_cache.stats();
             if (!cfg.quiet) {
-                try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "  cache: {d} hits, {d} misses\n", .{ s.hits, s.misses }), null, cfg.quiet);
+                try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "  cache: {d} entries, {d} hits, {d} misses\n", .{ s.entries, s.hits, s.misses }), null, cfg.quiet);
             }
             table_cache.deinit();
         }

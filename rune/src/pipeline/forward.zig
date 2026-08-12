@@ -82,6 +82,8 @@ pub const CompileConfig = struct {
     run_semantic: bool = true,
     /// Enable table-level compilation cache for incremental compilation.
     cache: bool = false,
+    /// Custom cache directory path. null = default `.rune-cache/` relative to schema.
+    cache_dir: ?[]const u8 = null,
 };
 
 /// Result of internal compilation pipeline.

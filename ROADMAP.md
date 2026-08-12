@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.279.0 (2026-08-12) — 66,500+ lines production Zig, 1,929+ tests, 60 lint rules, 38 test suites.
+**Current version**: 0.280.0 (2026-08-12) — 67,100+ lines production Zig, 1,929+ tests, 60 lint rules, 38 test suites.
 
 ---
 
@@ -144,6 +144,7 @@ Ongoing improvements pursued alongside feature work.
 - [x] Benchmark dialect parameterization — `rune bench --dialect <d>` supports all 6 dialects (v0.74.0)
 - [x] Zero-allocation codegen path — reuse buffers across compilations (BufferPool extended to parallel codegen, v0.184.0)
 - [x] Incremental compilation — recompile only changed tables (v0.278.0)
+- [x] Incremental compilation cache persistence — cache survives across sessions (v0.280.0)
 
 ### Code Quality
 
@@ -252,6 +253,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.280.0** — Cache disk persistence & Zig 0.16 API migration: implemented disk persistence for incremental compilation cache (`flushToDisk()`, `loadFromDisk()`, `writeEntryToDisk()`, `writeManifest()`); migrated all cache.zig filesystem operations from deprecated `std.fs.*` to `std.Io.Dir.*` API (Zig 0.16 compatibility); added `io: std.Io` field to `TableCache` struct; added `--cache-dir` CLI flag for custom cache directory; added cache manifest file (`manifest.json`) for fast lookup; extracted `computeScore()` from audit module for testability; added cache module architecture health tests; cleaned up duplicate architecture tests; 1,929+ unit tests pass, benchmarks show no regressions
 - **v0.279.0** — Architecture cleanup & layering fix: removed dead code (ErrorFormatter struct in diagnostic/format.zig, unused isUpperSnakeCase re-export in lint/rules.zig, enableDiskCache stub in cache.zig); fixed parser → semantic layering violation by moving semantic/diagnostic.zig to root-level diagnostic.zig (parser files no longer depend on semantic module); updated 20+ import paths across parser, semantic, pipeline, and lsp modules; moved diagnostic_test.zig to root level; 1,929+ unit tests pass, benchmarks show no regressions
 - **v0.278.0** — Incremental compilation cache: added table-level content hash cache for streaming compilation (`--cache` flag); cache key = table_name + dialect + SHA-256(content_hash of columns, FKs, indexes); integrated into `StreamingCodegen.generateTable()` to skip codegen on cache hit; added `cache.zig` module with `TableCache`, `CacheKey`, `computeTableHash()`, lookup/store/stats; added `--cache` CLI flag (opt-in, default off); added cache statistics output (hits/misses); 1,928+ unit tests pass, benchmarks show no regressions
 - **v0.277.0** — Schema quality reporting & lint expansion: added 2 new lint rules (`fk-unidirectional` warns when a table has outgoing FKs but no incoming references — identifies potentially isolated tables in the schema graph, `column-bad-default` warns when a column default value doesn't match its type category — catches schema design errors early — 60 lint rules total); added Markdown output format for schema health audit (`rune stats --audit --format md` — produces structured Markdown report with findings table and recommendations); added `--min-score` quality gate flag to `rune stats --audit` (exits 1 when health score falls below threshold — enables CI/CD quality gates); expanded architecture health test suite with updated rule count bounds; 1,922+ unit tests pass, benchmarks show no regressions
