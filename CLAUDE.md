@@ -158,6 +158,7 @@ Provides: syntax highlighting (TextMate grammar), language configuration (bracke
 ```
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig, completions.zig, color.zig, config.zig, config_merge.zig  # CLI + glue
+  cache.zig                                                          # table-level compilation cache (incremental)
   wasm.zig                                                   # WASM library entry point (wasm32-wasi)
   wasm/common.zig, wasm/error.zig, wasm/compile.zig,        # WASM sub-modules (split from monolith)
   wasm/diff.zig, wasm/reverse.zig, wasm/lint.zig,
@@ -283,6 +284,8 @@ rune/src/
 
 - **Parallel Table Compilation** (`codegen/parallel.zig`): Dependency analysis and concurrent compilation for independent tables using `std.Thread`. `analyzeDependencies()` builds a `DepGraph` from FK references, `topoSort()` produces a valid compilation order, and `compileParallel()` generates SQL in topological order with threaded compilation for independent table groups. Each thread uses its own arena allocator for thread safety. BufferPool provides thread-safe buffer reuse across parallel compilation threads (mutex-protected acquire/release). Falls back to sequential for schemas with <10 tables or fully-dependent tables. CLI flag: `--parallel` (used with `--stream`).
 
+- **Incremental Compilation Cache** (`cache.zig`): Table-level content hash cache for streaming compilation. `TableCache` stores generated SQL keyed by `(table_name, dialect, SHA-256(content_hash))`. Content hash captures columns, FKs, indexes, and engine — everything that affects generated SQL output. Cache is opt-in via `--cache` CLI flag (default off). When enabled, `StreamingCodegen.generateTable()` checks cache before codegen and stores results after. Cache statistics (hits/misses) are reported after compilation. Template inheritance is handled naturally: after resolution, TypedTable has resolved fields, so the hash captures the final state. Disk persistence is not yet implemented (in-memory only per invocation).
+
 ### Module Roles
 
 | Directory | Module | Role |
@@ -354,6 +357,7 @@ rune/src/
 | | `template.zig` | Template inheritance resolution |
 | | `pass/*.zig` | 17 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, template_type_conflict, validate_unused_enums, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
+| | `cache.zig` | Table-level compilation cache for incremental compilation (content hash, lookup, store) |
 | | `config_merge.zig` | Config merge logic (CLI flags + config file defaults) |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_format, rune_tune, rune_generate, rune_export, rune_docs, rune_stats, rune_validate, rune_version, rune_last_error, rune_last_error_code, rune_reset) |
 | | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (60 rules + `RuleInfo` + `RULE_INFO`), `lint/handlers/*.zig` (9 handler modules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum with `name()`, `description()`, `isFixable()`, TOML parsing), `lint/fix.zig` (auto-fix for 11 rules) |

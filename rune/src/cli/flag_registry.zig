@@ -52,6 +52,7 @@ pub const GLOBAL_FLAG_REGISTRY = [_]FlagEntry{
     .{ .long = "--stat", .description = "Print summary only (alias for --summary)" },
     .{ .long = "--stream", .description = "Streaming compilation" },
     .{ .long = "--parallel", .description = "Parallel table compilation" },
+    .{ .long = "--cache", .description = "Enable table-level compilation cache" },
     .{ .long = "--config", .kind = .value, .description = "Path to rune.toml config" },
     .{ .long = "--color", .kind = .value, .description = "Color mode (auto|always|never)" },
     .{ .long = "--import-path", .kind = .value, .description = "Additional import search path" },

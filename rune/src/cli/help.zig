@@ -28,6 +28,7 @@ pub fn printUsage() void {
     std.debug.print("  --color         Color output: auto (default), always, never\n", .{});
     std.debug.print("  --stream        Streaming compilation (emit each table independently)\n", .{});
     std.debug.print("  --parallel      Parallel streaming compilation (use thread pool)\n", .{});
+    std.debug.print("  --cache         Enable table-level compilation cache (incremental)\n", .{});
     std.debug.print("  --init          Create a starter schema file (equivalent to 'rune init')\n", .{});
     std.debug.print("  --config        Path to project config file (default: ./rune.toml)\n", .{});
     std.debug.print("  -v, --version   Print version and exit\n", .{});
@@ -38,6 +39,7 @@ pub fn printUsage() void {
     std.debug.print("  rune schema.ss -d oracle             # Compile to Oracle\n", .{});
     std.debug.print("  rune schema.ss --stream              # Streaming compilation\n", .{});
     std.debug.print("  rune schema.ss --stream --parallel   # Parallel streaming compilation\n", .{});
+    std.debug.print("  rune schema.ss --stream --cache      # Streaming with cache (incremental)\n", .{});
     std.debug.print("  rune validate schema.ss              # Validate schema (no output)\n", .{});
     std.debug.print("  rune validate schema.ss -s           # Validate with stats\n", .{});
     std.debug.print("  rune --stats schema.ss               # Show compilation stats\n", .{});

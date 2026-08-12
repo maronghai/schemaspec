@@ -165,6 +165,7 @@ const FlagResult = struct {
     want_validate_only: bool,
     want_stream: bool,
     want_parallel: bool,
+    want_cache: bool,
     want_color: ColorMode,
 };
 
@@ -192,6 +193,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
     var want_validate_only = false;
     var want_stream = false;
     var want_parallel = false;
+    var want_cache = false;
     var config_path: ?[]const u8 = null;
     var diff_format: DiffFormat = .text;
 
@@ -231,6 +233,8 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             want_stream = true;
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--parallel" })) {
             want_parallel = true;
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--cache" })) {
+            want_cache = true;
         }
         // ─── Value flags (require next argument) ───
         else if (flag_reg.matchesFlag(arg, .{ .long = "--dialect", .short = "-d" })) {
@@ -334,6 +338,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
         .want_validate_only = want_validate_only,
         .want_stream = want_stream,
         .want_parallel = want_parallel,
+        .want_cache = want_cache,
         .want_color = want_color,
     };
 }
@@ -398,6 +403,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
             .verbose_passes = flags.want_verbose_passes,
             .stream = flags.want_stream,
             .parallel = flags.want_parallel,
+            .cache = flags.want_cache,
         } });
     }
 
@@ -453,5 +459,6 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .verbose_passes = flags.want_verbose_passes,
         .stream = flags.want_stream,
         .parallel = flags.want_parallel,
+        .cache = flags.want_cache,
     } });
 }

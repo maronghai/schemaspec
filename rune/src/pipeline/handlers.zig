@@ -18,6 +18,7 @@ const StatsFormat = @import("../types/enums.zig").StatsFormat;
 const fmt = @import("../diagnostic/format.zig");
 const export_mod = @import("export.zig");
 const validation = @import("validation.zig");
+const cache_mod = @import("../cache.zig");
 pub const ValidateConfig = validation.ValidateConfig;
 pub const handleValidate = validation.handleValidate;
 pub const handleCheck = validation.handleCheck;
@@ -64,7 +65,27 @@ pub fn handleCompileRequest(
         var pool = codegen.BufferPool.init(alloc);
         defer pool.deinit();
         var sc = try streaming.StreamingCodegen.initWithPool(alloc, cfg.dialect, &pool);
+
+        // Set up table-level compilation cache if enabled
+        var table_cache: cache_mod.TableCache = undefined;
+        var cache_ptr: ?*cache_mod.TableCache = null;
+        if (cfg.cache) {
+            table_cache = cache_mod.TableCache.init(alloc);
+            cache_ptr = &table_cache;
+        }
+        sc.cache = cache_ptr;
+
         const result = try sc.generateStreaming(typed);
+
+        // Report cache statistics after compilation
+        if (cfg.cache) {
+            const s = table_cache.stats();
+            if (!cfg.quiet) {
+                try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "  cache: {d} hits, {d} misses\n", .{ s.hits, s.misses }), null, cfg.quiet);
+            }
+            table_cache.deinit();
+        }
+
         break :blk try streaming.formatStreamingResult(alloc, &result, cfg.dialect);
     } else switch (cfg.format) {
         .sql => blk: {

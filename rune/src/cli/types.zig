@@ -14,7 +14,7 @@ pub const DocsFormat = enum { markdown, json };
 pub const ExportFormat = enum { json, text, markdown };
 
 pub const Command = union(enum) {
-    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
+    compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false, cache: bool = false },
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text, per_table: bool = false, fix: bool = false },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text },
     stats: struct { input: ?[]const u8, format: StatsFormat = .text, per_table: bool = false, audit: bool = false, min_score: ?u8 = null },
@@ -124,7 +124,7 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--name",           "--dir",           "--incremental", "--color",         "--init",       "--summary",
     "--config",         "--template",      "--graph",       "--stream",        "--interval",   "--parallel",
     "--generators",     "--from-sql",      "--fix",         "--rules",         "--output-dir", "--recursive",
-    "--per-table",      "--include-views", "--diff",        "--write",         "--audit",
+    "--per-table",      "--include-views", "--diff",        "--write",         "--audit",      "--cache",
 };
 
 // ─── Data-Driven Help System ──────────────────────────────────

@@ -126,6 +126,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             .import_paths = parsed.import_paths,
             .stream = cmd.stream,
             .parallel = cmd.parallel,
+            .cache = cmd.cache,
             .color = parsed.color.shouldUseColor(io),
         }),
         .validate => |cmd| {

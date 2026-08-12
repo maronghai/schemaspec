@@ -80,6 +80,8 @@ pub const CompileConfig = struct {
     merge_imports: bool = false,
     /// Run semantic analysis. Set to false for parse-only mode.
     run_semantic: bool = true,
+    /// Enable table-level compilation cache for incremental compilation.
+    cache: bool = false,
 };
 
 /// Result of internal compilation pipeline.

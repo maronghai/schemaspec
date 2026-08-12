@@ -4,6 +4,7 @@ const typed_ast_mod = @import("../types/typed_ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const interleave = @import("interleave.zig");
 const version = @import("../version.zig");
+const cache_mod = @import("../cache.zig");
 
 // ─── Streaming Compilation ─────────────────────────────────────
 
@@ -46,6 +47,8 @@ pub const StreamingCodegen = struct {
     dialect: codegen.Dialect,
     cg: *codegen.Codegen,
     pool: ?*codegen.BufferPool = null,
+    /// Optional table-level compilation cache for incremental compilation.
+    cache: ?*cache_mod.TableCache = null,
 
     pub fn init(alloc: std.mem.Allocator, dialect: codegen.Dialect) !StreamingCodegen {
         const cg = try alloc.create(codegen.Codegen);
@@ -75,19 +78,39 @@ pub const StreamingCodegen = struct {
 
     /// Generate SQL for a single table and return it.
     /// This allows incremental processing of large schemas.
+    /// If a cache is provided, checks for a cache hit before codegen.
     pub fn generateTable(self: *StreamingCodegen, table: typed_ast_mod.TypedTable) ![]const u8 {
-        if (self.pool) |pool| {
+        // Check cache hit
+        if (self.cache) |cache| {
+            const dialect_name = @tagName(self.dialect);
+            const key = cache_mod.TableCache.computeTableHash(table, dialect_name);
+            if (cache.lookup(key)) |cached_sql| {
+                return cached_sql;
+            }
+        }
+
+        const sql = if (self.pool) |pool| blk: {
             var aw = try pool.acquire();
             try self.cg.generateTypedTable(&aw.writer, table);
             try aw.writer.flush();
-            const sql = try aw.toOwnedSlice();
+            const result = try aw.toOwnedSlice();
             try pool.release(aw);
-            return sql;
+            break :blk result;
+        } else blk: {
+            var aw = std.Io.Writer.Allocating.init(self.alloc);
+            try self.cg.generateTypedTable(&aw.writer, table);
+            try aw.writer.flush();
+            break :blk try aw.toOwnedSlice();
+        };
+
+        // Store in cache
+        if (self.cache) |cache| {
+            const dialect_name = @tagName(self.dialect);
+            const key = cache_mod.TableCache.computeTableHash(table, dialect_name);
+            try cache.store(key, sql);
         }
-        var aw = std.Io.Writer.Allocating.init(self.alloc);
-        try self.cg.generateTypedTable(&aw.writer, table);
-        try aw.writer.flush();
-        return try aw.toOwnedSlice();
+
+        return sql;
     }
 
     /// Generate SQL for a single view and return it.
