@@ -39,7 +39,7 @@ fn parseDocumentUri(params: std.json.Value) ?[]const u8 {
     return lsp_protocol.getStringField(text_doc, "uri");
 }
 
-pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?std.json.Value) !void {
+pub fn handleInitialize(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
 
     // Read dialect from initializationOptions
@@ -71,19 +71,24 @@ pub fn handleInitialize(self: *Server, stdout_file: anytype, id: ?i64, params: ?
         .inlay_hint_provider = true,
         .code_lens_provider = true,
     });
-    try self.sendResponse(stdout_file, rid, &body_alloc);
+    try self.sendResponse(stdout_file.?, rid, &body_alloc);
 }
 
-pub fn handleShutdown(self: *Server, stdout_file: anytype, id: ?i64) !void {
+/// Unified handler signature for table-driven dispatch.
+/// All handlers take the same parameters; unused params are ignored.
+pub const HandlerFn = *const fn (self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) anyerror!void;
+
+pub fn handleShutdown(self: *Server, stdout_file: ?std.Io.File, id: ?i64, _: ?std.json.Value) !void {
     const rid = id orelse return;
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
     try body_alloc.writer.writeAll("null");
-    try self.sendResponse(stdout_file, rid, &body_alloc);
+    try self.sendResponse(stdout_file.?, rid, &body_alloc);
 }
 
-pub fn handleDidOpen(self: *Server, params: std.json.Value) !void {
-    const uri = parseDocumentUri(params) orelse return;
-    const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+pub fn handleDidOpen(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const text_doc = lsp_protocol.getObjectField(p, "textDocument") orelse return;
     const version: u32 = @intCast(lsp_protocol.getIntField(text_doc, "version") orelse 1);
     const text = lsp_protocol.getStringField(text_doc, "text") orelse return;
     const language_id = lsp_protocol.getStringField(text_doc, "languageId") orelse "rune";
@@ -92,13 +97,14 @@ pub fn handleDidOpen(self: *Server, params: std.json.Value) !void {
     try self.compileAndPublishDiagnostics(uri);
 }
 
-pub fn handleDidChange(self: *Server, params: std.json.Value) !void {
-    const uri = parseDocumentUri(params) orelse return;
-    const text_doc = lsp_protocol.getObjectField(params, "textDocument") orelse return;
+pub fn handleDidChange(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const text_doc = lsp_protocol.getObjectField(p, "textDocument") orelse return;
     const version: u32 = @intCast(lsp_protocol.getIntField(text_doc, "version") orelse 1);
 
     // Full sync: contentChanges contains the full document text
-    const content_changes = lsp_protocol.getObjectField(params, "contentChanges") orelse return;
+    const content_changes = lsp_protocol.getObjectField(p, "contentChanges") orelse return;
     if (content_changes != .array) return;
     if (content_changes.array.items.len == 0) return;
     const first_change = content_changes.array.items[0];
@@ -110,8 +116,9 @@ pub fn handleDidChange(self: *Server, params: std.json.Value) !void {
     try self.compileAndPublishDiagnostics(uri);
 }
 
-pub fn handleDidClose(self: *Server, params: std.json.Value) !void {
-    const uri = parseDocumentUri(params) orelse return;
+pub fn handleDidClose(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
 
     self.documents.close(uri);
 
@@ -125,8 +132,9 @@ pub fn handleDidClose(self: *Server, params: std.json.Value) !void {
     try self.publishDiagnostics(uri, &.{});
 }
 
-pub fn handleDidSave(self: *Server, params: std.json.Value) !void {
-    const uri = parseDocumentUri(params) orelse return;
+pub fn handleDidSave(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
 
     // Recompile on save
     try self.compileAndPublishDiagnostics(uri);
@@ -134,9 +142,10 @@ pub fn handleDidSave(self: *Server, params: std.json.Value) !void {
 
 // ─── Feature Handlers ────────────────────────────────────────
 
-pub fn handleDocumentSymbol(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleDocumentSymbol(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
 
     const typed = self.getTypedAst(uri);
 
@@ -154,10 +163,11 @@ pub fn handleDocumentSymbol(self: *Server, stdout_file: anytype, id: ?i64, param
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleCompletion(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleCompletion(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos = parsePosition(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos = parsePosition(p) orelse return;
 
     const typed = self.getTypedAst(uri);
 
@@ -174,10 +184,11 @@ pub fn handleCompletion(self: *Server, stdout_file: anytype, id: ?i64, params: s
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleHover(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleHover(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos = parsePosition(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos = parsePosition(p) orelse return;
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
@@ -196,10 +207,11 @@ pub fn handleHover(self: *Server, stdout_file: anytype, id: ?i64, params: std.js
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleDefinition(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleDefinition(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos = parsePosition(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos = parsePosition(p) orelse return;
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
@@ -218,10 +230,11 @@ pub fn handleDefinition(self: *Server, stdout_file: anytype, id: ?i64, params: s
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleCodeAction(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleCodeAction(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const range_val = lsp_protocol.getObjectField(params, "range") orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const range_val = lsp_protocol.getObjectField(p, "range") orelse return;
     const start_val = lsp_protocol.getObjectField(range_val, "start") orelse return;
     const end_val = lsp_protocol.getObjectField(range_val, "end") orelse return;
     const start_line: u32 = safePositionCast(lsp_protocol.getIntField(start_val, "line") orelse 0);
@@ -231,7 +244,7 @@ pub fn handleCodeAction(self: *Server, stdout_file: anytype, id: ?i64, params: s
 
     // Get diagnostics from context
     var diagnostics = std.ArrayList(lsp_protocol.Diagnostic).initCapacity(self.arena, 8) catch return;
-    if (lsp_protocol.getObjectField(params, "context")) |ctx| {
+    if (lsp_protocol.getObjectField(p, "context")) |ctx| {
         if (lsp_protocol.getObjectField(ctx, "diagnostics")) |diags_val| {
             if (diags_val == .array) {
                 for (diags_val.array.items) |d| {
@@ -281,9 +294,10 @@ pub fn handleCodeAction(self: *Server, stdout_file: anytype, id: ?i64, params: s
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleFormatting(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleFormatting(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
 
     const doc = self.documents.get(uri) orelse {
         var body_alloc = std.Io.Writer.Allocating.init(self.arena);
@@ -312,11 +326,12 @@ pub fn handleFormatting(self: *Server, stdout_file: anytype, id: ?i64, params: s
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleRename(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleRename(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos = parsePosition(params) orelse return;
-    const new_name = lsp_protocol.getStringField(params, "newName") orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos = parsePosition(p) orelse return;
+    const new_name = lsp_protocol.getStringField(p, "newName") orelse return;
 
     const doc = self.documents.get(uri) orelse return;
     const result = self.compile_results.get(uri);
@@ -344,10 +359,11 @@ pub fn handleRename(self: *Server, stdout_file: anytype, id: ?i64, params: std.j
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handlePrepareRename(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handlePrepareRename(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos = parsePosition(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos = parsePosition(p) orelse return;
 
     const doc = self.documents.get(uri) orelse return;
     const result = self.compile_results.get(uri);
@@ -370,10 +386,11 @@ pub fn handlePrepareRename(self: *Server, stdout_file: anytype, id: ?i64, params
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleReferences(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleReferences(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos = parsePosition(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos = parsePosition(p) orelse return;
 
     const doc = self.documents.get(uri);
     const doc_text = if (doc) |d| d.text else "";
@@ -402,10 +419,11 @@ pub fn handleReferences(self: *Server, stdout_file: anytype, id: ?i64, params: s
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleDocumentHighlight(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleDocumentHighlight(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos = parsePosition(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos = parsePosition(p) orelse return;
 
     const doc = self.documents.get(uri);
     const doc_text = if (doc) |d| d.text else "";
@@ -430,9 +448,10 @@ pub fn handleDocumentHighlight(self: *Server, stdout_file: anytype, id: ?i64, pa
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleFoldingRange(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleFoldingRange(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
 
     const doc = self.documents.get(uri);
     const doc_text = if (doc) |d| d.text else "";
@@ -466,10 +485,11 @@ pub fn handleFoldingRange(self: *Server, stdout_file: anytype, id: ?i64, params:
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleTypeDefinition(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleTypeDefinition(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos_val = lsp_protocol.getObjectField(p, "position") orelse return;
     const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
     const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
@@ -500,9 +520,10 @@ pub fn handleTypeDefinition(self: *Server, stdout_file: anytype, id: ?i64, param
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleWorkspaceSymbol(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleWorkspaceSymbol(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const query = lsp_protocol.getStringField(params, "query") orelse "";
+    const p = params orelse return;
+    const query = lsp_protocol.getStringField(p, "query") orelse "";
 
     var body_alloc = std.Io.Writer.Allocating.init(self.arena);
 
@@ -542,10 +563,11 @@ pub fn handleWorkspaceSymbol(self: *Server, stdout_file: anytype, id: ?i64, para
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleSignatureHelp(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleSignatureHelp(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
-    const pos_val = lsp_protocol.getObjectField(params, "position") orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
+    const pos_val = lsp_protocol.getObjectField(p, "position") orelse return;
     const line: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "line") orelse 0);
     const character: u32 = safePositionCast(lsp_protocol.getIntField(pos_val, "character") orelse 0);
 
@@ -570,9 +592,10 @@ pub fn handleSignatureHelp(self: *Server, stdout_file: anytype, id: ?i64, params
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleInlayHint(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleInlayHint(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
 
     const result = self.compile_results.get(uri);
     const typed = if (result) |r| r.typed_ast else null;
@@ -594,9 +617,10 @@ pub fn handleInlayHint(self: *Server, stdout_file: anytype, id: ?i64, params: st
     try self.sendResponse(stdout_file, rid, &body_alloc);
 }
 
-pub fn handleCodeLens(self: *Server, stdout_file: anytype, id: ?i64, params: std.json.Value) !void {
+pub fn handleCodeLens(self: *Server, stdout_file: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
     const rid = id orelse return;
-    const uri = parseDocumentUri(params) orelse return;
+    const p = params orelse return;
+    const uri = parseDocumentUri(p) orelse return;
 
     const doc = self.documents.get(uri) orelse {
         var body_alloc = std.Io.Writer.Allocating.init(self.arena);

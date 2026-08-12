@@ -49,8 +49,9 @@ pub const Server = struct {
     }
 
     /// Handler function signature for table-driven dispatch.
-    /// Takes server, optional stdout_file, optional id, and optional params.
-    const HandlerFn = *const fn (self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) anyerror!void;
+    /// All handlers take the same parameters; unused params are ignored.
+    /// Defined in handlers.zig as HandlerFn for single source of truth.
+    const HandlerFn = handlers.HandlerFn;
 
     /// Dispatch table entry: method name → handler function.
     const DispatchEntry = struct {
@@ -60,29 +61,30 @@ pub const Server = struct {
 
     /// Table-driven method dispatch — eliminates the 22-branch if-else chain.
     /// Adding a new LSP method = one entry here + one handler in handlers.zig.
+    /// All handlers have the unified signature (self, stdout, id, params).
     const DISPATCH_TABLE = [_]DispatchEntry{
-        .{ .method = "initialize", .handler = handleInitializeDispatch },
-        .{ .method = "shutdown", .handler = handleShutdownDispatch },
-        .{ .method = "textDocument/didOpen", .handler = handleDidOpenDispatch },
-        .{ .method = "textDocument/didChange", .handler = handleDidChangeDispatch },
-        .{ .method = "textDocument/didClose", .handler = handleDidCloseDispatch },
-        .{ .method = "textDocument/didSave", .handler = handleDidSaveDispatch },
-        .{ .method = "textDocument/documentSymbol", .handler = handleDocumentSymbolDispatch },
-        .{ .method = "textDocument/completion", .handler = handleCompletionDispatch },
-        .{ .method = "textDocument/hover", .handler = handleHoverDispatch },
-        .{ .method = "textDocument/definition", .handler = handleDefinitionDispatch },
-        .{ .method = "textDocument/codeAction", .handler = handleCodeActionDispatch },
-        .{ .method = "textDocument/formatting", .handler = handleFormattingDispatch },
-        .{ .method = "textDocument/rename", .handler = handleRenameDispatch },
-        .{ .method = "textDocument/prepareRename", .handler = handlePrepareRenameDispatch },
-        .{ .method = "textDocument/references", .handler = handleReferencesDispatch },
-        .{ .method = "textDocument/documentHighlight", .handler = handleDocumentHighlightDispatch },
-        .{ .method = "textDocument/foldingRange", .handler = handleFoldingRangeDispatch },
-        .{ .method = "textDocument/typeDefinition", .handler = handleTypeDefinitionDispatch },
-        .{ .method = "workspace/symbol", .handler = handleWorkspaceSymbolDispatch },
-        .{ .method = "textDocument/signatureHelp", .handler = handleSignatureHelpDispatch },
-        .{ .method = "textDocument/inlayHint", .handler = handleInlayHintDispatch },
-        .{ .method = "textDocument/codeLens", .handler = handleCodeLensDispatch },
+        .{ .method = "initialize", .handler = handlers.handleInitialize },
+        .{ .method = "shutdown", .handler = handlers.handleShutdown },
+        .{ .method = "textDocument/didOpen", .handler = handlers.handleDidOpen },
+        .{ .method = "textDocument/didChange", .handler = handlers.handleDidChange },
+        .{ .method = "textDocument/didClose", .handler = handlers.handleDidClose },
+        .{ .method = "textDocument/didSave", .handler = handlers.handleDidSave },
+        .{ .method = "textDocument/documentSymbol", .handler = handlers.handleDocumentSymbol },
+        .{ .method = "textDocument/completion", .handler = handlers.handleCompletion },
+        .{ .method = "textDocument/hover", .handler = handlers.handleHover },
+        .{ .method = "textDocument/definition", .handler = handlers.handleDefinition },
+        .{ .method = "textDocument/codeAction", .handler = handlers.handleCodeAction },
+        .{ .method = "textDocument/formatting", .handler = handlers.handleFormatting },
+        .{ .method = "textDocument/rename", .handler = handlers.handleRename },
+        .{ .method = "textDocument/prepareRename", .handler = handlers.handlePrepareRename },
+        .{ .method = "textDocument/references", .handler = handlers.handleReferences },
+        .{ .method = "textDocument/documentHighlight", .handler = handlers.handleDocumentHighlight },
+        .{ .method = "textDocument/foldingRange", .handler = handlers.handleFoldingRange },
+        .{ .method = "textDocument/typeDefinition", .handler = handlers.handleTypeDefinition },
+        .{ .method = "workspace/symbol", .handler = handlers.handleWorkspaceSymbol },
+        .{ .method = "textDocument/signatureHelp", .handler = handlers.handleSignatureHelp },
+        .{ .method = "textDocument/inlayHint", .handler = handlers.handleInlayHint },
+        .{ .method = "textDocument/codeLens", .handler = handlers.handleCodeLens },
     };
 
     /// Run the LSP server main loop.
@@ -137,100 +139,8 @@ pub const Server = struct {
         }
     }
 
-    // ─── Dispatch Adapters ──────────────────────────────────────
-    // Adapters normalize handler signatures to match HandlerFn.
-    // Each wraps the corresponding handler from handlers.zig.
-
-    fn handleInitializeDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        try handlers.handleInitialize(self, stdout.?, id, params);
-    }
-
-    fn handleShutdownDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, _: ?std.json.Value) !void {
-        try handlers.handleShutdown(self, stdout.?, id);
-    }
-
-    fn handleDidOpenDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleDidOpen(self, p);
-    }
-
-    fn handleDidChangeDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleDidChange(self, p);
-    }
-
-    fn handleDidCloseDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleDidClose(self, p);
-    }
-
-    fn handleDidSaveDispatch(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleDidSave(self, p);
-    }
-
-    fn handleDocumentSymbolDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleDocumentSymbol(self, stdout.?, id, p);
-    }
-
-    fn handleCompletionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleCompletion(self, stdout.?, id, p);
-    }
-
-    fn handleHoverDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleHover(self, stdout.?, id, p);
-    }
-
-    fn handleDefinitionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleDefinition(self, stdout.?, id, p);
-    }
-
-    fn handleCodeActionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleCodeAction(self, stdout.?, id, p);
-    }
-
-    fn handleFormattingDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleFormatting(self, stdout.?, id, p);
-    }
-
-    fn handleRenameDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleRename(self, stdout.?, id, p);
-    }
-
-    fn handlePrepareRenameDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handlePrepareRename(self, stdout.?, id, p);
-    }
-
-    fn handleReferencesDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleReferences(self, stdout.?, id, p);
-    }
-
-    fn handleDocumentHighlightDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleDocumentHighlight(self, stdout.?, id, p);
-    }
-
-    fn handleFoldingRangeDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleFoldingRange(self, stdout.?, id, p);
-    }
-
-    fn handleTypeDefinitionDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleTypeDefinition(self, stdout.?, id, p);
-    }
-
-    fn handleWorkspaceSymbolDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleWorkspaceSymbol(self, stdout.?, id, p);
-    }
-
-    fn handleSignatureHelpDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleSignatureHelp(self, stdout.?, id, p);
-    }
-
-    fn handleInlayHintDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleInlayHint(self, stdout.?, id, p);
-    }
-
-    fn handleCodeLensDispatch(self: *Server, stdout: ?std.Io.File, id: ?i64, params: ?std.json.Value) !void {
-        if (params) |p| try handlers.handleCodeLens(self, stdout.?, id, p);
-    }
-
     /// Send a JSON-RPC response to stdout.
-    pub fn sendResponse(self: *Server, stdout_file: anytype, rid: i64, body_alloc: *std.Io.Writer.Allocating) !void {
+    pub fn sendResponse(self: *Server, stdout_file: ?std.Io.File, rid: i64, body_alloc: *std.Io.Writer.Allocating) !void {
         const inner = try body_alloc.toOwnedSlice();
         defer self.arena.free(inner);
 
@@ -242,8 +152,9 @@ pub const Server = struct {
         const body = try response_alloc.toOwnedSlice();
         defer self.arena.free(body);
 
+        const file = stdout_file orelse return;
         var w_buf: [8192]u8 = undefined;
-        var w = stdout_file.writerStreaming(self.io, &w_buf);
+        var w = file.writerStreaming(self.io, &w_buf);
         try w.interface.print("Content-Length: {d}\r\n\r\n", .{body.len});
         try w.interface.writeAll(body);
     }

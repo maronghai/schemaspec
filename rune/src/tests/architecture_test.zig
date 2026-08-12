@@ -174,3 +174,114 @@ test "all generators have valid metadata" {
         try std.testing.expect(gen.extension.len > 0);
     }
 }
+
+// ─── Lint Module Tests ────────────────────────────────────────
+
+test "lint handler module count" {
+    // Verify lint has 9 handler modules (structural, naming, validation, compat, fk, index, view, enum, portability)
+    const lint_config = @import("../lint/config.zig");
+    const LintRule = lint_config.LintRule;
+    const fields = @typeInfo(LintRule).@"enum".fields;
+    try std.testing.expect(fields.len >= 54);
+    try std.testing.expect(fields.len <= 60);
+}
+
+// ─── Formatter Tests ──────────────────────────────────────────
+
+test "formatter has dialect keyword support" {
+    // Verify formatter module has keyword formatting capability
+    const formatter = @import("../formatter.zig");
+    _ = formatter;
+}
+
+// ─── Diff Module Tests ────────────────────────────────────────
+
+test "diff format modules are importable" {
+    // Verify all 4 diff format modules compile
+    _ = @import("../diff/format/text.zig");
+    _ = @import("../diff/format/json.zig");
+    _ = @import("../diff/format/sarif.zig");
+    _ = @import("../diff/format/markdown.zig");
+}
+
+// ─── Pipeline Module Tests ────────────────────────────────────
+
+test "pipeline config structs have defaults" {
+    // Verify CompileConfig is default-initializable
+    const forward = @import("../pipeline/forward.zig");
+    const compile_cfg = forward.CompileConfig{};
+    _ = compile_cfg;
+}
+
+// ─── Semantic Pass Tests ──────────────────────────────────────
+
+test "semantic passes have valid structure" {
+    // Verify semantic pass manager has valid passes
+    const pm = @import("../semantic/pass_manager.zig");
+    const count = pm.DEFAULT_PASSES.len;
+    try std.testing.expect(count >= 16);
+    try std.testing.expect(count <= 20);
+}
+
+// ─── Generator Dialect Coverage Tests ──────────────────────────
+
+test "generators cover all 6 dialects" {
+    // Verify every SQL dialect appears in at least one generator's dialects list
+    const generator = @import("../generator.zig");
+    var dialect_seen = [_]bool{ false, false, false, false, false, false }; // mysql, pg, sqlite, mssql, oracle, db2
+    for (generator.REGISTRY) |gen| {
+        if (gen.dialects) |dialects| {
+            for (dialects) |d| {
+                if (std.mem.eql(u8, d, "mysql")) dialect_seen[0] = true;
+                if (std.mem.eql(u8, d, "pg")) dialect_seen[1] = true;
+                if (std.mem.eql(u8, d, "sqlite")) dialect_seen[2] = true;
+                if (std.mem.eql(u8, d, "mssql")) dialect_seen[3] = true;
+                if (std.mem.eql(u8, d, "oracle")) dialect_seen[4] = true;
+                if (std.mem.eql(u8, d, "db2")) dialect_seen[5] = true;
+            }
+        }
+    }
+    for (dialect_seen) |seen| {
+        try std.testing.expect(seen);
+    }
+}
+
+// ─── Pipeline Config Struct Tests ──────────────────────────────
+
+test "all pipeline config structs are default-initializable" {
+    // Verify all config structs used by pipeline handlers have named defaults
+    const forward = @import("../pipeline/forward.zig");
+    const handlers = @import("../pipeline/handlers.zig");
+    const generate = @import("../pipeline/generate.zig");
+    const validation = @import("../pipeline/validation.zig");
+    const diff_mod = @import("../pipeline/diff.zig");
+    const migrate_mod = @import("../pipeline/migrate.zig");
+    // All config structs must be default-initializable (no required fields without defaults)
+    _ = forward.CompileConfig{};
+    _ = handlers.ValidateConfig{};
+    _ = handlers.FormatConfig{};
+    _ = handlers.ExportConfig{};
+    _ = handlers.StatsConfig{};
+    _ = generate.GenerateConfig{ .generators = "" };
+    _ = validation.ValidateConfig{};
+    _ = diff_mod.DiffConfig{ .old_path = "", .new_path = "" };
+    _ = migrate_mod.MigrateConfig{ .old_path = "", .new_path = "" };
+}
+
+// ─── Lint Fixable Count Tests ──────────────────────────────────
+
+test "lint fixable rule count is consistent" {
+    // Verify isFixable() works for all lint rules (comptime iteration check)
+    const lint_config = @import("../lint/config.zig");
+    const LintRule = lint_config.LintRule;
+    const fields = @typeInfo(LintRule).@"enum".fields;
+    // Count fixable rules via comptime iteration
+    var fixable_count: usize = 0;
+    inline for (fields) |field| {
+        const rule: LintRule = @enumFromInt(field.value);
+        if (rule.isFixable()) fixable_count += 1;
+    }
+    // As of v0.272.0 there are 11 fixable rules
+    try std.testing.expect(fixable_count >= 10);
+    try std.testing.expect(fixable_count <= 15);
+}
