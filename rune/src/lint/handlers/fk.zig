@@ -329,3 +329,25 @@ fn fieldHasIndex(table: anytype, field_name: []const u8) bool {
     }
     return false;
 }
+
+/// Check if FK uses ON DELETE CASCADE (potential data loss risk).
+/// CASCADE deletes can propagate unintended data removal across tables.
+pub fn checkFkOnDeleteCascade(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (field.fk) |fk| {
+                for (fk.actions) |action| {
+                    if (action.trigger == .on_delete and action.action == .cascade) {
+                        const msg = try std.fmt.allocPrint(alloc, "FK column '{s}' uses ON DELETE CASCADE — consider ON DELETE RESTRICT or SET NULL for safety", .{field.name});
+                        try results.append(alloc, .{
+                            .rule = "fk-on-delete-cascade",
+                            .table = table.name,
+                            .message = msg,
+                            .severity = .warning,
+                        });
+                    }
+                }
+            }
+        }
+    }
+}

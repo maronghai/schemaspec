@@ -110,7 +110,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune watch schema.ss --parallel         # Watch with parallel compilation
 ./rune/zig-out/bin/rune watch schema.ss -s                 # Watch with compilation stats
 ./rune/zig-out/bin/rune watch schemas/ --recursive         # Watch directory recursively
-./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues (51 rules)
+./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues (54 rules)
 ./rune/zig-out/bin/rune lint schema.ss --fix              # Lint and auto-fix issues (11 rules: no-pk, no-timestamps, empty-table, serial-type, bool-default, nullable-column-default, duplicate-index, index-column-missing, column-default-required, no-index-fk, duplicate-column)
 ./rune/zig-out/bin/rune lint schema.ss --fix --dry-run    # Preview fixes without writing
 ./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON
@@ -241,7 +241,7 @@ rune/src/
 
 - **Table-Driven LSP Method Dispatch** (`lsp/server.zig`): LSP method routing uses a `DISPATCH_TABLE` array of `{method, handler}` entries. Each handler has a uniform signature `(self, stdout, id, params)`. Adding a new LSP method = add entry to `DISPATCH_TABLE` + add handler in `lsp/handlers.zig`. Eliminates the 22-branch if-else chain that previously existed in the `run()` method.
 
-- **Data-Driven Lint Rule Dispatch** (`lint/rules.zig`): Lint rule execution uses a `RULES` array of `{rule, handler}` entries. Each handler receives the full AST + config and iterates over relevant entities (tables, custom types, or entire schema). Handlers are organized into category modules: `lint/handlers/structural.zig` (7 rules), `lint/handlers/naming.zig` (8 rules), `lint/handlers/validation.zig` (5 rules), `lint/handlers/compat.zig` (3 rules), `lint/handlers/fk.zig` (5 rules), `lint/handlers/index.zig` (3 rules), `lint/handlers/view.zig` (3 rules), `lint/handlers/enum.zig` (4 rules). Adding a new lint rule = add entry to `RULES` + implement handler function in appropriate module. Replaces 22 repetitive guard-then-call blocks with a single loop.
+- **Data-Driven Lint Rule Dispatch** (`lint/rules.zig`): Lint rule execution uses a `RULES` array of `{rule, handler}` entries. Each handler receives the full AST + config and iterates over relevant entities (tables, custom types, or entire schema). Handlers are organized into category modules: `lint/handlers/structural.zig` (9 rules), `lint/handlers/naming.zig` (8 rules), `lint/handlers/validation.zig` (7 rules), `lint/handlers/compat.zig` (3 rules), `lint/handlers/fk.zig` (6 rules), `lint/handlers/index.zig` (4 rules), `lint/handlers/view.zig` (4 rules), `lint/handlers/enum.zig` (4 rules), `lint/handlers/portability.zig` (3 rules). Adding a new lint rule = add entry to `RULES` + implement handler function in appropriate module. Replaces 22 repetitive guard-then-call blocks with a single loop.
 
 - **FlagRegistry** (`cli/flag_registry.zig`): All 20 global CLI flags defined once in `GLOBAL_FLAG_REGISTRY` array. `matchesFlag()` matches long and short forms. `isKnownGlobalFlag()` provides unknown-flag detection. `parseGlobalFlags` uses `matchesFlag` for boolean flag detection instead of raw `std.mem.eql` chains.
 
@@ -356,7 +356,7 @@ rune/src/
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `config_merge.zig` | Config merge logic (CLI flags + config file defaults) |
 | | `wasm.zig` | WASM library entry point (exports rune_compile, rune_diff, rune_migrate, rune_reverse, rune_lint, rune_format, rune_tune, rune_generate, rune_export, rune_docs, rune_stats, rune_validate, rune_version, rune_last_error, rune_last_error_code, rune_reset) |
-| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (51 rules + `RuleInfo` + `RULE_INFO`), `lint/handlers/*.zig` (8 handler modules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum with `name()`, `description()`, `isFixable()`, TOML parsing), `lint/fix.zig` (auto-fix for 11 rules) |
+| | `lint.zig` | Lint barrel — re-exports from `lint/rules.zig` (54 rules + `RuleInfo` + `RULE_INFO`), `lint/handlers/*.zig` (9 handler modules), `lint/format.zig` (text/JSON/SARIF), `lint/config.zig` (LintConfig, LintRule enum with `name()`, `description()`, `isFixable()`, TOML parsing), `lint/fix.zig` (auto-fix for 11 rules) |
 | | `cli/lint_cmd.zig` | Lint CLI handler (extracted from main.zig) |
 | | `cli/errors.zig` | CLI error handling (extracted from main.zig) |
 | | `cli.zig` | Argument parsing, Command/ParsedArgs types |

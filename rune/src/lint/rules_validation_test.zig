@@ -252,3 +252,102 @@ test "lint: FK type match passes" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "fk-column-type-mismatch"));
 }
+
+// ─── column-auto-increment-type tests ─────────────────────────
+
+test "lint: auto-increment on string type detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{
+        th.makeField("id", .{ .simple = "s" }, &.{.{ .kind = .auto_inc_pk, .line_no = 1 }}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-auto-increment-type"));
+}
+
+test "lint: auto-increment on integer type passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{th.makePkField("id")}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-auto-increment-type"));
+}
+
+test "lint: auto-increment on boolean type detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "flags", &.{
+        th.makeField("id", .{ .simple = "b" }, &.{.{ .kind = .auto_inc, .line_no = 1 }}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-auto-increment-type"));
+}
+
+// ─── column-unique-naming tests ───────────────────────────────
+
+test "lint: case-insensitive duplicate column names detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{
+        th.makeField("name", .{ .simple = "s" }, &.{}, null),
+        th.makeField("Name", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-unique-naming"));
+}
+
+test "lint: distinct column names pass" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{
+        th.makeField("first_name", .{ .simple = "s" }, &.{}, null),
+        th.makeField("last_name", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-unique-naming"));
+}
+
+// ─── fk-on-delete-cascade tests ───────────────────────────────
+
+test "lint: FK ON DELETE CASCADE detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const actions = [_]ast_mod.FkAction{.{ .trigger = .on_delete, .action = .cascade }};
+    const table = try th.makeTestTable(alloc, "posts", &.{th.makeFkFieldWithActions("user_id", &actions)}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "fk-on-delete-cascade"));
+}
+
+test "lint: FK ON DELETE RESTRICT passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const actions = [_]ast_mod.FkAction{.{ .trigger = .on_delete, .action = .restrict }};
+    const table = try th.makeTestTable(alloc, "posts", &.{th.makeFkFieldWithActions("user_id", &actions)}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "fk-on-delete-cascade"));
+}
+
+test "lint: FK ON DELETE SET NULL passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const actions = [_]ast_mod.FkAction{.{ .trigger = .on_delete, .action = .set_null }};
+    const table = try th.makeTestTable(alloc, "posts", &.{th.makeFkFieldWithActions("user_id", &actions)}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "fk-on-delete-cascade"));
+}

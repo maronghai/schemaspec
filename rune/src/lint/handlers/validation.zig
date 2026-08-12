@@ -210,3 +210,65 @@ pub fn checkColumnUniqueNullable(alloc: std.mem.Allocator, results: *std.ArrayLi
         }
     }
 }
+
+/// Check if auto-increment modifier (@ or @++) is used on a non-integer type.
+/// Auto-increment only works with integer types (n, N, i, I, m, M, p).
+pub fn checkColumnAutoIncrementType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            var has_auto_inc = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .auto_inc) {
+                    has_auto_inc = true;
+                    break;
+                }
+            }
+            if (!has_auto_inc) continue;
+            // Check if the type is non-integer
+            if (field.type_info.isString() or field.type_info.isBoolean() or field.type_info.isDatetime() or field.type_info.isBlob()) {
+                const type_name = switch (field.type_info) {
+                    .simple => |s| s,
+                    .varchar_explicit => "varchar",
+                    .enum_type => "enum",
+                    .raw_sql => "raw",
+                    else => "unknown",
+                };
+                const msg = try std.fmt.allocPrint(alloc, "auto-increment on column '{s}' with non-integer type '{s}'", .{ field.name, type_name });
+                try results.append(alloc, .{
+                    .rule = "column-auto-increment-type",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
+/// Check if columns in the same table have names that differ only by case.
+/// This can cause confusion and bugs in case-insensitive databases.
+pub fn checkColumnUniqueNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Compare each pair of columns (O(n²) but n is typically small)
+        for (table.fields, 0..) |field_a, i| {
+            for (table.fields[i + 1 ..]) |field_b| {
+                if (std.mem.eql(u8, field_a.name, field_b.name)) continue; // exact duplicates handled by duplicate-column
+                // Case-insensitive comparison
+                var buf_a: [256]u8 = undefined;
+                var buf_b: [256]u8 = undefined;
+                if (field_a.name.len > 256 or field_b.name.len > 256) continue;
+                const lower_a = std.ascii.lowerString(&buf_a, field_a.name);
+                const lower_b = std.ascii.lowerString(&buf_b, field_b.name);
+                if (std.mem.eql(u8, lower_a, lower_b)) {
+                    const msg = try std.fmt.allocPrint(alloc, "columns '{s}' and '{s}' differ only by case", .{ field_a.name, field_b.name });
+                    try results.append(alloc, .{
+                        .rule = "column-unique-naming",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+            }
+        }
+    }
+}

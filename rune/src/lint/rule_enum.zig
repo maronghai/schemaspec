@@ -58,6 +58,9 @@ pub const LintRule = enum {
     view_dependency_cycle,
     column_unique_nullable,
     fk_column_type_mismatch,
+    column_auto_increment_type,
+    column_unique_naming,
+    fk_on_delete_cascade,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -113,6 +116,9 @@ pub const LintRule = enum {
             .view_dependency_cycle => "view-dependency-cycle",
             .column_unique_nullable => "column-unique-nullable",
             .fk_column_type_mismatch => "fk-column-type-mismatch",
+            .column_auto_increment_type => "column-auto-increment-type",
+            .column_unique_naming => "column-unique-naming",
+            .fk_on_delete_cascade => "fk-on-delete-cascade",
         };
     }
 
@@ -182,6 +188,9 @@ pub const LintRule = enum {
             .view_dependency_cycle => false,
             .column_unique_nullable => false,
             .fk_column_type_mismatch => false,
+            .column_auto_increment_type => false,
+            .column_unique_naming => false,
+            .fk_on_delete_cascade => false,
         };
     }
 
@@ -239,6 +248,9 @@ pub const LintRule = enum {
             .view_dependency_cycle => "Views reference each other in a cycle",
             .column_unique_nullable => "UNIQUE constraint on nullable column (multiple NULLs allowed)",
             .fk_column_type_mismatch => "FK column type doesn't match referenced column type",
+            .column_auto_increment_type => "Auto-increment used on non-integer type",
+            .column_unique_naming => "Columns differ only by case (potential naming conflict)",
+            .fk_on_delete_cascade => "Foreign key uses ON DELETE CASCADE (potential data loss)",
         };
     }
 
@@ -296,6 +308,9 @@ pub const LintRule = enum {
             .view_dependency_cycle => "warning",
             .column_unique_nullable => "warning",
             .fk_column_type_mismatch => "warning",
+            .column_auto_increment_type => "warning",
+            .column_unique_naming => "warning",
+            .fk_on_delete_cascade => "warning",
             .index_columns_max => "note",
         };
     }
