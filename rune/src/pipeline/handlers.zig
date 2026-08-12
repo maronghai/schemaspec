@@ -123,10 +123,20 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
                 const json = try audit_mod.formatAuditJson(alloc, report);
                 try io_mod.writeOutput(io, json, null, false);
             },
+            .markdown => {
+                const md = try audit_mod.formatAuditMarkdown(alloc, report);
+                try io_mod.writeOutput(io, md, null, false);
+            },
             else => {
                 const text = try audit_mod.formatAuditText(alloc, report);
                 try io_mod.writeOutput(io, text, null, false);
             },
+        }
+        // Quality gate: exit 1 if score below threshold
+        if (cfg.min_score) |min| {
+            if (report.score < min) {
+                return error.AuditScoreBelowThreshold;
+            }
         }
         return;
     }
@@ -229,6 +239,8 @@ pub const StatsConfig = struct {
     per_table: bool = false,
     /// Run schema health audit with recommendations.
     audit: bool = false,
+    /// Minimum health score for audit quality gate (0-100). Exit 1 if score < min_score.
+    min_score: ?u8 = null,
 };
 
 /// Format a .ss file.

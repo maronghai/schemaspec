@@ -17,7 +17,7 @@ pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false },
     validate: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text, per_table: bool = false, fix: bool = false },
     check: struct { input: ?[]const u8, stats: bool, verbose_passes: bool, format: StatsFormat = .text },
-    stats: struct { input: ?[]const u8, format: StatsFormat = .text, per_table: bool = false, audit: bool = false },
+    stats: struct { input: ?[]const u8, format: StatsFormat = .text, per_table: bool = false, audit: bool = false, min_score: ?u8 = null },
     diff: struct { old: []const u8, new: []const u8, trace: bool, stats: bool, format: DiffFormat, check: bool, summary: bool = false, from_sql: ?[]const u8 = null },
     migrate: struct { old: []const u8, new: []const u8, output: ?[]const u8, trace: bool, rollback: bool, stats: bool, dry_run: bool, format: DiffFormat, check: bool, name: ?[]const u8, dir: ?[]const u8, incremental: bool, summary: bool = false, graph: bool = false, no_lint: bool = false },
     migrate_status: struct { dir: ?[]const u8, json_errors: bool = false },
@@ -248,12 +248,14 @@ pub const COMMAND_HELP = [_]CommandHelp{
             "  --format        Output format: text (default), json, markdown",
             "  --per-table     Show per-table breakdown",
             "  --audit         Run schema health analysis with recommendations",
+            "  --min-score N   Exit 1 if health score < N (with --audit, for CI gates)",
         },
         .examples = &.{
             "  rune stats schema.ss                 # Print stats",
             "  rune stats schema.ss --format json   # Stats as JSON",
             "  rune stats schema.ss --per-table     # Per-table breakdown",
             "  rune stats schema.ss --audit         # Schema health audit",
+            "  rune stats schema.ss --audit --min-score 80  # CI quality gate",
         },
     },
     .{
@@ -292,7 +294,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
     },
     .{
         .usage = "[input.ss] [--fix] [--dry-run] [--strict] [--format json|sarif] [--rules <file>]",
-        .description = "Lint schema for quality issues (58 rules)",
+        .description = "Lint schema for quality issues (60 rules)",
         .options = &.{
             "  --json-errors   Output results as JSON (machine-readable)",
             "  --strict        Exit 1 if any warnings found (for CI/CD)",

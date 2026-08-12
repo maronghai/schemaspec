@@ -388,3 +388,65 @@ test "lint: auto_inc (non-pk) on nullable column detected" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(th.findRule(results, "column-auto-increment-nullable"));
 }
+
+// ─── column-bad-default tests ─────────────────────────────────
+
+test "lint: string default on numeric column triggers column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "count",
+        .type_info = .{ .simple = "n" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'abc'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "items", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-bad-default"));
+}
+
+test "lint: valid default on matching type passes column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "count",
+        .type_info = .{ .simple = "n" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "0", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "items", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-bad-default"));
+}
+
+test "lint: bad default on boolean column triggers column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "active",
+        .type_info = .{ .simple = "b" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'yes'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "users", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-bad-default"));
+}

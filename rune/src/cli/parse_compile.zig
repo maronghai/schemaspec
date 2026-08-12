@@ -267,9 +267,10 @@ pub fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
         .markdown
     else
         .text;
-    // Scan for --per-table and --audit flags
+    // Scan for --per-table, --audit, and --min-score flags
     var per_table = false;
     var audit = false;
+    var min_score: ?u8 = null;
     for (fargs[1..]) |arg| {
         if (std.mem.eql(u8, arg, "--per-table")) {
             per_table = true;
@@ -277,6 +278,21 @@ pub fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
         if (std.mem.eql(u8, arg, "--audit")) {
             audit = true;
         }
+        // Parse --min-score N
+        if (std.mem.startsWith(u8, arg, "--min-score=")) {
+            const val = arg["--min-score=".len..];
+            min_score = std.fmt.parseInt(u8, val, 10) catch null;
+        }
+        if (std.mem.eql(u8, arg, "--min-score")) {
+            // Next arg is the value
+            // We'll handle this in the loop by checking a flag
+        }
     }
-    return shared.parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format, .per_table = per_table, .audit = audit } }, opts);
+    // Handle --min-score as separate arg (--min-score 80)
+    for (fargs[1..], 0..) |arg, i| {
+        if (std.mem.eql(u8, arg, "--min-score") and i + 1 < fargs.len - 1) {
+            min_score = std.fmt.parseInt(u8, fargs[i + 2], 10) catch null;
+        }
+    }
+    return shared.parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format, .per_table = per_table, .audit = audit, .min_score = min_score } }, opts);
 }

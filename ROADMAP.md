@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.276.0 (2026-08-12) — 65,600+ lines production Zig, 1,913+ tests, 58 lint rules, 38 test suites.
+**Current version**: 0.277.0 (2026-08-12) — 66,000+ lines production Zig, 1,922+ tests, 60 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.277.0** — Schema quality reporting & lint expansion: added 2 new lint rules (`fk-unidirectional` warns when a table has outgoing FKs but no incoming references — identifies potentially isolated tables in the schema graph, `column-bad-default` warns when a column default value doesn't match its type category — catches schema design errors early — 60 lint rules total); added Markdown output format for schema health audit (`rune stats --audit --format md` — produces structured Markdown report with findings table and recommendations); added `--min-score` quality gate flag to `rune stats --audit` (exits 1 when health score falls below threshold — enables CI/CD quality gates); expanded architecture health test suite with updated rule count bounds; 1,922+ unit tests pass, benchmarks show no regressions
 - **v0.276.0** — WASM test expansion & documentation accuracy: expanded WASM integration tests (lint.zig: 1→4 tests, reverse.zig: 2→4 tests) covering edge cases (invalid input, JSON format, dialect options, MySQL reverse engineering); updated documentation metrics across README.md, ARCHITECTURE.md (test count 1891+→1913+); synchronized packaging versions to 0.276.0 (npm, scoop, vscode, homebrew, build.zig.zon); 1,913+ unit tests pass, benchmarks show no regressions
 - **v0.275.0** — Schema audit & lint expansion: added `rune stats --audit` flag for schema health analysis with prioritized recommendations (health score, tables missing PKs, FKs without indexes, missing timestamps, empty enums); added 2 new lint rules (`fk-missing-index` warns when tables have FKs but no supporting indexes, `column-no-comment` warns when columns lack documentation — 58 lint rules total); expanded LSP document symbols to include custom types (~ directives) with enum values as children; 1,908+ unit tests pass, benchmarks show no regressions
 - **v0.274.0** — Documentation accuracy & packaging sync: updated ROADMAP.md with accurate metrics (65,400+ lines, 1,899+ tests); synchronized version numbers across all packaging manifests (npm, scoop, vscode, homebrew: 0.273.0→0.274.0, build.zig.zon 0.273.0→0.274.0); 1,899+ unit tests pass, benchmarks show no regressions

@@ -85,6 +85,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .fk_column_type_mismatch, .handler = fk_rules.checkFkColumnTypeMismatch },
     .{ .rule = .fk_on_delete_cascade, .handler = fk_rules.checkFkOnDeleteCascade },
     .{ .rule = .fk_missing_index, .handler = fk_rules.checkFkMissingIndex },
+    .{ .rule = .fk_unidirectional, .handler = fk_rules.checkFkUnidirectional },
     // Index validation rules (moved to index.zig)
     .{ .rule = .index_unused, .handler = index_rules.checkIndexUnused },
     .{ .rule = .duplicate_index, .handler = index_rules.checkDuplicateIndex },
@@ -114,6 +115,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .column_auto_increment_type, .handler = validation.checkColumnAutoIncrementType },
     .{ .rule = .column_unique_naming, .handler = validation.checkColumnUniqueNaming },
     .{ .rule = .column_auto_increment_nullable, .handler = validation.checkColumnAutoIncrementNullable },
+    .{ .rule = .column_bad_default, .handler = validation.checkColumnBadDefault },
     // Compatibility rules
     .{ .rule = .serial_type, .handler = compat.checkSerialType },
     .{ .rule = .column_length, .handler = compat.checkColumnLength },

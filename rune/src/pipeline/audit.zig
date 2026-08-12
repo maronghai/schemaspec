@@ -280,6 +280,76 @@ pub fn formatAuditJson(alloc: std.mem.Allocator, report: AuditReport) ![]const u
     return try aw.toOwnedSlice();
 }
 
+/// Format audit report as Markdown.
+pub fn formatAuditMarkdown(alloc: std.mem.Allocator, report: AuditReport) ![]const u8 {
+    var aw = std.Io.Writer.Allocating.init(alloc);
+    defer aw.deinit();
+
+    try aw.writer.writeAll("# Schema Health Audit\n\n");
+
+    // Score
+    const grade = if (report.score >= 90) "A" else if (report.score >= 75) "B" else if (report.score >= 60) "C" else if (report.score >= 40) "D" else "F";
+    try aw.writer.print("## Health Score: {d}/100 ({s})\n\n", .{ report.score, grade });
+
+    // Summary stats
+    try aw.writer.print("| Metric | Value |\n|--------|-------|\n", .{});
+    try aw.writer.print("| Tables | {d} |\n", .{report.stats.tables});
+    try aw.writer.print("| Fields | {d} |\n", .{report.stats.fields});
+    try aw.writer.print("| Views | {d} |\n", .{report.stats.views});
+    try aw.writer.print("| Indexes | {d} |\n", .{report.stats.indexes});
+    try aw.writer.print("| Foreign Keys | {d} |\n\n", .{report.stats.foreign_keys});
+
+    if (report.findings.len == 0) {
+        try aw.writer.writeAll("No issues found. Schema looks healthy!\n");
+        return try aw.toOwnedSlice();
+    }
+
+    // Count by severity
+    var criticals: usize = 0;
+    var warnings: usize = 0;
+    var infos: usize = 0;
+    for (report.findings) |f| {
+        switch (f.severity) {
+            .critical => criticals += 1,
+            .warning => warnings += 1,
+            .info => infos += 1,
+        }
+    }
+
+    try aw.writer.print("## Findings\n\n", .{});
+    try aw.writer.print("Found **{d}** issue(s): {d} critical, {d} warning(s), {d} info\n\n", .{ report.findings.len, criticals, warnings, infos });
+
+    // Findings table
+    try aw.writer.writeAll("| Severity | Table | Finding |\n|----------|-------|--------|\n");
+    inline for (&.{ Severity.critical, Severity.warning, Severity.info }) |sev| {
+        const label = switch (sev) {
+            .critical => "🔴 Critical",
+            .warning => "🟡 Warning",
+            .info => "ℹ️ Info",
+        };
+        for (report.findings) |f| {
+            if (f.severity == sev) {
+                const table_str = if (f.table) |t| t else "—";
+                try aw.writer.print("| {s} | {s} | {s} |\n", .{ label, table_str, f.message });
+            }
+        }
+    }
+
+    // Recommendations
+    try aw.writer.writeAll("\n## Recommendations\n\n");
+    if (criticals > 0) {
+        try aw.writer.writeAll("1. **Fix critical issues first** — missing primary keys can cause data integrity problems\n");
+    }
+    if (warnings > 0) {
+        try aw.writer.writeAll("2. **Address warnings** — missing indexes, timestamps, and FK issues affect performance and maintainability\n");
+    }
+    if (infos > 0) {
+        try aw.writer.writeAll("3. **Consider info items** — documentation and naming improvements enhance schema clarity\n");
+    }
+
+    return try aw.toOwnedSlice();
+}
+
 // ─── Tests ──────────────────────────────────────────────────
 
 const testing = std.testing;
@@ -385,4 +455,66 @@ test "formatAuditJson: produces valid JSON" {
     try testing.expect(json.len > 0);
     try testing.expect(std.mem.indexOf(u8, json, "\"score\"") != null);
     try testing.expect(std.mem.indexOf(u8, json, "\"findings\"") != null);
+}
+
+test "formatAuditMarkdown: produces Markdown output" {
+    const resolved = resolved_ast.ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{},
+        .views = &.{},
+        .custom_types = &.{},
+        .sql_comments = &.{},
+    };
+    const report = auditSchema(testing.allocator, resolved);
+    defer {
+        testing.allocator.free(report.findings);
+    }
+    const md = try formatAuditMarkdown(testing.allocator, report);
+    defer testing.allocator.free(md);
+    try testing.expect(md.len > 0);
+    try testing.expect(std.mem.indexOf(u8, md, "# Schema Health Audit") != null);
+    try testing.expect(std.mem.indexOf(u8, md, "Health Score") != null);
+}
+
+test "formatAuditMarkdown: includes findings table" {
+    var field_buf: [1]ast_mod.Field = undefined;
+    field_buf[0] = .{
+        .name = "name",
+        .type_info = .{ .simple = "s64" },
+        .modifiers = &.{},
+        .fk = null,
+        .check = null,
+        .default_val = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    var table_buf: [1]resolved_ast.ResolvedTable = undefined;
+    table_buf[0] = .{
+        .name = "users",
+        .fields = &field_buf,
+        .fks = &.{},
+        .indexes = &.{},
+        .comment = null,
+        .template_ref = null,
+        .conditional_blocks = &.{},
+        .engine = null,
+        .line_no = 1,
+    };
+    const resolved = resolved_ast.ResolvedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &table_buf,
+        .views = &.{},
+        .custom_types = &.{},
+        .sql_comments = &.{},
+    };
+    const report = auditSchema(testing.allocator, resolved);
+    defer {
+        testing.allocator.free(report.findings);
+    }
+    const md = try formatAuditMarkdown(testing.allocator, report);
+    defer testing.allocator.free(md);
+    try testing.expect(std.mem.indexOf(u8, md, "## Findings") != null);
+    try testing.expect(std.mem.indexOf(u8, md, "## Recommendations") != null);
 }

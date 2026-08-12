@@ -88,3 +88,39 @@ test "lint: table without FKs passes fk-missing-index" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "fk-missing-index"));
 }
+
+// ─── fk-unidirectional tests ──────────────────────────────────
+
+test "lint: table with outgoing FK not referenced triggers fk-unidirectional" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // orders has FK to users, but no table references orders
+    const orders = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{});
+    const users = try th.makeTestTable(alloc, "users", &.{th.makePkField("id")}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{ orders, users });
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "fk-unidirectional"));
+}
+
+test "lint: mutually referenced tables pass fk-unidirectional" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // orders FKs to users, and users FKs to orders — both are referenced by each other
+    const orders = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{});
+    const users = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeFkFieldTo("primary_order_id", "orders", "id") }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{ orders, users });
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "fk-unidirectional"));
+}
+
+test "lint: table with no FKs passes fk-unidirectional" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{th.makePkField("id")}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "fk-unidirectional"));
+}

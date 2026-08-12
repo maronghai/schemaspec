@@ -65,6 +65,8 @@ pub const LintRule = enum {
     table_no_index,
     fk_missing_index,
     column_no_comment,
+    fk_unidirectional,
+    column_bad_default,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -127,6 +129,8 @@ pub const LintRule = enum {
             .table_no_index => "table-no-index",
             .fk_missing_index => "fk-missing-index",
             .column_no_comment => "column-no-comment",
+            .fk_unidirectional => "fk-unidirectional",
+            .column_bad_default => "column-bad-default",
         };
     }
 
@@ -203,6 +207,8 @@ pub const LintRule = enum {
             .table_no_index => false,
             .fk_missing_index => false,
             .column_no_comment => false,
+            .fk_unidirectional => false,
+            .column_bad_default => false,
         };
     }
 
@@ -267,6 +273,8 @@ pub const LintRule = enum {
             .table_no_index => "Table has no indexes (potential performance issue)",
             .fk_missing_index => "Table has foreign keys but no index on FK columns",
             .column_no_comment => "Column lacks documentation comment",
+            .fk_unidirectional => "Table has outgoing FKs but no incoming references (isolated in schema graph)",
+            .column_bad_default => "Column default value doesn't match its type",
         };
     }
 
@@ -332,6 +340,8 @@ pub const LintRule = enum {
             .index_columns_max => "note",
             .fk_missing_index => "warning",
             .column_no_comment => "note",
+            .fk_unidirectional => "note",
+            .column_bad_default => "warning",
         };
     }
 };

@@ -297,3 +297,61 @@ pub fn checkColumnAutoIncrementNullable(alloc: std.mem.Allocator, results: *std.
         }
     }
 }
+
+/// Check if a column's default value matches its type category.
+/// Warns when numeric defaults are on string columns, boolean defaults on numeric columns, etc.
+pub fn checkColumnBadDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            const dv = field.default_val orelse continue;
+            const val = dv.value;
+            if (val.len == 0) continue;
+
+            const cat = field.type_info.category();
+
+            // Check for quoted string defaults on non-string types
+            if (val[0] == '\'' and val.len >= 2 and val[val.len - 1] == '\'') {
+                if (cat == .numeric) {
+                    const msg = try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a numeric type", .{ field.name, val });
+                    try results.append(alloc, .{
+                        .rule = "column-bad-default",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                } else if (cat == .boolean) {
+                    const inner = val[1 .. val.len - 1];
+                    if (!std.mem.eql(u8, inner, "true") and !std.mem.eql(u8, inner, "false") and !std.mem.eql(u8, inner, "1") and !std.mem.eql(u8, inner, "0")) {
+                        const msg = try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a boolean type", .{ field.name, val });
+                        try results.append(alloc, .{
+                            .rule = "column-bad-default",
+                            .table = table.name,
+                            .message = msg,
+                            .severity = .warning,
+                        });
+                    }
+                }
+            }
+
+            // Check for numeric defaults on boolean columns
+            if (cat == .boolean) {
+                var is_numeric = true;
+                for (val) |ch| {
+                    if (ch < '0' or ch > '9') {
+                        is_numeric = false;
+                        break;
+                    }
+                }
+                if (is_numeric and val.len > 0 and !std.mem.eql(u8, val, "0") and !std.mem.eql(u8, val, "1")) {
+                    const msg = try std.fmt.allocPrint(alloc, "column '{s}' has numeric default {s} but is a boolean type (use true/false or 0/1)", .{ field.name, val });
+                    try results.append(alloc, .{
+                        .rule = "column-bad-default",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+            }
+        }
+    }
+}

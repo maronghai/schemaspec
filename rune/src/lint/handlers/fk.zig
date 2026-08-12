@@ -330,6 +330,53 @@ fn fieldHasIndex(table: anytype, field_name: []const u8) bool {
     return false;
 }
 
+/// Check if a table has outgoing FKs but no other tables reference it.
+/// Identifies potentially isolated tables in the schema relationship graph.
+pub fn checkFkUnidirectional(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    // Build a set of tables that are referenced by other tables' FKs
+    var referenced = std.StringHashMap(void).init(alloc);
+    defer referenced.deinit();
+
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (field.fk) |fk| {
+                try referenced.put(fk.ref_table, {});
+            }
+        }
+        for (table.fks) |fk| {
+            try referenced.put(fk.ref_table, {});
+        }
+    }
+
+    // Check each table: has outgoing FKs but not referenced by others
+    for (ast.tables) |table| {
+        var has_outgoing = false;
+        for (table.fields) |field| {
+            if (field.fk != null) {
+                has_outgoing = true;
+                break;
+            }
+        }
+        if (!has_outgoing) {
+            if (table.fks.len > 0) {
+                has_outgoing = true;
+            }
+        }
+        if (!has_outgoing) continue;
+
+        // Table has outgoing FKs — check if it's referenced by others
+        if (!referenced.contains(table.name)) {
+            const msg = try std.fmt.allocPrint(alloc, "table '{s}' has outgoing FKs but no other table references it — may be isolated in the schema graph", .{table.name});
+            try results.append(alloc, .{
+                .rule = "fk-unidirectional",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
 /// Check if FK uses ON DELETE CASCADE (potential data loss risk).
 /// CASCADE deletes can propagate unintended data removal across tables.
 pub fn checkFkOnDeleteCascade(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
