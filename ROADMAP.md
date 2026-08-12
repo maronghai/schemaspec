@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.269.0 (2026-08-12) — 58,000+ lines production Zig, 1,882+ tests, 56 lint rules, 38 test suites.
+**Current version**: 0.270.0 (2026-08-12) — 58,000+ lines production Zig, 1,882+ tests, 56 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.270.0** — Documentation accuracy & packaging sync: fixed `lint.zig` barrel comment (42→56 rules); updated ARCHITECTURE.md lint rules table from 19 to complete 56-rule list; fixed ARCHITECTURE.md unit test count (~1,876+→~1,882+); fixed ARCHITECTURE.md lint rules count (51→56); fixed CLAUDE.md lint --fix rule name (index-column-missing→index-missing-fk-columns); updated rune/README.md test count (1,876+→1,882+); fixed root README.md test file count (117→118); synchronized packaging versions (npm, scoop, vscode, homebrew: 0.267.0→0.270.0); 1,882+ unit tests pass, benchmarks show no regressions
 - **v0.269.0** — Lint expansion & documentation accuracy: added 2 new lint rules (`column-auto-increment-nullable` warns when auto-increment modifier is used on nullable columns — should be NOT NULL; `table-no-index` warns when a table has no indexes — potential performance issue — 56 lint rules total, 11 fixable); added 6 new unit tests for new lint rules; updated architecture health test comment (51→56 rules); updated documentation with accurate rule and test counts; 1,882+ unit tests pass, benchmarks show no regressions
 - **v0.267.0** — Lint rules expansion & architecture quality: added 3 new lint rules (`column-auto-increment-type` warns when auto-increment modifier is used on non-integer types, `column-unique-naming` warns when columns in the same table differ only by case, `fk-on-delete-cascade` warns when FK uses ON DELETE CASCADE with potential data loss risk — 54 lint rules total, 11 fixable); added 8 new unit tests for new lint rules; updated documentation with accurate rule counts; 1,876+ unit tests pass, benchmarks show no regressions
 - **v0.266.0** — Architecture cleanup & code quality: extracted shared `compileToTypedAst` helper from duplicate definitions in `pipeline/generate.zig` and `pipeline/handlers.zig` into `pipeline/compile_helper.zig` (DRY fix); replaced `std.process.exit(1)` in `pipeline/generate.zig` with proper error propagation (`error.GeneratorHealthCheckFailed`); fixed double-lint execution in `pipeline/validation.zig` (when `--strict` + `--fix` both active, `lintSchema` now runs once and shares results); removed dead code in `version.zig` (`formatAlloc`, `writeMajorMinor` — private methods never called from production); converted `emitSchemaHeader` and `emitStandaloneIndexes` in `reverse/codegen.zig` from struct methods to free functions (removed unused `self` parameters); fixed zig fmt violations in 5 files; 1,868 unit tests pass, benchmarks show no regressions

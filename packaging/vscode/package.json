@@ -2,7 +2,7 @@
   "name": "rune-schema",
   "displayName": "Rune Schema Language",
   "description": "Syntax highlighting, IntelliSense, and language support for Rune .ss schema files",
-  "version": "0.267.0",
+  "version": "0.270.0",
   "publisher": "rune-lang",
   "license": "MIT",
   "engines": {

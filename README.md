@@ -278,7 +278,7 @@ bash tests/test_coverage.sh --quick   # skip benchmark regression
 
 ### Unit Tests
 
-Zig `test` blocks in colocated `*_test.zig` files alongside their production modules. 117 test files wired via `tests.zig` comptime index.
+Zig `test` blocks in colocated `*_test.zig` files alongside their production modules. 118 test files wired via `tests.zig` comptime index.
 
 ```bash
 cd rune && zig build test             # run all unit tests

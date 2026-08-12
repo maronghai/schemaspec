@@ -463,7 +463,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 118 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,876+ | Core logic + pipeline + colocated |
+| Unit tests | 118 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,882+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 85 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 86 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |
@@ -482,11 +482,11 @@ zig build bench -- bench/large.ss 5         # large schema
 | Stdin | `tests/test_stdin.sh` | 4 | Stdin pipeline |
 | Reverse confidence | `tests/test_reverse_confidence.sh` | 3 | Reverse confidence scores |
 | Init & completions | `tests/test_init.sh` | 12 | Init & completions |
-| **Total** | | **~1,868+** | |
+| **Total** | | **~1,882+** | |
 
 ## Lint Module
 
-The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 51 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
+The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 56 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
 
 ### Sub-modules
 
@@ -494,12 +494,17 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 |------|-------|---------------|
 | `lint/rules.zig` | ~130 | Data-driven dispatch table (`RULES` array), `RuleInfo`/`RULE_INFO`, helper functions (`isSnakeCase`, `isUpperSnakeCase`), `runAll()` orchestrator |
 | `lint/handlers/structural.zig` | ~120 | Structural rules: no-pk, no-timestamps, wide-table, count, empty-table, table-comment, table-name-length |
-| `lint/handlers/naming.zig` | ~120 | Naming rules: naming, naming-prefix, fk-naming, index-naming, timestamp-naming, enum-value-naming |
-| `lint/handlers/validation.zig` | ~300 | Validation rules: no-index-fk, fk-cascade, nullable-pk, enum-case, orphan-type, index-unused, circular-fk, duplicate-index, index-column-missing, bool-default, view-no-select, column-default-required, nullable-column-default, fk-null, duplicate-column, unique-constraint, composite-pk |
-| `lint/handlers/compat.zig` | ~80 | Compatibility rules: serial-type, column-length, cross-dialect-types |
+| `lint/handlers/naming.zig` | ~120 | Naming rules: naming, naming-prefix, fk-naming, index-naming, timestamp-naming, enum-value-naming, column-boolean-naming, column-unique-naming |
+| `lint/handlers/validation.zig` | ~300 | Validation rules: nullable-pk, enum-case, orphan-type, index-unused, circular-fk, bool-default, view-no-select, column-default-required, nullable-column-default, fk-null, duplicate-column, unique-constraint, composite-pk |
+| `lint/handlers/compat.zig` | ~80 | Compatibility rules: serial-type, column-length, cross-dialect-types, reserved-word, column-type-portability |
+| `lint/handlers/fk.zig` | ~120 | FK rules: fk-cascade, fk-self-reference, fk-depth, fk-duplicate, fk-column-type-mismatch, fk-on-delete-cascade |
+| `lint/handlers/index.zig` | ~80 | Index rules: duplicate-index, index-column-missing, index-missing-fk-columns, index-columns-max, index-redundant-with-pk |
+| `lint/handlers/view.zig` | ~80 | View rules: view-no-alias, view-naming, view-select-star, view-dependency-cycle |
+| `lint/handlers/enum.zig` | ~80 | Enum rules: enum-value-naming, enum-empty, enum-value-duplicate |
+| `lint/handlers/portability.zig` | ~60 | Portability rules: column-type-portability, reserved-word, column-auto-increment-type, column-auto-increment-nullable, table-no-index |
 | `lint/config.zig` | ~300 | `LintConfig` struct with toggle flags, `LintRule` enum (single source of truth for rule names + descriptions + enable/disable + exhaustive isFixable/lintLevel switches), `LintRules` TOML config parsing, severity/threshold configuration |
 | `lint/format.zig` | ~160 | Output formatters: text (human-readable with summary line), JSON (machine-readable), SARIF (CI/CD integration) |
-| `lint/fix.zig` | ~250 | Auto-fix logic for fixable rules (no-pk, no-timestamps, empty-table, serial-type, bool-default, nullable-column-default, duplicate-index, column-default-required, no-index-fk, duplicate-column) |
+| `lint/fix.zig` | ~250 | Auto-fix logic for fixable rules (no-pk, no-timestamps, empty-table, serial-type, bool-default, nullable-column-default, duplicate-index, column-default-required, no-index-fk, duplicate-column, index-missing-fk-columns) |
 | `lint.zig` | ~33 | Re-export barrel module |
 
 ### Lint Rules
@@ -508,7 +513,7 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 |------|-------------|---------|
 | `no-pk` | Table has no primary key | Yes |
 | `naming` | Table/column name not snake_case | No |
-| `no-index-fk` | Foreign key column without index | No |
+| `no-index-fk` | Foreign key column without index | Yes |
 | `no-timestamps` | Table missing created_at/updated_at | Yes |
 | `wide-table` | Table exceeds column threshold (default 30) | No |
 | `enum-case` | Custom type name not UPPER_CASE | No |
@@ -518,12 +523,50 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 | `orphan-type` | Custom type defined but not used | No |
 | `index-unused` | Non-FK, non-unique index may be unused | No |
 | `circular-fk` | Circular FK dependency detected | No |
-| `duplicate-index` | Duplicate index on same columns | No |
+| `duplicate-index` | Duplicate index on same columns | Yes |
 | `empty-table` | Table has zero columns | Yes |
 | `table-comment` | Table has no comment | No |
-| `serial-type` | PostgreSQL-specific serial type used | No |
+| `serial-type` | PostgreSQL-specific serial type used | Yes |
 | `table-name-length` | Table name exceeds max length (default 64) | No |
 | `column-length` | String column has no explicit length | No |
+| `index-column-missing` | Index references column not in table | No |
+| `naming-prefix` | Table name uses anti-pattern prefix (tbl_, t_, tb_) | No |
+| `fk-naming` | FK column doesn't follow `<table>_id` convention | No |
+| `bool-default` | Boolean column without explicit default | Yes |
+| `view-no-select` | View has no SELECT statement | No |
+| `column-default-required` | Non-PK non-nullable column without DEFAULT | Yes |
+| `index-naming` | Index name doesn't follow `<table>_<columns>` convention | No |
+| `nullable-column-default` | Nullable non-PK column without DEFAULT | Yes |
+| `timestamp-naming` | Datetime column should be created_at/updated_at | No |
+| `enum-value-naming` | Enum values should be UPPER_CASE | No |
+| `fk-null` | Foreign key column is nullable | No |
+| `cross-dialect-types` | MySQL-specific types not portable to other dialects | No |
+| `view-no-alias` | View SELECT uses expressions without column aliases | No |
+| `fk-self-reference` | Foreign key references the same table (self-reference) | No |
+| `enum-empty` | Custom type enum has no values | No |
+| `view-naming` | View name doesn't follow `<entity>_view` or `v_<entity>` convention | No |
+| `duplicate-column` | Table has columns with the same name | Yes |
+| `view-select-star` | View uses SELECT * (prefer explicit columns) | No |
+| `enum-value-duplicate` | Custom type has duplicate enum values | No |
+| `column-boolean-naming` | Boolean column should use is_/has_/can_ prefix | No |
+| `fk-depth` | FK reference chain exceeds 3 levels | No |
+| `unique-constraint` | UNIQUE constraint on column that is already the primary key | No |
+| `composite-pk` | Multiple auto-increment primary keys in one table | No |
+| `fk-duplicate` | Multiple foreign keys reference the same target table | No |
+| `reserved-word` | Table or column name uses a SQL reserved word | No |
+| `column-type-portability` | Column type may not be portable across dialects | No |
+| `index-missing-fk-columns` | Table has FKs but no index on FK columns | Yes |
+| `index-columns-max` | Index has too many columns (configurable threshold) | No |
+| `column-name-too-long` | Column name exceeds max length (configurable, default 64) | No |
+| `index-redundant-with-pk` | Index duplicates the primary key columns | No |
+| `view-dependency-cycle` | Views reference each other in a cycle | No |
+| `column-unique-nullable` | UNIQUE constraint on nullable column (multiple NULLs allowed) | No |
+| `fk-column-type-mismatch` | FK column type doesn't match referenced column type | No |
+| `column-auto-increment-type` | Auto-increment used on non-integer type | No |
+| `column-unique-naming` | Columns differ only by case (potential naming conflict) | No |
+| `fk-on-delete-cascade` | Foreign key uses ON DELETE CASCADE (potential data loss) | No |
+| `column-auto-increment-nullable` | Auto-increment on nullable column (should be NOT NULL) | No |
+| `table-no-index` | Table has no indexes (potential performance issue) | No |
 
 ### Diff-Aware Lint
 
