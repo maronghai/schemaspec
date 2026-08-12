@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.268.0] - 2026-08-12
+
+### Added
+- **CLI hooks tests** — Added unit tests for `cli/hooks.zig` (handleHooks, HOOK_PRECOMMIT constant validation).
+
+### Changed
+- **Documentation sync** — Updated test file counts across documentation (117 → 118 colocated test files, 1868+ → 1876+ unit tests) in CLAUDE.md, ARCHITECTURE.md.
+
 ## [0.266.0] - 2026-08-12
 
 ### Fixed

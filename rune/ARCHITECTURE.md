@@ -463,7 +463,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 117 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,868+ | Core logic + pipeline + colocated |
+| Unit tests | 118 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,876+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 85 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 86 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |
