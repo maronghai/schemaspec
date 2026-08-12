@@ -16,7 +16,7 @@ const lineNoToZeroBased = helpers.lineNoToZeroBased;
 
 /// Generate document symbols from a TypedAst for the outline view.
 pub fn getDocumentSymbols(alloc: std.mem.Allocator, ast: TypedAst) []DocumentSymbol {
-    var symbols = std.ArrayList(DocumentSymbol).initCapacity(alloc, ast.tables.len + ast.views.len) catch return &.{};
+    var symbols = std.ArrayList(DocumentSymbol).initCapacity(alloc, ast.tables.len + ast.views.len + ast.custom_types.len) catch return &.{};
 
     for (ast.tables) |table| {
         const line_no = lineNoToZeroBased(table.line_no);
@@ -77,6 +77,34 @@ pub fn getDocumentSymbols(alloc: std.mem.Allocator, ast: TypedAst) []DocumentSym
             .kind = .event,
             .range = makeRange(line_no, 0, line_no + 1, 0),
             .selection_range = makeRange(line_no, 0, line_no, @intCast(view.name.len)),
+        }) catch {};
+    }
+
+    // Custom types (~ directives)
+    for (ast.custom_types) |ct| {
+        const line_no: u32 = if (ct.line_no > 0) @intCast(ct.line_no - 1) else 0;
+        var children = std.ArrayList(DocumentSymbol).initCapacity(alloc, if (ct.base == .enum_type) ct.base.enum_type.len else 0) catch null;
+
+        if (children) |*ch| {
+            if (ct.base == .enum_type) {
+                for (ct.base.enum_type) |val| {
+                    ch.append(alloc, .{
+                        .name = val,
+                        .kind = .enum_member,
+                        .range = makeRange(line_no, 0, line_no, @intCast(val.len)),
+                        .selection_range = makeRange(line_no, 0, line_no, @intCast(val.len)),
+                    }) catch {};
+                }
+            }
+        }
+
+        symbols.append(alloc, .{
+            .name = ct.name,
+            .detail = alloc.dupe(u8, @tagName(ct.base)) catch null,
+            .kind = .enum_kind,
+            .range = makeRange(line_no, 0, line_no + 1, 0),
+            .selection_range = makeRange(line_no, 0, line_no, @intCast(ct.name.len)),
+            .children = if (children) |*ch| ch.toOwnedSlice(alloc) catch null else null,
         }) catch {};
     }
 

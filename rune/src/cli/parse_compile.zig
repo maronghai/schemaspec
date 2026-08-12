@@ -267,13 +267,16 @@ pub fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
         .markdown
     else
         .text;
-    // Scan for --per-table flag
+    // Scan for --per-table and --audit flags
     var per_table = false;
+    var audit = false;
     for (fargs[1..]) |arg| {
         if (std.mem.eql(u8, arg, "--per-table")) {
             per_table = true;
-            break;
+        }
+        if (std.mem.eql(u8, arg, "--audit")) {
+            audit = true;
         }
     }
-    return shared.parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format, .per_table = per_table } }, opts);
+    return shared.parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format, .per_table = per_table, .audit = audit } }, opts);
 }

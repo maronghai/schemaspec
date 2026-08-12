@@ -118,6 +118,7 @@ comptime {
     _ = @import("pipeline/validation_test.zig");
     _ = @import("pipeline/import_resolver_test.zig");
     _ = @import("pipeline/stats_test.zig");
+    _ = @import("pipeline/audit.zig");
     _ = @import("pipeline/reverse_test.zig");
     _ = @import("pipeline/export.zig");
     _ = @import("pipeline/migrate_test.zig");

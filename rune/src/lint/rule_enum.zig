@@ -63,6 +63,8 @@ pub const LintRule = enum {
     fk_on_delete_cascade,
     column_auto_increment_nullable,
     table_no_index,
+    fk_missing_index,
+    column_no_comment,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -123,6 +125,8 @@ pub const LintRule = enum {
             .fk_on_delete_cascade => "fk-on-delete-cascade",
             .column_auto_increment_nullable => "column-auto-increment-nullable",
             .table_no_index => "table-no-index",
+            .fk_missing_index => "fk-missing-index",
+            .column_no_comment => "column-no-comment",
         };
     }
 
@@ -197,6 +201,8 @@ pub const LintRule = enum {
             .fk_on_delete_cascade => false,
             .column_auto_increment_nullable => false,
             .table_no_index => false,
+            .fk_missing_index => false,
+            .column_no_comment => false,
         };
     }
 
@@ -259,6 +265,8 @@ pub const LintRule = enum {
             .fk_on_delete_cascade => "Foreign key uses ON DELETE CASCADE (potential data loss)",
             .column_auto_increment_nullable => "Auto-increment on nullable column (should be NOT NULL)",
             .table_no_index => "Table has no indexes (potential performance issue)",
+            .fk_missing_index => "Table has foreign keys but no index on FK columns",
+            .column_no_comment => "Column lacks documentation comment",
         };
     }
 
@@ -322,6 +330,8 @@ pub const LintRule = enum {
             .column_auto_increment_nullable => "warning",
             .table_no_index => "note",
             .index_columns_max => "note",
+            .fk_missing_index => "warning",
+            .column_no_comment => "note",
         };
     }
 };

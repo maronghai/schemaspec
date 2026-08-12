@@ -161,3 +161,24 @@ pub fn checkColumnNameTooLong(alloc: std.mem.Allocator, results: *std.ArrayList(
         }
     }
 }
+
+/// Check if columns lack documentation comments.
+/// Suggests adding `: comment` to improve schema documentation.
+pub fn checkColumnNoComment(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Skip if table has no comment either (table_comment rule covers that)
+        if (table.comment == null) continue;
+
+        for (table.fields) |field| {
+            if (field.comment == null) {
+                const msg = try std.fmt.allocPrint(alloc, "column '{s}' lacks documentation comment", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "column-no-comment",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .info,
+                });
+            }
+        }
+    }
+}

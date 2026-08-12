@@ -25,10 +25,12 @@ test "lint: clean schema passes" {
     // Disable column-length rule since test fields use bare 's' type
     // Disable column-default-required since test fields have no defaults
     // Disable table-no-index since test tables have no explicit indexes
+    // Disable column-no-comment since test fields don't have documentation
     var cfg = lint_mod.LintConfig{};
     cfg.rules.setEnabled(.column_length, false);
     cfg.rules.setEnabled(.column_default_required, false);
     cfg.rules.setEnabled(.table_no_index, false);
+    cfg.rules.setEnabled(.column_no_comment, false);
     const results = try lintSchema(alloc, test_ast, cfg);
     try testing.expectEqual(@as(usize, 0), results.items.len);
 }
@@ -466,6 +468,51 @@ test "lint: clean table name passes naming-prefix" {
     const results = try lintSchema(alloc, test_ast, .{});
     for (results.items) |r| {
         if (std.mem.eql(u8, r.rule, "naming-prefix")) {
+            try testing.expect(false);
+        }
+    }
+}
+
+// ─── column-no-comment ─────────────────────────────────────
+
+test "lint: column without comment triggers column-no-comment" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Table has a comment, but column does not
+    var table_buf: [1]ResolvedTable = undefined;
+    var field_buf: [1]ast_mod.Field = undefined;
+    field_buf[0] = th.makeField("name", .{ .simple = "s64" }, &.{}, null);
+    table_buf[0] = .{
+        .name = "users",
+        .comment = "User accounts table",
+        .doc = null,
+        .engine = null,
+        .fields = &field_buf,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    };
+    const tables = try alloc.dupe(ResolvedTable, &table_buf);
+    const results = try lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-no-comment"));
+}
+
+test "lint: table without comment skips column-no-comment" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Table has no comment, so column-no-comment should not trigger
+    const table = try th.makeTestTable(alloc, "users", &.{
+        th.makePkField("id"),
+        th.makeSimpleField("name"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lintSchema(alloc, th.makeAst(tables), .{});
+    for (results.items) |r| {
+        if (std.mem.eql(u8, r.rule, "column-no-comment")) {
             try testing.expect(false);
         }
     }

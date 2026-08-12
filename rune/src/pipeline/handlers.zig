@@ -113,6 +113,24 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
     const result = try compilePipeline(alloc, file_data, .{});
     const s = computeStats(result.resolved);
 
+    // Audit mode: run schema health analysis
+    if (cfg.audit) {
+        const audit_mod = @import("audit.zig");
+        const report = audit_mod.auditSchema(alloc, result.resolved);
+        defer alloc.free(report.findings);
+        switch (cfg.format) {
+            .json, .sarif => {
+                const json = try audit_mod.formatAuditJson(alloc, report);
+                try io_mod.writeOutput(io, json, null, false);
+            },
+            else => {
+                const text = try audit_mod.formatAuditText(alloc, report);
+                try io_mod.writeOutput(io, text, null, false);
+            },
+        }
+        return;
+    }
+
     if (cfg.per_table) {
         const table_stats = stats_mod.computePerTableStats(alloc, result.resolved);
         switch (cfg.format) {
@@ -209,6 +227,8 @@ pub const StatsConfig = struct {
     format: StatsFormat = .text,
     /// Show per-table breakdown.
     per_table: bool = false,
+    /// Run schema health audit with recommendations.
+    audit: bool = false,
 };
 
 /// Format a .ss file.

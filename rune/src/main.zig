@@ -138,7 +138,7 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
         },
         .stats => |cmd| {
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
-            return handlers.handleStats(io, alloc, file_data, .{ .format = cmd.format, .per_table = cmd.per_table });
+            return handlers.handleStats(io, alloc, file_data, .{ .format = cmd.format, .per_table = cmd.per_table, .audit = cmd.audit });
         },
         .diff => |cmd| return diff_pipe.handleDiff(io, alloc, .{
             .old_path = cmd.old,

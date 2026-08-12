@@ -65,6 +65,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .table_name_length, .handler = structural.checkTableNameLength },
     .{ .rule = .column_name_too_long, .handler = structural.checkColumnNameTooLong },
     .{ .rule = .index_columns_max, .handler = structural.checkIndexColumnsMax },
+    .{ .rule = .column_no_comment, .handler = structural.checkColumnNoComment },
     // Naming rules
     .{ .rule = .naming, .handler = naming.checkNaming },
     .{ .rule = .naming_prefix, .handler = naming.checkNamingPrefix },
@@ -83,6 +84,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .fk_duplicate, .handler = fk_rules.checkFkDuplicate },
     .{ .rule = .fk_column_type_mismatch, .handler = fk_rules.checkFkColumnTypeMismatch },
     .{ .rule = .fk_on_delete_cascade, .handler = fk_rules.checkFkOnDeleteCascade },
+    .{ .rule = .fk_missing_index, .handler = fk_rules.checkFkMissingIndex },
     // Index validation rules (moved to index.zig)
     .{ .rule = .index_unused, .handler = index_rules.checkIndexUnused },
     .{ .rule = .duplicate_index, .handler = index_rules.checkDuplicateIndex },

@@ -351,3 +351,66 @@ pub fn checkFkOnDeleteCascade(alloc: std.mem.Allocator, results: *std.ArrayList(
         }
     }
 }
+
+/// Check if a table has FKs but no index covers FK columns.
+/// Distinct from no-index-fk (checks individual FK columns).
+/// This rule flags tables where FK columns exist but lack any supporting index.
+pub fn checkFkMissingIndex(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Collect all FK column names from both inline FKs and table-level FK declarations
+        var has_any_fk = false;
+        var has_unindexed_fk = false;
+
+        // Check inline FKs on fields
+        for (table.fields) |field| {
+            if (field.fk != null) {
+                has_any_fk = true;
+                // Check if this column has an index
+                var col_indexed = false;
+                for (table.indexes) |idx| {
+                    for (idx.fields) |idx_field| {
+                        if (std.mem.eql(u8, idx_field, field.name)) {
+                            col_indexed = true;
+                            break;
+                        }
+                    }
+                    if (col_indexed) break;
+                }
+                if (!col_indexed) {
+                    has_unindexed_fk = true;
+                }
+            }
+        }
+
+        // Check table-level FK declarations
+        for (table.fks) |fk| {
+            has_any_fk = true;
+            for (fk.fields) |fk_field| {
+                var col_indexed = false;
+                for (table.indexes) |idx| {
+                    for (idx.fields) |idx_field| {
+                        if (std.mem.eql(u8, idx_field, fk_field)) {
+                            col_indexed = true;
+                            break;
+                        }
+                    }
+                    if (col_indexed) break;
+                }
+                if (!col_indexed) {
+                    has_unindexed_fk = true;
+                    break;
+                }
+            }
+        }
+
+        if (has_any_fk and has_unindexed_fk) {
+            const msg = try std.fmt.allocPrint(alloc, "Table has foreign keys but FK columns lack supporting indexes", .{});
+            try results.append(alloc, .{
+                .rule = "fk-missing-index",
+                .table = table.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
