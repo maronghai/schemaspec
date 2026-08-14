@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.284.0] - 2026-08-14
+
+### Added
+- **`view-no-comment` lint rule** — warns when a view lacks a documentation comment (symmetric with `table-comment` / `column-no-comment`). Improves schema-documentation completeness across tables, columns, and views (non-fixable, `note` severity).
+- **`index-name-too-long` lint rule** — warns when an index name exceeds the configured length limit (default 64, via `column_name_max`), symmetric with `column-name-too-long` / `table-name-length`. Catches identifiers that can break migration tooling or exceed database name-length limits (non-fixable, `warning` severity).
+- **Lint rule tests** — added 5 focused unit tests for the new rules (positive + negative + `include_views` flag-guard cases); lint rule count is now 64.
+
+### Changed
+- Refreshed lint-rule counts (62 → 64) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help text, and the architecture-health test comment.
+- Synchronized version strings 0.283.0 → 0.284.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.283.0] - 2026-08-14
 
 ### Added

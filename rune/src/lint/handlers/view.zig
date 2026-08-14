@@ -7,6 +7,21 @@ const LintResult = @import("../config.zig").LintResult;
 // Rules that validate view quality: missing SELECT, missing aliases,
 // and SELECT * usage.
 
+pub fn checkViewNoComment(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    if (!cfg.include_views) return;
+    for (ast.views) |view| {
+        if (view.comment == null or (view.comment != null and view.comment.?.len == 0)) {
+            const msg = try std.fmt.allocPrint(alloc, "view '{s}' has no comment", .{view.name});
+            try results.append(alloc, .{
+                .rule = "view-no-comment",
+                .table = view.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}
+
 pub fn checkViewNoSelect(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
     if (!cfg.include_views) return;
     for (ast.views) |view| {

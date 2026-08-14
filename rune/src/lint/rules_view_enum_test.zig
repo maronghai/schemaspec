@@ -230,3 +230,42 @@ test "custom type diff: detects dropped types" {
     try testing.expect(result.custom_type_diffs[0].action == .drop);
     try testing.expectEqualStrings("STATUS", result.custom_type_diffs[0].name);
 }
+
+
+// ─── view-no-comment tests ──────────────────────────────────
+
+test "lint: view without comment triggers note" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "SELECT id FROM users", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
+    try testing.expect(th.findRule(results, "view-no-comment"));
+}
+
+test "lint: view with comment passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "SELECT id FROM users", .comment = "Active users", .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
+    try testing.expect(!th.findRule(results, "view-no-comment"));
+}
+
+test "lint: view-no-comment respects include_views flag" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "SELECT id FROM users", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    // include_views defaults to false
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(!th.findRule(results, "view-no-comment"));
+}

@@ -92,12 +92,14 @@ const RULES = [_]RuleEntry{
     .{ .rule = .index_column_missing, .handler = index_rules.checkIndexColumnMissing },
     .{ .rule = .index_redundant_with_pk, .handler = index_rules.checkIndexRedundantWithPk },
     .{ .rule = .table_no_index, .handler = index_rules.checkTableNoIndex },
+    .{ .rule = .index_name_too_long, .handler = index_rules.checkIndexNameTooLong },
     // View validation rules (moved to view.zig)
     .{ .rule = .view_no_select, .handler = view_rules.checkViewNoSelect },
     .{ .rule = .view_no_alias, .handler = view_rules.checkViewNoAlias },
     .{ .rule = .view_select_star, .handler = view_rules.checkViewSelectStar },
     .{ .rule = .view_naming, .handler = naming.checkViewNaming },
     .{ .rule = .view_dependency_cycle, .handler = view_rules.checkViewDependencyCycle },
+    .{ .rule = .view_no_comment, .handler = view_rules.checkViewNoComment },
     // Enum validation rules (moved to enum.zig)
     .{ .rule = .enum_case, .handler = enum_rules.checkEnumCase },
     .{ .rule = .orphan_type, .handler = enum_rules.checkOrphanType },

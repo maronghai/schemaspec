@@ -69,6 +69,8 @@ pub const LintRule = enum {
     column_bad_default,
     timestamp_type,
     pk_not_first,
+    view_no_comment,
+    index_name_too_long,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -135,6 +137,8 @@ pub const LintRule = enum {
             .column_bad_default => "column-bad-default",
             .timestamp_type => "timestamp-type",
             .pk_not_first => "pk-not-first",
+            .view_no_comment => "view-no-comment",
+            .index_name_too_long => "index-name-too-long",
         };
     }
 
@@ -215,6 +219,8 @@ pub const LintRule = enum {
             .column_bad_default => false,
             .timestamp_type => false,
             .pk_not_first => false,
+            .view_no_comment => false,
+            .index_name_too_long => false,
         };
     }
 
@@ -283,6 +289,8 @@ pub const LintRule = enum {
             .column_bad_default => "Column default value doesn't match its type",
             .timestamp_type => "Column follows timestamp naming but is not a datetime type",
             .pk_not_first => "Primary key column is not the first column in the table",
+            .view_no_comment => "View lacks documentation comment",
+            .index_name_too_long => "Index name exceeds max length (configurable, default: 64)",
         };
     }
 
@@ -352,6 +360,8 @@ pub const LintRule = enum {
             .column_bad_default => "warning",
             .timestamp_type => "warning",
             .pk_not_first => "note",
+            .view_no_comment => "note",
+            .index_name_too_long => "warning",
         };
     }
 };

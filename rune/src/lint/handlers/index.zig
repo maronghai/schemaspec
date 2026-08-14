@@ -161,6 +161,25 @@ pub fn checkIndexRedundantWithPk(alloc: std.mem.Allocator, results: *std.ArrayLi
     }
 }
 
+/// Check if an index name exceeds the configured maximum length.
+/// Symmetric with column-name-too-long / table-name-length: long identifier
+/// names can break migration tooling and exceed database name-length limits.
+pub fn checkIndexNameTooLong(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.indexes) |idx| {
+            if (idx.name.len > cfg.column_name_max) {
+                const msg = try std.fmt.allocPrint(alloc, "index name '{s}' on table '{s}' is {d} chars (max: {d})", .{ idx.name, table.name, idx.name.len, cfg.column_name_max });
+                try results.append(alloc, .{
+                    .rule = "index-name-too-long",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
 /// Check if a table has no indexes at all (potential performance issue).
 /// Skips empty tables and tables with only a primary key (which is implicit).
 pub fn checkTableNoIndex(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {

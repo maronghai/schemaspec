@@ -210,3 +210,29 @@ test "lint: empty table skips table-no-index" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "table-no-index"));
 }
+
+
+// ─── index-name-too-long tests ──────────────────────────────
+
+test "lint: oversized index name detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // column_name_max defaults to 64
+    const long_name = "idx_this_is_an_unreasonably_long_index_name_that_exceeds_the_default_limit_of_sixty_four_characters";
+    try testing.expect(long_name.len > 64);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("email") }, &.{th.makeIndex(long_name, .regular, &.{"email"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "index-name-too-long"));
+}
+
+test "lint: normal index name passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("email") }, &.{th.makeIndex("idx_email", .regular, &.{"email"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "index-name-too-long"));
+}
