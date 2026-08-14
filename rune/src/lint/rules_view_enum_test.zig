@@ -295,3 +295,42 @@ test "lint: view with short name passes" {
     const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
     try testing.expect(!th.findRule(results, "view-name-too-long"));
 }
+
+// ─── enum-value-too-long tests ──────────────────────────────
+
+test "lint: enum value with over-long name triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // 70-char enum value exceeds the default column_name_max (64)
+    const long_value = "this_enum_value_name_is_definitely_way_too_long_to_be_allowed_here";
+    try testing.expect(long_value.len > 64);
+    const ct = ast_mod.CustomType{
+        .name = "STATUS",
+        .base = .{ .enum_type = &.{long_value} },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = th.makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(th.findRule(results, "enum-value-too-long"));
+}
+
+test "lint: enum value with short name passes length check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = ast_mod.CustomType{
+        .name = "STATUS",
+        .base = .{ .enum_type = &.{ "ACTIVE", "INACTIVE" } },
+        .dialect_overrides = &.{},
+        .line_no = 1,
+    };
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = th.makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(!th.findRule(results, "enum-value-too-long"));
+}

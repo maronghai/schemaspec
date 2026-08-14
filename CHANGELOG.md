@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.286.0] - 2026-08-14
+
+### Added
+- **`custom-type-name-too-long` lint rule** — warns when a custom type (`~`) name exceeds `cfg.column_name_max` (default 64), completing identifier-length symmetry across all schema entities (table/column/index/view/custom-type). Catches custom-type identifiers that can break migration tooling or exceed database name-length limits (non-fixable, `warning` severity).
+- **`enum-value-too-long` lint rule** — warns when an enum value exceeds `cfg.column_name_max` (default 64), extending identifier-length symmetry to enum values. Catches over-long enum literals that can break generated SQL (`CREATE TYPE`) or ORM models (non-fixable, `warning` severity).
+- **Lint rule tests** — added 4 focused unit tests for the new rules (positive + negative cases); lint rule count is now 68.
+
+### Changed
+- Refreshed lint-rule counts (66 → 68) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help text, and the architecture-health test comment.
+- Synchronized version strings 0.285.0 → 0.286.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 All notable changes to this project will be documented in this file.
 
 ## [0.285.0] - 2026-08-14

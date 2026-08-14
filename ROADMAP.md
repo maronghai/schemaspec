@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.285.0 (2026-08-14) — 67,100+ lines production Zig, 1,944+ tests, 66 lint rules, 38 test suites.
+**Current version**: 0.286.0 (2026-08-14) — 67,100+ lines production Zig, 1,944+ tests, 68 lint rules, 38 test suites.
 
 ---
 
@@ -264,6 +264,10 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+### Recent Releases
+
+- **v0.286.0** — Lint-rule expansion & documentation accuracy: added 2 new non-fixable lint rules — `custom-type-name-too-long` completes identifier-length symmetry across all schema entities (table/column/index/view/custom-type) by warning when a custom type (`~`) name exceeds `cfg.column_name_max` (default 64), and `enum-value-too-long` extends length symmetry to enum values by warning when an enum value exceeds `cfg.column_name_max` — 68 lint rules total; added 4 focused unit tests for the new rules (positive + negative cases); refreshed lint-rule counts (66 → 68) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, and the architecture-health test comment; synchronized version strings 0.285.0 → 0.286.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,944+ unit tests pass, benchmarks show no regressions
 
 - **v0.283.0** — Lint-rule expansion & documentation accuracy: added 2 new non-fixable lint rules — `timestamp-type` warns when a column follows timestamp naming conventions (`created_at`, `updated_at`, `deleted_at`, `*_at`, `*_on`) but its type is not datetime (catches wrong-type copy-paste bugs; complements `timestamp-naming`), and `pk-not-first` warns when a single-column primary key is not the first column in the table (style/consistency convention); added 4 focused unit tests for the new rules (positive + negative cases); fixed a stale CLI help string (`rune lint` advertised 46 rules) and refreshed lint-rule counts (60 → 62) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, and the CLI help; synchronized version strings 0.282.0 → 0.283.0 across `VERSION`, `rune/build.zig.zon`, `rune/VERSION`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,936+ unit tests pass, benchmarks show no regressions
 

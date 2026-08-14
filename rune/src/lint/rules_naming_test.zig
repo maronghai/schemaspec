@@ -308,3 +308,29 @@ test "lint: custom type with snake_case name passes" {
     const results = try lint_mod.lintSchema(alloc, test_ast, .{});
     try testing.expect(!th.findRule(results, "custom-type-naming"));
 }
+
+test "lint: custom type with over-long name triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // 70-char name exceeds the default column_name_max (64)
+    const ct = th.makeCustomType("this_custom_type_name_is_definitely_way_too_long_to_be_allowed_here");
+    try testing.expect(ct.name.len > 64);
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = th.makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(th.findRule(results, "custom-type-name-too-long"));
+}
+
+test "lint: custom type with short name passes length check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = th.makeCustomType("order_status");
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = th.makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(!th.findRule(results, "custom-type-name-too-long"));
+}

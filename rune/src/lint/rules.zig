@@ -75,6 +75,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .enum_value_naming, .handler = naming.checkEnumValueNaming },
     .{ .rule = .column_boolean_naming, .handler = naming.checkColumnBooleanNaming },
     .{ .rule = .custom_type_naming, .handler = naming.checkCustomTypeNaming },
+    .{ .rule = .custom_type_name_too_long, .handler = naming.checkCustomTypeNameTooLong },
     // FK validation rules (moved to fk.zig)
     .{ .rule = .no_index_fk, .handler = fk_rules.checkNoIndexFk },
     .{ .rule = .fk_cascade, .handler = fk_rules.checkFkCascade },
@@ -107,6 +108,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .orphan_type, .handler = enum_rules.checkOrphanType },
     .{ .rule = .enum_empty, .handler = enum_rules.checkEnumEmpty },
     .{ .rule = .enum_value_duplicate, .handler = enum_rules.checkEnumValueDuplicate },
+    .{ .rule = .enum_value_too_long, .handler = enum_rules.checkEnumValueTooLong },
     // General validation rules (staying in validation.zig)
     .{ .rule = .nullable_pk, .handler = validation.checkNullablePk },
     .{ .rule = .bool_default, .handler = validation.checkBoolDefault },

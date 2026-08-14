@@ -535,8 +535,8 @@ rune watch schema.ss -o out.sql         # Watch and write to file
 rune watch schema.ss -s                 # Watch with compilation stats
 rune watch ./schemas --recursive        # Watch all .ss files in directory recursively
 
-# Lint schema for quality issues (66 rules)
-rune lint schema.ss                     # Check for PK, naming, FK indexes, timestamps, duplicates, circular FK (66 rules)
+# Lint schema for quality issues (68 rules)
+rune lint schema.ss                     # Check for PK, naming, FK indexes, timestamps, duplicates, circular FK (68 rules)
 rune lint schema.ss --json-errors       # Lint as JSON (machine-readable)
 rune lint schema.ss --strict            # Exit 1 if any warnings (CI/CD)
 rune lint --show-rules                  # List all available rules

@@ -73,6 +73,8 @@ pub const LintRule = enum {
     index_name_too_long,
     view_name_too_long,
     custom_type_naming,
+    custom_type_name_too_long,
+    enum_value_too_long,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -143,6 +145,8 @@ pub const LintRule = enum {
             .index_name_too_long => "index-name-too-long",
             .view_name_too_long => "view-name-too-long",
             .custom_type_naming => "custom-type-naming",
+            .custom_type_name_too_long => "custom-type-name-too-long",
+            .enum_value_too_long => "enum-value-too-long",
         };
     }
 
@@ -227,6 +231,8 @@ pub const LintRule = enum {
             .index_name_too_long => false,
             .view_name_too_long => false,
             .custom_type_naming => false,
+            .custom_type_name_too_long => false,
+            .enum_value_too_long => false,
         };
     }
 
@@ -299,6 +305,8 @@ pub const LintRule = enum {
             .index_name_too_long => "Index name exceeds max length (configurable, default: 64)",
             .view_name_too_long => "View name exceeds max length (configurable, default: 64)",
             .custom_type_naming => "Custom type name should use snake_case",
+            .custom_type_name_too_long => "Custom type name exceeds max length (configurable, default: 64)",
+            .enum_value_too_long => "Enum value exceeds max length (configurable, default: 64)",
         };
     }
 
@@ -372,6 +380,8 @@ pub const LintRule = enum {
             .index_name_too_long => "warning",
             .view_name_too_long => "warning",
             .custom_type_naming => "note",
+            .custom_type_name_too_long => "warning",
+            .enum_value_too_long => "warning",
         };
     }
 };

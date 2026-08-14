@@ -91,3 +91,24 @@ pub fn checkEnumValueDuplicate(alloc: std.mem.Allocator, results: *std.ArrayList
         }
     }
 }
+
+pub fn checkEnumValueTooLong(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        switch (ct.base) {
+            .enum_type => |values| {
+                for (values) |val| {
+                    if (val.len > cfg.column_name_max) {
+                        const msg = try std.fmt.allocPrint(alloc, "enum value '{s}' in type '{s}' is {d} chars (max: {d})", .{ val, ct.name, val.len, cfg.column_name_max });
+                        try results.append(alloc, .{
+                            .rule = "enum-value-too-long",
+                            .table = ct.name,
+                            .message = msg,
+                            .severity = .warning,
+                        });
+                    }
+                }
+            },
+            else => {},
+        }
+    }
+}

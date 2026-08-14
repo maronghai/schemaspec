@@ -255,3 +255,17 @@ pub fn checkCustomTypeNaming(alloc: std.mem.Allocator, results: *std.ArrayList(L
         }
     }
 }
+
+pub fn checkCustomTypeNameTooLong(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        if (ct.name.len > cfg.column_name_max) {
+            const msg = try std.fmt.allocPrint(alloc, "custom type name '{s}' is {d} chars (max: {d})", .{ ct.name, ct.name.len, cfg.column_name_max });
+            try results.append(alloc, .{
+                .rule = "custom-type-name-too-long",
+                .table = ct.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
