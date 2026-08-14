@@ -126,6 +126,31 @@ pub fn checkViewSelectStar(alloc: std.mem.Allocator, results: *std.ArrayList(Lin
     }
 }
 
+
+/// Warn when a view's SELECT has no WHERE filter.
+/// An unfiltered view performs a full-table scan on every query and may expose
+/// more rows than intended (performance/security smell). Symmetric with the
+/// existing view quality rules (no-select, no-alias, select-star).
+pub fn checkViewSelectMissingWhere(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    if (!cfg.include_views) return;
+    for (ast.views) |view| {
+        const query = view.query;
+        if (query.len == 0) continue; // covered by view-no-select
+        if (!containsIgnoreCase(query, "select")) continue;
+        // A SELECT without a WHERE filter is a performance/security smell.
+        if (!containsWordIgnoreCase(query, "where")) {
+            const msg = try std.fmt.allocPrint(alloc, "view '{s}' SELECT has no WHERE filter — add a filter to avoid full-table scans / unfiltered exposure", .{view.name});
+            try results.append(alloc, .{
+                .rule = "view-select-missing-where",
+                .table = view.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
+
+
 // ─── Helpers ──────────────────────────────────────────────────
 
 fn containsIgnoreCase(haystack: []const u8, needle: []const u8) bool {
@@ -215,3 +240,32 @@ fn detectCycle(
 
     _ = in_stack.fetchRemove(node);
 }
+
+/// Case-insensitive check for `needle` appearing as a standalone word
+/// (preceded/followed by a word boundary). Avoids false positives like
+/// "elsewhere" or "nowhere" when searching for "where".
+fn containsWordIgnoreCase(haystack: []const u8, needle: []const u8) bool {
+    if (needle.len == 0 or needle.len > haystack.len) return false;
+    var i: usize = 0;
+    while (i + needle.len <= haystack.len) : (i += 1) {
+        const left_ok = (i == 0) or isWordBoundary(haystack[i - 1]);
+        const right_idx = i + needle.len;
+        const right_ok = (right_idx == haystack.len) or isWordBoundary(haystack[right_idx]);
+        if (left_ok and right_ok) {
+            var match = true;
+            for (needle, 0..) |nc, j| {
+                if (std.ascii.toLower(haystack[i + j]) != std.ascii.toLower(nc)) {
+                    match = false;
+                    break;
+                }
+            }
+            if (match) return true;
+        }
+    }
+    return false;
+}
+
+fn isWordBoundary(c: u8) bool {
+    return c == ' ' or c == '\t' or c == '\n' or c == '\r' or c == '(' or c == ',' or c == ';' or c == '.';
+}
+

@@ -334,3 +334,65 @@ test "lint: enum value with short name passes length check" {
     const results = try lint_mod.lintSchema(alloc, test_ast, .{});
     try testing.expect(!th.findRule(results, "enum-value-too-long"));
 }
+
+
+// ─── view-select-missing-where tests ─────────────────────────
+
+test "lint: view with SELECT and no WHERE triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "SELECT id, name FROM users", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
+    try testing.expect(th.findRule(results, "view-select-missing-where"));
+}
+
+test "lint: view with WHERE passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "SELECT id, name FROM users WHERE active = 1", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
+    try testing.expect(!th.findRule(results, "view-select-missing-where"));
+}
+
+test "lint: view with WHERE inside 'elsewhere' does not false-positive" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "SELECT id FROM users WHERE name = 'elsewhere'", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
+    try testing.expect(!th.findRule(results, "view-select-missing-where"));
+}
+
+test "lint: view with empty query does not trigger missing-where" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
+    try testing.expect(!th.findRule(results, "view-select-missing-where"));
+}
+
+test "lint: view without include_views flag passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "SELECT id FROM users", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(!th.findRule(results, "view-select-missing-where"));
+}

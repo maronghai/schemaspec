@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.288.0 (2026-08-14) — 67,100+ lines production Zig, 1,956+ tests, 71 lint rules, 38 test suites.
+**Current version**: 0.289.0 (2026-08-14) — 67,100+ lines production Zig, 1,966+ tests, 73 lint rules, 38 test suites.
 
 ---
 
@@ -159,8 +159,8 @@ snake_case naming). **In progress — 2/?? items done.**
 
 ### Open Symmetry Opportunities
 
-- [ ] `index-redundant-with-fk` — warn when a standalone index duplicates the one auto-created for an FK column
-- [ ] `view-select-missing-where` — warn when a view `SELECT` has no filter (performance/security smell)
+- [x] `index-redundant-with-fk` — warn when a standalone index duplicates the one auto-created for an FK column (v0.289.0)
+- [x] `view-select-missing-where` — warn when a view `SELECT` has no filter (performance/security smell) (v0.289.0)
 - [ ] `column-default-mismatch-type` expansion — extend `column-bad-default` to cover more type categories
 
 ---
@@ -289,6 +289,8 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 ### Recent Releases
 
 ### Recent Releases
+
+- **v0.289.0** — Lint-rule expansion & FK/index symmetry + view-quality hardening: added 2 new non-fixable lint rules — `index-redundant-with-fk` warns when a standalone (non-unique) index duplicates the one the database auto-creates for a foreign-key column (completes the index-redundancy family alongside `index-redundant-with-pk`; a redundant FK index doubles write cost and storage with no read benefit), and `view-select-missing-where` warns when a view `SELECT` has no `WHERE` filter (performance/security smell — full-table scans and unfiltered exposure; completes the view-quality family alongside `view-no-select` / `view-select-star` / `view-no-alias`) — 73 lint rules total; added 9 focused unit tests (4 positive + negative for `index-redundant-with-fk` including a unique-index negative case; 5 positive + negative for `view-select-missing-where` including an "elsewhere" word-boundary negative case and a view-rules-disabled negative case); refreshed lint-rule counts (71 → 73) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 72 → 74); synchronized version strings 0.288.0 → 0.289.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,966+ unit tests pass, benchmarks show no regressions
 
 - **v0.288.0** — Lint-rule expansion & auto-increment/referential-integrity hardening: added 2 new non-fixable lint rules — `auto-increment-without-pk` warns when an `auto_inc` column is not part of the primary key (completes the auto-increment family alongside `column-auto-increment-type` / `column-auto-increment-nullable`; an auto-increment column that is not a key is meaningless on MySQL and a design smell elsewhere), and `fk-to-non-unique` warns when a foreign key references a column that is neither a primary key nor unique (a referential-integrity hazard the FK family previously left unchecked) — 71 lint rules total; added 5 focused unit tests (positive + negative for each rule, including an inline-unique negative case); refreshed lint-rule counts (69 → 71) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment; fixed a latent dangling-pointer bug in the `makeFkFieldTo` test helper (runtime `ref_fields`/`fields` slices are now `comptime` so cross-table FK lint tests resolve correctly); synchronized version strings 0.287.0 → 0.288.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,956+ unit tests pass, benchmarks show no regressions
 

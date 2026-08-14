@@ -1,3 +1,14 @@
+## [0.289.0] - 2026-08-14
+
+### Added
+- **`index-redundant-with-fk` lint rule** — warns when a standalone (non-unique) index duplicates the one the database auto-creates for a foreign-key column. Completes the index-redundancy family alongside `index-redundant-with-pk`: a redundant FK index doubles write cost and storage with no read benefit. Skips `.primary_key`/`.unique` indexes since a unique index on an FK column is an intentional constraint (non-fixable, `warning` severity).
+- **`view-select-missing-where` lint rule** — warns when a view `SELECT` has no `WHERE` filter (performance/security smell — full-table scans on every query and unfiltered row exposure). Completes the view-quality family alongside `view-no-select` / `view-select-star` / `view-no-alias`. Uses word-boundary matching so substrings like "elsewhere" do not false-positive; gated behind `--include-views` (non-fixable, `warning` severity).
+- **Lint rule tests** — added 9 focused unit tests (4 for `index-redundant-with-fk`: positive + 3 negatives including a unique-index negative case; 5 for `view-select-missing-where`: positive + 4 negatives including an "elsewhere" word-boundary case and a view-rules-disabled case); lint rule count is now 73.
+
+### Changed
+- Refreshed lint-rule counts (71 → 73) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and the `architecture_test.zig` sanity upper bound (72 → 74).
+- Synchronized version strings 0.288.0 → 0.289.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 # Changelog
 
 ## [0.288.0] - 2026-08-14

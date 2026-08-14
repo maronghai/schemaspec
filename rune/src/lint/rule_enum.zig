@@ -78,6 +78,8 @@ pub const LintRule = enum {
     custom_type_duplicate,
     auto_increment_without_pk,
     fk_to_non_unique,
+    index_redundant_with_fk,
+    view_select_missing_where,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -153,6 +155,8 @@ pub const LintRule = enum {
             .custom_type_duplicate => "custom-type-duplicate",
             .auto_increment_without_pk => "auto-increment-without-pk",
             .fk_to_non_unique => "fk-to-non-unique",
+            .index_redundant_with_fk => "index-redundant-with-fk",
+            .view_select_missing_where => "view-select-missing-where",
         };
     }
 
@@ -242,6 +246,8 @@ pub const LintRule = enum {
             .custom_type_duplicate => false,
             .auto_increment_without_pk => false,
             .fk_to_non_unique => false,
+            .index_redundant_with_fk => false,
+            .view_select_missing_where => false,
         };
     }
 
@@ -319,6 +325,8 @@ pub const LintRule = enum {
             .custom_type_duplicate => "Schema defines multiple custom types with the same name",
             .auto_increment_without_pk => "Auto-increment column is not part of the primary key",
             .fk_to_non_unique => "Foreign key references a column that is not a primary key or unique",
+            .index_redundant_with_fk => "Index duplicates the one auto-created for a foreign key column",
+            .view_select_missing_where => "View SELECT has no WHERE filter (performance/security smell)",
         };
     }
 
@@ -397,6 +405,8 @@ pub const LintRule = enum {
             .custom_type_duplicate => "warning",
             .auto_increment_without_pk => "warning",
             .fk_to_non_unique => "warning",
+            .index_redundant_with_fk => "warning",
+            .view_select_missing_where => "warning",
         };
     }
 };

@@ -95,6 +95,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .duplicate_index, .handler = index_rules.checkDuplicateIndex },
     .{ .rule = .index_column_missing, .handler = index_rules.checkIndexColumnMissing },
     .{ .rule = .index_redundant_with_pk, .handler = index_rules.checkIndexRedundantWithPk },
+    .{ .rule = .index_redundant_with_fk, .handler = index_rules.checkIndexRedundantWithFk },
     .{ .rule = .table_no_index, .handler = index_rules.checkTableNoIndex },
     .{ .rule = .index_name_too_long, .handler = index_rules.checkIndexNameTooLong },
     // View validation rules (moved to view.zig)
@@ -105,6 +106,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .view_dependency_cycle, .handler = view_rules.checkViewDependencyCycle },
     .{ .rule = .view_no_comment, .handler = view_rules.checkViewNoComment },
     .{ .rule = .view_name_too_long, .handler = view_rules.checkViewNameTooLong },
+    .{ .rule = .view_select_missing_where, .handler = view_rules.checkViewSelectMissingWhere },
     // Enum validation rules (moved to enum.zig)
     .{ .rule = .enum_case, .handler = enum_rules.checkEnumCase },
     .{ .rule = .orphan_type, .handler = enum_rules.checkOrphanType },

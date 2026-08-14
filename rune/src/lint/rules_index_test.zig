@@ -11,7 +11,7 @@ test "lint: FK without index detected" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkField("user_id") }, &.{});
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(th.findRule(results, "no-index-fk"));
@@ -21,7 +21,7 @@ test "lint: FK with index passes" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkField("user_id") }, &.{th.makeIndex("idx_user_id", .regular, &.{"user_id"})});
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{th.makeIndex("idx_user_id", .regular, &.{"user_id"})});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "no-index-fk"));
@@ -41,7 +41,7 @@ test "lint: FK-covered index passes" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkField("user_id") }, &.{th.makeIndex("idx_user_id", .regular, &.{"user_id"})});
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{th.makeIndex("idx_user_id", .regular, &.{"user_id"})});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "index-unused"));
@@ -235,4 +235,47 @@ test "lint: normal index name passes" {
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "index-name-too-long"));
+}
+
+
+// ─── index-redundant-with-fk tests ──────────────────────────
+
+test "lint: index duplicating FK auto-index detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{th.makeIndex("idx_user_id", .regular, &.{"user_id"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "index-redundant-with-fk"));
+}
+
+test "lint: index on non-FK column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id"), th.makeSimpleField("name") }, &.{th.makeIndex("idx_name", .regular, &.{"name"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "index-redundant-with-fk"));
+}
+
+test "lint: unique index on FK column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{th.makeIndex("idx_user_id", .unique, &.{"user_id"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "index-redundant-with-fk"));
+}
+
+test "lint: FK without standalone index passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "index-redundant-with-fk"));
 }

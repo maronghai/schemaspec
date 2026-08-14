@@ -90,6 +90,22 @@ pub fn checkIndexColumnMissing(alloc: std.mem.Allocator, results: *std.ArrayList
 
 // ─── Helpers ──────────────────────────────────────────────────
 
+
+fn setEquals(a: []const []const u8, b: []const []const u8) bool {
+    if (a.len != b.len) return false;
+    for (a) |x| {
+        var found = false;
+        for (b) |y| {
+            if (std.mem.eql(u8, x, y)) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) return false;
+    }
+    return true;
+}
+
 fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
     if (a.kind != b.kind) return false;
     if (a.fields.len != b.fields.len) return false;
@@ -198,3 +214,40 @@ pub fn checkTableNoIndex(alloc: std.mem.Allocator, results: *std.ArrayList(LintR
         }
     }
 }
+
+/// Check for an index that duplicates the one auto-created for a foreign key column.
+/// Databases automatically create an index on FK columns; an explicit standalone
+/// (non-unique) index covering the same columns is redundant. Symmetric with
+/// `index-redundant-with-pk` but for FK columns instead of the PK.
+pub fn checkIndexRedundantWithFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Collect column sets that the database auto-indexes for FKs (local FK columns).
+        var fk_sets = try std.ArrayList([]const []const u8).initCapacity(alloc, table.fields.len);
+        defer fk_sets.deinit(alloc);
+        for (table.fields) |field| {
+            const fk = field.fk orelse continue;
+            if (fk.fields.len == 0) continue;
+            try fk_sets.append(alloc, fk.fields);
+        }
+
+        if (fk_sets.items.len == 0) continue;
+
+        // Check each standalone (non-PK, non-unique) index against the FK index sets.
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key or idx.kind == .unique) continue;
+            for (fk_sets.items) |fk_set| {
+                if (setEquals(idx.fields, fk_set)) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates the index auto-created for a foreign key column", .{idx.name});
+                    try results.append(alloc, .{
+                        .rule = "index-redundant-with-fk",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+}
+
