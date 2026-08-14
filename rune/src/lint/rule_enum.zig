@@ -80,6 +80,7 @@ pub const LintRule = enum {
     fk_to_non_unique,
     index_redundant_with_fk,
     view_select_missing_where,
+    column_default_function_check,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -157,6 +158,7 @@ pub const LintRule = enum {
             .fk_to_non_unique => "fk-to-non-unique",
             .index_redundant_with_fk => "index-redundant-with-fk",
             .view_select_missing_where => "view-select-missing-where",
+            .column_default_function_check => "column-default-function-check",
         };
     }
 
@@ -248,6 +250,7 @@ pub const LintRule = enum {
             .fk_to_non_unique => false,
             .index_redundant_with_fk => false,
             .view_select_missing_where => false,
+            .column_default_function_check => false,
         };
     }
 
@@ -327,6 +330,7 @@ pub const LintRule = enum {
             .fk_to_non_unique => "Foreign key references a column that is not a primary key or unique",
             .index_redundant_with_fk => "Index duplicates the one auto-created for a foreign key column",
             .view_select_missing_where => "View SELECT has no WHERE filter (performance/security smell)",
+            .column_default_function_check => "Column default is a SQL function call written as a quoted string literal (stored verbatim, not evaluated)",
         };
     }
 
@@ -407,6 +411,7 @@ pub const LintRule = enum {
             .fk_to_non_unique => "warning",
             .index_redundant_with_fk => "warning",
             .view_select_missing_where => "warning",
+            .column_default_function_check => "warning",
         };
     }
 };

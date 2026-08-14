@@ -126,6 +126,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .column_unique_naming, .handler = validation.checkColumnUniqueNaming },
     .{ .rule = .column_auto_increment_nullable, .handler = validation.checkColumnAutoIncrementNullable },
     .{ .rule = .column_bad_default, .handler = validation.checkColumnBadDefault },
+    .{ .rule = .column_default_function_check, .handler = validation.checkColumnDefaultFunctionCheck },
     .{ .rule = .auto_increment_without_pk, .handler = validation.checkAutoIncrementWithoutPk },
     // Compatibility rules
     .{ .rule = .serial_type, .handler = compat.checkSerialType },

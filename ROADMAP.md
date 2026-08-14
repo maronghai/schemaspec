@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.289.0 (2026-08-14) — 67,100+ lines production Zig, 1,966+ tests, 73 lint rules, 38 test suites.
+**Current version**: 0.291.0 (2026-08-14) — 67,100+ lines production Zig, 1,980+ tests, 74 lint rules, 38 test suites.
 
 ---
 
@@ -166,7 +166,7 @@ snake_case naming), or expands an existing rule's type-category coverage.
 
 ### Open Symmetry Opportunities (backlog)
 
-- [ ] `column-default-function-check` — warn when a default value is a SQL function call (e.g. `now()`, `CURRENT_TIMESTAMP`) written as a *quoted* string literal, which would be stored verbatim instead of evaluated (completes the default-value correctness family alongside `column-bad-default` / `column-default-required`)
+- [x] `column-default-function-check` — warn when a default value is a SQL function call (e.g. `now()`, `CURRENT_TIMESTAMP`) written as a *quoted* string literal, which would be stored verbatim instead of evaluated (completes the default-value correctness family alongside `column-bad-default` / `column-default-required`) (v0.291.0)
 
 ---
 
@@ -292,6 +292,8 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+- **v0.291.0** — Lint-rule expansion & default-value correctness symmetry: added 1 new non-fixable lint rule — `column-default-function-check` warns when a default value is a SQL function call (e.g. `now()`, `CURRENT_TIMESTAMP`) written as a *quoted* string literal, which would be stored verbatim instead of evaluated (completes the default-value correctness family alongside `column-bad-default` / `column-default-required`); 74 lint rules total; added 8 focused unit tests (4 positive for `now()` / `CURRENT_TIMESTAMP` / `uuid_generate_v4()` / `getdate()` quoted defaults, 4 negative for a datetime literal, a plain string, an unquoted function token, and a bare numeric default, plus a no-overlap negative confirming `column-bad-default` no longer double-flags quoted function calls); refreshed lint-rule counts (73 → 74) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 74 → 75); synchronized version strings 0.290.0 → 0.291.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,980+ unit tests pass, benchmarks show no regressions
 
 - **v0.290.0** — Lint-rule hardening & `column-bad-default` type-category expansion: expanded the existing non-fixable `column-bad-default` warning (added in v0.277.0, previously numeric/boolean-only) to cover **all six type categories** via a default-value/column-category compatibility matrix — a bare numeric default on a `string`/`datetime`/`blob` column, a quoted non-datetime string on a `datetime` column, and a boolean literal (`true`/`false`) used as the default of a numeric/string/datetime/blob column now all warn; the three previously-flagged cases (quoted-string-on-numeric; quoted-string-on-boolean unless `true`/`false`/`0`/`1`; bare-numeric-on-boolean unless `0`/`1`) are preserved verbatim — 73 lint rules total (unchanged); added 7 focused unit tests covering each new category (positive: numeric default on string/datetime/blob, quoted non-datetime on datetime, boolean literal on numeric; negative: quoted datetime on datetime, quoted string on string, valid numeric on numeric, valid boolean on boolean); refreshed ROADMAP Phase 10 "Open Symmetry Opportunities" (3/3 done) and added a backlog item; synchronized version strings 0.289.0 → 0.290.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,973+ unit tests pass, benchmarks show no regressions
 

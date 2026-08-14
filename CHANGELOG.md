@@ -1,3 +1,14 @@
+## [0.291.0] - 2026-08-14
+
+### Added
+- **`column-default-function-check` lint rule** — warns when a column default is a SQL function call (e.g. `now()`, `CURRENT_TIMESTAMP`, `uuid_generate_v4()`) written as a *quoted* string literal, which would be stored verbatim instead of evaluated by the database (completes the default-value correctness family alongside `column-bad-default` / `column-default-required`). Non-fixable, `warning` severity. Uses a known allowlist of SQL default functions (paren form `<name>(...)` or no-paren token forms) to keep false positives low; unquoted function tokens and genuine string literals are not flagged. `column-bad-default` no longer double-flags quoted function calls (it now defers that case to this rule). Lint-rule count is now 74.
+- **Lint rule tests** — added 8 focused unit tests (4 positive: `now()`, `CURRENT_TIMESTAMP`, `uuid_generate_v4()`, `getdate()` quoted defaults; 4 negative: a datetime literal, a plain string, an unquoted function token, a bare numeric default) plus a no-overlap negative confirming `column-bad-default` does not also fire for quoted function calls.
+
+### Changed
+- Refreshed lint-rule counts (73 → 74) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and the `architecture_test.zig` sanity upper bound (74 → 75).
+- Synchronized version strings 0.290.0 → 0.291.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
+
 ## [0.290.0] - 2026-08-14
 
 ### Changed

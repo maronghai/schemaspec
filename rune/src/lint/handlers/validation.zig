@@ -318,6 +318,10 @@ pub fn checkColumnBadDefault(alloc: std.mem.Allocator, results: *std.ArrayList(L
             // Quoted string default ('...')
             if (val[0] == '\'' and val.len >= 2 and val[val.len - 1] == '\'') {
                 const inner = val[1 .. val.len - 1];
+                // A quoted default that looks like a SQL function call is owned by
+                // `column-default-function-check` (it would be stored verbatim, not
+                // evaluated) — don't also flag it as a wrong-type string default.
+                if (looksLikeSqlFunctionCall(inner)) continue;
                 switch (cat) {
                     .numeric => try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a numeric type", .{ field.name, val })),
                     .boolean => if (!isBoolToken(inner)) try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a boolean type", .{ field.name, val })),
@@ -414,6 +418,78 @@ fn catName(cat: ast_mod.TypeCategory) []const u8 {
         .other => "other",
     };
 }
+/// Check for SQL function-call defaults written as quoted string literals.
+/// A default like `created_at t = 'now()'` (or `'CURRENT_TIMESTAMP'`) is stored
+/// verbatim as the literal string instead of being evaluated by the database, so
+/// the column ends up holding the text "now()" rather than the current timestamp.
+/// This completes the default-value correctness family alongside `column-bad-default`
+/// and `column-default-required`. Non-fixable: the author must decide whether to
+/// remove the quotes (evaluate the function) or keep a genuine string literal.
+pub fn checkColumnDefaultFunctionCheck(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            const dv = field.default_val orelse continue;
+            const val = dv.value;
+            if (val.len < 2) continue;
+            // Only a quoted string default can accidentally store a function verbatim.
+            if (val[0] != '\'' or val[val.len - 1] != '\'') continue;
+            const inner = val[1 .. val.len - 1];
+            if (inner.len == 0) continue;
+            if (!looksLikeSqlFunctionCall(inner)) continue;
+
+            const msg = try std.fmt.allocPrint(alloc, "column '{s}' default {s} is a SQL function call written as a quoted string literal — it will be stored verbatim instead of evaluated (remove the quotes: {s})", .{ field.name, val, inner });
+            try results.append(alloc, .{
+                .rule = "column-default-function-check",
+                .table = table.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
+
+/// True if `s` (the inner text of a quoted default) looks like a SQL function call
+/// that should be evaluated by the database rather than stored as a literal string.
+/// Uses a known allowlist of SQL default functions to keep false positives low:
+/// the text must start with a known function name followed by `(` ... `)` (e.g.
+/// `now()`, `uuid_generate_v4()`, `getdate()`), or be exactly one of the
+/// no-paren token forms (e.g. `current_timestamp`, `sysdate`, `epoch`).
+fn looksLikeSqlFunctionCall(inner: []const u8) bool {
+    const trimmed = std.mem.trim(u8, inner, " \t");
+    if (trimmed.len == 0) return false;
+
+    // No-paren token forms — exactly these SQL expressions.
+    const tokens = [_][]const u8{
+        "now", "epoch", "sysdate", "today",
+        "current_timestamp", "current_date", "current_time",
+        "utc_timestamp", "utc_date", "utc_time",
+        "localtimestamp", "localtime",
+        "curdate", "curtime",
+    };
+    for (tokens) |t| {
+        if (std.ascii.eqlIgnoreCase(trimmed, t)) return true;
+    }
+
+    // Parenthesized function-call forms: <name>(<args>) where <name> is known.
+    const funcs = [_][]const u8{
+        "now", "epoch", "sysdate", "today", "uuid",
+        "uuid_generate_v4", "gen_random_uuid", "rand", "getdate", "getutcdate",
+        "current_timestamp", "current_date", "current_time",
+        "utc_timestamp", "utc_date", "utc_time",
+        "localtimestamp", "localtime", "curdate", "curtime",
+    };
+    for (funcs) |f| {
+        if (trimmed.len < f.len + 2) continue;
+        if (!std.ascii.startsWithIgnoreCase(trimmed, f)) continue;
+        var i: usize = f.len;
+        if (trimmed[i] != '(') continue;
+        i += 1;
+        while (i < trimmed.len and trimmed[i] != ')') i += 1;
+        if (i < trimmed.len and trimmed[i] == ')') return true;
+    }
+    return false;
+}
+
 
 
 /// Check for auto-increment columns that are not part of the primary key.

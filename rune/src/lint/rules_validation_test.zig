@@ -593,6 +593,170 @@ test "lint: boolean literal default on numeric column triggers column-bad-defaul
     try testing.expect(th.findRule(results, "column-bad-default"));
 }
 
+// ─── column-default-function-check tests ─────────────────────
+
+test "lint: quoted now() default on datetime column triggers column-default-function-check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "created_at",
+        .type_info = .{ .simple = "t" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'now()'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "events", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-default-function-check"));
+    // Owned by column-default-function-check; must not also fire column-bad-default.
+    try testing.expect(!th.findRule(results, "column-bad-default"));
+}
+
+test "lint: quoted CURRENT_TIMESTAMP default triggers column-default-function-check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "updated_at",
+        .type_info = .{ .simple = "t" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'CURRENT_TIMESTAMP'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "events", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-default-function-check"));
+}
+
+test "lint: quoted uuid function default on string column triggers column-default-function-check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "id",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'uuid_generate_v4()'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "rows", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-default-function-check"));
+}
+
+test "lint: quoted getdate() default on datetime column triggers column-default-function-check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "created_at",
+        .type_info = .{ .simple = "t" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'getdate()'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "audit", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-default-function-check"));
+}
+
+test "lint: quoted datetime literal on datetime column passes column-default-function-check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "created_at",
+        .type_info = .{ .simple = "t" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'2024-01-01'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "events", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-default-function-check"));
+}
+
+test "lint: quoted plain string default on string column passes column-default-function-check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "name",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'abc'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "users", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-default-function-check"));
+}
+
+test "lint: unquoted now() function default passes column-default-function-check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "created_at",
+        .type_info = .{ .simple = "t" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "now()", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "events", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // Unquoted function tokens are evaluated by the database, so no warning.
+    try testing.expect(!th.findRule(results, "column-default-function-check"));
+}
+
+test "lint: bare numeric default on numeric column passes column-default-function-check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "count",
+        .type_info = .{ .simple = "n" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "0", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "items", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-default-function-check"));
+}
 
 test "lint: auto-increment column without primary key detected" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
