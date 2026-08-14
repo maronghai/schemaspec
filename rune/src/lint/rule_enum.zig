@@ -71,6 +71,8 @@ pub const LintRule = enum {
     pk_not_first,
     view_no_comment,
     index_name_too_long,
+    view_name_too_long,
+    custom_type_naming,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -139,6 +141,8 @@ pub const LintRule = enum {
             .pk_not_first => "pk-not-first",
             .view_no_comment => "view-no-comment",
             .index_name_too_long => "index-name-too-long",
+            .view_name_too_long => "view-name-too-long",
+            .custom_type_naming => "custom-type-naming",
         };
     }
 
@@ -221,6 +225,8 @@ pub const LintRule = enum {
             .pk_not_first => false,
             .view_no_comment => false,
             .index_name_too_long => false,
+            .view_name_too_long => false,
+            .custom_type_naming => false,
         };
     }
 
@@ -291,6 +297,8 @@ pub const LintRule = enum {
             .pk_not_first => "Primary key column is not the first column in the table",
             .view_no_comment => "View lacks documentation comment",
             .index_name_too_long => "Index name exceeds max length (configurable, default: 64)",
+            .view_name_too_long => "View name exceeds max length (configurable, default: 64)",
+            .custom_type_naming => "Custom type name should use snake_case",
         };
     }
 
@@ -362,6 +370,8 @@ pub const LintRule = enum {
             .pk_not_first => "note",
             .view_no_comment => "note",
             .index_name_too_long => "warning",
+            .view_name_too_long => "warning",
+            .custom_type_naming => "note",
         };
     }
 };

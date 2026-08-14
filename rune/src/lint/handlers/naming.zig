@@ -239,3 +239,19 @@ pub fn isUpperSnakeCase(name: []const u8) bool {
     }
     return has_upper;
 }
+
+/// Check that custom type (`~`) names follow snake_case, symmetric with the
+/// table/column snake_case convention enforced by `checkNaming`.
+pub fn checkCustomTypeNaming(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.custom_types) |ct| {
+        if (!isSnakeCase(ct.name)) {
+            const msg = try std.fmt.allocPrint(alloc, "custom type name '{s}' should use snake_case", .{ct.name});
+            try results.append(alloc, .{
+                .rule = "custom-type-naming",
+                .table = ct.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}

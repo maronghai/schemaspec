@@ -74,6 +74,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .timestamp_naming, .handler = naming.checkTimestampNaming },
     .{ .rule = .enum_value_naming, .handler = naming.checkEnumValueNaming },
     .{ .rule = .column_boolean_naming, .handler = naming.checkColumnBooleanNaming },
+    .{ .rule = .custom_type_naming, .handler = naming.checkCustomTypeNaming },
     // FK validation rules (moved to fk.zig)
     .{ .rule = .no_index_fk, .handler = fk_rules.checkNoIndexFk },
     .{ .rule = .fk_cascade, .handler = fk_rules.checkFkCascade },
@@ -100,6 +101,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .view_naming, .handler = naming.checkViewNaming },
     .{ .rule = .view_dependency_cycle, .handler = view_rules.checkViewDependencyCycle },
     .{ .rule = .view_no_comment, .handler = view_rules.checkViewNoComment },
+    .{ .rule = .view_name_too_long, .handler = view_rules.checkViewNameTooLong },
     // Enum validation rules (moved to enum.zig)
     .{ .rule = .enum_case, .handler = enum_rules.checkEnumCase },
     .{ .rule = .orphan_type, .handler = enum_rules.checkOrphanType },

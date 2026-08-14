@@ -125,7 +125,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune watch schema.ss --parallel         # Watch with parallel compilation
 ./rune/zig-out/bin/rune watch schema.ss -s                 # Watch with compilation stats
 ./rune/zig-out/bin/rune watch schemas/ --recursive         # Watch directory recursively
-./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues (64 rules)
+./rune/zig-out/bin/rune lint schema.ss                    # Lint schema for quality issues (66 rules)
 ./rune/zig-out/bin/rune lint schema.ss --fix              # Lint and auto-fix issues (11 rules: no-pk, no-timestamps, empty-table, serial-type, bool-default, nullable-column-default, duplicate-index, index-missing-fk-columns, column-default-required, no-index-fk, duplicate-column)
 ./rune/zig-out/bin/rune lint schema.ss --fix --dry-run    # Preview fixes without writing
 ./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON

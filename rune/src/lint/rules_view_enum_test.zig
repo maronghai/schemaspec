@@ -269,3 +269,29 @@ test "lint: view-no-comment respects include_views flag" {
     const results = try lint_mod.lintSchema(alloc, test_ast, .{});
     try testing.expect(!th.findRule(results, "view-no-comment"));
 }
+
+// ─── view-name-too-long tests ───────────────────────────────
+
+test "lint: view with over-long name triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", .query = "SELECT id FROM users", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
+    try testing.expect(th.findRule(results, "view-name-too-long"));
+}
+
+test "lint: view with short name passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const view = ast_mod.View{ .name = "user_view", .query = "SELECT id FROM users", .comment = null, .line_no = 1 };
+    const views = try alloc.dupe(ast_mod.View, &.{view});
+    const test_ast = ResolvedAst{ .schema_name = null, .schema_charset = null, .custom_types = &.{}, .tables = &.{}, .views = views, .sql_comments = &.{} };
+    const cfg = lint_mod.LintConfig{ .include_views = true };
+    const results = try lint_mod.lintSchema(alloc, test_ast, cfg);
+    try testing.expect(!th.findRule(results, "view-name-too-long"));
+}

@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.285.0] - 2026-08-14
+
+### Added
+- **`view-name-too-long` lint rule** — warns when a view name exceeds the configured length limit (default 64, via `column_name_max`), completing identifier-length symmetry for table/column/index/view. Catches view identifiers that can break migration tooling or exceed database name-length limits (non-fixable, `warning` severity).
+- **`custom-type-naming` lint rule** — warns when a custom type (`~`) name is not snake_case, completing the snake_case naming convention for table/column/custom-type entities. Custom type names feed generated SQL and ORM models, so a consistent naming convention matters (non-fixable, `note` severity).
+- **Lint rule tests** — added 4 focused unit tests for the new rules (positive + negative cases); lint rule count is now 66.
+
+### Changed
+- Refreshed lint-rule counts (64 → 66) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help text, and the architecture-health test comment (relaxed the lint-rule-count upper bound).
+- Synchronized version strings 0.284.0 → 0.285.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.284.0] - 2026-08-14
 
 ### Added

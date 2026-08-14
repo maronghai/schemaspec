@@ -282,3 +282,29 @@ test "lint: view with v_ prefix passes" {
     const results = try lint_mod.lintSchema(alloc, test_ast, .{});
     try testing.expect(!th.findRule(results, "view-naming"));
 }
+
+// ─── custom-type-naming tests ───────────────────────────────
+
+test "lint: custom type with camelCase name triggers note" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = th.makeCustomType("OrderStatus");
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = th.makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(th.findRule(results, "custom-type-naming"));
+}
+
+test "lint: custom type with snake_case name passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const ct = th.makeCustomType("order_status");
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ct});
+    const test_ast = th.makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(!th.findRule(results, "custom-type-naming"));
+}

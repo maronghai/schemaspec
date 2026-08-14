@@ -7,6 +7,21 @@ const LintResult = @import("../config.zig").LintResult;
 // Rules that validate view quality: missing SELECT, missing aliases,
 // and SELECT * usage.
 
+pub fn checkViewNameTooLong(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
+    if (!cfg.include_views) return;
+    for (ast.views) |view| {
+        if (view.name.len > cfg.column_name_max) {
+            const msg = try std.fmt.allocPrint(alloc, "view name '{s}' is {d} chars (max: {d})", .{ view.name, view.name.len, cfg.column_name_max });
+            try results.append(alloc, .{
+                .rule = "view-name-too-long",
+                .table = view.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}
+
 pub fn checkViewNoComment(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, cfg: LintConfig) !void {
     if (!cfg.include_views) return;
     for (ast.views) |view| {
