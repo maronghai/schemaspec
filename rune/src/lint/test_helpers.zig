@@ -73,7 +73,7 @@ pub fn makeFkField(name: []const u8) ast_mod.Field {
     });
 }
 
-pub fn makeFkFieldTo(name: []const u8, ref_table: []const u8, ref_field: []const u8) ast_mod.Field {
+pub fn makeFkFieldTo(comptime name: []const u8, comptime ref_table: []const u8, comptime ref_field: []const u8) ast_mod.Field {
     return makeField(name, .{ .simple = "n" }, &.{}, .{
         .fields = &.{name},
         .ref_table = ref_table,

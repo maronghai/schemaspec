@@ -124,3 +124,59 @@ test "lint: table with no FKs passes fk-unidirectional" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "fk-unidirectional"));
 }
+
+
+test "lint: FK to non-unique column detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const users = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("email") }, &.{});
+    const user_email = th.makeField("user_email", .{ .simple = "n" }, &.{}, .{
+        .fields = &.{"user_email"},
+        .ref_table = "users",
+        .ref_fields = &.{"email"},
+        .actions = &.{},
+        .line_no = 1,
+    });
+    const orders = try th.makeTestTableWithFks(alloc, "orders", &.{ th.makePkField("id"), user_email });
+    const tables = try alloc.dupe(ResolvedTable, &.{ users, orders });
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "fk-to-non-unique"));
+}
+
+test "lint: FK to primary key column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const users = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id") }, &.{});
+    const user_id = th.makeField("user_id", .{ .simple = "n" }, &.{}, .{
+        .fields = &.{"user_id"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 1,
+    });
+    const orders = try th.makeTestTableWithFks(alloc, "orders", &.{ th.makePkField("id"), user_id });
+    const tables = try alloc.dupe(ResolvedTable, &.{ users, orders });
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "fk-to-non-unique"));
+}
+
+test "lint: FK to inline-unique column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const email = th.makeField("email", .{ .simple = "s" }, &.{.{ .kind = .inline_unique, .line_no = 1 }}, null);
+    const users = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), email }, &.{});
+    const user_email = th.makeField("user_email", .{ .simple = "n" }, &.{}, .{
+        .fields = &.{"user_email"},
+        .ref_table = "users",
+        .ref_fields = &.{"email"},
+        .actions = &.{},
+        .line_no = 1,
+    });
+    const orders = try th.makeTestTableWithFks(alloc, "orders", &.{ th.makePkField("id"), user_email });
+    const tables = try alloc.dupe(ResolvedTable, &.{ users, orders });
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "fk-to-non-unique"));
+}

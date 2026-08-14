@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.288.0] - 2026-08-14
+
+### Added
+- **`auto-increment-without-pk` lint rule** — warns when an `auto_inc` (plain, non-PK) column is not part of the table's primary key. Completes the auto-increment family alongside `column-auto-increment-type` and `column-auto-increment-nullable` (an auto-increment column that is not a key is meaningless on MySQL, where `AUTO_INCREMENT` must be a key, and a design smell elsewhere). Catches the `seq n+` / missing-PK copy-paste mistake early (non-fixable, `warning` severity).
+- **`fk-to-non-unique` lint rule** — warns when a foreign key references a column that is neither a primary key nor marked unique (via the `inline_unique` modifier or a `unique`/`primary_key` index). Closes a referential-integrity gap in the FK rule family: a FK pointing at a non-unique, non-PK column has ambiguous relationship semantics. Mirrors the cross-table lookup used by `checkFkColumnTypeMismatch` (non-fixable, `warning` severity).
+- **Lint rule tests** — added 5 focused unit tests (positive + negative for each new rule, including an inline-unique negative case); lint rule count is now 71.
+
+### Changed
+- Refreshed lint-rule counts (69 → 71) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help text, `rune/src/lint.zig`, and the architecture-health test comment (upper bound raised to 72).
+- Fixed a latent dangling-pointer bug in the `makeFkFieldTo` lint test helper: `ref_fields`/`fields` slices are now built from `comptime` string literals so cross-table FK lint tests resolve the referenced column correctly.
+- Synchronized version strings 0.287.0 → 0.288.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
+
 ## [0.287.0] - 2026-08-14
 
 ### Added

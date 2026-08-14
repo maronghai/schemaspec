@@ -461,3 +461,57 @@ pub fn checkFkMissingIndex(alloc: std.mem.Allocator, results: *std.ArrayList(Lin
         }
     }
 }
+
+
+/// Check that a foreign key references a column that is a primary key or unique.
+/// A FK pointing at a non-unique, non-PK column is a referential-integrity
+/// hazard: the target row is not guaranteed unique, so the relationship semantics
+/// are ambiguous. Mirrors the cross-table lookup used by
+/// `checkFkColumnTypeMismatch`. Reads inline FK declarations from `field.fk`
+/// (consistent with `checkNoIndexFk` / `checkFkNull`). Only single-column FKs
+/// are checked.
+pub fn checkFkToNonUnique(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            const fk_decl = field.fk orelse continue;
+            if (fk_decl.ref_table.len == 0 or fk_decl.ref_fields.len == 0 or fk_decl.fields.len == 0) continue;
+            const ref_col_name = fk_decl.ref_fields[0];
+            if (ref_col_name.len == 0) continue;
+
+            for (ast.tables) |ref_table| {
+                if (ref_table.name.len == 0) continue;
+                if (!std.mem.eql(u8, ref_table.name, fk_decl.ref_table)) continue;
+
+                var is_unique = false;
+                for (ref_table.fields) |rf| {
+                    if (rf.name.len == 0) continue;
+                    if (!std.mem.eql(u8, rf.name, ref_col_name)) continue;
+                    for (rf.modifiers) |mod| {
+                        if (mod.kind == .auto_inc_pk or mod.kind == .primary_key or mod.kind == .inline_unique) {
+                            is_unique = true;
+                        }
+                    }
+                }
+                for (ref_table.indexes) |idx| {
+                    if (idx.kind == .unique or idx.kind == .primary_key) {
+                        for (idx.fields) |f| {
+                            if (std.mem.eql(u8, f, ref_col_name)) is_unique = true;
+                        }
+                    }
+                }
+
+                if (!is_unique) {
+                    const msg = try std.fmt.allocPrint(alloc, "foreign key references '{s}.{s}' which is not a primary key or unique column", .{ fk_decl.ref_table, ref_col_name });
+                    try results.append(alloc, .{
+                        .rule = "fk-to-non-unique",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                }
+                break; // ref table found
+            }
+        }
+    }
+}
+

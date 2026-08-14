@@ -76,6 +76,8 @@ pub const LintRule = enum {
     custom_type_name_too_long,
     enum_value_too_long,
     custom_type_duplicate,
+    auto_increment_without_pk,
+    fk_to_non_unique,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -149,6 +151,8 @@ pub const LintRule = enum {
             .custom_type_name_too_long => "custom-type-name-too-long",
             .enum_value_too_long => "enum-value-too-long",
             .custom_type_duplicate => "custom-type-duplicate",
+            .auto_increment_without_pk => "auto-increment-without-pk",
+            .fk_to_non_unique => "fk-to-non-unique",
         };
     }
 
@@ -236,6 +240,8 @@ pub const LintRule = enum {
             .custom_type_name_too_long => false,
             .enum_value_too_long => false,
             .custom_type_duplicate => false,
+            .auto_increment_without_pk => false,
+            .fk_to_non_unique => false,
         };
     }
 
@@ -311,6 +317,8 @@ pub const LintRule = enum {
             .custom_type_name_too_long => "Custom type name exceeds max length (configurable, default: 64)",
             .enum_value_too_long => "Enum value exceeds max length (configurable, default: 64)",
             .custom_type_duplicate => "Schema defines multiple custom types with the same name",
+            .auto_increment_without_pk => "Auto-increment column is not part of the primary key",
+            .fk_to_non_unique => "Foreign key references a column that is not a primary key or unique",
         };
     }
 
@@ -387,6 +395,8 @@ pub const LintRule = enum {
             .custom_type_name_too_long => "warning",
             .enum_value_too_long => "warning",
             .custom_type_duplicate => "warning",
+            .auto_increment_without_pk => "warning",
+            .fk_to_non_unique => "warning",
         };
     }
 };

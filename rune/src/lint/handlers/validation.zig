@@ -355,3 +355,29 @@ pub fn checkColumnBadDefault(alloc: std.mem.Allocator, results: *std.ArrayList(L
         }
     }
 }
+
+
+/// Check for auto-increment columns that are not part of the primary key.
+/// An `auto_inc` column that is not a key is meaningless on MySQL (where
+/// AUTO_INCREMENT must be a key) and a design smell everywhere else — the value
+/// has no stable identity anchor. Completes the auto-increment rule family
+/// alongside `column-auto-increment-type` and `column-auto-increment-nullable`.
+pub fn checkAutoIncrementWithoutPk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            var has_auto_inc = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc) has_auto_inc = true;
+            }
+            if (has_auto_inc and !isPrimaryKey(field)) {
+                const msg = try std.fmt.allocPrint(alloc, "auto-increment column '{s}' is not part of the primary key", .{field.name});
+                try results.append(alloc, .{
+                    .rule = "auto-increment-without-pk",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}

@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.287.0 (2026-08-14) — 67,100+ lines production Zig, 1,946+ tests, 69 lint rules, 38 test suites.
+**Current version**: 0.288.0 (2026-08-14) — 67,100+ lines production Zig, 1,956+ tests, 71 lint rules, 38 test suites.
 
 ---
 
@@ -142,6 +142,29 @@ Prove and harden the open-closed extension points (generator registry, dialect v
 
 ---
 
+---
+
+## Phase 10: Lint Rule Hardening & Symmetry 🔲
+
+Continuously close symmetry and referential-integrity gaps in the lint rule set,
+exercising the open-closed `LintRule` enum + `RULES` dispatch architecture. Each
+patch release adds 1–2 low-risk, non-fixable warning rules that complete an
+existing family (auto-increment, FK, duplicate-detection, identifier-length,
+snake_case naming). **In progress — 2/?? items done.**
+
+### Auto-Increment & Referential Integrity (v0.288.0)
+
+- [x] `auto-increment-without-pk` — warns when an `auto_inc` column is not part of the primary key (completes the auto-increment family) (v0.288.0)
+- [x] `fk-to-non-unique` — warns when a FK references a column that is not a primary key or unique (closes a referential-integrity gap in the FK family) (v0.288.0)
+
+### Open Symmetry Opportunities
+
+- [ ] `index-redundant-with-fk` — warn when a standalone index duplicates the one auto-created for an FK column
+- [ ] `view-select-missing-where` — warn when a view `SELECT` has no filter (performance/security smell)
+- [ ] `column-default-mismatch-type` expansion — extend `column-bad-default` to cover more type categories
+
+---
+
 ## Architecture Targets
 
 Ongoing improvements pursued alongside feature work.
@@ -266,6 +289,8 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 ### Recent Releases
 
 ### Recent Releases
+
+- **v0.288.0** — Lint-rule expansion & auto-increment/referential-integrity hardening: added 2 new non-fixable lint rules — `auto-increment-without-pk` warns when an `auto_inc` column is not part of the primary key (completes the auto-increment family alongside `column-auto-increment-type` / `column-auto-increment-nullable`; an auto-increment column that is not a key is meaningless on MySQL and a design smell elsewhere), and `fk-to-non-unique` warns when a foreign key references a column that is neither a primary key nor unique (a referential-integrity hazard the FK family previously left unchecked) — 71 lint rules total; added 5 focused unit tests (positive + negative for each rule, including an inline-unique negative case); refreshed lint-rule counts (69 → 71) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment; fixed a latent dangling-pointer bug in the `makeFkFieldTo` test helper (runtime `ref_fields`/`fields` slices are now `comptime` so cross-table FK lint tests resolve correctly); synchronized version strings 0.287.0 → 0.288.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,956+ unit tests pass, benchmarks show no regressions
 
 - **v0.287.0** — Lint-rule expansion & duplicate-detection symmetry: added 1 new non-fixable lint rule — `custom-type-duplicate` warns when the schema defines two or more custom types (`~`) with the same name, completing the duplicate-detection family alongside `duplicate-column`, `duplicate-index`, and `enum-value-duplicate` (duplicate custom types would collide in generated `CREATE TYPE` SQL and confuse the type resolver); 69 lint rules total; added 2 focused unit tests for the new rule (duplicate name → flagged; distinct names → pass); refreshed lint-rule counts (68 → 69) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment; synchronized version strings 0.286.0 → 0.287.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,946+ unit tests pass, benchmarks show no regressions
 

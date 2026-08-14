@@ -450,3 +450,25 @@ test "lint: bad default on boolean column triggers column-bad-default" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(th.findRule(results, "column-bad-default"));
 }
+
+
+test "lint: auto-increment column without primary key detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const seq = th.makeField("seq", .{ .simple = "n" }, &.{.{ .kind = .auto_inc, .line_no = 1 }}, null);
+    const table = try th.makeTestTable(alloc, "widgets", &.{seq}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "auto-increment-without-pk"));
+}
+
+test "lint: auto-increment primary key column passes" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "widgets", &.{th.makePkField("id")}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "auto-increment-without-pk"));
+}
