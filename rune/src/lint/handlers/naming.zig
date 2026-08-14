@@ -269,3 +269,27 @@ pub fn checkCustomTypeNameTooLong(alloc: std.mem.Allocator, results: *std.ArrayL
         }
     }
 }
+
+
+/// Check that custom types (`~`) have unique names. Duplicate custom-type
+/// definitions would collide in the generated SQL (e.g. two `CREATE TYPE`
+/// statements with the same name) and confuse the type resolver, so this
+/// closes the duplicate-detection symmetry gap already covered for tables
+/// (`duplicate-column`), indexes (`duplicate-index`), and enum values
+/// (`enum-value-duplicate`). Uses a StringHashMap to detect name collisions.
+pub fn checkCustomTypeDuplicate(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    var seen = std.StringHashMap(void).init(alloc);
+    defer seen.deinit();
+    for (ast.custom_types) |ct| {
+        const gop = try seen.getOrPut(ct.name);
+        if (gop.found_existing) {
+            const msg = try std.fmt.allocPrint(alloc, "custom type '{s}' is defined more than once", .{ct.name});
+            try results.append(alloc, .{
+                .rule = "custom-type-duplicate",
+                .table = ct.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}

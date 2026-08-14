@@ -75,6 +75,7 @@ pub const LintRule = enum {
     custom_type_naming,
     custom_type_name_too_long,
     enum_value_too_long,
+    custom_type_duplicate,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -147,6 +148,7 @@ pub const LintRule = enum {
             .custom_type_naming => "custom-type-naming",
             .custom_type_name_too_long => "custom-type-name-too-long",
             .enum_value_too_long => "enum-value-too-long",
+            .custom_type_duplicate => "custom-type-duplicate",
         };
     }
 
@@ -233,6 +235,7 @@ pub const LintRule = enum {
             .custom_type_naming => false,
             .custom_type_name_too_long => false,
             .enum_value_too_long => false,
+            .custom_type_duplicate => false,
         };
     }
 
@@ -307,6 +310,7 @@ pub const LintRule = enum {
             .custom_type_naming => "Custom type name should use snake_case",
             .custom_type_name_too_long => "Custom type name exceeds max length (configurable, default: 64)",
             .enum_value_too_long => "Enum value exceeds max length (configurable, default: 64)",
+            .custom_type_duplicate => "Schema defines multiple custom types with the same name",
         };
     }
 
@@ -382,6 +386,7 @@ pub const LintRule = enum {
             .custom_type_naming => "note",
             .custom_type_name_too_long => "warning",
             .enum_value_too_long => "warning",
+            .custom_type_duplicate => "warning",
         };
     }
 };

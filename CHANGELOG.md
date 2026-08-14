@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.287.0] - 2026-08-14
+
+### Added
+- **`custom-type-duplicate` lint rule** — warns when the schema defines two or more custom types (`~`) with the same name. Completes the duplicate-detection family alongside `duplicate-column`, `duplicate-index`, and `enum-value-duplicate` (duplicate custom types would collide in generated `CREATE TYPE` SQL and confuse the type resolver). Catches copy-paste and merge errors early (non-fixable, `warning` severity).
+- **Lint rule tests** — added 2 focused unit tests for the new rule (duplicate name → flagged; distinct names → pass); lint rule count is now 69.
+
+### Changed
+- Refreshed lint-rule counts (68 → 69) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help text, `rune/src/lint.zig`, and the architecture-health test comment.
+- Synchronized version strings 0.286.0 → 0.287.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.286.0] - 2026-08-14
 
 ### Added

@@ -76,6 +76,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .column_boolean_naming, .handler = naming.checkColumnBooleanNaming },
     .{ .rule = .custom_type_naming, .handler = naming.checkCustomTypeNaming },
     .{ .rule = .custom_type_name_too_long, .handler = naming.checkCustomTypeNameTooLong },
+    .{ .rule = .custom_type_duplicate, .handler = naming.checkCustomTypeDuplicate },
     // FK validation rules (moved to fk.zig)
     .{ .rule = .no_index_fk, .handler = fk_rules.checkNoIndexFk },
     .{ .rule = .fk_cascade, .handler = fk_rules.checkFkCascade },

@@ -334,3 +334,32 @@ test "lint: custom type with short name passes length check" {
     const results = try lint_mod.lintSchema(alloc, test_ast, .{});
     try testing.expect(!th.findRule(results, "custom-type-name-too-long"));
 }
+
+
+// ─── custom-type-duplicate tests ────────────────────────────
+
+test "lint: duplicate custom type name triggers warning" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const a = th.makeCustomType("order_status");
+    const b = th.makeCustomType("order_status");
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ a, b });
+    const test_ast = th.makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(th.findRule(results, "custom-type-duplicate"));
+}
+
+test "lint: distinct custom type names pass duplicate check" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const a = th.makeCustomType("order_status");
+    const b = th.makeCustomType("email_addr");
+    const custom_types = try alloc.dupe(ast_mod.CustomType, &.{ a, b });
+    const test_ast = th.makeAstWithCustomTypes(&.{}, custom_types);
+    const results = try lint_mod.lintSchema(alloc, test_ast, .{});
+    try testing.expect(!th.findRule(results, "custom-type-duplicate"));
+}
