@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.283.0] - 2026-08-14
+
+### Added
+- **`timestamp-type` lint rule** — warns when a column follows timestamp naming conventions (`created_at`, `updated_at`, `deleted_at`, `*_at`, `*_on`) but its type is not a datetime type. Catches wrong-type copy-paste bugs and complements the existing `timestamp-naming` rule (which checks the reverse direction).
+- **`pk-not-first` lint rule** — warns when a single-column primary key is not the first column in the table (style/consistency convention).
+- **Lint rule unit tests** — 4 focused tests for the new rules (positive + negative cases) in `rune/src/lint/rules_structural_test.zig`.
+
+### Changed
+- **Documentation sync** — bumped lint-rule count (60 → 62) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, and the `rune lint` CLI help; bumped unit-test count (1,933+ → 1,936+); fixed a stale CLI help string that advertised 46 rules; synchronized version strings 0.282.0 → 0.283.0 across `VERSION`, `rune/build.zig.zon`, `rune/VERSION`, and packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.282.0] - 2026-08-14
 
 ### Added

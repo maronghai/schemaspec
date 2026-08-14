@@ -182,3 +182,64 @@ pub fn checkColumnNoComment(alloc: std.mem.Allocator, results: *std.ArrayList(Li
         }
     }
 }
+
+
+/// True when a column name follows timestamp naming conventions:
+/// exactly `created_at` / `updated_at` / `deleted_at`, or ending in `_at` / `_on`.
+fn isTimestampName(name: []const u8) bool {
+    if (std.mem.eql(u8, name, "created_at") or
+        std.mem.eql(u8, name, "updated_at") or
+        std.mem.eql(u8, name, "deleted_at"))
+    {
+        return true;
+    }
+    if (name.len >= 3 and std.mem.eql(u8, name[name.len - 3 ..], "_at")) return true;
+    if (name.len >= 3 and std.mem.eql(u8, name[name.len - 3 ..], "_on")) return true;
+    return false;
+}
+
+pub fn checkTimestampType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (isTimestampName(field.name) and !field.type_info.isDatetime()) {
+                const msg = try std.fmt.allocPrint(
+                    alloc,
+                    "column '{s}' follows timestamp naming but is not a datetime type",
+                    .{field.name},
+                );
+                try results.append(alloc, .{
+                    .rule = "timestamp-type",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
+pub fn checkPkNotFirst(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        var pk_index: ?usize = null;
+        var pk_count: usize = 0;
+        for (table.fields, 0..) |field, idx| {
+            if (validation.isPrimaryKey(field)) {
+                pk_count += 1;
+                if (pk_index == null) pk_index = idx;
+            }
+        }
+        if (pk_count == 1 and pk_index != null and pk_index.? != 0) {
+            const msg = try std.fmt.allocPrint(
+                alloc,
+                "primary key column is not the first column (position {d})",
+                .{pk_index.? + 1},
+            );
+            try results.append(alloc, .{
+                .rule = "pk-not-first",
+                .table = table.name,
+                .message = msg,
+                .severity = .info,
+            });
+        }
+    }
+}

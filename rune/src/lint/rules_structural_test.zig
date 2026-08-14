@@ -517,3 +517,79 @@ test "lint: table without comment skips column-no-comment" {
         }
     }
 }
+
+// ─── timestamp-type Tests ──────────────────────────────────────
+
+test "lint: timestamp-type flags non-datetime column with timestamp name" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try th.makeTestTable(alloc, "events", &.{
+        th.makePkField("id"),
+        th.makeField("verified_at", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const test_ast = th.makeAst(try alloc.dupe(ResolvedTable, &.{table}));
+    const cfg = lint_mod.LintConfig{};
+    const results = try lintSchema(alloc, test_ast, cfg);
+    try testing.expect(th.findRule(results, "timestamp-type"));
+}
+
+test "lint: timestamp-type passes for datetime column with timestamp name" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try th.makeTestTable(alloc, "events", &.{
+        th.makePkField("id"),
+        th.makeField("verified_at", .{ .simple = "t" }, &.{}, null),
+    }, &.{});
+    const test_ast = th.makeAst(try alloc.dupe(ResolvedTable, &.{table}));
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.column_length, false);
+    cfg.rules.setEnabled(.column_default_required, false);
+    cfg.rules.setEnabled(.table_no_index, false);
+    cfg.rules.setEnabled(.column_no_comment, false);
+    cfg.rules.setEnabled(.no_timestamps, false);
+    cfg.rules.setEnabled(.table_comment, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
+    try testing.expect(!th.findRule(results, "timestamp-type"));
+}
+
+// ─── pk-not-first Tests ──────────────────────────────────────
+
+test "lint: pk-not-first flags pk not in first column" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try th.makeTestTable(alloc, "users", &.{
+        th.makeField("name", .{ .simple = "s" }, &.{}, null),
+        th.makePkField("id"),
+    }, &.{});
+    const test_ast = th.makeAst(try alloc.dupe(ResolvedTable, &.{table}));
+    const cfg = lint_mod.LintConfig{};
+    const results = try lintSchema(alloc, test_ast, cfg);
+    try testing.expect(th.findRule(results, "pk-not-first"));
+}
+
+test "lint: pk-not-first passes when pk is first column" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const table = try th.makeTestTable(alloc, "users", &.{
+        th.makePkField("id"),
+        th.makeField("name", .{ .simple = "s" }, &.{}, null),
+    }, &.{});
+    const test_ast = th.makeAst(try alloc.dupe(ResolvedTable, &.{table}));
+    var cfg = lint_mod.LintConfig{};
+    cfg.rules.setEnabled(.column_length, false);
+    cfg.rules.setEnabled(.column_default_required, false);
+    cfg.rules.setEnabled(.table_no_index, false);
+    cfg.rules.setEnabled(.column_no_comment, false);
+    cfg.rules.setEnabled(.no_timestamps, false);
+    cfg.rules.setEnabled(.table_comment, false);
+    const results = try lintSchema(alloc, test_ast, cfg);
+    try testing.expect(!th.findRule(results, "pk-not-first"));
+}

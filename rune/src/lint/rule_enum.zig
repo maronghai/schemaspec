@@ -67,6 +67,8 @@ pub const LintRule = enum {
     column_no_comment,
     fk_unidirectional,
     column_bad_default,
+    timestamp_type,
+    pk_not_first,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -131,6 +133,8 @@ pub const LintRule = enum {
             .column_no_comment => "column-no-comment",
             .fk_unidirectional => "fk-unidirectional",
             .column_bad_default => "column-bad-default",
+            .timestamp_type => "timestamp-type",
+            .pk_not_first => "pk-not-first",
         };
     }
 
@@ -209,6 +213,8 @@ pub const LintRule = enum {
             .column_no_comment => false,
             .fk_unidirectional => false,
             .column_bad_default => false,
+            .timestamp_type => false,
+            .pk_not_first => false,
         };
     }
 
@@ -275,6 +281,8 @@ pub const LintRule = enum {
             .column_no_comment => "Column lacks documentation comment",
             .fk_unidirectional => "Table has outgoing FKs but no incoming references (isolated in schema graph)",
             .column_bad_default => "Column default value doesn't match its type",
+            .timestamp_type => "Column follows timestamp naming but is not a datetime type",
+            .pk_not_first => "Primary key column is not the first column in the table",
         };
     }
 
@@ -342,6 +350,8 @@ pub const LintRule = enum {
             .column_no_comment => "note",
             .fk_unidirectional => "note",
             .column_bad_default => "warning",
+            .timestamp_type => "warning",
+            .pk_not_first => "note",
         };
     }
 };

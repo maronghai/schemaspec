@@ -124,6 +124,8 @@ const RULES = [_]RuleEntry{
     .{ .rule = .reserved_word, .handler = portability_rules.checkReservedWord },
     .{ .rule = .column_type_portability, .handler = portability_rules.checkColumnTypePortability },
     .{ .rule = .index_missing_fk_columns, .handler = portability_rules.checkIndexMissingFkColumns },
+    .{ .rule = .timestamp_type, .handler = structural.checkTimestampType },
+    .{ .rule = .pk_not_first, .handler = structural.checkPkNotFirst },
 };
 
 /// Run all enabled lint checks on a resolved schema.

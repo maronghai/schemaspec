@@ -463,7 +463,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 | Layer | Files | Count | Coverage |
 |-------|-------|-------|----------|
-| Unit tests | 118 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,913+ | Core logic + pipeline + colocated |
+| Unit tests | 118 colocated `*_test.zig` files (wired via `tests.zig` comptime index) + inline tests in `diff/fields.zig`, `semantic/pass/*.zig` | ~1,936+ | Core logic + pipeline + colocated |
 | MySQL golden | `tests/test.sh` | 85 | Full pipeline |
 | PG golden | `tests/test_postgres.sh` | 86 | Full pipeline |
 | SQLite golden | `tests/test_sqlite.sh` | 26 | Full pipeline |
@@ -482,11 +482,11 @@ zig build bench -- bench/large.ss 5         # large schema
 | Stdin | `tests/test_stdin.sh` | 4 | Stdin pipeline |
 | Reverse confidence | `tests/test_reverse_confidence.sh` | 3 | Reverse confidence scores |
 | Init & completions | `tests/test_init.sh` | 12 | Init & completions |
-| **Total** | | **~1,913+** | |
+| **Total** | | **~1,936+** | |
 
 ## Lint Module
 
-The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 56 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
+The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 62 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
 
 ### Sub-modules
 

@@ -67,7 +67,7 @@ test "dialect backend count matches documentation" {
 }
 
 test "lint rule count matches documentation" {
-    // Verify lint rules have expected count (60 rules as of v0.277.0)
+    // Verify lint rules have expected count (62 rules as of v0.283.0)
     const lint_config = @import("../lint/config.zig");
     const LintRule = lint_config.LintRule;
     const fields = @typeInfo(LintRule).@"enum".fields;

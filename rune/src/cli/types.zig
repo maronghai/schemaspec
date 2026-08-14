@@ -110,7 +110,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "init", .args = "[name] [--output-dir <dir>] [--template <name>]", .description = "Create a starter .ss schema file" },
     .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
     .{ .name = "hooks", .args = "<type>", .description = "Generate git hooks (pre-commit)" },
-    .{ .name = "lint", .args = "[input.ss] [--fix] [--dry-run] [--strict] [--summary] [--format json|sarif] [--rules <file>]", .description = "Lint schema for quality issues (46 rules)" },
+    .{ .name = "lint", .args = "[input.ss] [--fix] [--dry-run] [--strict] [--summary] [--format json|sarif] [--rules <file>]", .description = "Lint schema for quality issues (62 rules)" },
     .{ .name = "watch", .args = "<input> [--interval <ms>] [--recursive] [--parallel]", .description = "Watch file/directory and recompile on change" },
     .{ .name = "tune", .args = "[input.ss] [--dry-run]", .description = "Extract common fields into templates" },
     .{ .name = "lsp", .args = "", .description = "Start LSP language server (stdio)" },
@@ -295,7 +295,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
     },
     .{
         .usage = "[input.ss] [--fix] [--dry-run] [--strict] [--format json|sarif] [--rules <file>]",
-        .description = "Lint schema for quality issues (60 rules)",
+        .description = "Lint schema for quality issues (62 rules)",
         .options = &.{
             "  --json-errors   Output results as JSON (machine-readable)",
             "  --strict        Exit 1 if any warnings found (for CI/CD)",

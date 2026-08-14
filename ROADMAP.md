@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.282.0 (2026-08-14) — 67,100+ lines production Zig, 1,933+ tests, 60 lint rules, 38 test suites.
+**Current version**: 0.283.0 (2026-08-14) — 67,100+ lines production Zig, 1,936+ tests, 62 lint rules, 38 test suites.
 
 ---
 
@@ -264,6 +264,9 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+- **v0.283.0** — Lint-rule expansion & documentation accuracy: added 2 new non-fixable lint rules — `timestamp-type` warns when a column follows timestamp naming conventions (`created_at`, `updated_at`, `deleted_at`, `*_at`, `*_on`) but its type is not datetime (catches wrong-type copy-paste bugs; complements `timestamp-naming`), and `pk-not-first` warns when a single-column primary key is not the first column in the table (style/consistency convention); added 4 focused unit tests for the new rules (positive + negative cases); fixed a stale CLI help string (`rune lint` advertised 46 rules) and refreshed lint-rule counts (60 → 62) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, and the CLI help; synchronized version strings 0.282.0 → 0.283.0 across `VERSION`, `rune/build.zig.zon`, `rune/VERSION`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,936+ unit tests pass, benchmarks show no regressions
+
 
 - **v0.282.0** — Extensibility & plugin-foundation hardening: added a new first-party `pydantic` generator (`generators/pydantic.zig`) that emits Pydantic v2 `BaseModel` classes from `.ss` schemas (dialect-agnostic, registered via the pluggable `REGISTRY` — exercise of the open-closed generator architecture); added a comptime registry collision-guard architecture-health test (no two `REGISTRY` entries may share a `name`); added a focused Pydantic generator unit test (type mapping + nullable `Optional` handling); synchronized version strings 0.281.0 → 0.282.0 across `VERSION`, `rune/build.zig.zon`, `rune/VERSION`, and all packaging manifests (npm, scoop, homebrew, vscode); refreshed generator lists in CLAUDE.md, ARCHITECTURE.md, and both README files; 1,933+ unit tests pass, benchmarks show no regressions
 
