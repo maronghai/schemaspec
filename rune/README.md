@@ -20,6 +20,19 @@ cd rune && zig build                              # Build
 ./zig-out/bin/rune docs schema.ss                 # Generate Markdown docs
 ```
 
+> **Note (WSL2 / mounted filesystems):** if this source tree lives on a DrvFS mount (`/mnt/c`,
+> `/mnt/e`, ...), Zig's `.zig-cache` rename/lock ops fail with `AccessDenied` and the build is
+> slow and broken. Set the cache to a native Linux path first:
+>
+> ```bash
+> export ZIG_LOCAL_CACHE_DIR=~/.cache/zig-rune
+> export ZIG_GLOBAL_CACHE_DIR=~/.cache/zig-rune-global
+> ```
+>
+> A clean Debug build then succeeds in ~20s (vs 53s + failure) and incremental rebuilds ~1.5s.
+
+```
+
 ## Commands
 
 | Command | Usage | Description |

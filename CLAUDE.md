@@ -20,6 +20,21 @@ cd rune && zig build bench -- --dialect pg     # Benchmark PostgreSQL dialect
 cd rune && zig build -Dtarget=wasm32-wasi     # Build WASM library (browser/Deno)
 ```
 
+### Build Cache on WSL2 / Mounted Filesystems
+
+If the `rune` source tree lives on a WSL2 DrvFS mount (`/mnt/c`, `/mnt/e`, ...), Zig's
+`.zig-cache` rename/lock operations fail with `AccessDenied` and the build is both **slow**
+and **broken** (no binary produced) — all cache I/O crosses the Windows filesystem boundary.
+Point the Zig cache at a native Linux path to fix it:
+
+```bash
+export ZIG_LOCAL_CACHE_DIR=~/.cache/zig-rune
+export ZIG_GLOBAL_CACHE_DIR=~/.cache/zig-rune-global
+```
+
+With this set, a clean Debug build succeeds in ~20s (vs 53s + failure), and incremental
+rebuilds take ~1.5s. The cache persists across reboots, so day-to-day rebuilds stay fast.
+
 ### Golden File Tests (shell-based, compare compiler output against .sql golden files)
 
 ```bash

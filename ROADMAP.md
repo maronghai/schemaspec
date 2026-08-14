@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.280.0 (2026-08-12) — 67,100+ lines production Zig, 1,929+ tests, 60 lint rules, 38 test suites.
+**Current version**: 0.281.0 (2026-08-14) — 67,100+ lines production Zig, 1,929+ tests, 60 lint rules, 38 test suites.
 
 ---
 
@@ -252,6 +252,8 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+- **v0.281.0** — Build robustness & documentation accuracy: documented Zig cache-dir guidance for WSL2 / DrvFS mounted filesystems (`ZIG_LOCAL_CACHE_DIR` / `ZIG_GLOBAL_CACHE_DIR`) to avoid `.zig-cache` `AccessDenied` errors and speed up builds (clean Debug build 53s + failure → ~20s; incremental rebuilds ~1.5s); synchronized version string 0.280.0 → 0.281.0 across `VERSION`, `build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); refreshed ROADMAP build guidance; 1,929+ unit tests pass, benchmarks show no regressions
 
 - **v0.280.0** — Cache disk persistence & Zig 0.16 API migration: implemented disk persistence for incremental compilation cache (`flushToDisk()`, `loadFromDisk()`, `writeEntryToDisk()`, `writeManifest()`); migrated all cache.zig filesystem operations from deprecated `std.fs.*` to `std.Io.Dir.*` API (Zig 0.16 compatibility); added `io: std.Io` field to `TableCache` struct; added `--cache-dir` CLI flag for custom cache directory; added cache manifest file (`manifest.json`) for fast lookup; extracted `computeScore()` from audit module for testability; added cache module architecture health tests; cleaned up duplicate architecture tests; 1,929+ unit tests pass, benchmarks show no regressions
 - **v0.279.0** — Architecture cleanup & layering fix: removed dead code (ErrorFormatter struct in diagnostic/format.zig, unused isUpperSnakeCase re-export in lint/rules.zig, enableDiskCache stub in cache.zig); fixed parser → semantic layering violation by moving semantic/diagnostic.zig to root-level diagnostic.zig (parser files no longer depend on semantic module); updated 20+ import paths across parser, semantic, pipeline, and lsp modules; moved diagnostic_test.zig to root level; 1,929+ unit tests pass, benchmarks show no regressions
