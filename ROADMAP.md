@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.281.0 (2026-08-14) — 67,100+ lines production Zig, 1,929+ tests, 60 lint rules, 38 test suites.
+**Current version**: 0.282.0 (2026-08-14) — 67,100+ lines production Zig, 1,933+ tests, 60 lint rules, 38 test suites.
 
 ---
 
@@ -131,6 +131,17 @@ Extend the `.ss` language and pipeline for new use cases. **In progress — 4/9 
 
 ---
 
+## Phase 9: Extensibility & Plugin Foundation ✅
+
+Prove and harden the open-closed extension points (generator registry, dialect vtable, data-driven dispatch) with first-party coverage and compile-time guards. **Complete — 2/2 items done.**
+
+### Generator Ecosystem
+
+- [x] Pydantic v2 generator — `generators/pydantic.zig` emits `BaseModel` classes (dialect-agnostic), extending Python coverage beyond SQLAlchemy (v0.282.0)
+- [x] Registry collision guard — comptime architecture-health test ensures no two `REGISTRY` entries share a `name` (v0.282.0)
+
+---
+
 ## Architecture Targets
 
 Ongoing improvements pursued alongside feature work.
@@ -203,9 +214,10 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | Phase 6: Ecosystem & Community | 🔲 In Progress | 7/11 | 4 |
 | 7: Editor Extensions | 🔲 In Progress | 11/13 | 2 |
 | 8: Language Evolution | 🔲 In Progress | 4/9 | 5 |
+| 9: Extensibility & Plugin Foundation | ✅ Complete | 2/2 | 0 |
 | Architecture Targets | 🔲 In Progress | 21/22 | 1 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
-| **Total** | | **117/130** | **13** |
+| **Total** | | **119/132** | **13** |
 
 ---
 
@@ -252,6 +264,8 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+- **v0.282.0** — Extensibility & plugin-foundation hardening: added a new first-party `pydantic` generator (`generators/pydantic.zig`) that emits Pydantic v2 `BaseModel` classes from `.ss` schemas (dialect-agnostic, registered via the pluggable `REGISTRY` — exercise of the open-closed generator architecture); added a comptime registry collision-guard architecture-health test (no two `REGISTRY` entries may share a `name`); added a focused Pydantic generator unit test (type mapping + nullable `Optional` handling); synchronized version strings 0.281.0 → 0.282.0 across `VERSION`, `rune/build.zig.zon`, `rune/VERSION`, and all packaging manifests (npm, scoop, homebrew, vscode); refreshed generator lists in CLAUDE.md, ARCHITECTURE.md, and both README files; 1,933+ unit tests pass, benchmarks show no regressions
 
 - **v0.281.0** — Build robustness & documentation accuracy: documented Zig cache-dir guidance for WSL2 / DrvFS mounted filesystems (`ZIG_LOCAL_CACHE_DIR` / `ZIG_GLOBAL_CACHE_DIR`) to avoid `.zig-cache` `AccessDenied` errors and speed up builds (clean Debug build 53s + failure → ~20s; incremental rebuilds ~1.5s); synchronized version string 0.280.0 → 0.281.0 across `VERSION`, `build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); refreshed ROADMAP build guidance; 1,929+ unit tests pass, benchmarks show no regressions
 

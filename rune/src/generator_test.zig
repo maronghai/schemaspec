@@ -4,13 +4,13 @@ const generator = @import("generator.zig");
 const REGISTRY = generator.REGISTRY;
 
 test "registry has expected generators" {
-    try testing.expectEqual(@as(usize, 11), REGISTRY.len);
+    try testing.expectEqual(@as(usize, 12), REGISTRY.len);
 }
 
 test "get returns known generators" {
     const names = [_][]const u8{
         "json-schema", "sql-ddl", "prisma",  "docs",    "drizzle",      "typeorm",
-        "sqlalchemy",  "knex",    "openapi", "graphql", "symbol-index",
+        "sqlalchemy",  "knex",    "openapi", "graphql", "symbol-index", "pydantic",
     };
     for (names) |name| {
         const gen = generator.get(name);

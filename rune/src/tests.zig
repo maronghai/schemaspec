@@ -78,6 +78,7 @@ comptime {
     _ = @import("generators/knex_test.zig");
     _ = @import("generators/openapi_test.zig");
     _ = @import("generators/graphql_test.zig");
+    _ = @import("generators/pydantic_test.zig");
     _ = @import("generators/symbol_index_test.zig");
     _ = @import("generators/common_check_test.zig");
     _ = @import("generators/common_defaults_test.zig");

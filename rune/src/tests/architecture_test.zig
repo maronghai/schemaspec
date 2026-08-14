@@ -29,11 +29,24 @@ test "pipeline generate module public API exists" {
 // ─── Registry & Dispatch Tests ─────────────────────────────────
 
 test "generator registry has expected count" {
-    // Verify all generators are registered (11 as of v0.271.0)
+    // Verify all generators are registered (12 as of v0.282.0: pydantic added)
     const generator = @import("../generator.zig");
     const count = generator.REGISTRY.len;
-    try std.testing.expect(count >= 11); // At least 11 generators
-    try std.testing.expect(count <= 15); // Sanity upper bound
+    try std.testing.expect(count >= 12); // At least 12 generators
+    try std.testing.expect(count <= 18); // Sanity upper bound
+}
+
+test "generator registry has no name collisions" {
+    // Guard the open-closed REGISTRY: no two generators may share a name.
+    const generator = @import("../generator.zig");
+    const registry = generator.REGISTRY;
+    var seen: [registry.len][]const u8 = undefined;
+    for (registry, 0..) |gen, i| {
+        for (seen[0..i]) |prev| {
+            try std.testing.expect(!std.mem.eql(u8, prev, gen.name));
+        }
+        seen[i] = gen.name;
+    }
 }
 
 test "semantic pass count matches documentation" {

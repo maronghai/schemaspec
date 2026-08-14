@@ -2,6 +2,15 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.282.0] - 2026-08-14
+
+### Added
+- **Pydantic v2 generator** — `rune generate pydantic` emits Pydantic v2 `BaseModel` classes from `.ss` schemas (dialect-agnostic, `generators/pydantic.zig`). Registers via the pluggable `REGISTRY` — an end-to-end exercise of the open-closed generator architecture.
+- **Registry collision guard** — comptime architecture-health test asserts no two `REGISTRY` entries share a `name`.
+
+### Changed
+- **Documentation sync** — Added `pydantic` to generator lists in CLAUDE.md, ARCHITECTURE.md, and both README files; bumped unit-test count (1,929+ → 1,933+); synchronized version strings 0.281.0 → 0.282.0 across `VERSION`, `rune/build.zig.zon`, `rune/VERSION`, and packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.268.0] - 2026-08-12
 
 ### Added

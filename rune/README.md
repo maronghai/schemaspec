@@ -45,7 +45,7 @@ cd rune && zig build                              # Build
 | `migrate` | `rune migrate <old.ss> <new.ss>` | Generate ALTER TABLE migration SQL |
 | `reverse` | `rune reverse [input.sql]` | Reverse SQL DDL to `.ss` schema (supports `--format json`) |
 | `docs` | `rune docs [input.ss]` | Generate Markdown documentation |
-| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`) |
+| `generate` | `rune generate <gen> [input.ss]` | Run a code generator (`json-schema`, `sql-ddl`, `prisma`, `docs`, `drizzle`, `typeorm`, `sqlalchemy`, `knex`, `openapi`, `graphql`, `symbol-index`, `pydantic`) |
 | `init` | `rune init [name] [--template <tpl>]` | Create starter `.ss` schema (templates: `default`, `blog`, `ecommerce`, `rest-api`) |
 | `watch` | `rune watch <input> [--recursive]` | Watch file/directory and recompile on change |
 | `format` | `rune format <input.ss> [--write] [--dialect <d>]` | Auto-format `.ss` file with consistent style |

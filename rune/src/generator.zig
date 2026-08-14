@@ -125,6 +125,14 @@ pub const REGISTRY = [_]Generator{
         .dialects = &.{ "mysql", "pg", "sqlite", "mssql", "oracle", "db2" },
         .generate = @import("generators/symbol_index.zig").generate,
     },
+    .{
+        .name = "pydantic",
+        .description = "Pydantic v2 models from .ss schema",
+        .extension = ".py",
+        .category = .schema,
+        .dialects = null, // dialect-agnostic
+        .generate = @import("generators/pydantic.zig").generate,
+    },
 };
 
 /// Look up a generator by name. Returns null if not found.
