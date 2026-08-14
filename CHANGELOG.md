@@ -1,3 +1,14 @@
+## [0.290.0] - 2026-08-14
+
+### Changed
+- **`column-bad-default` lint rule expanded to all type categories** — the existing non-fixable warning (added in v0.277.0, previously only checked numeric/boolean columns) now uses a default-value/column-category compatibility matrix covering all six `TypeInfo` categories. New cases flagged: a bare numeric default on a `string`/`datetime`/`blob` column; a quoted string that is not a datetime literal on a `datetime` column; and a boolean literal (`true`/`false`) used as the default of a numeric/string/datetime/blob column. The three previously-flagged cases are preserved verbatim. Lint-rule count remains 73.
+
+### Added
+- 7 focused unit tests for `column-bad-default` covering each new type category (positive: numeric default on string/datetime/blob, quoted non-datetime on datetime, boolean literal on numeric; negative: quoted datetime on datetime, quoted string on string, valid numeric on numeric, valid boolean on boolean).
+
+### Fixed
+- ROADMAP Phase 10 "Open Symmetry Opportunities" marked complete (the last unchecked item — `column-default-mismatch-type` expansion — is done); a backlog item (`column-default-function-check`) added for the next patch release.
+
 ## [0.289.0] - 2026-08-14
 
 ### Added

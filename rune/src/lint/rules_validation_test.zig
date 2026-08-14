@@ -452,6 +452,148 @@ test "lint: bad default on boolean column triggers column-bad-default" {
 }
 
 
+
+test "lint: numeric default on string column triggers column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "name",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "42", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "users", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-bad-default"));
+}
+
+test "lint: numeric default on datetime column triggers column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "created_at",
+        .type_info = .{ .simple = "t" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "20240101", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "events", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-bad-default"));
+}
+
+test "lint: numeric default on blob column triggers column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "payload",
+        .type_info = .{ .simple = "B" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "99", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "blobs", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-bad-default"));
+}
+
+test "lint: quoted non-datetime string on datetime column triggers column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "created_at",
+        .type_info = .{ .simple = "t" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'hello'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "events", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-bad-default"));
+}
+
+test "lint: quoted datetime string on datetime column passes column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "created_at",
+        .type_info = .{ .simple = "t" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'2024-01-01'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "events", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-bad-default"));
+}
+
+test "lint: quoted string default on string column passes column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "name",
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "'abc'", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "users", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-bad-default"));
+}
+
+test "lint: boolean literal default on numeric column triggers column-bad-default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const field = ast_mod.Field{
+        .name = "flag",
+        .type_info = .{ .simple = "n" },
+        .modifiers = &.{},
+        .default_val = .{ .value = "true", .line_no = 1 },
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+    const table = try th.makeTestTable(alloc, "users", &.{field}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "column-bad-default"));
+}
+
+
 test "lint: auto-increment column without primary key detected" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();

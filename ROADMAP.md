@@ -150,7 +150,8 @@ Continuously close symmetry and referential-integrity gaps in the lint rule set,
 exercising the open-closed `LintRule` enum + `RULES` dispatch architecture. Each
 patch release adds 1–2 low-risk, non-fixable warning rules that complete an
 existing family (auto-increment, FK, duplicate-detection, identifier-length,
-snake_case naming). **In progress — 2/?? items done.**
+snake_case naming), or expands an existing rule's type-category coverage.
+**Complete — 5/5 listed items done; backlog open (see below).**
 
 ### Auto-Increment & Referential Integrity (v0.288.0)
 
@@ -161,7 +162,11 @@ snake_case naming). **In progress — 2/?? items done.**
 
 - [x] `index-redundant-with-fk` — warn when a standalone index duplicates the one auto-created for an FK column (v0.289.0)
 - [x] `view-select-missing-where` — warn when a view `SELECT` has no filter (performance/security smell) (v0.289.0)
-- [ ] `column-default-mismatch-type` expansion — extend `column-bad-default` to cover more type categories
+- [x] `column-default-mismatch-type` expansion — extend `column-bad-default` to cover all six type categories (numeric/string/datetime/boolean/blob/other) via a default/column compatibility matrix; a bare number on a string/datetime/blob column, a non-datetime quoted string on a datetime column, and a boolean literal on a non-boolean column now all warn (v0.290.0)
+
+### Open Symmetry Opportunities (backlog)
+
+- [ ] `column-default-function-check` — warn when a default value is a SQL function call (e.g. `now()`, `CURRENT_TIMESTAMP`) written as a *quoted* string literal, which would be stored verbatim instead of evaluated (completes the default-value correctness family alongside `column-bad-default` / `column-default-required`)
 
 ---
 
@@ -287,6 +292,8 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+- **v0.290.0** — Lint-rule hardening & `column-bad-default` type-category expansion: expanded the existing non-fixable `column-bad-default` warning (added in v0.277.0, previously numeric/boolean-only) to cover **all six type categories** via a default-value/column-category compatibility matrix — a bare numeric default on a `string`/`datetime`/`blob` column, a quoted non-datetime string on a `datetime` column, and a boolean literal (`true`/`false`) used as the default of a numeric/string/datetime/blob column now all warn; the three previously-flagged cases (quoted-string-on-numeric; quoted-string-on-boolean unless `true`/`false`/`0`/`1`; bare-numeric-on-boolean unless `0`/`1`) are preserved verbatim — 73 lint rules total (unchanged); added 7 focused unit tests covering each new category (positive: numeric default on string/datetime/blob, quoted non-datetime on datetime, boolean literal on numeric; negative: quoted datetime on datetime, quoted string on string, valid numeric on numeric, valid boolean on boolean); refreshed ROADMAP Phase 10 "Open Symmetry Opportunities" (3/3 done) and added a backlog item; synchronized version strings 0.289.0 → 0.290.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,973+ unit tests pass, benchmarks show no regressions
 
 ### Recent Releases
 

@@ -299,7 +299,13 @@ pub fn checkColumnAutoIncrementNullable(alloc: std.mem.Allocator, results: *std.
 }
 
 /// Check if a column's default value matches its type category.
-/// Warns when numeric defaults are on string columns, boolean defaults on numeric columns, etc.
+/// Warns when a default literal is incompatible with the column's type category
+/// (e.g. a quoted string on a numeric column, a bare number on a string/datetime/
+/// blob column, a non-datetime quoted string on a datetime column, or a boolean
+/// literal on a non-boolean column). Catches copy-paste / wrong-type schema bugs
+/// early. Covers all six type categories (numeric, string, datetime, boolean, blob,
+/// other) — `column-bad-default` was expanded in v0.290.0 beyond its original
+/// numeric/boolean-only scope.
 pub fn checkColumnBadDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.tables) |table| {
         for (table.fields) |field| {
@@ -309,51 +315,104 @@ pub fn checkColumnBadDefault(alloc: std.mem.Allocator, results: *std.ArrayList(L
 
             const cat = field.type_info.category();
 
-            // Check for quoted string defaults on non-string types
+            // Quoted string default ('...')
             if (val[0] == '\'' and val.len >= 2 and val[val.len - 1] == '\'') {
-                if (cat == .numeric) {
-                    const msg = try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a numeric type", .{ field.name, val });
-                    try results.append(alloc, .{
-                        .rule = "column-bad-default",
-                        .table = table.name,
-                        .message = msg,
-                        .severity = .warning,
-                    });
-                } else if (cat == .boolean) {
-                    const inner = val[1 .. val.len - 1];
-                    if (!std.mem.eql(u8, inner, "true") and !std.mem.eql(u8, inner, "false") and !std.mem.eql(u8, inner, "1") and !std.mem.eql(u8, inner, "0")) {
-                        const msg = try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a boolean type", .{ field.name, val });
-                        try results.append(alloc, .{
-                            .rule = "column-bad-default",
-                            .table = table.name,
-                            .message = msg,
-                            .severity = .warning,
-                        });
-                    }
+                const inner = val[1 .. val.len - 1];
+                switch (cat) {
+                    .numeric => try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a numeric type", .{ field.name, val })),
+                    .boolean => if (!isBoolToken(inner)) try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a boolean type", .{ field.name, val })),
+                    .datetime => if (!looksLikeDatetime(inner)) try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has string default {s} but is a datetime type", .{ field.name, val })),
+                    else => {},
                 }
+                continue;
             }
 
-            // Check for numeric defaults on boolean columns
-            if (cat == .boolean) {
-                var is_numeric = true;
-                for (val) |ch| {
-                    if (ch < '0' or ch > '9') {
-                        is_numeric = false;
-                        break;
-                    }
+            // Bare (unquoted) numeric literal default
+            if (isNumericLiteral(val)) {
+                switch (cat) {
+                    .boolean => if (!std.mem.eql(u8, val, "0") and !std.mem.eql(u8, val, "1")) try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has numeric default {s} but is a boolean type (use true/false or 0/1)", .{ field.name, val })),
+                    .string => try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has numeric default {s} but is a string type", .{ field.name, val })),
+                    .datetime => try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has numeric default {s} but is a datetime type", .{ field.name, val })),
+                    .blob => try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has numeric default {s} but is a blob type", .{ field.name, val })),
+                    else => {},
                 }
-                if (is_numeric and val.len > 0 and !std.mem.eql(u8, val, "0") and !std.mem.eql(u8, val, "1")) {
-                    const msg = try std.fmt.allocPrint(alloc, "column '{s}' has numeric default {s} but is a boolean type (use true/false or 0/1)", .{ field.name, val });
-                    try results.append(alloc, .{
-                        .rule = "column-bad-default",
-                        .table = table.name,
-                        .message = msg,
-                        .severity = .warning,
-                    });
+                continue;
+            }
+
+            // Bare boolean literal default (true/false)
+            if (isBoolToken(val)) {
+                switch (cat) {
+                    .numeric, .string, .datetime, .blob => try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has boolean default {s} but is a {s} type", .{ field.name, val, catName(cat) })),
+                    else => {},
                 }
+                continue;
+            }
+
+            // Bare token that is neither numeric nor boolean literal (a function name,
+            // an unquoted word, etc.). Flag only on numeric/boolean columns, which can
+            // never accept an arbitrary bare token as a sensible default.
+            switch (cat) {
+                .numeric => try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has non-numeric default {s} on a numeric type", .{ field.name, val })),
+                .boolean => try appendBadDefault(alloc, results, table, try std.fmt.allocPrint(alloc, "column '{s}' has non-boolean default {s} on a boolean type", .{ field.name, val })),
+                else => {},
             }
         }
     }
+}
+
+/// Append a `column-bad-default` warning for a column in `table`.
+fn appendBadDefault(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), table: ResolvedTable, msg: []const u8) !void {
+    try results.append(alloc, .{
+        .rule = "column-bad-default",
+        .table = table.name,
+        .message = msg,
+        .severity = .warning,
+    });
+}
+
+/// True if `s` is a bare numeric literal (digits, optional sign, optional decimal point).
+fn isNumericLiteral(s: []const u8) bool {
+    if (s.len == 0) return false;
+    var has_digit = false;
+    for (s) |ch| {
+        if (ch == '-' or ch == '+' or ch == '.') continue;
+        if (ch < '0' or ch > '9') return false;
+        has_digit = true;
+    }
+    return has_digit;
+}
+
+/// True if `s` is a bare boolean literal token (`true` or `false`).
+fn isBoolToken(s: []const u8) bool {
+    return std.mem.eql(u8, s, "true") or std.mem.eql(u8, s, "false");
+}
+
+/// True if `s` looks like a datetime literal: a date/time string (digits plus
+/// `- / : . space T Z` separators) or a function-like token (`now`,
+/// `current_timestamp`, `epoch`, case-insensitive).
+fn looksLikeDatetime(s: []const u8) bool {
+    if (std.ascii.eqlIgnoreCase(s, "now")) return true;
+    if (std.ascii.eqlIgnoreCase(s, "current_timestamp")) return true;
+    if (std.ascii.eqlIgnoreCase(s, "epoch")) return true;
+    var has_digit = false;
+    for (s) |ch| {
+        const ok = (ch >= '0' and ch <= '9') or ch == '-' or ch == '/' or ch == ':' or ch == '.' or ch == ' ' or ch == 'T' or ch == 'Z';
+        if (!ok) return false;
+        if (ch >= '0' and ch <= '9') has_digit = true;
+    }
+    return has_digit;
+}
+
+/// Human-readable name of a type category for warning messages.
+fn catName(cat: ast_mod.TypeCategory) []const u8 {
+    return switch (cat) {
+        .numeric => "numeric",
+        .string => "string",
+        .datetime => "datetime",
+        .boolean => "boolean",
+        .blob => "blob",
+        .other => "other",
+    };
 }
 
 
