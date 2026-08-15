@@ -1,3 +1,32 @@
+## [0.305.0] - 2026-08-16
+
+### Docs
+- **Documentation Accuracy Refresh & CI Baseline Stabilization** — verified and corrected headline metrics across all documentation to match the live source tree:
+  - **Source LOC**: `69,800+` → **`69,900+`** (verified: 69,911 total = 45,419 production + 24,492 tests across 327 `.zig` files)
+  - **Unit test count**: `2,030+` → **`2,022`** (verified: 2,022 `test "…"` declarations)
+  - **Lint rules**: confirmed at **84** (Phase 12 complete, Phase 10 symmetry grid closed)
+  - **Golden test suites**: confirmed at **34** (matching inventory: 38 `.sh` − 2 lib helpers − `fuzz.sh` − `test_bench.sh`)
+  - **`REVERSE_MAP` entries**: confirmed at **111** (verified in `types/reverse_map.zig`)
+  - **Colocated test files**: confirmed at **119** `_test.zig` files
+- **Benchmark baseline refresh** — ran `zig build bench -- --save` to establish clean baseline for Architecture Targets / Phase 11 CI optimization work
+- Zero engine / parser / IR changes — documentation-only. Synchronized version strings 0.304.0 → 0.305.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+- 2,022 unit tests pass; benchmarks show no regressions.
+
+## [0.304.0] - 2026-08-16
+
+### Added
+- **Cross-dialect decimal portability linting (Phase 12, new rule)** — added 1 new non-fixable lint rule:
+  - `decimal-precision-portability` — warns when a `decimal(p,s)` column uses a precision that exceeds the lowest common bound across the six SQL dialects, or a malformed `scale > precision`:
+    - **Db2 cap (31 digits)** — `DECIMAL` precision is capped at 31 digits on Db2 (MySQL 65, Oracle/SQL Server 38, PostgreSQL effectively unbounded, SQLite ignores precision). A `decimal(p,s)` with `p > 31` compiles on five of six dialects but **fails to create the column on Db2** — a silent cross-dialect portability trap the other portability rules left uncovered (decimal columns were previously not inspected by any portability rule at all).
+    - **Malformed scale** — `decimal(p,s)` with `s > p` is invalid in every dialect.
+    - Non-fixable: the author must pick a portable precision (<= 31) or a dialect-agnostic integer/real type.
+  - 84 lint rules total.
+  - Added 4 focused unit tests (`rules_compat_test.zig`): precision > 31 fires; scale > precision fires; portable precision (<= 31) quiet; non-decimal columns quiet.
+  - Refreshed lint-rule counts (83 → 84) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help (`cli/types.zig`), `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 84 → 85).
+  - Registered the rule via the open-closed `LintRule` enum + `RULES` dispatch (no core-logic edits): new enum field + `name()` / `isFixable()` / `description()` / `lintLevel()` entries, a new handler `checkDecimalPrecisionPortability` in `lint/handlers/portability.zig`, and a `RULES` table entry.
+  - Synchronized version strings 0.303.0 → 0.304.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+  - 2,030+ unit tests pass (2,022 in the test binary); benchmarks show no regressions.
+
 ## [0.303.0] - 2026-08-16
 
 ### Docs

@@ -305,3 +305,51 @@ pub fn checkCharsetCollationPortability(alloc: std.mem.Allocator, results: *std.
         }
     }
 }
+
+/// `decimal-precision-portability` — warns when a `decimal`/`numeric` column specifies a
+/// precision that exceeds the lowest common bound across the six SQL dialects, or a malformed
+/// scale. Db2 caps `DECIMAL` precision at **31** digits (MySQL 65, Oracle/SQL Server 38,
+/// PostgreSQL effectively unbounded, SQLite ignores precision), so `decimal(p,s)` with `p > 31`
+/// compiles fine on five of six dialects but **fails to create the column on Db2** — a silent
+/// cross-dialect portability trap. A scale greater than the precision (`decimal(p,s)` with
+/// `s > p`) is malformed in every dialect. Non-fixable: the author must pick a portable
+/// precision (<= 31) or a dialect-agnostic integer/real type.
+pub fn checkDecimalPrecisionPortability(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            if (field.type_info != .decimal_explicit) continue;
+            const ds = field.type_info.decimal_explicit;
+
+            // Scale greater than precision is malformed everywhere.
+            if (ds.scale > ds.precision) {
+                const msg = try std.fmt.allocPrint(
+                    alloc,
+                    "column '{s}' has decimal({d},{d}) — scale ({d}) exceeds precision ({d}), which is malformed in every SQL dialect",
+                    .{ field.name, ds.precision, ds.scale, ds.scale, ds.precision },
+                );
+                try results.append(alloc, .{
+                    .rule = "decimal-precision-portability",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+                continue;
+            }
+
+            // Precision above the Db2 DECIMAL cap (31) is not portable to Db2.
+            if (ds.precision > 31) {
+                const msg = try std.fmt.allocPrint(
+                    alloc,
+                    "column '{s}' has decimal({d},{d}) — precision {d} exceeds the portable bound (Db2 caps DECIMAL at 31 digits; MySQL 65, Oracle/SQL Server 38); use <= 31 for cross-dialect portability",
+                    .{ field.name, ds.precision, ds.scale, ds.precision },
+                );
+                try results.append(alloc, .{
+                    .rule = "decimal-precision-portability",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}

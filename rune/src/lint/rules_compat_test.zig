@@ -227,3 +227,57 @@ test "lint: charset-collation-portability negative (no charset)" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "charset-collation-portability"));
 }
+
+
+test "lint: decimal-precision-portability fires when precision exceeds portable bound (Db2 cap 31)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "ledger", &.{
+        th.makePkField("id"),
+        th.makeField("amount", .{ .decimal_explicit = .{ .precision = 40, .scale = 2 } }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "decimal-precision-portability"));
+}
+
+test "lint: decimal-precision-portability fires when scale exceeds precision (malformed)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "ledger", &.{
+        th.makePkField("id"),
+        th.makeField("ratio", .{ .decimal_explicit = .{ .precision = 10, .scale = 20 } }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "decimal-precision-portability"));
+}
+
+test "lint: decimal-precision-portability quiet for portable precision (<= 31)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "ledger", &.{
+        th.makePkField("id"),
+        th.makeField("amount", .{ .decimal_explicit = .{ .precision = 20, .scale = 2 } }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "decimal-precision-portability"));
+}
+
+test "lint: decimal-precision-portability quiet for non-decimal columns" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{
+        th.makePkField("id"),
+        th.makeField("name", .{ .simple = "varchar" }, &.{}, null),
+        th.makeField("count", .{ .simple = "n" }, &.{}, null),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "decimal-precision-portability"));
+}
