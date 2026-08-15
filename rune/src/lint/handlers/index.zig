@@ -251,3 +251,59 @@ pub fn checkIndexRedundantWithFk(alloc: std.mem.Allocator, results: *std.ArrayLi
     }
 }
 
+/// `index-redundant-with-unique` — warns when a standalone (regular) index duplicates the
+/// index a database auto-creates for a UNIQUE constraint. A UNIQUE modifier on a column
+/// (inline `+`) or an explicit unique index already produce a backing index, so an explicit
+/// regular index on the same column(s) is redundant. Symmetric with `index-redundant-with-pk`
+/// (PK) and `index-redundant-with-fk` (FK), completing the index-redundancy family.
+/// Non-fixable: the author must decide whether to drop the redundant index or the constraint.
+pub fn checkIndexRedundantWithUnique(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Collect column sets the database auto-indexes for UNIQUE constraints.
+        var unique_sets = try std.ArrayList([]const []const u8).initCapacity(alloc, table.fields.len);
+        defer unique_sets.deinit(alloc);
+
+        // (a) Inline UNIQUE modifier on a column creates a single-column backing index.
+        for (table.fields) |field| {
+            var has_unique = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .inline_unique) {
+                    has_unique = true;
+                    break;
+                }
+            }
+            if (has_unique) {
+                const single = try alloc.alloc([]const u8, 1);
+                single[0] = field.name;
+                try unique_sets.append(alloc, single);
+            }
+        }
+
+        // (b) Explicit unique indexes also produce a backing index.
+        for (table.indexes) |idx| {
+            if (idx.kind == .unique) {
+                try unique_sets.append(alloc, idx.fields);
+            }
+        }
+
+        if (unique_sets.items.len == 0) continue;
+
+        // Check each standalone (regular) index against the unique index sets.
+        for (table.indexes) |idx| {
+            if (idx.kind != .regular) continue;
+            for (unique_sets.items) |u_set| {
+                if (setEquals(idx.fields, u_set)) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates the index auto-created for a UNIQUE constraint on the same column(s)", .{idx.name});
+                    try results.append(alloc, .{
+                        .rule = "index-redundant-with-unique",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+}
+

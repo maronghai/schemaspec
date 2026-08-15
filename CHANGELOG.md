@@ -1,3 +1,13 @@
+## [0.292.0] - 2026-08-14
+
+### Added
+- **`index-redundant-with-unique` lint rule** — warns when a standalone (regular) index duplicates the index a database auto-creates for a UNIQUE constraint: a column carrying the inline `+` (unique) modifier, or an explicit `unique` index, already produces a backing index, so an explicit regular index on the same column(s) is redundant. Completes the index-redundancy family alongside `index-redundant-with-pk` (PK) and `index-redundant-with-fk` (FK). Non-fixable, `warning` severity. Lint-rule count is now 75.
+- **Lint rule tests** — added 3 focused unit tests for `index-redundant-with-unique`: a positive case (regular index on a UNIQUE column), a negative case (regular index on a non-UNIQUE column does not fire), and a positive case (regular index duplicating a `unique` index) with a no-overlap negative confirming `duplicate-index` does not also fire (it compares index type + columns, and the two differ in type).
+
+### Changed
+- Refreshed lint-rule counts (74 → 75) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and the `architecture_test.zig` sanity upper bound (75 → 76).
+- Synchronized version strings 0.291.0 → 0.292.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.291.0] - 2026-08-14
 
 ### Added

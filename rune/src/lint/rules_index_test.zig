@@ -279,3 +279,45 @@ test "lint: FK without standalone index passes" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "index-redundant-with-fk"));
 }
+
+// ─── index-redundant-with-unique tests ──────────────────────
+
+test "lint: regular index on UNIQUE column detected as redundant" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const email = th.makeField("email", .{ .varchar_explicit = 128 }, &.{ .{ .kind = .inline_unique, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), email }, &.{th.makeIndex("idx_email", .regular, &.{"email"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "index-redundant-with-unique"));
+    // Must not also fire the PK/FK variants for an ordinary unique column.
+    try testing.expect(!th.findRule(results, "index-redundant-with-pk"));
+    try testing.expect(!th.findRule(results, "index-redundant-with-fk"));
+}
+
+test "lint: regular index on non-UNIQUE column is not redundant" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const email = th.makeField("email", .{ .varchar_explicit = 128 }, &.{}, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), email }, &.{th.makeIndex("idx_email", .regular, &.{"email"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "index-redundant-with-unique"));
+}
+
+test "lint: regular index duplicating a unique index detected as redundant" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("email") }, &.{
+        th.makeIndex("uniq_email", .unique, &.{"email"}),
+        th.makeIndex("idx_email", .regular, &.{"email"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "index-redundant-with-unique"));
+    // duplicate-index compares type+columns; the two indexes differ in type, so it stays quiet.
+    try testing.expect(!th.findRule(results, "duplicate-index"));
+}
