@@ -168,3 +168,62 @@ test "lint: unsigned-overflow-risk negative (unsigned + auto-increment but non-n
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "unsigned-overflow-risk"));
 }
+
+
+test "lint: charset-collation-portability positive (mysql-specific utf8mb4)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    var ast = th.makeAst(tables);
+    ast.schema_charset = "utf8mb4";
+    const results = try lint_mod.lintSchema(alloc, ast, .{});
+    try testing.expect(th.findRule(results, "charset-collation-portability"));
+}
+
+test "lint: charset-collation-portability positive (collation-style value)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    var ast = th.makeAst(tables);
+    ast.schema_charset = "utf8mb4_0900_ai_ci";
+    const results = try lint_mod.lintSchema(alloc, ast, .{});
+    try testing.expect(th.findRule(results, "charset-collation-portability"));
+}
+
+test "lint: charset-collation-portability positive (latin1)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    var ast = th.makeAst(tables);
+    ast.schema_charset = "latin1";
+    const results = try lint_mod.lintSchema(alloc, ast, .{});
+    try testing.expect(th.findRule(results, "charset-collation-portability"));
+}
+
+test "lint: charset-collation-portability negative (neutral utf8 passes)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    var ast = th.makeAst(tables);
+    ast.schema_charset = "utf8";
+    const results = try lint_mod.lintSchema(alloc, ast, .{});
+    try testing.expect(!th.findRule(results, "charset-collation-portability"));
+}
+
+test "lint: charset-collation-portability negative (no charset)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "charset-collation-portability"));
+}

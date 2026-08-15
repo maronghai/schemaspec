@@ -486,7 +486,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 ## Lint Module
 
-The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 82 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
+The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 83 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
 
 ### Sub-modules
 

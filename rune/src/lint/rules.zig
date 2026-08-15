@@ -104,6 +104,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .unique_index_redundant_with_unique, .handler = index_rules.checkUniqueIndexRedundantWithUnique },
     .{ .rule = .unindexable_type_indexed, .handler = index_rules.checkUnindexableTypeIndexed },
     .{ .rule = .unsigned_overflow_risk, .handler = portability_rules.checkUnsignedOverflowRisk },
+    .{ .rule = .charset_collation_portability, .handler = portability_rules.checkCharsetCollationPortability },
     .{ .rule = .table_no_index, .handler = index_rules.checkTableNoIndex },
     .{ .rule = .index_name_too_long, .handler = index_rules.checkIndexNameTooLong },
     // View validation rules (moved to view.zig)

@@ -89,6 +89,7 @@ pub const LintRule = enum {
     unique_index_redundant_with_unique,
     unindexable_type_indexed,
     unsigned_overflow_risk,
+    charset_collation_portability,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -175,6 +176,7 @@ pub const LintRule = enum {
             .unique_index_redundant_with_unique => "unique-index-redundant-with-unique",
             .unindexable_type_indexed => "unindexable-type-indexed",
             .unsigned_overflow_risk => "unsigned-overflow-risk",
+            .charset_collation_portability => "charset-collation-portability",
         };
     }
 
@@ -275,6 +277,7 @@ pub const LintRule = enum {
             .unique_index_redundant_with_unique => false,
             .unindexable_type_indexed => false,
             .unsigned_overflow_risk => false,
+            .charset_collation_portability => false,
         };
     }
 
@@ -363,6 +366,7 @@ pub const LintRule = enum {
             .unique_index_redundant_with_unique => "Standalone unique index duplicates the index auto-created for a UNIQUE constraint (the UNIQUE family only flags regular indexes; an explicit unique index on the same column(s) as an existing UNIQUE constraint / unique index is redundant because the database already indexes those columns for uniqueness) — completes the UNIQUE-redundancy direction for unique indexes, symmetric to how index-redundant-with-unique covers regular indexes",
             .unindexable_type_indexed => "Index includes a column of type 'S' (unbounded text/CLOB) or 'B' (BLOB) — not directly indexable in all dialects (Oracle CLOB, MySQL TEXT require a prefix); prefer a bounded varchar/varbinary or a prefix index",
             .unsigned_overflow_risk => "Unsigned numeric column backs an auto-increment — in dialects lacking unsigned types (e.g. PostgreSQL) the column becomes signed, so an auto-increment that exceeds the signed range silently overflows/wraps. Prefer a dialect-agnostic signed type or a bigint with headroom",
+            .charset_collation_portability => "Schema pins a dialect-specific character set or collation at the '$ name charset' header (e.g. utf8mb4 or utf8mb4_0900_ai_ci) — MySQL-specific names have no equivalent in all six dialects (PostgreSQL, Oracle, DB2, SQLite differ); prefer a neutral utf8 or omit the charset and let each dialect default",
         };
     }
 
@@ -452,6 +456,7 @@ pub const LintRule = enum {
             .unique_index_redundant_with_unique => "warning",
             .unindexable_type_indexed => "warning",
             .unsigned_overflow_risk => "warning",
+            .charset_collation_portability => "warning",
         };
     }
 };

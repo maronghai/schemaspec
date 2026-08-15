@@ -1,3 +1,15 @@
+## [0.300.0] - 2026-08-15
+
+### Added
+- **`charset-collation-portability` lint rule** — warns when the schema pins a dialect-specific character set or collation at the `$ name charset` header (e.g. `utf8mb4` or the collation-style `utf8mb4_0900_ai_ci`). MySQL-specific charset names have no equivalent in all six dialects: PostgreSQL has no `utf8mb4`, Oracle/DB2 use different charset names, and SQLite ignores the hint — so it is a silent portability trap. The rule is non-fixable: the author should omit the charset (let each dialect default) or use a neutral `utf8`. 5 focused unit tests added (utf8mb4 fires; collation-style `utf8mb4_0900_ai_ci` fires; `latin1` fires; neutral `utf8` quiet; no charset quiet). Lint-rule count is now 83.
+
+### Changed
+- Refreshed lint-rule counts (82 → 83) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 83 → 84).
+- Synchronized version strings 0.299.0 → 0.300.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
+### Notes
+- `auto-increment-dialect-gap` (the remaining Phase-12 rule) is intentionally deferred: at the resolved-AST level `n++` and an explicit `auto_inc`+`pk` modifier collapse to the identical `.auto_inc_pk` representation, so the rule cannot distinguish the dialect-agnostic form from the dialect-specific one without an IR-side change. It is tracked as a language/IR extension.
+
 ## [0.299.0] - 2026-08-15
 
 ### Added

@@ -259,3 +259,49 @@ pub fn checkUnsignedOverflowRisk(alloc: std.mem.Allocator, results: *std.ArrayLi
         }
     }
 }
+
+/// `charset-collation-portability` — warns when the schema pins a dialect-specific
+/// character set (or collation) at the `$ name charset` header. The `.ss` language exposes
+/// a single `charset` token there (e.g. `$ myapp utf8mb4`). Pinning a MySQL-specific charset
+/// such as `utf8mb4` (or any collation-style value containing `_`, e.g. `utf8mb4_0900_ai_ci`)
+/// constrains portability: PostgreSQL has no `utf8mb4`, Oracle/DB2 use different charset names,
+/// and SQLite ignores it. Non-fixable: the author should omit the charset (let the target dialect
+/// default) or use a neutral `utf8`.
+pub fn checkCharsetCollationPortability(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    const charset = ast.schema_charset orelse return;
+    const schema = ast.schema_name orelse "";
+    // Collation-style values (contain an underscore, e.g. utf8mb4_0900_ai_ci) are always
+    // dialect-specific and have no portable equivalent across all six dialects.
+    if (std.mem.indexOf(u8, charset, "_") != null) {
+        const msg = try std.fmt.allocPrint(
+            alloc,
+            "schema character set '{s}' is a dialect-specific collation — it has no equivalent in all six dialects (PostgreSQL, Oracle, DB2, SQLite differ); prefer a neutral charset or omit it",
+            .{charset},
+        );
+        try results.append(alloc, .{
+            .rule = "charset-collation-portability",
+            .table = schema,
+            .message = msg,
+            .severity = .warning,
+        });
+        return;
+    }
+    // Curated list of MySQL-specific charset names that don't port across all six dialects.
+    const non_portable = [_][]const u8{ "utf8mb4", "latin1", "ucs2", "utf16", "utf16le", "utf16be", "utf32", "binary" };
+    for (non_portable) |cs| {
+        if (std.ascii.eqlIgnoreCase(charset, cs)) {
+            const msg = try std.fmt.allocPrint(
+                alloc,
+                "schema character set '{s}' is MySQL-specific — it has no equivalent in all six dialects (PostgreSQL, Oracle, DB2, SQLite differ); prefer a neutral utf8 or omit the charset",
+                .{charset},
+            );
+            try results.append(alloc, .{
+                .rule = "charset-collation-portability",
+                .table = schema,
+                .message = msg,
+                .severity = .warning,
+            });
+            return;
+        }
+    }
+}
