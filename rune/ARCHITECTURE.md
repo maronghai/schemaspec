@@ -486,7 +486,7 @@ zig build bench -- bench/large.ss 5         # large schema
 
 ## Lint Module
 
-The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 78 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
+The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs after semantic analysis and produces diagnostic results. Supports 79 rules, 11 auto-fixable, with `--show-rules` and `--init` for discoverability.
 
 ### Sub-modules
 
@@ -498,7 +498,7 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 | `lint/handlers/validation.zig` | ~300 | Validation rules: nullable-pk, enum-case, orphan-type, index-unused, circular-fk, bool-default, view-no-select, column-default-required, nullable-column-default, fk-null, duplicate-column, unique-constraint, composite-pk |
 | `lint/handlers/compat.zig` | ~80 | Compatibility rules: serial-type, column-length, cross-dialect-types, reserved-word, column-type-portability |
 | `lint/handlers/fk.zig` | ~120 | FK rules: fk-cascade, fk-self-reference, fk-depth, fk-duplicate, fk-column-type-mismatch, fk-on-delete-cascade |
-| `lint/handlers/index.zig` | ~95 | Index rules: duplicate-index, index-column-missing, index-missing-fk-columns, index-columns-max, index-redundant-with-pk, index-consistency-pass, unique-prefix-redundancy, unique-index-redundant-with-fk |
+| `lint/handlers/index.zig` | ~95 | Index rules: duplicate-index, index-column-missing, index-missing-fk-columns, index-columns-max, index-redundant-with-pk, index-consistency-pass, unique-prefix-redundancy, unique-index-redundant-with-fk, unique-index-redundant-with-pk |
 | `lint/handlers/view.zig` | ~80 | View rules: view-no-alias, view-naming, view-select-star, view-dependency-cycle |
 | `lint/handlers/enum.zig` | ~80 | Enum rules: enum-value-naming, enum-empty, enum-value-duplicate |
 | `lint/handlers/portability.zig` | ~60 | Portability rules: column-type-portability, reserved-word, column-auto-increment-type, column-auto-increment-nullable, table-no-index |
@@ -561,6 +561,7 @@ The lint module (`rune lint`) analyzes `.ss` schemas for quality issues. It runs
 | `index-redundant-with-pk` | Index duplicates the primary key columns | No |
 | `unique-prefix-redundancy` | Standalone unique index is a redundant leading-column prefix of a larger UNIQUE or PRIMARY-KEY index | No |
 | `unique-index-redundant-with-fk` | Standalone unique index duplicates the index auto-created for a foreign key column (completes the FK-redundancy direction for both regular and unique indexes) | No |
+| `unique-index-redundant-with-pk` | Standalone unique index duplicates the index auto-created for the primary key (completes the PK-redundancy direction for both regular and unique indexes; disjoint from `index-redundant-with-pk` by index kind) | No |
 | `view-dependency-cycle` | Views reference each other in a cycle | No |
 | `column-unique-nullable` | UNIQUE constraint on nullable column (multiple NULLs allowed) | No |
 | `fk-column-type-mismatch` | FK column type doesn't match referenced column type | No |

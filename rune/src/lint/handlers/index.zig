@@ -155,9 +155,9 @@ pub fn checkIndexRedundantWithPk(alloc: std.mem.Allocator, results: *std.ArrayLi
 
         if (pk_columns.items.len == 0) continue;
 
-        // Check each non-PK index
+        // Check each standalone (non-PK, non-unique) index
         for (table.indexes) |idx| {
-            if (idx.kind == .primary_key) continue;
+            if (idx.kind == .primary_key or idx.kind == .unique) continue;
             if (idx.fields.len != pk_columns.items.len) continue;
 
             var matches_pk = true;
@@ -301,6 +301,58 @@ pub fn checkUniqueIndexRedundantWithFk(alloc: std.mem.Allocator, results: *std.A
         }
     }
 }
+/// `unique-index-redundant-with-pk` — completes the PRIMARY-KEY redundancy direction of the index-redundancy
+/// family. `index-redundant-with-pk` only flags `regular` standalone indexes that duplicate the backing index a
+/// database auto-creates for the primary key; this rule closes the remaining `unique` direction. A standalone
+/// `unique` index over the PK columns is redundant because the database already creates a unique backing index
+/// for the primary key, and the explicit `unique` index duplicates that coverage. Non-fixable: the author must
+/// decide whether to drop the redundant index or the constraint. Disjoint from `index-redundant-with-pk` by
+/// index kind, so the two never double-flag the same index.
+pub fn checkUniqueIndexRedundantWithPk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Collect PK columns (mirrors checkIndexRedundantWithPk): inline PK fields
+        // plus any explicit primary_key index's fields, deduplicated.
+        var pk_columns = try std.ArrayList([]const u8).initCapacity(alloc, table.fields.len);
+        defer pk_columns.deinit(alloc);
+
+        for (table.fields) |field| {
+            if (validation.isPrimaryKey(field)) {
+                try pk_columns.append(alloc, field.name);
+            }
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key) {
+                for (idx.fields) |f| {
+                    var found = false;
+                    for (pk_columns.items) |pk| {
+                        if (std.mem.eql(u8, pk, f)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) try pk_columns.append(alloc, f);
+                }
+            }
+        }
+
+        if (pk_columns.items.len == 0) continue;
+
+        // Check each standalone UNIQUE index against the PK column set.
+        for (table.indexes) |idx| {
+            if (idx.kind != .unique) continue;
+            if (setEquals(idx.fields, pk_columns.items)) {
+                const msg = try std.fmt.allocPrint(alloc, "unique index '{s}' duplicates the index auto-created for the primary key", .{idx.name});
+                try results.append(alloc, .{
+                    .rule = "unique-index-redundant-with-pk",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+
 
 /// `index-redundant-with-unique` — warns when a standalone (regular) index duplicates the
 /// index a database auto-creates for a UNIQUE constraint. A UNIQUE modifier on a column

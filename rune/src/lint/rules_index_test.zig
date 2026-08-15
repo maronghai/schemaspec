@@ -305,6 +305,43 @@ test "lint: FK without standalone index passes" {
     try testing.expect(!th.findRule(results, "index-redundant-with-fk"));
 }
 
+// ─── unique-index-redundant-with-pk tests ────────────────────
+
+test "lint: unique index on PK columns triggers unique-index-redundant-with-pk" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id") }, &.{th.makeIndex("uniq_id", .unique, &.{"id"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // The unique index duplicates the PK backing index, so the new PK-unique rule fires...
+    try testing.expect(th.findRule(results, "unique-index-redundant-with-pk"));
+    // ...but the regular-only sibling must NOT also fire (the two are disjoint by index kind).
+    try testing.expect(!th.findRule(results, "index-redundant-with-pk"));
+}
+
+test "lint: regular index on PK columns does not trigger unique-index-redundant-with-pk" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id") }, &.{th.makeIndex("idx_id", .regular, &.{"id"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // A regular index on the PK columns belongs to index-redundant-with-pk, not the unique-only rule.
+    try testing.expect(!th.findRule(results, "unique-index-redundant-with-pk"));
+    try testing.expect(th.findRule(results, "index-redundant-with-pk"));
+}
+
+test "lint: unique index on non-PK columns does not trigger unique-index-redundant-with-pk" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{th.makeIndex("uniq_name", .unique, &.{"name"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unique-index-redundant-with-pk"));
+}
+
 // ─── index-redundant-with-unique tests ──────────────────────
 
 test "lint: regular index on UNIQUE column detected as redundant" {
@@ -497,8 +534,10 @@ test "lint: unique-prefix-redundancy — exact PK duplicate handled by sibling, 
     const table = try th.makeTestTable(alloc, "rows", &.{ a, b }, &.{th.makeIndex("uniq_pk", .unique, &.{"tenant_id", "id"})});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
-    // Exact match belongs to index-redundant-with-pk, not the prefix rule.
-    try testing.expect(th.findRule(results, "index-redundant-with-pk"));
+    // Exact match belongs to unique-index-redundant-with-pk (the unique-direction sibling of
+    // index-redundant-with-pk), not the prefix rule nor the regular-only index-redundant-with-pk.
+    try testing.expect(th.findRule(results, "unique-index-redundant-with-pk"));
+    try testing.expect(!th.findRule(results, "index-redundant-with-pk"));
     try testing.expect(!th.findRule(results, "unique-prefix-redundancy"));
 }
 

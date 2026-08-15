@@ -14,6 +14,23 @@
 ### Benchmarks
 - Per-stage pipeline timings unchanged; `zig build bench -- --check` passes (no regressions beyond 10%). The lint change cannot affect the forward codegen pipeline.
 
+## [0.296.0] - 2026-08-15
+
+### Added
+- **`unique-index-redundant-with-pk` lint rule** — completes the PRIMARY-KEY redundancy direction of the index-redundancy family: a standalone `unique` index that duplicates the index a database auto-creates for the primary key now warns. The existing `index-redundant-with-pk` family member only flags `regular` indexes; the new rule is disjoint by index kind (a given index is flagged by at most one of the two), so there is no double-flagging. This carries PK-redundancy coverage from "regular only" toward complete index-kind coverage for the primary key and completes the (PK, FK, UNIQUE) × (regular, unique) index-redundancy symmetry grid. Lint-rule count is now 79.
+- **Lint rule tests** — added 3 focused unit tests for `unique-index-redundant-with-pk`: a `unique` index on the PK columns fires the new rule and does **not** also fire `index-redundant-with-pk`; a `regular` index on the PK columns stays with `index-redundant-with-pk` (negative for the new rule); a `unique` index on a non-PK column is quiet. Also updated 1 existing test (the exact-PK-duplicate `unique` index now asserts `unique-index-redundant-with-pk` instead of `index-redundant-with-pk`). Unit-test count is 1,995+.
+
+### Changed
+- **`index-redundant-with-pk` realignment** — the rule now only flags `regular` (and `fulltext`) indexes that duplicate the primary-key backing index, mirroring its `index-redundant-with-fk` sibling (which skips `unique`). The `unique` PK-redundancy direction is owned by the new `unique-index-redundant-with-pk` rule, keeping the two disjoint by index kind with no overlap.
+- **Documentation sync** — bumped the lint-rule count (78 → 79) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and the architecture-health test comment (sanity upper bound relaxed 79 → 80). Added `unique-index-redundant-with-pk` to the `lint/handlers/index.zig` module description and the lint-rules table in `rune/ARCHITECTURE.md`.
+- **Version sync** — synchronized version strings 0.295.0 → 0.296.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and the packaging manifests (npm, scoop, homebrew, vscode).
+
+### Fixed
+- _(none)_
+
+### Benchmarks
+- Per-stage pipeline timings unchanged; `zig build bench -- --check` passes (no regressions beyond 10%). The lint change cannot affect the forward codegen pipeline.
+
 ## [0.294.0] - 2026-08-15
 
 ### Added

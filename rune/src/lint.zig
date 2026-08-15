@@ -1,7 +1,7 @@
 // ─── Lint: Re-export Barrel ─────────────────────────────────────
 //
 // Split from the original 1017-line monolith into focused modules:
-//   lint/rules.zig        — individual lint rule implementations (78 rules)
+//   lint/rules.zig        — individual lint rule implementations (79 rules)
 //   lint/format.zig       — text/JSON/SARIF output formatters
 //   lint/config.zig       — LintConfig, TOML config parsing, apply
 //   lint/fix.zig          — auto-fix orchestrator (line-by-line dispatch)
