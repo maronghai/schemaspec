@@ -182,3 +182,5 @@ rune/type.md         # Type system reference (symbols, dialects, custom types)
 - **Memory model**: Arena-style allocator per command lifetime
 - **Tests**: All changes must pass `zig build` + `zig build test`
 - **New dialects**: Add `dialect/<name>.zig` (~200 lines, self-contained type mapping)
+
+**Generator / dialect coverage:** See [`docs/coverage-matrix.md`](../../docs/coverage-matrix.md) for the authoritative matrix of which `rune generate` generators support which SQL dialects (12 generators × 6 dialects, derived from `generator.zig`'s `REGISTRY`).

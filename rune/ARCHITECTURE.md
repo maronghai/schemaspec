@@ -43,7 +43,7 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 **Key modules**:
 - `sql_type.zig`: `SqlType` union with `toSql()` delegating to `DialectBackend.renderType`. Variants: int, bigint, smallint, decimal, varchar, text, blob, json, jsonb, datetime, date, timestamptz, boolean, uuid, inet, serial, enum_values, raw_sql, passthrough. `toJsonSchema()` for JSON Schema output.
 - `type_registry.zig`: SS symbol → `SqlType` mapping (`lookupCustomType`, `lookupSqlTypeDirect`), reverse lookup, and symbol classification helpers (`isNumericSymType`, `isDatetimeSymType`). 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
-- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (52+ entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
+- `types/reverse_map.zig`: Shared `REVERSE_MAP` data (111 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
 ### Extracted Sub-Modules
 
@@ -209,7 +209,9 @@ The diff/migrate pipeline has two layers:
 
 ## DialectBackend Vtable
 
-26 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`) + 1 capability field for dialect-specific SQL generation (33+ dispatch points). `getBackend()` returns `*const DialectBackend` (pointer to static const, avoids 136-byte copy on every call).
+32 function pointers (25 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) for dialect-specific SQL generation (36 fields total). `getBackend()` returns `*const DialectBackend` (pointer to static const, avoids 136-by
+
+> **Generator / dialect coverage matrix** (single source of truth): see [`docs/coverage-matrix.md`](../../docs/coverage-matrix.md).te copy on every call).
 
 ```zig
 DialectBackend = struct {
@@ -353,13 +355,13 @@ Rune uses a three-layer type mapping system:
   - `lookupSqlType(sym, dialect)` → `?[]const u8` (SQL name string, for backward compat)
   - `lookupSqlTypeDirect(sym, dialect)` → `?SqlType` (direct variant, avoids stringly-typed round-trip)
 
-- **`reverse_map.zig` (REVERSE_MAP)**: ~59 entries covering all SQL type variants → SS symbols across 6 dialects (MySQL, PG, SQLite, MSSQL, Oracle, Db2). Used by `reverseLookup()` and `reverseLookupSqlite()`. Includes core entries (for SQLite lossy affinity) plus MySQL/PG variant types, Oracle-specific types (`VARCHAR2(N)`, `NUMBER(P,S)`), Db2-specific types (`DECIMAL(P,S)`), and PostgreSQL-specific passthrough types (xml, cidr, macaddr). Case-insensitive parameterized type matching via `matchPrefix` helper.
+- **`reverse_map.zig` (REVERSE_MAP)**: 111 entries covering all SQL type variants → SS symbols across 6 dialects (MySQL, PG, SQLite, MSSQL, Oracle, Db2). Used by `reverseLookup()` and `reverseLookupSqlite()`. Includes core entries (for SQLite lossy affinity) plus MySQL/PG variant types, Oracle-specific types (`VARCHAR2(N)`, `NUMBER(P,S)`), Db2-specific types (`DECIMAL(P,S)`), and PostgreSQL-specific passthrough types (xml, cidr, macaddr). Case-insensitive parameterized type matching via `matchPrefix` helper.
 
 ## Key Design Decisions
 
 1. **TypedAst IR layer**: Separates type resolution from code generation. Codegen only outputs strings — no type inference logic.
 2. **TypeResolver namespace**: Stateless functions (`TypeResolver.resolve`, `TypeResolver.resolveColumn`) that take `Allocator` directly. No struct instantiation — eliminates `init` boilerplate and per-loop allocation overhead in migrate.zig.
-3. **DialectBackend vtable**: 26 required + 7 optional function pointers + 3 behavioral flags + 1 data field (`quoteChar`) cover all dialect differences. Adding a new dialect requires ~300 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect/common.zig:emitForeignKeyShared`.
+3. **DialectBackend vtable**: 32 function pointers (25 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`) cover all dialect differences. Adding a new dialect requires ~300 lines. codegen.zig is fully dialect-agnostic (zero `switch(dialect)` in production code). FK rendering is shared via `dialect/common.zig:emitForeignKeyShared`.
 4. **CompileConfig struct**: Replaces 13 positional parameters in `handleCompileRequest`. All fields have named defaults; callers specify only what they need. Improves readability and reduces parameter-ordering bugs.
 5. **Self-contained SqlType**: `SqlType.toSql()` delegates to `DialectBackend.renderType`. Adding a new type = add variant to union + add case to all `renderType` implementations + add to `type_registry.zig`. SS symbol naming: lowercase for core types (n, s, b, j, d, t), uppercase for variants (N, M, S, B, T, U, i, p). Unsigned uses `+` prefix (`+n`, `+N`, `+i`).
 6. **Direct type lookup**: `type_registry.lookupSqlTypeDirect()` returns `SqlType` variants directly, avoiding the stringly-typed round-trip (SS symbol → SQL string → SqlType).

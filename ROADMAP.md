@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.301.0 (2026-08-15) — 67,100+ lines production Zig, 1,995+ tests, 83 lint rules, 38 test suites.
+**Current version**: 0.302.0 (2026-08-15) — 70,100+ lines of Zig (45,300+ production + 24,400+ tests across 327 `.zig` files), 2,018+ unit tests, 83 lint rules, 34 golden test suites.
 
 ---
 
@@ -30,7 +30,7 @@ Multi-error recovery, partial schema compilation, cycle detection, FK validation
 
 Added all 6 SQL dialect backends. Shipped v0.48–v0.76.
 
-MySQL, PostgreSQL, SQLite, MSSQL, Oracle, IBM Db2. DialectBackend vtable (33 function pointers), 12 capability flags, shared helpers, dialect-specific test suites (470+ golden tests), dialect-aware reverse engineering, dialect auto-detection, and shared reverse mapping data (52+ entries).
+MySQL, PostgreSQL, SQLite, MSSQL, Oracle, IBM Db2. DialectBackend vtable (32 function pointers — 25 required + 7 optional — plus 3 behavioral flags), shared helpers, dialect-specific test suites (470+ golden tests), dialect-aware reverse engineering, dialect auto-detection, and shared reverse mapping data (111 entries).
 
 ### Phase 3: ORM & API Schema Output ✅
 
@@ -213,11 +213,11 @@ The core language, pipeline, dialect, generator, and lint-symmetry work (Phases 
 
 ## Phase 13: Documentation & Spec Completeness 🔲
 
-Close the gap between the implemented language and its specification/reference docs. **In progress — 1/3 items done.**
+Close the gap between the implemented language and its specification/reference docs. **Complete — 3/3 items done.**
 
 - [x] `@version` directive spec — document the schema-version directive (shipped v0.237.0) in `rune/schema.md`, `rune/type.md`, and `rune/grammar.ebnf`; previously undocumented in all three spec files (v0.301.0)
-- [ ] `rune/ARCHITECTURE.md` pipeline line-count refresh — re-verify per-module LOC claims against the current source tree
-- [ ] Generator/ dialect coverage tables — add a single-source-of-truth coverage matrix referenced by all docs
+- [x] `rune/ARCHITECTURE.md` pipeline line-count refresh — re-verify per-module LOC claims against the current source tree (v0.302.0)
+- [x] Generator/ dialect coverage tables — add a single-source-of-truth coverage matrix referenced by all docs (`docs/coverage-matrix.md`, derived from `generator.zig` `REGISTRY`; referenced from CLAUDE.md, README.md, rune/README.md, rune/ARCHITECTURE.md) (v0.302.0)
 
 ## Architecture Targets
 
@@ -296,7 +296,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | Phase 12: Cross-Dialect Portability Linting | 🔲 In Progress | 3/4 | 1 |
 | Architecture Targets | 🔲 In Progress | 21/22 | 1 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
-| **Total** | | **134/148** | **14** |
+| Phase 13: Documentation & Spec Completeness | ✅ Complete | 3/3 | 0 |
+| **Total** | | **136/148** | **12** |
 
 ---
 
@@ -343,6 +344,8 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+- **v0.302.0** — Documentation & Spec Completeness (Phase 13, complete): closed the last two open Phase-13 items and swept verified doc-accuracy drift. (1) Re-verified `rune/ARCHITECTURE.md` per-module LOC/metric claims against the live source tree; corrected the `DialectBackend` vtable description from the wrong "26 required + 7 optional + 1 capability field (33+ dispatch points)" to the actual **32 function pointers (25 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`)** (verified in `dialect/dialect.zig`: 32 fn-pointer fields + 4 data fields). (2) Added a single-source-of-truth **generator/dialect coverage matrix** in `docs/coverage-matrix.md` (12 generators x 6 dialects, derived from `generator.zig` `REGISTRY`) and referenced it from `CLAUDE.md`, `README.md`, `rune/README.md`, and `rune/ARCHITECTURE.md`. Also corrected three stale numeric claims: `REVERSE_MAP` entry count "52+"/"~59" -> **111** (verified: 111 `rev("...")` entries in `types/reverse_map.zig`) in `CLAUDE.md`/`rune/ARCHITECTURE.md`/`ROADMAP.md`; `ROADMAP` Phase-2 "33 function pointers, 12 capability flags" -> "32 function pointers (25 required + 7 optional), 3 behavioral flags"; and the header "67,100+ lines production Zig" -> accurate "70,100+ lines of Zig (45,700+ production + 24,400+ tests across 327 files)". Zero engine/parser/IR changes - documentation-only; 2,018 unit tests pass, benchmarks show no regressions; synchronized version strings 0.301.0 -> 0.302.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode)
 
 - **v0.301.0** — Language spec completeness: documented the `@version X.Y.Z` schema-version directive (shipped v0.237.0) in all three language spec files — `rune/schema.md` (new "Schema Versioning" subsection), `rune/type.md` (cross-reference note), and `rune/grammar.ebnf` (new `version_decl` rule). The directive was fully implemented and emitted as a `-- Schema version: X.Y.Z` SQL comment for all six dialects, but had never been documented in the spec; a grep of the spec files returned 0 mentions. Zero engine/parser/IR changes — documentation-only, fully verified against the existing `tests/90-version.ss` golden. Synchronized version strings 0.300.0 → 0.301.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 2,018 unit tests pass, benchmarks show no regressions
 - **v0.300.0** — Cross-dialect portability linting (Phase 12, rule 3/4): added 1 new non-fixable lint rule — `charset-collation-portability` warns when the schema pins a dialect-specific character set or collation at the `$ name charset` header (e.g. `utf8mb4` or the collation-style `utf8mb4_0900_ai_ci`), which has no equivalent in all six dialects (PostgreSQL has no `utf8mb4`, Oracle/DB2 use different charset names, SQLite ignores it) — a silent portability trap. Non-fixable: the author should omit the charset (let each dialect default) or use a neutral `utf8`. 83 lint rules total; added 5 focused unit tests (utf8mb4 fires; collation-style `utf8mb4_0900_ai_ci` fires; `latin1` fires; neutral `utf8` quiet; no charset quiet); refreshed lint-rule counts (82 → 83) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 83 → 84); synchronized version strings 0.299.0 → 0.300.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,995+ unit tests pass, benchmarks show no regressions

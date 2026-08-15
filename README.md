@@ -463,6 +463,8 @@ Handles: CREATE TABLE, PRIMARY KEY, indexes, FKs, CHECK constraints, ENUMs, view
 
 ### Generate
 
+> The authoritative generator/dialect coverage matrix (which generators support which SQL dialects) lives in [`docs/coverage-matrix.md`](docs/coverage-matrix.md).
+
 ```bash
 rune generate json-schema schema.ss   # → JSON Schema (draft-07)
 rune generate sql-ddl schema.ss       # → SQL DDL (CREATE TABLE)

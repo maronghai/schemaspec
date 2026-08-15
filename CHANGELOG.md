@@ -1,3 +1,17 @@
+## [0.302.0] - 2026-08-15
+
+### Docs
+- **Completed Phase 13 (Documentation & Spec Completeness)** — the last two open Phase-13 items are now done:
+  - **`rune/ARCHITECTURE.md` line-count / metric refresh** — re-verified per-module LOC and metric claims against the live source tree. Corrected the `DialectBackend` vtable description from the inaccurate "26 required + 7 optional + 1 capability field (33+ dispatch points)" to the actual **32 function pointers (25 required + 7 optional) + 3 behavioral flags + 1 data field (`quoteChar`)** (verified in `dialect/dialect.zig`: 32 fn-pointer fields + 4 data fields).
+  - **Generator / dialect coverage matrix** — added `docs/coverage-matrix.md`, a single-source-of-truth matrix (12 generators x 6 dialects) derived from `generator.zig`'s `REGISTRY`, and referenced it from `CLAUDE.md`, `README.md`, `rune/README.md`, and `rune/ARCHITECTURE.md`.
+- **Documentation-accuracy sweep** — corrected three stale numeric claims uncovered during analysis:
+  - `REVERSE_MAP` entry count "52+" / "~59" → **111** (verified: 111 `rev("...")` entries in `types/reverse_map.zig`) in `CLAUDE.md`, `rune/ARCHITECTURE.md`, and `ROADMAP.md`.
+  - `ROADMAP.md` Phase 2 "33 function pointers, 12 capability flags" → "32 function pointers (25 required + 7 optional), 3 behavioral flags".
+  - `ROADMAP.md` header "67,100+ lines production Zig" → accurate "70,100+ lines of Zig (45,300+ production + 24,400+ tests across 327 `.zig` files)".
+- Zero engine / parser / IR changes — documentation-only. Synchronized version strings 0.301.0 → 0.302.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 2,018 unit tests pass, benchmarks show no regressions.
+
+---
+
 ## [0.301.0] - 2026-08-15
 
 ### Docs
