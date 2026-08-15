@@ -223,3 +223,39 @@ pub fn checkIndexMissingFkColumns(alloc: std.mem.Allocator, results: *std.ArrayL
         }
     }
 }
+
+/// `unsigned-overflow-risk` — warns when an `unsigned` numeric column backs an auto-increment
+/// whose values can exceed the signed range in dialects that lack unsigned integer types
+/// (e.g. PostgreSQL, where `unsigned` is silently dropped and the column becomes signed). An
+/// `AUTO_INCREMENT`/`SERIAL` on a `BIGINT UNSIGNED` can reach ~1.8e19 while a signed 64-bit column
+/// tops out at ~9.2e18; the extra half of the range wraps/overflows on a dialect that maps it to a
+/// signed type. Non-fixable: the author must pick a dialect-agnostic type (e.g. `N++`/`n++` bigint
+/// with headroom) or drop `unsigned` where portability matters.
+pub fn checkUnsignedOverflowRisk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Only numeric columns can carry this risk.
+            if (!field.type_info.isNumeric()) continue;
+
+            var is_unsigned = false;
+            var is_auto_inc = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .unsigned) is_unsigned = true;
+                if (mod.kind == .auto_inc or mod.kind == .auto_inc_pk) is_auto_inc = true;
+            }
+            if (!is_unsigned or !is_auto_inc) continue;
+
+            const msg = try std.fmt.allocPrint(
+                alloc,
+                "column '{s}' is unsigned and auto-increment — in dialects without unsigned types (e.g. PostgreSQL) it becomes signed, so values above the signed range silently overflow",
+                .{field.name},
+            );
+            try results.append(alloc, .{
+                .rule = "unsigned-overflow-risk",
+                .table = table.name,
+                .message = msg,
+                .severity = .warning,
+            });
+        }
+    }
+}

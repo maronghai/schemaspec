@@ -1,3 +1,13 @@
+## [0.299.0] - 2026-08-15
+
+### Added
+- **`unsigned-overflow-risk` lint rule** — warns when an `unsigned` numeric column backs an auto-increment that can exceed the signed range in dialects lacking unsigned types (e.g. PostgreSQL, where the `unsigned` attribute is dropped and the column becomes signed). An unsigned 64-bit auto-increment reaches ~1.8e19 while a signed 64-bit column tops out at ~9.2e18, so the upper half of the range wraps/overflows on a dialect that maps it to a signed type. The rule is non-fixable: the author must pick a dialect-agnostic type (e.g. `N++`/`n++` bigint with headroom) or drop `unsigned` where portability matters. Lint-rule count is now 82.
+- **Lint rule tests** — added 4 focused unit tests for `unsigned-overflow-risk`: an unsigned + auto-increment numeric column fires; an unsigned column without auto-increment is quiet; an auto-increment column without `unsigned` is quiet; an unsigned + auto-increment non-numeric column is quiet.
+
+### Changed
+- Refreshed lint-rule counts (81 → 82) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 82 → 83).
+- Synchronized version strings 0.298.0 → 0.299.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.298.0] - 2026-08-15
 
 ### Added

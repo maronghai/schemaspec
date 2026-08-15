@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.298.0 (2026-08-15) — 67,100+ lines production Zig, 1,995+ tests, 81 lint rules, 38 test suites.
+**Current version**: 0.299.0 (2026-08-15) — 67,100+ lines production Zig, 1,995+ tests, 82 lint rules, 38 test suites.
 
 ---
 
@@ -202,10 +202,10 @@ Carry the remaining open items from Phases 6–8 and the Architecture Targets fo
 
 ## Phase 12: Cross-Dialect Portability Linting 🔲
 
-Extend the lint suite to catch schema constructs that compile fine in one dialect but break or silently degrade in another, exercising the same open-closed `LintRule` + `RULES` dispatch architecture used by Phases 10–11. **Status: 1/4 done.**
+Extend the lint suite to catch schema constructs that compile fine in one dialect but break or silently degrade in another, exercising the same open-closed `LintRule` + `RULES` dispatch architecture used by Phases 10–11. **Status: 2/4 done.**
 
 - [x] `unindexable-type-indexed` (completed v0.298.0) — warn when an index (regular, unique, or primary key) includes a column of type `S` (unbounded text → CLOB) or `B` (BLOB), which cannot be directly indexed in several dialects (Oracle CLOB/BLOB, MySQL TEXT/BLOB prefix-length requirement). Non-fixable: the author must switch to a bounded `varchar`/`varbinary` or a prefix/virtual column.
-- [ ] `unsigned-overflow-risk` — warn when an `unsigned` numeric column backs an auto-increment that can exceed the signed range in dialects lacking unsigned (e.g. PostgreSQL), a cross-dialect overflow trap.
+- [x] `unsigned-overflow-risk` (completed v0.299.0) — warn when an `unsigned` numeric column backs an auto-increment that can exceed the signed range in dialects lacking unsigned types (e.g. PostgreSQL, where the `unsigned` attribute is dropped and the column becomes signed). An unsigned 64-bit auto-increment reaches ~1.8e19 while a signed 64-bit column tops out at ~9.2e18, so the upper half of the range wraps/overflows on a dialect that maps it to a signed type. Non-fixable: the author must pick a dialect-agnostic type (e.g. `N++`/`n++` bigint with headroom) or drop `unsigned` where portability matters.
 - [ ] `charset-collation-portability` — warn when a table/column pins a dialect-specific charset or collation (e.g. `utf8mb4_0900_ai_ci`) that has no equivalent in all six dialects.
 - [ ] `auto-increment-dialect-gap` — warn when an auto-increment primary key is used without an explicit dialect-agnostic `p`/`n++` choice that maps safely under Oracle/DB2 sequences.
 
@@ -285,9 +285,10 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 8: Language Evolution | 🔲 In Progress | 4/9 | 5 |
 | 9: Extensibility & Plugin Foundation | ✅ Complete | 2/2 | 0 |
 | Phase 10: Lint Rule Hardening & Symmetry | ✅ Complete | 12/12 | 0 |
+| Phase 12: Cross-Dialect Portability Linting | 🔲 In Progress | 2/4 | 2 |
 | Architecture Targets | 🔲 In Progress | 21/22 | 1 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
-| **Total** | | **131/144** | **13** |
+| **Total** | | **133/148** | **15** |
 
 ---
 
@@ -334,6 +335,8 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+- **v0.299.0** — Cross-dialect portability linting (Phase 12, rule 2/4): added 1 new non-fixable lint rule — `unsigned-overflow-risk` warns when an `unsigned` numeric column backs an auto-increment that can exceed the signed range in dialects lacking unsigned types (e.g. PostgreSQL, where `unsigned` is dropped and the column becomes signed), a cross-dialect overflow trap. Non-fixable: the author must pick a dialect-agnostic type (e.g. `N++`/`n++` bigint with headroom) or drop `unsigned`. 82 lint rules total; added 4 focused unit tests (unsigned+auto-increment numeric fires; unsigned-without-auto-increment quiet; auto-increment-without-unsigned quiet; unsigned+auto-increment non-numeric quiet); refreshed lint-rule counts (81 → 82) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 82 → 83); synchronized version strings 0.298.0 → 0.299.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,995+ unit tests pass, benchmarks show no regressions
 
 - **v0.295.0** — Lint-rule symmetry & FK-redundancy completion: extended the index-redundancy family to complete the FK-redundancy direction for both `regular` and `unique` indexes. Added 1 new non-fixable lint rule — `unique-index-redundant-with-fk` warns when a standalone `unique` index duplicates the index a database auto-creates for a foreign-key column (the `index-redundant-with-fk` family member only flags `regular` indexes; the two are disjoint by index kind, so no rule double-flags the same index), completing the referential-integrity redundancy coverage for FK columns; 78 lint rules total; added 3 focused unit tests (unique index on a FK column fires `unique-index-redundant-with-fk` and not `index-redundant-with-fk`; a `regular` index on a FK column stays with `index-redundant-with-fk`; a `unique` index on a non-FK column is quiet); refreshed lint-rule counts (77 → 78) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 78 → 79); synchronized version strings 0.294.0 → 0.295.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,995+ unit tests pass, benchmarks show no regressions
 - **v0.296.0** — Lint-rule symmetry & PK-redundancy completion: extended the index-redundancy family to complete the PRIMARY-KEY redundancy direction for `unique` indexes. Added 1 new non-fixable lint rule — `unique-index-redundant-with-pk` warns when a standalone `unique` index duplicates the index a database auto-creates for the primary key (the `index-redundant-with-pk` family member only flags `regular` indexes; the two are disjoint by index kind, so no rule double-flags the same index), completing the (PK, FK, UNIQUE) × (regular, unique) index-redundancy symmetry grid. Realigned `index-redundant-with-pk` to only flag `regular` (and `fulltext`) indexes — matching its `index-redundant-with-fk` sibling — so the `unique` PK direction is owned by the new rule without any overlap. 79 lint rules total; added 3 focused unit tests (unique index on PK columns fires `unique-index-redundant-with-pk` and not `index-redundant-with-pk`; a `regular` index on PK columns stays with `index-redundant-with-pk`; a `unique` index on a non-PK column is quiet) and updated 1 existing test (the exact-PK-duplicate unique index now asserts `unique-index-redundant-with-pk` instead of `index-redundant-with-pk`); refreshed lint-rule counts (78 → 79) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 79 → 80); synchronized version strings 0.295.0 → 0.296.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,995+ unit tests pass, benchmarks show no regressions

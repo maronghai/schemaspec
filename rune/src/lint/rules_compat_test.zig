@@ -124,3 +124,47 @@ test "lint: portable types pass" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), cfg);
     try testing.expect(!th.findRule(results, "column-type-portability"));
 }
+
+test "lint: unsigned-overflow-risk positive (unsigned + auto-increment numeric)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const id = th.makeField("id", .{ .simple = "N" }, &.{ .{ .kind = .unsigned, .line_no = 1 }, .{ .kind = .auto_inc, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "widgets", &.{id}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "unsigned-overflow-risk"));
+}
+
+test "lint: unsigned-overflow-risk negative (unsigned but not auto-increment)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const col = th.makeField("balance", .{ .simple = "N" }, &.{ .{ .kind = .unsigned, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "accounts", &.{ th.makePkField("id"), col }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unsigned-overflow-risk"));
+}
+
+test "lint: unsigned-overflow-risk negative (auto-increment but not unsigned)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const id = th.makeField("id", .{ .simple = "N" }, &.{ .{ .kind = .auto_inc, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "widgets", &.{id}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unsigned-overflow-risk"));
+}
+
+test "lint: unsigned-overflow-risk negative (unsigned + auto-increment but non-numeric)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const col = th.makeField("flag", .{ .simple = "b" }, &.{ .{ .kind = .unsigned, .line_no = 1 }, .{ .kind = .auto_inc, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "widgets", &.{ th.makePkField("id"), col }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unsigned-overflow-risk"));
+}
