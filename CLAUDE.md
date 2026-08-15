@@ -63,6 +63,14 @@ bash tests/test_color.sh            # Color output (5 tests)
 bash tests/test_validate.sh         # Validate command (4 tests)
 bash tests/test_stats_json.sh       # Stats JSON output (3 tests)
 bash tests/test_format.sh           # Formatter golden tests (10 tests)
+bash tests/test_conditionals.sh     # Conditional schema blocks @if(dialect=) (6 tests)
+bash tests/test_graphql.sh          # GraphQL generator (4 tests)
+bash tests/test_knex.sh             # Knex generator (2 tests)
+bash tests/test_lint.sh             # Lint command golden tests (12 tests)
+bash tests/test_openapi.sh          # OpenAPI generator (3 tests)
+bash tests/test_reverse_mssql.sh    # MSSQL reverse engineering (3 tests)
+bash tests/test_sqlalchemy.sh       # SQLAlchemy generator (2 tests)
+bash tests/test_typeorm.sh          # TypeORM generator (2 tests)
 bash tests/test_coverage.sh         # Full test suite runner (all 25 suites)
 ```
 
@@ -398,7 +406,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 118 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 119 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 30 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

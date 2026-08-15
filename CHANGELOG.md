@@ -1,3 +1,12 @@
+## [0.303.0] - 2026-08-16
+
+### Docs
+- **Documentation Accuracy & Golden-Suite Inventory Re-Sync** — corrected headline metrics that had drifted from the live source tree and closed a gap in the golden-suite inventory:
+  - **ROADMAP header LOC fix** — `70,100+ lines of Zig` → **`69,800+ lines of Zig`** (verified 69,803 total = 45,365 production + 24,438 tests across 327 `.zig` files); unit-test floor `2,018+` → **`2,030+`** (verified 2,032 `test "…"` declarations).
+  - **Colocated test-file count** — `118` → **`119`** in `CLAUDE.md`, `rune/README.md`, and `rune/ARCHITECTURE.md` (verified: 119 `_test.zig` files).
+  - **Golden-suite inventory** — added the 8 real golden suites missing from `CLAUDE.md`'s "Golden File Tests" list (`test_conditionals.sh`, `test_graphql.sh`, `test_knex.sh`, `test_lint.sh`, `test_openapi.sh`, `test_reverse_mssql.sh`, `test_sqlalchemy.sh`, `test_typeorm.sh`), bringing it to 34 and matching the ROADMAP `34 golden test suites` metric (which was already correct: 38 `.sh` − 2 lib helpers − `fuzz.sh` − `test_bench.sh` = 34).
+- **Zero engine / parser / IR changes — documentation-only.** Synchronized version strings 0.302.0 → 0.303.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.302.0] - 2026-08-15
 
 ### Docs
