@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.294.0 (2026-08-15) — 67,100+ lines production Zig, 1,995+ tests, 77 lint rules, 38 test suites.
+**Current version**: 0.295.0 (2026-08-15) — 67,100+ lines production Zig, 1,995+ tests, 78 lint rules, 38 test suites.
 
 ---
 
@@ -173,7 +173,9 @@ snake_case naming), or expands an existing rule's type-category coverage.
 
 - [x] `unique-prefix-redundancy` (completed v0.294.0) — extended the redundant-prefix detection added in `index-consistency-pass` to also fire for `unique` indexes that are non-trailing *prefixes* of a larger UNIQUE or PRIMARY-KEY index (a redundant leading-column unique index), completing the prefix-direction coverage for UNIQUE as well as regular indexes. Carries index redundancy from "prefix of PK/FK/UNIQUE" toward complete leading-column coverage.
 
-- [ ] `unique-index-redundant-with-fk` (next symmetry candidate, target 0.295.0) — extend `index-redundant-with-fk` to also fire for `unique` indexes that duplicate the index auto-created for a foreign-key column (the FK family currently only flags `regular` indexes), completing the FK-redundancy direction for both regular and unique indexes. Carries referential-integrity redundancy from "regular only" toward complete index-kind coverage.
+- [x] `unique-index-redundant-with-fk` (completed v0.295.0) — extend the FK-redundancy direction to `unique` indexes: a standalone `unique` index that duplicates the index auto-created for a foreign-key column now warns (the `index-redundant-with-fk` family member only flags `regular` indexes), completing the FK-redundancy direction for both `regular` and `unique` indexes. Carries referential-integrity redundancy from "regular only" toward complete index-kind coverage.
+
+- [ ] `unique-index-redundant-with-pk` (next symmetry candidate, target 0.296.0) — complete the PRIMARY-KEY redundancy direction for `unique` indexes: a standalone `unique` index that duplicates the backing index a database auto-creates for the PRIMARY KEY (exact column-set match) now warns, symmetric to how `index-redundant-with-pk` covers `regular` indexes and `unique-index-redundant-with-fk` now covers FK. Carries index-redundancy symmetry from "regular+FK" toward complete (PK, FK, UNIQUE) × (regular, unique) kind coverage.
 
 
 ---
@@ -300,6 +302,8 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+
+- **v0.295.0** — Lint-rule symmetry & FK-redundancy completion: extended the index-redundancy family to complete the FK-redundancy direction for both `regular` and `unique` indexes. Added 1 new non-fixable lint rule — `unique-index-redundant-with-fk` warns when a standalone `unique` index duplicates the index a database auto-creates for a foreign-key column (the `index-redundant-with-fk` family member only flags `regular` indexes; the two are disjoint by index kind, so no rule double-flags the same index), completing the referential-integrity redundancy coverage for FK columns; 78 lint rules total; added 3 focused unit tests (unique index on a FK column fires `unique-index-redundant-with-fk` and not `index-redundant-with-fk`; a `regular` index on a FK column stays with `index-redundant-with-fk`; a `unique` index on a non-FK column is quiet); refreshed lint-rule counts (77 → 78) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 78 → 79); synchronized version strings 0.294.0 → 0.295.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,995+ unit tests pass, benchmarks show no regressions
 
 - **v0.294.0** — Lint-rule symmetry & prefix-direction completion: extended the index-redundancy family to complete prefix-direction coverage for `unique` as well as `regular` indexes. Added 1 new non-fixable lint rule — `unique-prefix-redundancy` warns when a standalone `unique` index is a non-trailing *prefix* of a larger UNIQUE or PRIMARY-KEY index (a redundant leading-column unique index — its leading column(s) are already covered by the larger index's backing index), completing the prefix-direction coverage alongside `index-consistency-pass`; 77 lint rules total; added 5 focused unit tests (unique-index prefix-of-composite-PK positive + negative, unique-index prefix-of-larger-UNIQUE positive, unique-index-not-a-prefix negative, exact-PK-duplicate handled by the sibling rule, unique-index-on-inline-unique handled by the sibling rule); refreshed lint-rule counts (76 → 77) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 77 → 78); synchronized version strings 0.293.0 → 0.294.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,995+ unit tests pass, benchmarks show no regressions
 

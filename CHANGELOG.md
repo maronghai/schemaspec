@@ -1,3 +1,19 @@
+## [0.295.0] - 2026-08-15
+
+### Added
+- **`unique-index-redundant-with-fk` lint rule** — completes the FK-redundancy direction of the index-redundancy family: a standalone `unique` index that duplicates the index a database auto-creates for a foreign-key column now warns. The existing `index-redundant-with-fk` family member only flags `regular` indexes; the new rule is disjoint by index kind (a given index is flagged by at most one of the two), so there is no double-flagging. This carries referential-integrity redundancy coverage from "regular only" toward complete index-kind coverage for FK columns. Lint-rule count is now 78.
+- **Lint rule tests** — added 3 focused unit tests for `unique-index-redundant-with-fk`: a `unique` index on a FK column fires the new rule and does **not** also fire `index-redundant-with-fk`; a `regular` index on a FK column stays with `index-redundant-with-fk` (negative for the new rule); a `unique` index on a non-FK column is quiet. Unit-test count is 1,995+.
+
+### Changed
+- **Documentation sync** — bumped the lint-rule count (77 → 78) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and the architecture-health test comment (sanity upper bound relaxed 78 → 79). Added `unique-index-redundant-with-fk` to the `lint/handlers/index.zig` module description and the lint-rules table in `rune/ARCHITECTURE.md`.
+- **Version sync** — synchronized version strings 0.294.0 → 0.295.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and the packaging manifests (npm, scoop, homebrew, vscode).
+
+### Fixed
+- _(none)_
+
+### Benchmarks
+- Per-stage pipeline timings unchanged; `zig build bench -- --check` passes (no regressions beyond 10%). The lint change cannot affect the forward codegen pipeline.
+
 ## [0.294.0] - 2026-08-15
 
 ### Added

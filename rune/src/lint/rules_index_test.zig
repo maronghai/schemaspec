@@ -260,14 +260,39 @@ test "lint: index on non-FK column passes" {
     try testing.expect(!th.findRule(results, "index-redundant-with-fk"));
 }
 
-test "lint: unique index on FK column passes" {
+test "lint: unique index on FK column triggers unique-index-redundant-with-fk" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
     const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{th.makeIndex("idx_user_id", .unique, &.{"user_id"})});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // The unique index duplicates the FK auto-index, so the new FK-unique rule fires...
+    try testing.expect(th.findRule(results, "unique-index-redundant-with-fk"));
+    // ...but the regular-only sibling must NOT also fire (the two are disjoint by index kind).
     try testing.expect(!th.findRule(results, "index-redundant-with-fk"));
+}
+
+test "lint: regular index on FK column does not trigger unique-index-redundant-with-fk" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeFkFieldTo("user_id", "users", "id") }, &.{th.makeIndex("idx_user_id", .regular, &.{"user_id"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // A regular index on a FK column belongs to index-redundant-with-fk, not the unique-only rule.
+    try testing.expect(!th.findRule(results, "unique-index-redundant-with-fk"));
+    try testing.expect(th.findRule(results, "index-redundant-with-fk"));
+}
+
+test "lint: unique index on non-FK column does not trigger unique-index-redundant-with-fk" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{th.makeIndex("uniq_name", .unique, &.{"name"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unique-index-redundant-with-fk"));
 }
 
 test "lint: FK without standalone index passes" {

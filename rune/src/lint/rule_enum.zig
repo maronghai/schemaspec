@@ -84,6 +84,7 @@ pub const LintRule = enum {
     index_redundant_with_unique,
     index_consistency_pass,
     unique_prefix_redundancy,
+    unique_index_redundant_with_fk,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -165,6 +166,7 @@ pub const LintRule = enum {
             .index_redundant_with_unique => "index-redundant-with-unique",
             .index_consistency_pass => "index-consistency-pass",
             .unique_prefix_redundancy => "unique-prefix-redundancy",
+            .unique_index_redundant_with_fk => "unique-index-redundant-with-fk",
         };
     }
 
@@ -260,6 +262,7 @@ pub const LintRule = enum {
             .index_redundant_with_unique => false,
             .index_consistency_pass => false,
             .unique_prefix_redundancy => false,
+            .unique_index_redundant_with_fk => false,
         };
     }
 
@@ -343,6 +346,7 @@ pub const LintRule = enum {
             .index_redundant_with_unique => "Standalone index duplicates the index auto-created for a UNIQUE constraint (field or index)",
             .index_consistency_pass => "Standalone unique index duplicates an inline '+' unique column, or a regular index is a redundant prefix of a UNIQUE/PRIMARY-KEY index",
             .unique_prefix_redundancy => "Standalone unique index is a redundant leading-column prefix of a larger UNIQUE or PRIMARY-KEY index (its leading column(s) are already covered by the larger index's backing index)",
+            .unique_index_redundant_with_fk => "Standalone unique index duplicates the index auto-created for a foreign key column (the FK family only flags regular indexes; a unique index on an FK column is redundant because the database already indexes FK columns)",
         };
     }
 
@@ -427,6 +431,7 @@ pub const LintRule = enum {
             .index_redundant_with_unique => "warning",
             .index_consistency_pass => "warning",
             .unique_prefix_redundancy => "warning",
+            .unique_index_redundant_with_fk => "warning",
         };
     }
 };

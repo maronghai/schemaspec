@@ -1,8 +1,8 @@
 class Rune < Formula
   desc "Minimal DSL for declaring database schemas using single-character symbols"
   homepage "https://github.com/rune-lang/rune"
-  url "https://github.com/rune-lang/rune/releases/download/v0.294.0/rune-linux-x86_64.tar.gz"
-  version "0.294.0"
+  url "https://github.com/rune-lang/rune/releases/download/v0.295.0/rune-linux-x86_64.tar.gz"
+  version "0.295.0"
   license "MIT"
 
   depends_on "glibc" if OS.linux?

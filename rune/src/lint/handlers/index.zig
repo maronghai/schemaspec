@@ -262,6 +262,46 @@ pub fn checkIndexRedundantWithFk(alloc: std.mem.Allocator, results: *std.ArrayLi
     }
 }
 
+/// `unique-index-redundant-with-fk` — completes the FK-redundancy direction of the index-redundancy
+/// family. `index-redundant-with-fk` only flags `regular` standalone indexes that duplicate the index a
+/// database auto-creates for a foreign-key column; this rule closes the remaining `unique` direction. A
+/// standalone `unique` index on a foreign-key column is redundant because the database already creates an
+/// (implicit regular) index for the FK column, and the explicit `unique` index duplicates that coverage (and
+/// is frequently also semantically wrong, since FK columns are not necessarily unique). Non-fixable: the
+/// author must decide whether to drop the redundant index or the constraint. Disjoint from
+/// `index-redundant-with-fk` by index kind, so the two never double-flag the same index.
+pub fn checkUniqueIndexRedundantWithFk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Collect column sets that the database auto-indexes for FKs (local FK columns).
+        var fk_sets = try std.ArrayList([]const []const u8).initCapacity(alloc, table.fields.len);
+        defer fk_sets.deinit(alloc);
+        for (table.fields) |field| {
+            const fk = field.fk orelse continue;
+            if (fk.fields.len == 0) continue;
+            try fk_sets.append(alloc, fk.fields);
+        }
+
+        if (fk_sets.items.len == 0) continue;
+
+        // Check each standalone UNIQUE index against the FK index sets.
+        for (table.indexes) |idx| {
+            if (idx.kind != .unique) continue;
+            for (fk_sets.items) |fk_set| {
+                if (setEquals(idx.fields, fk_set)) {
+                    const msg = try std.fmt.allocPrint(alloc, "unique index '{s}' duplicates the index auto-created for a foreign key column", .{idx.name});
+                    try results.append(alloc, .{
+                        .rule = "unique-index-redundant-with-fk",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+}
+
 /// `index-redundant-with-unique` — warns when a standalone (regular) index duplicates the
 /// index a database auto-creates for a UNIQUE constraint. A UNIQUE modifier on a column
 /// (inline `+`) or an explicit unique index already produce a backing index, so an explicit

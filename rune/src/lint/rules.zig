@@ -99,6 +99,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .index_redundant_with_unique, .handler = index_rules.checkIndexRedundantWithUnique },
     .{ .rule = .index_consistency_pass, .handler = index_rules.checkIndexConsistencyPass },
     .{ .rule = .unique_prefix_redundancy, .handler = index_rules.checkUniquePrefixRedundancy },
+    .{ .rule = .unique_index_redundant_with_fk, .handler = index_rules.checkUniqueIndexRedundantWithFk },
     .{ .rule = .table_no_index, .handler = index_rules.checkTableNoIndex },
     .{ .rule = .index_name_too_long, .handler = index_rules.checkIndexNameTooLong },
     // View validation rules (moved to view.zig)
