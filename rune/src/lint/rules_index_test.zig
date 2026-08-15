@@ -617,3 +617,61 @@ test "lint: unique index on inline-unique column is owned by index-consistency-p
     try testing.expect(!th.findRule(results, "unique-index-redundant-with-unique"));
 }
 
+
+
+// ─── unindexable-type-indexed tests ───────────────
+
+test "lint: index on S (text) column triggers unindexable-type-indexed" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const bio = th.makeField("bio", .{ .simple = "S" }, &.{}, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), bio }, &.{th.makeIndex("idx_bio", .regular, &.{"bio"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "unindexable-type-indexed"));
+}
+
+test "lint: index on B (blob) column triggers unindexable-type-indexed" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const payload = th.makeField("payload", .{ .simple = "B" }, &.{}, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), payload }, &.{th.makeIndex("idx_payload", .regular, &.{"payload"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "unindexable-type-indexed"));
+}
+
+test "lint: index on varchar column does not trigger unindexable-type-indexed" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const name = th.makeField("name", .{ .varchar_explicit = 64 }, &.{}, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), name }, &.{th.makeIndex("idx_name", .regular, &.{"name"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unindexable-type-indexed"));
+}
+
+test "lint: text column without index does not trigger unindexable-type-indexed" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const bio = th.makeField("bio", .{ .simple = "S" }, &.{}, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), bio }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unindexable-type-indexed"));
+}
+
+test "lint: unique index on S column triggers unindexable-type-indexed" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const bio = th.makeField("bio", .{ .simple = "S" }, &.{}, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), bio }, &.{th.makeIndex("uniq_bio", .unique, &.{"bio"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "unindexable-type-indexed"));
+}

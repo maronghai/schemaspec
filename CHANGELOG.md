@@ -1,3 +1,14 @@
+## [0.298.0] - 2026-08-15
+
+### Added
+- **`unindexable-type-indexed` lint rule** — warns when an index (regular, unique, or primary key) includes a column of type `S` (unbounded text → CLOB) or `B` (BLOB). These types cannot be directly indexed in several dialects (Oracle rejects CLOB/BLOB in a normal index; MySQL requires a prefix length for TEXT/BLOB), so an explicit index on such a column is either a hard error or a silent portability trap. The rule is non-fixable: the author must switch to a bounded `varchar`/`varbinary` or use a prefix/virtual column. It is disjoint from `column-length` (which flags length-less `S` columns regardless of indexing). Lint-rule count is now 81.
+- **Lint rule tests** — added 5 focused unit tests for `unindexable-type-indexed`: an index on an `S` (text) column fires; an index on a `B` (blob) column fires; an index on a `varchar` column is quiet; an unindexed `S` column is quiet; a `unique` index on an `S` column fires.
+
+### Changed
+- Refreshed lint-rule counts (80 → 81) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 81 → 82).
+- Synchronized version strings 0.297.0 → 0.298.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
+
 ## [0.297.0] - 2026-08-15
 
 ### Added

@@ -662,3 +662,42 @@ pub fn checkUniquePrefixRedundancy(alloc: std.mem.Allocator, results: *std.Array
     }
 }
 
+
+
+/// `unindexable-type-indexed` — warns when an index (regular, unique, or primary key)
+/// includes a column whose SS type is `S` (unbounded text → CLOB) or `B` (BLOB).
+/// These types cannot be directly indexed in several dialects: Oracle rejects CLOB/BLOB
+/// in a normal (non-function-based) index, and MySQL requires a prefix length for
+/// TEXT/BLOB, so an explicit index on such a column is either a hard error or a silent
+/// portability trap. Non-fixable: the author must switch to a bounded `varchar`/`varbinary`
+/// or use a prefix / virtual column, depending on the dialect.
+pub fn checkUnindexableTypeIndexed(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Build the set of field names whose type is unindexable (S text/CLOB or B BLOB).
+        var unindexable = std.StringHashMap(bool).init(alloc);
+        defer unindexable.deinit();
+        for (table.fields) |field| {
+            const is_s = field.type_info == .simple and std.mem.eql(u8, field.type_info.simple, "S");
+            const is_b = field.type_info.isBlob();
+            if (is_s or is_b) {
+                try unindexable.put(field.name, true);
+            }
+        }
+        if (unindexable.count() == 0) continue;
+
+        for (table.indexes) |idx| {
+            for (idx.fields) |col| {
+                if (unindexable.get(col) != null) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' includes column '{s}' of unindexable type (S text/CLOB or B BLOB) — not directly indexable in all dialects", .{ idx.name, col });
+                    try results.append(alloc, .{
+                        .rule = "unindexable-type-indexed",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    break; // one diagnostic per index
+                }
+            }
+        }
+    }
+}

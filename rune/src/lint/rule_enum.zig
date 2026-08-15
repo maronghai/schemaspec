@@ -87,6 +87,7 @@ pub const LintRule = enum {
     unique_index_redundant_with_fk,
     unique_index_redundant_with_pk,
     unique_index_redundant_with_unique,
+    unindexable_type_indexed,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -171,6 +172,7 @@ pub const LintRule = enum {
             .unique_index_redundant_with_fk => "unique-index-redundant-with-fk",
             .unique_index_redundant_with_pk => "unique-index-redundant-with-pk",
             .unique_index_redundant_with_unique => "unique-index-redundant-with-unique",
+            .unindexable_type_indexed => "unindexable-type-indexed",
         };
     }
 
@@ -269,6 +271,7 @@ pub const LintRule = enum {
             .unique_index_redundant_with_fk => false,
             .unique_index_redundant_with_pk => false,
             .unique_index_redundant_with_unique => false,
+            .unindexable_type_indexed => false,
         };
     }
 
@@ -355,6 +358,7 @@ pub const LintRule = enum {
             .unique_index_redundant_with_fk => "Standalone unique index duplicates the index auto-created for a foreign key column (the FK family only flags regular indexes; a unique index on an FK column is redundant because the database already indexes FK columns)",
             .unique_index_redundant_with_pk => "Standalone unique index duplicates the index auto-created for the primary key (the PK family only flags regular indexes; a unique index on the PK columns is redundant because the database already indexes the primary key)",
             .unique_index_redundant_with_unique => "Standalone unique index duplicates the index auto-created for a UNIQUE constraint (the UNIQUE family only flags regular indexes; an explicit unique index on the same column(s) as an existing UNIQUE constraint / unique index is redundant because the database already indexes those columns for uniqueness) — completes the UNIQUE-redundancy direction for unique indexes, symmetric to how index-redundant-with-unique covers regular indexes",
+            .unindexable_type_indexed => "Index includes a column of type 'S' (unbounded text/CLOB) or 'B' (BLOB) — not directly indexable in all dialects (Oracle CLOB, MySQL TEXT require a prefix); prefer a bounded varchar/varbinary or a prefix index",
         };
     }
 
@@ -442,6 +446,7 @@ pub const LintRule = enum {
             .unique_index_redundant_with_fk => "warning",
             .unique_index_redundant_with_pk => "warning",
             .unique_index_redundant_with_unique => "warning",
+            .unindexable_type_indexed => "warning",
         };
     }
 };
