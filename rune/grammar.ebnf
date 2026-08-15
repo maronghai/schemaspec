@@ -15,6 +15,7 @@ line            = schema_decl
                 | import_directive
                 | conditional_if
                 | conditional_end
+                | version_decl
                 | doc_decl
                 | sql_comment
                 | spec_comment
@@ -29,6 +30,11 @@ empty_line      = { whitespace } ;
 (* ─── Schema Declaration ──────────────────────────────────── *)
 
 schema_decl     = "$" IDENT [ IDENT ] [ "autofk" ] ;
+
+(* ─── Schema Version Directive ───────────────────────────── *)
+
+version_decl    = "@version" version_string ;
+version_string  = IDENT ;
 
 (* ─── Custom Type Definition ──────────────────────────────── *)
 

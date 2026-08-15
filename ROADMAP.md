@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.300.0 (2026-08-15) — 67,100+ lines production Zig, 1,995+ tests, 83 lint rules, 38 test suites.
+**Current version**: 0.301.0 (2026-08-15) — 67,100+ lines production Zig, 1,995+ tests, 83 lint rules, 38 test suites.
 
 ---
 
@@ -211,6 +211,14 @@ Extend the lint suite to catch schema constructs that compile fine in one dialec
 
 The core language, pipeline, dialect, generator, and lint-symmetry work (Phases 1–5, 9, 10) is complete. Future lint additions, if any, will be driven by user-reported edge cases rather than the symmetry grid, which is now fully covered: the (PK, FK, UNIQUE) × (regular, unique) index-redundancy matrix is closed (v0.297.0).
 
+## Phase 13: Documentation & Spec Completeness 🔲
+
+Close the gap between the implemented language and its specification/reference docs. **In progress — 1/3 items done.**
+
+- [x] `@version` directive spec — document the schema-version directive (shipped v0.237.0) in `rune/schema.md`, `rune/type.md`, and `rune/grammar.ebnf`; previously undocumented in all three spec files (v0.301.0)
+- [ ] `rune/ARCHITECTURE.md` pipeline line-count refresh — re-verify per-module LOC claims against the current source tree
+- [ ] Generator/ dialect coverage tables — add a single-source-of-truth coverage matrix referenced by all docs
+
 ## Architecture Targets
 
 Ongoing improvements pursued alongside feature work.
@@ -336,6 +344,7 @@ For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
 
+- **v0.301.0** — Language spec completeness: documented the `@version X.Y.Z` schema-version directive (shipped v0.237.0) in all three language spec files — `rune/schema.md` (new "Schema Versioning" subsection), `rune/type.md` (cross-reference note), and `rune/grammar.ebnf` (new `version_decl` rule). The directive was fully implemented and emitted as a `-- Schema version: X.Y.Z` SQL comment for all six dialects, but had never been documented in the spec; a grep of the spec files returned 0 mentions. Zero engine/parser/IR changes — documentation-only, fully verified against the existing `tests/90-version.ss` golden. Synchronized version strings 0.300.0 → 0.301.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 2,018 unit tests pass, benchmarks show no regressions
 - **v0.300.0** — Cross-dialect portability linting (Phase 12, rule 3/4): added 1 new non-fixable lint rule — `charset-collation-portability` warns when the schema pins a dialect-specific character set or collation at the `$ name charset` header (e.g. `utf8mb4` or the collation-style `utf8mb4_0900_ai_ci`), which has no equivalent in all six dialects (PostgreSQL has no `utf8mb4`, Oracle/DB2 use different charset names, SQLite ignores it) — a silent portability trap. Non-fixable: the author should omit the charset (let each dialect default) or use a neutral `utf8`. 83 lint rules total; added 5 focused unit tests (utf8mb4 fires; collation-style `utf8mb4_0900_ai_ci` fires; `latin1` fires; neutral `utf8` quiet; no charset quiet); refreshed lint-rule counts (82 → 83) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 83 → 84); synchronized version strings 0.299.0 → 0.300.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,995+ unit tests pass, benchmarks show no regressions
 - **v0.299.0** — Cross-dialect portability linting (Phase 12, rule 2/4): added 1 new non-fixable lint rule — `unsigned-overflow-risk` warns when an `unsigned` numeric column backs an auto-increment that can exceed the signed range in dialects lacking unsigned types (e.g. PostgreSQL, where `unsigned` is dropped and the column becomes signed), a cross-dialect overflow trap. Non-fixable: the author must pick a dialect-agnostic type (e.g. `N++`/`n++` bigint with headroom) or drop `unsigned`. 82 lint rules total; added 4 focused unit tests (unsigned+auto-increment numeric fires; unsigned-without-auto-increment quiet; auto-increment-without-unsigned quiet; unsigned+auto-increment non-numeric quiet); refreshed lint-rule counts (81 → 82) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the CLI help, `rune/src/lint.zig`, and the architecture-health test comment (relaxed the sanity upper bound 82 → 83); synchronized version strings 0.298.0 → 0.299.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); 1,995+ unit tests pass, benchmarks show no regressions
 

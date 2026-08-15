@@ -191,3 +191,12 @@ The `rune generate json-schema` command produces JSON Schema (draft-07) from `.s
 | text, blob, json, uuid, inet, date, datetime, timestamptz | `{ "type": "string" }` |
 | boolean | `{ "type": "boolean" }` |
 | enum_values | `{ "enum": [...] }` |
+
+
+## Schema Versioning
+
+The schema-level `@version X.Y.Z` directive (see the [Schema Language Reference](schema.md#schema-versioning))
+carries version metadata that flows through `Ast` → `ResolvedAst` → `TypedAst` and is emitted
+as a `-- Schema version: X.Y.Z` SQL comment after the schema header. It does **not** affect
+type resolution — every type symbol in this document maps identically regardless of the
+declared version.

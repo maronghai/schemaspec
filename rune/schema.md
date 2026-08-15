@@ -58,6 +58,25 @@ $ myapp utf8mb4
 $ myapp utf8mb4 autofk
 ```
 
+## Schema Versioning
+
+The `@version` directive declares schema version metadata as a standalone line, independent
+of the `$` schema-declaration line:
+
+```
+@version X.Y.Z
+```
+
+The version string flows through the pipeline (`Ast` → `ResolvedAst` → `TypedAst`) and is
+emitted as a SQL comment immediately after the schema header, for **every** dialect:
+
+```sql
+-- Schema version: 1.0.0
+```
+
+A missing version string (a bare `@version` with no value) produces a warning and is ignored.
+Use the version for forward/backward compatibility tracking and schema-evolution tooling.
+
 ## Custom Type Definitions
 
 The `~` line creates reusable type aliases.

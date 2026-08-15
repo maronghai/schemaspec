@@ -1,3 +1,15 @@
+## [0.301.0] - 2026-08-15
+
+### Docs
+- **Documented the `@version` schema-version directive** (shipped in v0.237.0) in all three language spec files. The directive was fully implemented — parsed as a standalone `@version X.Y.Z` line, flowing through `Ast` → `ResolvedAst` → `TypedAst` and emitted as a `-- Schema version: X.Y.Z` SQL comment for every dialect — but was never documented in the spec. Changes:
+  - `rune/schema.md` — new **Schema Versioning** subsection under *Schema Declaration* (standalone line, pipeline flow, SQL-comment emission, missing-version warning).
+  - `rune/grammar.ebnf` — new `version_decl = "@version" version_string ;` rule added to the `line` alternatives alongside `@import` / `@if` / `@endif`.
+  - `rune/type.md` — cross-reference note clarifying the directive is schema-level metadata and does not affect type resolution.
+  - Verified against the existing `tests/90-version.ss` golden; documentation-only, zero engine/parser/IR changes.
+
+### Changed
+- Synchronized version strings `0.300.0` → `0.301.0` across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.300.0] - 2026-08-15
 
 ### Added
