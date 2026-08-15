@@ -1,3 +1,13 @@
+## [0.293.0] - 2026-08-15
+
+### Added
+- **`index-consistency-pass` lint rule** — extends the index-redundancy family toward full duplicate/prefix coverage with two symmetric, non-fixable `warning`-severity checks: (1) a standalone `unique` index that duplicates the UNIQUE constraint already implied by an inline `+` unique column (the reverse direction of `index-redundant-with-unique`, which only flags `regular` indexes); and (2) a `regular` index whose column set is a non-trailing *prefix* of a UNIQUE or PRIMARY-KEY index (a redundant prefix index — e.g. an index on `(tenant_id)` when a `unique` index is `(tenant_id, user_id)`). Exact matches stay with the sibling `index-redundant-with-pk` / `index-redundant-with-unique` rules, and same-kind duplicates stay with `duplicate-index`, so there is no overlap. Lint-rule count is now 76.
+- **Lint rule tests** — added 7 focused unit tests for `index-consistency-pass` (reverse-UNIQUE positive + negative, prefix-of-composite-PK positive + negative, prefix-of-UNIQUE positive, exact-PK duplicate handled by the sibling rule, regular index on an inline-unique column handled by the sibling rule). Unit-test count is now 1,990+.
+
+### Changed
+- **Documentation sync** — bumped the lint-rule count (75 → 76) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and relaxed the architecture-health sanity upper bound (76 → 77).
+- **Packaging sync** — synchronized version strings 0.292.0 → 0.293.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.292.0] - 2026-08-14
 
 ### Added

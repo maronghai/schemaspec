@@ -97,6 +97,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .index_redundant_with_pk, .handler = index_rules.checkIndexRedundantWithPk },
     .{ .rule = .index_redundant_with_fk, .handler = index_rules.checkIndexRedundantWithFk },
     .{ .rule = .index_redundant_with_unique, .handler = index_rules.checkIndexRedundantWithUnique },
+    .{ .rule = .index_consistency_pass, .handler = index_rules.checkIndexConsistencyPass },
     .{ .rule = .table_no_index, .handler = index_rules.checkTableNoIndex },
     .{ .rule = .index_name_too_long, .handler = index_rules.checkIndexNameTooLong },
     // View validation rules (moved to view.zig)

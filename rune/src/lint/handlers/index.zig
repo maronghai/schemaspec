@@ -106,6 +106,17 @@ fn setEquals(a: []const []const u8, b: []const []const u8) bool {
     return true;
 }
 
+/// True when `prefix` is a strict leading-column prefix of `full` (same columns in order,
+/// strictly shorter). Used by `index-consistency-pass` to detect redundant prefix indexes.
+fn isPrefix(prefix: []const []const u8, full: []const []const u8) bool {
+    if (prefix.len == 0 or prefix.len >= full.len) return false;
+    for (prefix, 0..) |p, i| {
+        if (i >= full.len) return false;
+        if (!std.mem.eql(u8, p, full[i])) return false;
+    }
+    return true;
+}
+
 fn indexesEqual(a: ast_mod.IndexDecl, b: ast_mod.IndexDecl) bool {
     if (a.kind != b.kind) return false;
     if (a.fields.len != b.fields.len) return false;
@@ -296,6 +307,126 @@ pub fn checkIndexRedundantWithUnique(alloc: std.mem.Allocator, results: *std.Arr
                     const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates the index auto-created for a UNIQUE constraint on the same column(s)", .{idx.name});
                     try results.append(alloc, .{
                         .rule = "index-redundant-with-unique",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+}
+
+/// `index-consistency-pass` — extends the index-redundancy family beyond the PK/FK/UNIQUE
+/// trio toward full duplicate/prefix coverage. Two symmetric, non-fixable checks:
+///
+///   (1) reverse-UNIQUE: a standalone `unique` index that duplicates the UNIQUE constraint
+///       already implied by an inline `+` unique column (the reverse direction of
+///       `index-redundant-with-unique`, which only flags `regular` indexes). An inline `+`
+///       unique modifier already makes the database create a backing UNIQUE index, so an
+///       explicit `unique` index on the same column is redundant. (Two `unique` indexes with
+///       identical columns are same-kind and already caught by `duplicate-index`, so this rule
+///       targets only the inline-unique direction.)
+///   (2) prefix: a standalone `regular` index whose column set is a *non-trailing prefix* of a
+///       UNIQUE or PRIMARY-KEY index is redundant — the leading column(s) are already covered by
+///       the larger index's backing index (e.g. a `regular` index on (a) when the PK is (a,b,c),
+///       or a `regular` index on (tenant_id) when a `unique` index is (tenant_id,user_id)).
+///       Exact matches are intentionally excluded: they are already flagged by
+///       `index-redundant-with-pk` / `index-redundant-with-unique`.
+/// Non-fixable: the author must decide which index/constraint to drop.
+pub fn checkIndexConsistencyPass(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // ── Collect the full ordered PK column list (inline PK modifiers + explicit PK index). ──
+        var pk_columns = try std.ArrayList([]const u8).initCapacity(alloc, table.fields.len);
+        defer pk_columns.deinit(alloc);
+        for (table.fields) |field| {
+            if (validation.isPrimaryKey(field)) {
+                try pk_columns.append(alloc, field.name);
+            }
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key) {
+                for (idx.fields) |f| {
+                    var found = false;
+                    for (pk_columns.items) |pk| {
+                        if (std.mem.eql(u8, pk, f)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) try pk_columns.append(alloc, f);
+                }
+            }
+        }
+
+        // ── Collect column sets that already carry a UNIQUE backing index. ──
+        // inline_unique_cols: single-column sets from inline `+` unique modifiers (check 1 target).
+        // unique_sets: every UNIQUE-backed column set (inline + explicit unique index), used as
+        // prefix-check targets in check 2.
+        var inline_unique_cols = try std.ArrayList([]const u8).initCapacity(alloc, table.fields.len);
+        defer inline_unique_cols.deinit(alloc);
+        var unique_sets = try std.ArrayList([]const []const u8).initCapacity(alloc, table.fields.len);
+        defer unique_sets.deinit(alloc);
+        for (table.fields) |field| {
+            var has_unique = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .inline_unique) {
+                    has_unique = true;
+                    break;
+                }
+            }
+            if (has_unique) {
+                try inline_unique_cols.append(alloc, field.name);
+                const single = try alloc.alloc([]const u8, 1);
+                single[0] = field.name;
+                try unique_sets.append(alloc, single);
+            }
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .unique) {
+                try unique_sets.append(alloc, idx.fields);
+            }
+        }
+
+        // ── Check (1): reverse-UNIQUE — an explicit `unique` index duplicating an inline `+` unique column. ──
+        for (table.indexes) |idx| {
+            if (idx.kind != .unique) continue;
+            for (inline_unique_cols.items) |col| {
+                if (idx.fields.len == 1 and std.mem.eql(u8, idx.fields[0], col)) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' duplicates the UNIQUE constraint already implied by an inline '+' unique column on the same column(s)", .{idx.name});
+                    try results.append(alloc, .{
+                        .rule = "index-consistency-pass",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    break;
+                }
+            }
+        }
+
+        // ── Check (2): prefix — a `regular` index that is a non-trailing prefix of a UNIQUE/PK index. ──
+        for (table.indexes) |idx| {
+            if (idx.kind != .regular) continue;
+            if (idx.fields.len == 0) continue;
+            // Compare against the PK column set.
+            if (pk_columns.items.len > idx.fields.len and isPrefix(idx.fields, pk_columns.items)) {
+                const msg = try std.fmt.allocPrint(alloc, "index '{s}' is a redundant prefix of the primary key — its leading column(s) are already covered by the primary key", .{idx.name});
+                try results.append(alloc, .{
+                    .rule = "index-consistency-pass",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+                continue;
+            }
+            // Compare against each UNIQUE index/constraint column set.
+            for (unique_sets.items) |u_set| {
+                if (u_set.len > idx.fields.len and isPrefix(idx.fields, u_set)) {
+                    const msg = try std.fmt.allocPrint(alloc, "index '{s}' is a redundant prefix of a UNIQUE index — its leading column(s) are already covered", .{idx.name});
+                    try results.append(alloc, .{
+                        .rule = "index-consistency-pass",
                         .table = table.name,
                         .message = msg,
                         .severity = .warning,
