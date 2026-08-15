@@ -67,12 +67,12 @@ test "dialect backend count matches documentation" {
 }
 
 test "lint rule count matches documentation" {
-    // Verify lint rules have expected count (79 rules as of v0.296.0)
+    // Verify lint rules have expected count (80 rules as of v0.297.0)
     const lint_config = @import("../lint/config.zig");
     const LintRule = lint_config.LintRule;
     const fields = @typeInfo(LintRule).@"enum".fields;
     try std.testing.expect(fields.len >= 58); // At least 58 rules
-    try std.testing.expect(fields.len <= 80); // Sanity upper bound
+    try std.testing.expect(fields.len <= 81); // Sanity upper bound
 }
 
 // ─── DialectBackend vtable Tests ───────────────────────────────

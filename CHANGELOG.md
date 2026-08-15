@@ -1,3 +1,24 @@
+## [0.297.0] - 2026-08-15
+
+### Added
+- **`unique-index-redundant-with-unique` lint rule** — completes the UNIQUE-redundancy direction of the index-redundancy family: a standalone `unique` index that duplicates the index a database auto-creates for a UNIQUE constraint (an explicit `unique` index / UNIQUE constraint; exact column-set match) now warns. The existing `index-redundant-with-unique` family member only flags `regular` indexes; the new rule is disjoint by index kind (a given index is flagged by at most one of the two), so there is no double-flagging. Inline `+` unique columns are owned by `index-consistency-pass`, and identical-column `unique` duplicates also surface under `duplicate-index`. This carries UNIQUE-redundancy coverage from "regular only" toward complete index-kind coverage for UNIQUE constraints and completes the (PK, FK, UNIQUE) × (regular, unique) index-redundancy symmetry grid. Lint-rule count is now 80.
+- **Lint rule tests** — added 4 focused unit tests for `unique-index-redundant-with-unique`: a `unique` index on an explicit `unique` index's columns fires the new rule and does **not** also fire `index-redundant-with-unique`; a `regular` index on a UNIQUE column stays with `index-redundant-with-unique` (negative for the new rule); a `unique` index on a non-UNIQUE column is quiet; a `unique` index on an inline-unique column is owned by `index-consistency-pass` and not the new rule. Unit-test count is 1,995+.
+
+### Changed
+- **Documentation sync** — bumped the lint-rule count (79 → 80) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and the architecture-health test comment (sanity upper bound relaxed 80 → 81). Marked Phase 10 complete in `ROADMAP.md`.
+- **Version sync** — synchronized version strings 0.296.0 → 0.297.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
+## [0.296.0] - 2026-08-15
+
+### Added
+- **`unique-index-redundant-with-pk` lint rule** — completes the PRIMARY-KEY redundancy direction of the index-redundancy family: a standalone `unique` index that duplicates the index a database auto-creates for the primary key now warns. The existing `index-redundant-with-pk` family member only flags `regular` indexes; the two are disjoint by index kind, so there is no double-flagging. Lint-rule count is now 79.
+- **Lint rule tests** — added 3 focused unit tests for `unique-index-redundant-with-pk` and updated 1 existing test (the exact-PK-duplicate unique index now asserts `unique-index-redundant-with-pk` instead of `index-redundant-with-pk`). Unit-test count is 1,995+.
+
+### Changed
+- **Realigned `index-redundant-with-pk`** to only flag `regular` (and `fulltext`) indexes — matching its `index-redundant-with-fk` sibling — so the new `unique-index-redundant-with-pk` owns the `unique` direction without overlap.
+- **Documentation sync** — bumped the lint-rule count (78 → 79) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and the architecture-health test comment (sanity upper bound relaxed 79 → 80).
+- **Version sync** — synchronized version strings 0.295.0 → 0.296.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
+
 ## [0.295.0] - 2026-08-15
 
 ### Added

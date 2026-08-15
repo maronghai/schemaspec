@@ -553,3 +553,67 @@ test "lint: unique-prefix-redundancy — unique index on inline-unique column ha
     try testing.expect(th.findRule(results, "index-consistency-pass"));
     try testing.expect(!th.findRule(results, "unique-prefix-redundancy"));
 }
+
+
+// ─── unique-index-redundant-with-unique tests ───────────────
+
+test "lint: unique index on explicit unique index columns triggers unique-index-redundant-with-unique" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("email") }, &.{
+        th.makeIndex("uniq_email", .unique, &.{"email"}),
+        th.makeIndex("uniq_email_2", .unique, &.{"email"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // A unique index duplicating another unique index's backing index is redundant...
+    try testing.expect(th.findRule(results, "unique-index-redundant-with-unique"));
+    // ...but the regular-only sibling must NOT also fire (the two are disjoint by index kind).
+    try testing.expect(!th.findRule(results, "index-redundant-with-unique"));
+}
+
+test "lint: regular index on UNIQUE column stays with index-redundant-with-unique" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("email") }, &.{
+        th.makeIndex("uniq_email", .unique, &.{"email"}),
+        th.makeIndex("idx_email", .regular, &.{"email"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // A regular index on a UNIQUE column belongs to index-redundant-with-unique...
+    try testing.expect(th.findRule(results, "index-redundant-with-unique"));
+    // ...and the unique-only rule must not also fire.
+    try testing.expect(!th.findRule(results, "unique-index-redundant-with-unique"));
+}
+
+test "lint: unique index on non-UNIQUE column does not trigger unique-index-redundant-with-unique" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), th.makeSimpleField("name") }, &.{
+        th.makeIndex("uniq_name", .unique, &.{"name"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unique-index-redundant-with-unique"));
+}
+
+test "lint: unique index on inline-unique column is owned by index-consistency-pass, not the new rule" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const email = th.makeField("email", .{ .varchar_explicit = 128 }, &.{ .{ .kind = .inline_unique, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), email }, &.{
+        th.makeIndex("uniq_email", .unique, &.{"email"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // The inline-unique direction is already covered by index-consistency-pass.
+    try testing.expect(th.findRule(results, "index-consistency-pass"));
+    // So the explicit-unique-only rule must not also fire here.
+    try testing.expect(!th.findRule(results, "unique-index-redundant-with-unique"));
+}
+

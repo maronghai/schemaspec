@@ -354,6 +354,50 @@ pub fn checkUniqueIndexRedundantWithPk(alloc: std.mem.Allocator, results: *std.A
 }
 
 
+/// `unique-index-redundant-with-unique` — completes the UNIQUE-redundancy direction of the index-redundancy
+/// family. `index-redundant-with-unique` only flags `regular` standalone indexes that duplicate the index a
+/// database auto-creates for a UNIQUE constraint; this rule closes the remaining `unique` direction. A standalone
+/// `unique` index whose column set matches another UNIQUE constraint's backing index (an explicit `unique` index) is
+/// redundant because the database already creates a unique backing index for the constraint, and the explicit `unique`
+/// index duplicates that coverage. Non-fixable: the author must decide whether to drop the redundant index or the
+/// constraint. Disjoint from `index-redundant-with-unique` by index kind (`regular` vs `unique`), so the two never
+/// double-flag the same index. Inline `+` unique columns are intentionally excluded here — `index-consistency-pass`
+/// already owns that direction (ROADMAP: "distinct from an inline `+` unique column which `index-consistency-pass`
+/// already covers"). Identical-column `unique` duplicates also surface under `duplicate-index`.
+pub fn checkUniqueIndexRedundantWithUnique(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // Collect indices of explicit UNIQUE indexes (the UNIQUE-constraint backing indexes).
+        // Inline `+` unique columns are excluded — index-consistency-pass owns that direction.
+        var unique_idx_indices = try std.ArrayList(usize).initCapacity(alloc, table.indexes.len);
+        defer unique_idx_indices.deinit(alloc);
+        for (table.indexes, 0..) |idx, i| {
+            if (idx.kind == .unique) {
+                try unique_idx_indices.append(alloc, i);
+            }
+        }
+
+        if (unique_idx_indices.items.len == 0) continue;
+
+        // Check each standalone UNIQUE index against the other UNIQUE indexes' column sets (excluding itself).
+        for (table.indexes, 0..) |idx, i| {
+            if (idx.kind != .unique) continue;
+            for (unique_idx_indices.items) |j| {
+                if (i == j) continue; // skip self
+                if (setEquals(idx.fields, table.indexes[j].fields)) {
+                    const msg = try std.fmt.allocPrint(alloc, "unique index '{s}' duplicates the index auto-created for a UNIQUE constraint on the same column(s)", .{idx.name});
+                    try results.append(alloc, .{
+                        .rule = "unique-index-redundant-with-unique",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+}
+
 /// `index-redundant-with-unique` — warns when a standalone (regular) index duplicates the
 /// index a database auto-creates for a UNIQUE constraint. A UNIQUE modifier on a column
 /// (inline `+`) or an explicit unique index already produce a backing index, so an explicit
