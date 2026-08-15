@@ -438,3 +438,91 @@ pub fn checkIndexConsistencyPass(alloc: std.mem.Allocator, results: *std.ArrayLi
     }
 }
 
+/// `unique-prefix-redundancy` — extends the redundant-prefix detection added in
+/// `index-consistency-pass` to also fire for `unique` indexes that are non-trailing
+/// *prefixes* of a larger UNIQUE or PRIMARY-KEY index (a redundant leading-column
+/// unique index), completing the prefix-direction coverage for `unique` as well as
+/// `regular` indexes. Symmetric with `index-consistency-pass` check (2) (which only
+/// handles `regular` indexes) and with `index-redundant-with-pk` / `index-redundant-with-unique`
+/// (which only handle exact column-set matches). Non-fixable: the author must decide
+/// which index to drop.
+pub fn checkUniquePrefixRedundancy(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    for (ast.tables) |table| {
+        // ── Collect the full ordered PK column list (inline PK modifiers + explicit PK index). ──
+        var pk_columns = try std.ArrayList([]const u8).initCapacity(alloc, table.fields.len);
+        defer pk_columns.deinit(alloc);
+        for (table.fields) |field| {
+            if (validation.isPrimaryKey(field)) {
+                try pk_columns.append(alloc, field.name);
+            }
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .primary_key) {
+                for (idx.fields) |f| {
+                    var found = false;
+                    for (pk_columns.items) |pk| {
+                        if (std.mem.eql(u8, pk, f)) {
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) try pk_columns.append(alloc, f);
+                }
+            }
+        }
+
+        // ── Collect column sets that already carry a UNIQUE backing index. ──
+        var unique_sets = try std.ArrayList([]const []const u8).initCapacity(alloc, table.fields.len);
+        defer unique_sets.deinit(alloc);
+        for (table.fields) |field| {
+            var has_unique = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .inline_unique) {
+                    has_unique = true;
+                    break;
+                }
+            }
+            if (has_unique) {
+                const single = try alloc.alloc([]const u8, 1);
+                single[0] = field.name;
+                try unique_sets.append(alloc, single);
+            }
+        }
+        for (table.indexes) |idx| {
+            if (idx.kind == .unique) {
+                try unique_sets.append(alloc, idx.fields);
+            }
+        }
+
+        // ── Check: a `unique` index that is a non-trailing prefix of a larger UNIQUE or PK index. ──
+        for (table.indexes) |idx| {
+            if (idx.kind != .unique) continue;
+            if (idx.fields.len == 0) continue;
+            // Compare against the PK column set.
+            if (pk_columns.items.len > idx.fields.len and isPrefix(idx.fields, pk_columns.items)) {
+                const msg = try std.fmt.allocPrint(alloc, "unique index '{s}' is a redundant prefix of the primary key — its leading column(s) are already covered by the primary key", .{idx.name});
+                try results.append(alloc, .{
+                    .rule = "unique-prefix-redundancy",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+                continue;
+            }
+            // Compare against each UNIQUE index/constraint column set.
+            for (unique_sets.items) |u_set| {
+                if (u_set.len > idx.fields.len and isPrefix(idx.fields, u_set)) {
+                    const msg = try std.fmt.allocPrint(alloc, "unique index '{s}' is a redundant prefix of a UNIQUE index — its leading column(s) are already covered", .{idx.name});
+                    try results.append(alloc, .{
+                        .rule = "unique-prefix-redundancy",
+                        .table = table.name,
+                        .message = msg,
+                        .severity = .warning,
+                    });
+                    break;
+                }
+            }
+        }
+    }
+}
+

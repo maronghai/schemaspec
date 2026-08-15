@@ -419,3 +419,73 @@ test "lint: index-consistency-pass — regular index on inline-unique column is 
     try testing.expect(th.findRule(results, "index-redundant-with-unique"));
     try testing.expect(!th.findRule(results, "index-consistency-pass"));
 }
+
+// ─── unique-prefix-redundancy tests ──────────────────────
+
+test "lint: unique-prefix-redundancy — unique index prefix of composite PK detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const a = th.makeField("tenant_id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 } }, null);
+    const b = th.makeField("id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "rows", &.{ a, b, th.makeSimpleField("name") }, &.{th.makeIndex("uniq_tenant", .unique, &.{"tenant_id"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "unique-prefix-redundancy"));
+    // The prefix is shorter than the PK, so index-redundant-with-pk must not also fire.
+    try testing.expect(!th.findRule(results, "index-redundant-with-pk"));
+}
+
+test "lint: unique-prefix-redundancy — unique index prefix of larger unique index detected" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "members", &.{ th.makePkField("id"), th.makeSimpleField("tenant_id"), th.makeSimpleField("user_id") }, &.{
+        th.makeIndex("uniq_tenant_user", .unique, &.{"tenant_id", "user_id"}),
+        th.makeIndex("uniq_tenant", .unique, &.{"tenant_id"}),
+    });
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "unique-prefix-redundancy"));
+    // The two unique indexes differ in length, so duplicate-index must not also fire.
+    try testing.expect(!th.findRule(results, "duplicate-index"));
+}
+
+test "lint: unique-prefix-redundancy — unique index not a prefix is quiet" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const a = th.makeField("tenant_id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 } }, null);
+    const b = th.makeField("id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "rows", &.{ a, b, th.makeSimpleField("name") }, &.{th.makeIndex("uniq_name", .unique, &.{"name"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "unique-prefix-redundancy"));
+}
+
+test "lint: unique-prefix-redundancy — exact PK duplicate handled by sibling, not here" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const a = th.makeField("tenant_id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 } }, null);
+    const b = th.makeField("id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "rows", &.{ a, b }, &.{th.makeIndex("uniq_pk", .unique, &.{"tenant_id", "id"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // Exact match belongs to index-redundant-with-pk, not the prefix rule.
+    try testing.expect(th.findRule(results, "index-redundant-with-pk"));
+    try testing.expect(!th.findRule(results, "unique-prefix-redundancy"));
+}
+
+test "lint: unique-prefix-redundancy — unique index on inline-unique column handled by sibling, not here" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const email = th.makeField("email", .{ .varchar_explicit = 128 }, &.{ .{ .kind = .inline_unique, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), email }, &.{th.makeIndex("uniq_email", .unique, &.{"email"})});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    // Exact inline-unique match is index-consistency-pass territory.
+    try testing.expect(th.findRule(results, "index-consistency-pass"));
+    try testing.expect(!th.findRule(results, "unique-prefix-redundancy"));
+}

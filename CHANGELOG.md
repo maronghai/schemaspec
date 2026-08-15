@@ -1,3 +1,12 @@
+## [0.294.0] - 2026-08-15
+
+### Added
+- **`unique-prefix-redundancy` lint rule** — extends the index-redundancy family to complete prefix-direction coverage for `unique` as well as `regular` indexes: a standalone `unique` index is flagged when its column set is a non-trailing *prefix* of a larger UNIQUE or PRIMARY-KEY index (a redundant leading-column unique index — its leading column(s) are already covered by the larger index's backing index). This is the `unique`-index counterpart to the `regular`-index prefix check in `index-consistency-pass` (v0.293.0). Exact matches stay with the sibling `index-redundant-with-pk` / `index-redundant-with-unique` / `index-consistency-pass` rules, and same-kind duplicates stay with `duplicate-index`, so there is no overlap. Lint-rule count is now 77.
+- **Lint rule tests** — added 5 focused unit tests for `unique-prefix-redundancy` (unique-index prefix-of-composite-PK positive + negative, unique-index prefix-of-larger-UNIQUE positive, unique-index-not-a-prefix negative, exact-PK duplicate handled by the sibling rule, unique-index-on-inline-unique handled by the sibling rule). Unit-test count is now 1,995+.
+
+### Changed
+- **Documentation sync** — bumped the lint-rule count (76 → 77) across `CLAUDE.md`, `README.md`, `rune/ARCHITECTURE.md`, the `rune lint` CLI help, `rune/src/lint.zig`, and relaxed the architecture-health sanity upper bound (77 → 78).
+
 ## [0.293.0] - 2026-08-15
 
 ### Added

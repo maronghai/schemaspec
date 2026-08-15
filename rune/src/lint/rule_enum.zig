@@ -83,6 +83,7 @@ pub const LintRule = enum {
     column_default_function_check,
     index_redundant_with_unique,
     index_consistency_pass,
+    unique_prefix_redundancy,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -163,6 +164,7 @@ pub const LintRule = enum {
             .column_default_function_check => "column-default-function-check",
             .index_redundant_with_unique => "index-redundant-with-unique",
             .index_consistency_pass => "index-consistency-pass",
+            .unique_prefix_redundancy => "unique-prefix-redundancy",
         };
     }
 
@@ -257,6 +259,7 @@ pub const LintRule = enum {
             .column_default_function_check => false,
             .index_redundant_with_unique => false,
             .index_consistency_pass => false,
+            .unique_prefix_redundancy => false,
         };
     }
 
@@ -339,6 +342,7 @@ pub const LintRule = enum {
             .column_default_function_check => "Column default is a SQL function call written as a quoted string literal (stored verbatim, not evaluated)",
             .index_redundant_with_unique => "Standalone index duplicates the index auto-created for a UNIQUE constraint (field or index)",
             .index_consistency_pass => "Standalone unique index duplicates an inline '+' unique column, or a regular index is a redundant prefix of a UNIQUE/PRIMARY-KEY index",
+            .unique_prefix_redundancy => "Standalone unique index is a redundant leading-column prefix of a larger UNIQUE or PRIMARY-KEY index (its leading column(s) are already covered by the larger index's backing index)",
         };
     }
 
@@ -422,6 +426,7 @@ pub const LintRule = enum {
             .column_default_function_check => "warning",
             .index_redundant_with_unique => "warning",
             .index_consistency_pass => "warning",
+            .unique_prefix_redundancy => "warning",
         };
     }
 };
