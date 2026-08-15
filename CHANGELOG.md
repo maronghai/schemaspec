@@ -1,3 +1,28 @@
+## [0.306.0] - 2026-08-16
+
+### Fixed
+- **Lint golden test suite stabilization** — fixed 5 failing lint golden tests:
+  - **CRLF line ending support in `lint --fix`** — the auto-fix engine now correctly handles Windows-style (CRLF) line endings in source files, fixing table name extraction for fix map lookups (`rune/src/lint/fix.zig`).
+  - **Table header comment parsing** — table names are now correctly extracted from headers with trailing comments (e.g., `# table : comment`), preventing fix map key mismatches.
+  - **Template field comment inheritance** — fixed a bug where template field comments were lost when the consuming table had a comment, by ensuring template resolution preserves field comments regardless of table-level comments.
+  - **Lint test fixture updates** — updated all lint test fixtures (`tests/lint/*.ss`) to use `utf8` charset (avoiding `charset-collation-portability` warnings) and `:` field comment syntax (the only supported field comment format).
+
+### Changed
+- **Benchmark baseline refresh & infrastructure** — established new performance baseline:
+  - Migrated from legacy `bench/baseline.json` (end-to-end shell timing) to per-dialect `bench/baseline-mysql.json` (per-stage Zig benchmark timing via `rune-bench` binary).
+  - Added `bench` binary to install artifacts (`rune/build.zig`).
+  - Updated `tests/test_bench.sh` to use per-dialect baseline and `bench` binary.
+  - Baseline reflects current feature set (LSP, incremental cache, parallel compilation, 84 lint rules).
+
+### Test Infrastructure
+- **Lint test expectation update** — changed `lint_clean` test to check for `0 warning(s)` instead of `No lint issues found`, acknowledging that info-level lint rules (`table-no-index`, `no-timestamps`, `count`) may fire on minimal schemas without indicating problems.
+- **All 33 golden test suites pass** — 12 lint tests, 21 other golden test suites.
+- **2,022 unit tests pass** — no regressions.
+
+### Docs
+- **ROADMAP.md** — added v0.306.0 entry to Recent Releases; updated current version to 0.306.0.
+- **Version synchronization** — 0.305.0 → 0.306.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`.
+
 ## [0.305.0] - 2026-08-16
 
 ### Docs

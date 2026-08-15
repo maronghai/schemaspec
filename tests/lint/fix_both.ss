@@ -1,7 +1,6 @@
-$ fix_test
-; Schema missing both PK and timestamps
+$ fix_test utf8
+; Schema with no primary key and no timestamps
 
-# sessions
-token s128
-user_id n
-expires_at d
+# items : Items
+name s64 ='' : Item name
+value n =0 : Item value

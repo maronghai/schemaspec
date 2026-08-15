@@ -1,7 +1,7 @@
-$ lint_test
-; Schema with no primary key — should trigger no-pk warning
+$ no_pk utf8
+; Schema with no primary key
 
-# logs
-msg s
-level n
-created_at d
+# logs : Log entries
+timestamp d : Event timestamp
+message s64 ='' : Log message
+level s16 ='' : Log level

@@ -1,8 +1,7 @@
-$ lint_test
-; Schema with camelCase naming — should trigger naming warnings
+$ naming_test utf8
+; Schema for naming convention tests
 
-# userProfiles
-id ++
-firstName s
-lastName s
-emailAddress s
+# users : User accounts
+id n++ : PK
+userName s64 ='' : User name  // camelCase - should trigger
+Email s64 ='' : Email  // PascalCase - should trigger

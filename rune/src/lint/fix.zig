@@ -75,7 +75,11 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
         const line_end = i;
         if (i < source.len) i += 1;
 
-        const line = source[line_start..line_end];
+        var line = source[line_start..line_end];
+        // Handle CRLF line endings: strip trailing \r
+        if (line.len > 0 and line[line.len - 1] == '\r') {
+            line = line[0..line.len - 1];
+        }
 
         // Detect table header
         if (line.len > 0 and line[0] == '#') {
@@ -94,12 +98,23 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
                     }
                 }
 
-                const tbl_name = line[ns..];
-                current_table = tbl_name;
+                // Extract table name (stop at comment marker : or end of line)
+                var tbl_name_end = line.len;
+                var j = ns;
+                while (j < line.len) : (j += 1) {
+                    if (line[j] == ':') {
+                        tbl_name_end = j;
+                        break;
+                    }
+                }
+                const tbl_name = line[ns..tbl_name_end];
+                // Trim trailing whitespace
+                const tbl_name_trimmed = std.mem.trim(u8, tbl_name, " \t");
+                current_table = tbl_name_trimmed;
                 in_table = true;
                 last_field_end = 0;
 
-                if (maps.needs_empty_removal.contains(tbl_name)) {
+                if (maps.needs_empty_removal.contains(tbl_name_trimmed)) {
                     skipping_empty_table = true;
                     continue;
                 } else {
@@ -191,7 +206,16 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
         if (line.len > 0 and line[0] == '#') {
             const ns: usize = if (line.len > 1 and line[1] == ' ') 2 else 1;
             if (ns < line.len) {
-                const tbl_name = line[ns..];
+                // Extract table name (stop at comment marker : or end of line)
+                var tbl_name_end = line.len;
+                var j = ns;
+                while (j < line.len) : (j += 1) {
+                    if (line[j] == ':') {
+                        tbl_name_end = j;
+                        break;
+                    }
+                }
+                const tbl_name = std.mem.trim(u8, line[ns..tbl_name_end], " \t");
                 if (maps.needs_pk.contains(tbl_name) and !pk_inserted.contains(tbl_name)) {
                     try output.appendSlice(alloc, "id       n++\n");
                     try fixes.append(alloc, .{

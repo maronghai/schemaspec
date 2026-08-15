@@ -1,18 +1,7 @@
-$ lint_test
-; Clean schema — no lint issues expected
+$ lint_test utf8
+; Minimal clean schema for lint testing
 
-% base
-id n++
-...
-created_at d
-updated_at d
-
-; Users table
-# base users : User accounts
-name s
-email s
-
-; Orders table
-# base orders : Customer orders
-user_id n
-total p
+# users : User table
+id n++ : PK
+created_at t =CURRENT_TIMESTAMP : Record creation time
+updated_at t =CURRENT_TIMESTAMP : Record update time

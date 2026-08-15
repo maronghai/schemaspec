@@ -69,7 +69,7 @@ EOF
 fi
 
 # Use bench.zig binary if available (per-stage timing)
-BENCH_BIN="$SCRIPT_DIR/../rune/zig-out/bin/rune-bench"
+BENCH_BIN="$SCRIPT_DIR/../rune/zig-out/bin/bench"
 if [ -f "$BENCH_BIN" ]; then
   echo "Using bench.zig for per-stage benchmark..."
   case "$MODE" in

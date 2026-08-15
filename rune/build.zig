@@ -46,7 +46,6 @@ pub fn build(b: *std.Build) void {
         });
 
     b.installArtifact(exe);
-
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
 
@@ -101,6 +100,8 @@ pub fn build(b: *std.Build) void {
         .name = "bench",
         .root_module = bench_mod,
     });
+
+    b.installArtifact(bench_exe);
 
     const run_bench = b.addRunArtifact(bench_exe);
     run_bench.step.dependOn(b.getInstallStep());

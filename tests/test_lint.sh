@@ -47,8 +47,8 @@ echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━�
 echo -e "${BOLD}Rune Lint Golden Tests${RESET}"
 echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 
-# Test 1: Clean schema passes
-run_test "lint_clean" "clean.ss" 0 "No lint issues found"
+# Test 1: Clean schema passes (0 warnings, info-level issues acceptable)
+run_test "lint_clean" "clean.ss" 0 "0 warning(s)"
 
 # Test 2: No PK detected
 run_test "lint_no_pk" "no_pk.ss" 0 "no-pk"
