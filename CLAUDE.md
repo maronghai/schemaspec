@@ -139,6 +139,11 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune lint schema.ss --json-errors      # Lint as JSON
 ./rune/zig-out/bin/rune lint schema.ss --strict           # Lint, exit 1 on warnings
 ./rune/zig-out/bin/rune lint --show-rules                 # List all available rules with descriptions
+./rune/zig-out/bin/rune registry init                     # Initialize local template registry (~/.rune/registry)
+./rune/zig-out/bin/rune registry add <name> <file.ss>     # Add a template file to the registry
+./rune/zig-out/bin/rune registry list                     # List registered templates with descriptions
+./rune/zig-out/bin/rune registry show <name>              # Show template metadata and content
+./rune/zig-out/bin/rune registry remove <name>            # Remove a template from the registry
 ./rune/zig-out/bin/rune lint --init                       # Generate starter .rune-lint.toml config
 ./rune/zig-out/bin/rune migrate old.ss new.ss             # Migration SQL (auto-lint fixes applied to new schema)
 ./rune/zig-out/bin/rune migrate old.ss new.ss --no-lint   # Migration SQL without auto-lint
@@ -193,6 +198,7 @@ rune/src/
   lint/handlers/structural.zig, lint/handlers/naming.zig, lint/handlers/validation.zig, lint/handlers/compat.zig, lint/handlers/fk.zig, lint/handlers/index.zig, lint/handlers/view.zig, lint/handlers/enum.zig, lint/handlers/portability.zig  # 9 handler modules
   cli/lint_cmd.zig                                                 # lint CLI handler (extracted from main.zig)
   cli/errors.zig                                                   # CLI error handling (extracted from main.zig)
+  cli/registry_cmd.zig                                            # Schema Registry CLI handler (rune registry init/add/list/show/remove)
   generator.zig                                                   # generator registry (pluggable)
   lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights, workspace symbols, signature help, code lens)
                 compile_service.zig, server.zig, features.zig

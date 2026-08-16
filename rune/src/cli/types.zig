@@ -36,6 +36,7 @@ pub const Command = union(enum) {
     lsp,
     version: struct { json: bool = false },
     share: struct { input: ?[]const u8 = null, output: ?[]const u8 = null, format: ShareFormat = .url },
+    registry: struct { subcmd: []const u8, name: ?[]const u8 = null, path: ?[]const u8 = null, output: ?[]const u8 = null },
     help: struct { subcommand: ?[]const u8 = null },
 };
 
@@ -399,6 +400,25 @@ pub const COMMAND_HELP = [_]CommandHelp{
             "  --json          Output version as JSON",
         },
         .examples = &.{},
+    },
+    .{
+        .usage = "<init|add|list|show|remove> [args]",
+        .description = "Manage shared template registry",
+        .options = &.{
+            "  init            Initialize local registry directory (~/.rune/registry/)",
+            "  add <name> <path>  Add a template file to the registry",
+            "  list              List available templates with descriptions",
+            "  show <name>       Show template content and metadata",
+            "  remove <name>     Remove a template from the registry",
+            "  -o, --output      Output file path (for show command)",
+        },
+        .examples = &.{
+            "  rune registry init                    # Initialize local registry",
+            "  rune registry add my-template template.ss  # Add template",
+            "  rune registry list                    # List templates",
+            "  rune registry show my-template        # Show template details",
+            "  rune registry remove my-template      # Remove template",
+        },
     },
     .{
         .usage = "[subcommand]",

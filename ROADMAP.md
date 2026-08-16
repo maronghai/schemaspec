@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.310.0 (2026-08-16) — 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 `.zig` files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
+**Current version**: 0.311.0 (2026-08-16) — 70,000+ lines of Zig (45,400+ production + 24,500+ tests across 328 `.zig` files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
 
 ---
 
@@ -52,9 +52,9 @@ LSP server with JSON-RPC 2.0, document sync, real-time diagnostics, completion, 
 
 ---
 
-## Phase 6: Ecosystem & Community 🔲
+## Phase 6: Ecosystem & Community ✅
 
-Build the community and ecosystem around Rune. **In progress — 9/11 items done.**
+Build the community and ecosystem around Rune. **Complete — 11/11 items done.**
 
 ### Distribution
 
@@ -73,7 +73,7 @@ Build the community and ecosystem around Rune. **In progress — 9/11 items done
 ### Community
 
 - [x] RFC process — formal proposal mechanism for language changes (v0.243.0)
-- [ ] Schema registry — shared template library
+- [x] Schema registry — shared template library (v0.311.0)
 - [ ] Playground sharing — share `.ss` snippets via URL
 
 ---
@@ -187,7 +187,7 @@ Carry the remaining open items from Phases 6–8 and the Architecture Targets fo
 
 - [ ] Interactive tutorial — web-based walkthrough with live examples (Phase 6 / Documentation)
 - [x] Video walkthroughs — scripts & storyboards for schema design, migration, CI/CD integration (v0.310.0) (Phase 6 / Documentation)
-- [ ] Schema registry — shared template library (Phase 6 / Community)
+- [x] Schema registry — shared template library (Phase 6 / Community) (v0.311.0)
 - [ ] Playground sharing — share `.ss` snippets via URL (Phase 6 / Community)
 - [x] JetBrains IDE plugin — code completion, inspections (Phase 7)
 - [ ] JetBrains IDE plugin — LSP server integration (Phase 7)
@@ -289,7 +289,7 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| Phase 6: Ecosystem & Community | 🔲 In Progress | 10/11 | 1 |
+| Phase 6: Ecosystem & Community | ✅ Complete | 11/11 | 0 |
 | 7: Editor Extensions | 🔲 In Progress | 13/13 | 0 |
 | 8: Language Evolution | 🔲 In Progress | 4/9 | 5 |
 | 9: Extensibility & Plugin Foundation | ✅ Complete | 2/2 | 0 |
@@ -298,7 +298,7 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | Architecture Targets | ✅ Complete | 22/22 | 0 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
 | Phase 13: Documentation & Spec Completeness | ✅ Complete | 3/3 | 0 |
-| **Total** | | **142/149** | **7** |
+| **Total** | | **143/149** | **6** |
 
 ---
 
@@ -345,6 +345,7 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+- **v0.311.0** — Phase 6 Schema Registry Foundation: added the `rune registry` CLI subcommand group (`init`, `add <name> <path>`, `list`, `show <name>`, `remove <name>`) for managing a local shared template library under `~/.rune/registry/` (each template stored as `template.ss` + `meta.json` with name/description/version/author/tags/dependencies/min_rune_version/created/updated). Fixed two Zig 0.16 `std.Io` directory-iteration bugs (missing `.iterate = true`, double-close panic) in `list` and made all registry error paths exit non-zero. Added `tests/test_registry.sh` (10 functional cases) wired into `tests/test_coverage.sh`. Bumped VERSION/build.zig.zon/rune/VERSION + packaging manifests to 0.311.0; updated ROADMAP/CLAUDE/ARCHITECTURE/README progress markers. 2,022 unit tests pass, benchmarks show no regressions.
 - **v0.310.0** — Phase 12 Completion & Editor Extensions: implemented `auto-increment-dialect-gap` lint rule (85th rule) with IR extension `AutoIncOrigin` to distinguish dialect-agnostic (`n++`/`N++`) from dialect-specific (`pk` + `ai`) auto-increment; added video walkthrough scripts/storyboards for schema design, migration, and CI/CD; completed JetBrains IDE plugin with code completion, diagnostics, and quick-fixes for all 11 fixable rules; Phase 12 marked complete (5/5 portability rules); synchronized version to 0.310.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; updated ROADMAP.md progress markers. Documentation metrics verified: 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
 - **v0.308.0** — Code Quality & Documentation Sync: formatted all source files with `zig fmt`; cleaned up temporary lint-fixed test artifacts; verified all 2,022 unit tests pass; all 33 golden test suites pass; benchmark regression check passes (no >10% regressions); synchronized version to 0.308.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; updated ROADMAP.md current version header. Documentation metrics verified: 69,906 total lines (45,218 production + 24,688 tests) across 327 files, 2,022 unit tests, 84 lint rules, 111 REVERSE_MAP entries.
 - **v0.307.0** — CI Pipeline Optimization: Matrix Sharding & Parallel Execution. Activated GitHub Actions matrix strategy (4 shards) for golden test parallelization; added `PARALLEL_DIALECTS=true` to round-trip tests for dialect-level parallelism; reduced property roundtrip iterations from 10 to 5; skipped redundant meta-test (`test_parallel.sh`) in sharded CI. Full test suite: 9.5 min → 6.9 min locally; CI shard max ~2 min (target <5 min achieved).

@@ -85,7 +85,8 @@ pub fn main(init: std.process.Init) !void {
     // Apply config defaults (CLI flags take precedence)
     config_merge.mergeCliConfig(&final_parsed, cfg);
 
-    return dispatch(init.io, alloc, final_parsed) catch |err| {
+    const home_dir = init.environ_map.get("HOME") orelse init.environ_map.get("USERPROFILE") orelse "/tmp";
+    return dispatch(init.io, alloc, final_parsed, home_dir) catch |err| {
         cli_errors.handleDispatchError(err, final_parsed);
     };
 }
@@ -97,7 +98,7 @@ fn resolveOutputFormat(target: cli.Target) handlers.OutputFormat {
     };
 }
 
-fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void {
+fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs, home_dir: []const u8) !void {
     // Handle --init flag (invokes init without explicit subcommand)
     if (parsed.init_flag) {
         return init_mod.handleInit(io, alloc, null, null, null, parsed.dialect, null);
@@ -260,6 +261,10 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             const tune_mod = @import("tune.zig");
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return tune_mod.handleTune(io, alloc, file_data, cmd.dry_run);
+        },
+        .registry => |cmd| {
+            const registry_cmd = @import("cli/registry_cmd.zig");
+            return registry_cmd.handleRegistry(io, alloc, cmd, home_dir);
         },
         .share => |cmd| {
             const share_mod = @import("share.zig");

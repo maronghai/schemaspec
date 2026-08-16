@@ -1,3 +1,26 @@
+## [0.311.0] - 2026-08-16
+
+### Added
+- **Phase 6: Schema Registry Foundation** — `rune registry` CLI subcommand group for managing a local shared template library:
+  - `rune registry init` — initialize `~/.rune/registry/`
+  - `rune registry add <name> <path>` — add a template file with `meta.json` (name, description, version, author, tags, dependencies, min_rune_version, created/updated)
+  - `rune registry list` — list registered templates with descriptions
+  - `rune registry show <name>` — show template metadata and content
+  - `rune registry remove <name>` — remove a template from the registry
+- `tests/test_registry.sh` — 10-case functional test suite (temp-HOME isolated), wired into `tests/test_coverage.sh`.
+
+### Changed
+- Registry error paths (show/remove/unknown subcommand/before-init) now return a distinct error and exit non-zero via `cli_errors.handleDispatchError`.
+- Bumped version strings: `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, homebrew, vscode) → 0.311.0.
+
+### Fixed
+- `rune registry list` directory-iteration panic under Zig 0.16 threaded `std.Io`: the templates dir is now opened with `.{ .iterate = true }` and closed exactly once (single `defer`), eliminating a double-close `BADF` panic.
+- `rune registry show` previously printed literal `{s}`/`{any}` placeholders; it now interpolates the template's metadata fields.
+
+### Documentation
+- Updated ROADMAP.md progress markers (Phase 6 complete; summary 143/149, 6 remaining).
+- Documented the `registry` subcommand in CLAUDE.md (Quick Usage + Source Layout), rune/ARCHITECTURE.md (module note), README.md, and rune/README.md.
+
 ## [0.310.0] - 2026-08-16
 
 ### Added

@@ -45,6 +45,8 @@ Rune is a compiler that transforms `.ss` schema files into SQL DDL. It consists 
 - `type_registry.zig`: SS symbol → `SqlType` mapping (`lookupCustomType`, `lookupSqlTypeDirect`), reverse lookup, and symbol classification helpers (`isNumericSymType`, `isDatetimeSymType`). 17 core SS symbols: n, N, i, m, M, s, S, b, B, j, J, I, d, t, T, U, p
 - `types/reverse_map.zig`: Shared `REVERSE_MAP` data (111 entries) + `ReverseMapping` struct with `DialectTypeMap` for dialect-indexed type strings. Canonical location consumed by both `reverse/map.zig` and `diff/semantic.zig`.
 
+- `cli/registry_cmd.zig`: **Schema Registry CLI** (`rune registry init/add/list/show/remove`). Stores templates under `~/.rune/registry/templates/<name>/` as `template.ss` + `meta.json` (name, description, version, author, tags, dependencies, min_rune_version, created/updated). Local-only foundation for the Phase 6 shared-template library; remote publishing and `@import "registry:<name>"` resolution are deferred.
+
 ### Extracted Sub-Modules
 
 | Parent Module | Extracted Module | Responsibility |

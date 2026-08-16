@@ -248,3 +248,26 @@ pub fn parseShareArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
     }
     return shared.parseSimpleSubcommand(dialect, target, .{ .share = .{ .input = input, .output = output, .format = format } }, opts);
 }
+
+pub fn parseRegistryArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    if (fargs.len < 2) return error.MissingArgs;
+    const subcmd = fargs[1];
+    var name: ?[]const u8 = null;
+    var path: ?[]const u8 = null;
+    var output: ?[]const u8 = null;
+    var j: usize = 2;
+    while (j < fargs.len) : (j += 1) {
+        if ((std.mem.eql(u8, fargs[j], "-o") or std.mem.eql(u8, fargs[j], "--output")) and j + 1 < fargs.len) {
+            j += 1;
+            output = fargs[j];
+        } else if (fargs[j][0] != '-') {
+            if (name == null) {
+                name = fargs[j];
+            } else if (path == null) {
+                path = fargs[j];
+            }
+        }
+    }
+    return shared.parseSimpleSubcommand(dialect, target, .{ .registry = .{ .subcmd = subcmd, .name = name, .path = path, .output = output } }, opts);
+}
+

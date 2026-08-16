@@ -149,6 +149,7 @@ fi
 run_suite "Imports (6 tests)" "bash tests/test_imports.sh"
 run_suite "Stdin (4 tests)" "bash tests/test_stdin.sh"
 run_suite "Reverse Confidence (3 tests)" "bash tests/test_reverse_confidence.sh"
+run_suite "Registry (10 tests)" "bash tests/test_registry.sh"
 run_suite "Init & Completions (12 tests)" "bash tests/test_init.sh"
 run_suite "Validate (4 tests)" "bash tests/test_validate.sh"
 run_suite "Stats JSON (3 tests)" "bash tests/test_stats_json.sh"

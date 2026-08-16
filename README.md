@@ -526,6 +526,22 @@ rune completions fish > ~/.config/fish/completions/rune.fish
 . $(rune completions powershell)
 ```
 
+### Schema Registry
+
+Manage a local shared template library (Phase 6 — Ecosystem & Community):
+
+```bash
+rune registry init                       # Initialize ~/.rune/registry
+rune registry add <name> <file.ss>       # Add a template file to the registry
+rune registry list                       # List registered templates with descriptions
+rune registry show <name>                # Show template metadata and content
+rune registry remove <name>              # Remove a template from the registry
+```
+
+Templates are stored as `~/.rune/registry/templates/<name>/template.ss` plus a `meta.json`
+(name, description, version, author, tags, dependencies, min_rune_version, created/updated).
+
+
 ### Watch Mode
 
 ```bash
