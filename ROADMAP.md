@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.312.0 (2026-08-16) — 70,700+ lines of Zig (46,100+ production + 24,500+ tests across 329 `.zig` files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
+**Current version**: 0.313.0 (2026-08-17) — 70,700+ lines of Zig (46,100+ production + 24,500+ tests across 329 `.zig` files), 2,033 unit tests, 85 lint rules, 34 golden test suites.
 
 ---
 
@@ -220,6 +220,27 @@ Close the gap between the implemented language and its specification/reference d
 - [x] `rune/ARCHITECTURE.md` pipeline line-count refresh — re-verify per-module LOC claims against the current source tree (v0.302.0)
 - [x] Generator/ dialect coverage tables — add a single-source-of-truth coverage matrix referenced by all docs (`docs/coverage-matrix.md`, derived from `generator.zig` `REGISTRY`; referenced from CLAUDE.md, README.md, rune/README.md, rune/ARCHITECTURE.md) (v0.302.0)
 
+## Phase 14: Ecosystem Maturation (Next Focus) 🔲
+
+Carry the remaining open items from Phases 6/8/11 forward as a consolidated next-phase focus. These are large, IR/pipeline-stage-level features (not registry-entry extensions), so each should be scoped as its own RFC + phase.
+**Status: 0 items started (7 carried forward).**
+
+### Distribution & Community
+
+- [ ] Interactive tutorial — web-based walkthrough with live examples (Phase 6 / Documentation)
+- [ ] Playground sharing — share `.ss` snippets via URL (Phase 6 / Community)
+
+### Generator Plugin System
+
+- [ ] User-defined generators via Zig plugins or WASM modules (Phase 8)
+- [ ] Template overrides — `.rune-template` files for customizing generator output (Phase 8)
+- [ ] Generator marketplace — community-contributed generators (Phase 8)
+
+### Advanced Schema Features
+
+- [ ] Composite types — reusable field groupings beyond templates (Phase 8)
+- [ ] Live collaboration — multi-user schema editing via LSP extensions (Phase 8)
+
 ## Architecture Targets
 
 Ongoing improvements pursued alongside feature work.
@@ -345,6 +366,7 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+- **v0.313.0** — Documentation Accuracy & Metric Re-Sync (Phase 13 sweep): re-verified all headline metrics against the live source tree (329 `.zig` files = 210 production + 119 test; 70,767 total LOC = 46,215 production + 24,552 tests; 85 lint rules; 111 `REVERSE_MAP` entries; 34 golden test suites) and corrected a unit-test-count drift — `2,022` → **`2,033`** (verified 2,033 `test "…"` declarations, +11 since v0.312.0) — across `ROADMAP.md` and `rune/README.md`; zero engine/parser/IR changes — documentation-only; synchronized version strings 0.312.0 → 0.313.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, vscode); 2,033 unit tests pass, benchmarks show no regressions.
 - **v0.312.0** — Architecture Health Hardening & Documentation/Spec Accuracy Refresh: added 2 comptime architecture-health tests guarding the open-closed lint `RULES` dispatch table (registration completeness + no duplicates); marked Phase 7 (Editor Extensions) complete (13/13) and reconciled ROADMAP Phase 7/11 bookkeeping inconsistencies; refreshed drifted metrics (lint rules 84→85, unit-test count 2,030+→2,022, production LOC 45,400+→46,100+, `.zig` files 328→329) across `CLAUDE.md`, `README.md`, `rune/README.md`, `rune/ARCHITECTURE.md`, `ROADMAP.md`; synchronized version 0.311.0→0.312.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, homebrew, vscode). 2,022 unit tests pass, benchmarks show no regressions.
 - **v0.311.0** — Phase 6 Schema Registry Foundation: added the `rune registry` CLI subcommand group (`init`, `add <name> <path>`, `list`, `show <name>`, `remove <name>`) for managing a local shared template library under `~/.rune/registry/` (each template stored as `template.ss` + `meta.json` with name/description/version/author/tags/dependencies/min_rune_version/created/updated). Fixed two Zig 0.16 `std.Io` directory-iteration bugs (missing `.iterate = true`, double-close panic) in `list` and made all registry error paths exit non-zero. Added `tests/test_registry.sh` (10 functional cases) wired into `tests/test_coverage.sh`. Bumped VERSION/build.zig.zon/rune/VERSION + packaging manifests to 0.311.0; updated ROADMAP/CLAUDE/ARCHITECTURE/README progress markers. 2,022 unit tests pass, benchmarks show no regressions.
 - **v0.310.0** — Phase 12 Completion & Editor Extensions: implemented `auto-increment-dialect-gap` lint rule (85th rule) with IR extension `AutoIncOrigin` to distinguish dialect-agnostic (`n++`/`N++`) from dialect-specific (`pk` + `ai`) auto-increment; added video walkthrough scripts/storyboards for schema design, migration, and CI/CD; completed JetBrains IDE plugin with code completion, diagnostics, and quick-fixes for all 11 fixable rules; Phase 12 marked complete (5/5 portability rules); synchronized version to 0.310.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; updated ROADMAP.md progress markers. Documentation metrics verified: 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
