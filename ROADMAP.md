@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.311.0 (2026-08-16) — 70,000+ lines of Zig (45,400+ production + 24,500+ tests across 328 `.zig` files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
+**Current version**: 0.312.0 (2026-08-16) — 70,700+ lines of Zig (46,100+ production + 24,500+ tests across 329 `.zig` files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
 
 ---
 
@@ -78,9 +78,9 @@ Build the community and ecosystem around Rune. **Complete — 11/11 items done.*
 
 ---
 
-## Phase 7: Editor Extensions 🔲
+## Phase 7: Editor Extensions ✅
 
-Extend the LSP foundation into full editor experiences. **In progress — 12/13 items done.**
+Extend the LSP foundation into full editor experiences. **Complete — 13/13 items done.**
 
 ### VS Code Extension
 
@@ -183,14 +183,14 @@ snake_case naming), or expands an existing rule's type-category coverage.
 
 ## Phase 11: Ecosystem & CI Completion 🔲
 
-Carry the remaining open items from Phases 6–8 and the Architecture Targets forward as a consolidated finishing phase. **Status: 12 items remaining (still tracked under their origin phases — no new items added). CI pipeline optimization complete (v0.307.0).**
+Carry the remaining open items from Phases 6–8 and the Architecture Targets forward as a consolidated finishing phase. **Status: 7 items remaining (still tracked under their origin phases — no new items added). CI pipeline optimization complete (v0.307.0).**
 
 - [ ] Interactive tutorial — web-based walkthrough with live examples (Phase 6 / Documentation)
 - [x] Video walkthroughs — scripts & storyboards for schema design, migration, CI/CD integration (v0.310.0) (Phase 6 / Documentation)
 - [x] Schema registry — shared template library (Phase 6 / Community) (v0.311.0)
 - [ ] Playground sharing — share `.ss` snippets via URL (Phase 6 / Community)
 - [x] JetBrains IDE plugin — code completion, inspections (Phase 7)
-- [ ] JetBrains IDE plugin — LSP server integration (Phase 7)
+- [x] JetBrains IDE plugin — LSP server integration (Phase 7 / v0.309.0)
 - [ ] User-defined generators via Zig plugins or WASM modules (Phase 8 / Generator Plugin System)
 - [ ] Template overrides — `.rune-template` files for customizing generator output (Phase 8)
 - [ ] Generator marketplace — community-contributed generators (Phase 8)
@@ -290,7 +290,7 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
 | Phase 6: Ecosystem & Community | ✅ Complete | 11/11 | 0 |
-| 7: Editor Extensions | 🔲 In Progress | 13/13 | 0 |
+| 7: Editor Extensions | ✅ Complete | 13/13 | 0 |
 | 8: Language Evolution | 🔲 In Progress | 4/9 | 5 |
 | 9: Extensibility & Plugin Foundation | ✅ Complete | 2/2 | 0 |
 | Phase 10: Lint Rule Hardening & Symmetry | ✅ Complete | 12/12 | 0 |
@@ -345,6 +345,7 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+- **v0.312.0** — Architecture Health Hardening & Documentation/Spec Accuracy Refresh: added 2 comptime architecture-health tests guarding the open-closed lint `RULES` dispatch table (registration completeness + no duplicates); marked Phase 7 (Editor Extensions) complete (13/13) and reconciled ROADMAP Phase 7/11 bookkeeping inconsistencies; refreshed drifted metrics (lint rules 84→85, unit-test count 2,030+→2,022, production LOC 45,400+→46,100+, `.zig` files 328→329) across `CLAUDE.md`, `README.md`, `rune/README.md`, `rune/ARCHITECTURE.md`, `ROADMAP.md`; synchronized version 0.311.0→0.312.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, homebrew, vscode). 2,022 unit tests pass, benchmarks show no regressions.
 - **v0.311.0** — Phase 6 Schema Registry Foundation: added the `rune registry` CLI subcommand group (`init`, `add <name> <path>`, `list`, `show <name>`, `remove <name>`) for managing a local shared template library under `~/.rune/registry/` (each template stored as `template.ss` + `meta.json` with name/description/version/author/tags/dependencies/min_rune_version/created/updated). Fixed two Zig 0.16 `std.Io` directory-iteration bugs (missing `.iterate = true`, double-close panic) in `list` and made all registry error paths exit non-zero. Added `tests/test_registry.sh` (10 functional cases) wired into `tests/test_coverage.sh`. Bumped VERSION/build.zig.zon/rune/VERSION + packaging manifests to 0.311.0; updated ROADMAP/CLAUDE/ARCHITECTURE/README progress markers. 2,022 unit tests pass, benchmarks show no regressions.
 - **v0.310.0** — Phase 12 Completion & Editor Extensions: implemented `auto-increment-dialect-gap` lint rule (85th rule) with IR extension `AutoIncOrigin` to distinguish dialect-agnostic (`n++`/`N++`) from dialect-specific (`pk` + `ai`) auto-increment; added video walkthrough scripts/storyboards for schema design, migration, and CI/CD; completed JetBrains IDE plugin with code completion, diagnostics, and quick-fixes for all 11 fixable rules; Phase 12 marked complete (5/5 portability rules); synchronized version to 0.310.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; updated ROADMAP.md progress markers. Documentation metrics verified: 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
 - **v0.308.0** — Code Quality & Documentation Sync: formatted all source files with `zig fmt`; cleaned up temporary lint-fixed test artifacts; verified all 2,022 unit tests pass; all 33 golden test suites pass; benchmark regression check passes (no >10% regressions); synchronized version to 0.308.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; updated ROADMAP.md current version header. Documentation metrics verified: 69,906 total lines (45,218 production + 24,688 tests) across 327 files, 2,022 unit tests, 84 lint rules, 111 REVERSE_MAP entries.

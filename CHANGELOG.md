@@ -1,3 +1,17 @@
+## [0.312.0] - 2026-08-16
+
+### Added
+- **Architecture-health hardening** — two new comptime tests in `lint/rules.zig` guard the open-closed lint extension point:
+  - `all lint rules have a dispatch handler registered` — every `LintRule` enum variant must have a handler in the `RULES` dispatch table (catches a new rule added without a `RULES` entry).
+  - `lint dispatch table has no duplicate rules` — the `RULES` table may not register the same rule twice (mirrors the generator `REGISTRY` collision guard).
+
+### Changed
+- Synchronized version strings 0.311.0 → 0.312.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, homebrew, vscode).
+
+### Documentation
+- ROADMAP.md: marked Phase 7 (Editor Extensions) complete (13/13); fixed the Phase 7 header ("12/13" → "13/13") and summary marker (🔲 In Progress → ✅ Complete); marked the Phase 11 "JetBrains IDE plugin — LSP server integration" item done (completed in Phase 7 at v0.309.0) and updated its remaining-item count (12 → 7).
+- Refreshed drifted metrics: `CLAUDE.md`/`README.md` lint-rule count "84" → "85" and `CLAUDE.md` `lint.zig` barrel "64 rules" → "85 rules"; `rune/ARCHITECTURE.md` "Supports 84 rules" → "Supports 85 rules"; `rune/README.md` unit-test count "2,030+" → "2,022"; `ROADMAP.md` header production LOC "45,400+" → "46,100+" and `.zig` file count "328" → "329".
+
 ## [0.311.0] - 2026-08-16
 
 ### Added

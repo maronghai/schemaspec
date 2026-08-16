@@ -224,3 +224,34 @@ test "RULE_INFO descriptions match LintRule.description" {
 test "RULES covers all LintRule variants" {
     try std.testing.expectEqual(std.meta.fields(LintRule).len, RULES.len);
 }
+
+
+test "all lint rules have a dispatch handler registered" {
+    // Hardens the open-closed LintRule + RULES architecture: every LintRule
+    // variant must have a handler registered in the RULES dispatch table.
+    // Catches the failure mode where a new enum variant is added but no
+    // RULES entry (and therefore no handler) is registered for it.
+    inline for (std.meta.fields(LintRule)) |field| {
+        const rule: LintRule = @enumFromInt(field.value);
+        var registered = false;
+        for (RULES) |entry| {
+            if (entry.rule == rule) {
+                registered = true;
+                break;
+            }
+        }
+        try std.testing.expect(registered);
+    }
+}
+
+test "lint dispatch table has no duplicate rules" {
+    // Mirror of the generator REGISTRY collision guard: no two RULES entries
+    // may register the same LintRule (which would make dispatch ambiguous).
+    var seen: [RULES.len]LintRule = undefined;
+    for (RULES, 0..) |entry, i| {
+        for (seen[0..i]) |prev| {
+            try std.testing.expect(prev != entry.rule);
+        }
+        seen[i] = entry.rule;
+    }
+}

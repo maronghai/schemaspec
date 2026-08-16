@@ -84,6 +84,7 @@ comptime {
     _ = @import("generators/common_defaults_test.zig");
     _ = @import("generator_test.zig");
     // ── lint ─────────────────────────────────────────────────────
+    _ = @import("lint/rules.zig");
     _ = @import("lint/rules_structural_test.zig");
     _ = @import("lint/rules_naming_test.zig");
     _ = @import("lint/rules_validation_test.zig");
