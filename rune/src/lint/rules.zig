@@ -106,6 +106,7 @@ const RULES = [_]RuleEntry{
     .{ .rule = .unsigned_overflow_risk, .handler = portability_rules.checkUnsignedOverflowRisk },
     .{ .rule = .charset_collation_portability, .handler = portability_rules.checkCharsetCollationPortability },
     .{ .rule = .decimal_precision_portability, .handler = portability_rules.checkDecimalPrecisionPortability },
+    .{ .rule = .auto_increment_dialect_gap, .handler = portability_rules.checkAutoIncrementDialectGap },
     .{ .rule = .table_no_index, .handler = index_rules.checkTableNoIndex },
     .{ .rule = .index_name_too_long, .handler = index_rules.checkIndexNameTooLong },
     // View validation rules (moved to view.zig)

@@ -279,3 +279,77 @@ test "lint: decimal-precision-portability quiet for non-decimal columns" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "decimal-precision-portability"));
 }
+
+test "lint: auto-increment-dialect-gap positive (dialect-agnostic n++ passes)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // n++ is dialect-agnostic (auto_inc_pk modifier)
+    const id = th.makeField("id", .{ .simple = "n++" }, &.{}, null);
+    const table = try th.makeTestTable(alloc, "users", &.{id}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "auto-increment-dialect-gap"));
+}
+
+test "lint: auto-increment-dialect-gap positive (dialect-agnostic N++ passes)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // N++ is dialect-agnostic (auto_inc_pk modifier)
+    const id = th.makeField("id", .{ .simple = "N++" }, &.{}, null);
+    const table = try th.makeTestTable(alloc, "users", &.{id}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "auto-increment-dialect-gap"));
+}
+
+test "lint: auto-increment-dialect-gap positive (explicit pk + ai triggers warning)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // Explicit pk + ai modifiers (dialect-specific)
+    const id = th.makeField("id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 }, .{ .kind = .auto_inc, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "users", &.{id}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "auto-increment-dialect-gap"));
+}
+
+test "lint: auto-increment-dialect-gap negative (pk only, no auto-inc modifier)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // Primary key only, no auto-increment modifier — not flagged by this rule
+    // (semantic pass may infer auto-increment from _id suffix, but test helpers don't run it)
+    const id = th.makeField("user_id", .{ .simple = "n" }, &.{ .{ .kind = .primary_key, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "users", &.{id}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "auto-increment-dialect-gap"));
+}
+
+test "lint: auto-increment-dialect-gap negative (non-PK auto-increment)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // Auto-increment on non-PK column should not trigger
+    const id = th.makeField("sequence_id", .{ .simple = "n" }, &.{ .{ .kind = .auto_inc, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id"), id }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "auto-increment-dialect-gap"));
+}
+
+test "lint: auto-increment-dialect-gap negative (non-numeric auto-increment)" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // Auto-increment on non-numeric type should not trigger (caught by other rule)
+    const id = th.makeField("id", .{ .simple = "s" }, &.{ .{ .kind = .auto_inc_pk, .line_no = 1 } }, null);
+    const table = try th.makeTestTable(alloc, "users", &.{id}, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "auto-increment-dialect-gap"));
+}
+

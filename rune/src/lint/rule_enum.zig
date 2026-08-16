@@ -91,6 +91,7 @@ pub const LintRule = enum {
     unsigned_overflow_risk,
     charset_collation_portability,
     decimal_precision_portability,
+    auto_increment_dialect_gap,
 
     /// Human-readable rule name for config files and output.
     pub fn name(self: LintRule) []const u8 {
@@ -179,6 +180,7 @@ pub const LintRule = enum {
             .unsigned_overflow_risk => "unsigned-overflow-risk",
             .charset_collation_portability => "charset-collation-portability",
             .decimal_precision_portability => "decimal-precision-portability",
+            .auto_increment_dialect_gap => "auto-increment-dialect-gap",
         };
     }
 
@@ -281,6 +283,7 @@ pub const LintRule = enum {
             .unsigned_overflow_risk => false,
             .charset_collation_portability => false,
             .decimal_precision_portability => false,
+            .auto_increment_dialect_gap => false,
         };
     }
 
@@ -371,6 +374,7 @@ pub const LintRule = enum {
             .unsigned_overflow_risk => "Unsigned numeric column backs an auto-increment — in dialects lacking unsigned types (e.g. PostgreSQL) the column becomes signed, so an auto-increment that exceeds the signed range silently overflows/wraps. Prefer a dialect-agnostic signed type or a bigint with headroom",
             .charset_collation_portability => "Schema pins a dialect-specific character set or collation at the '$ name charset' header (e.g. utf8mb4 or utf8mb4_0900_ai_ci) — MySQL-specific names have no equivalent in all six dialects (PostgreSQL, Oracle, DB2, SQLite differ); prefer a neutral utf8 or omit the charset and let each dialect default",
             .decimal_precision_portability => "decimal(p,s) column uses a precision that exceeds the lowest common bound across the six dialects (Db2 caps DECIMAL at 31 digits; MySQL 65, Oracle/SQL Server 38) or a malformed scale > precision — compiles on most dialects but fails on Db2; prefer a portable precision (<= 31) or a dialect-agnostic integer/real",
+            .auto_increment_dialect_gap => "Auto-increment primary key uses dialect-specific syntax; use 'n++' (bigint) or 'N++' (bigint unsigned) for portable auto-increment across Oracle/DB2/PostgreSQL",
         };
     }
 
@@ -462,6 +466,7 @@ pub const LintRule = enum {
             .unsigned_overflow_risk => "warning",
             .charset_collation_portability => "warning",
             .decimal_precision_portability => "warning",
+            .auto_increment_dialect_gap => "warning",
         };
     }
 };

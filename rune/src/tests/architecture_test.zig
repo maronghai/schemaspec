@@ -72,7 +72,7 @@ test "lint rule count matches documentation" {
     const LintRule = lint_config.LintRule;
     const fields = @typeInfo(LintRule).@"enum".fields;
     try std.testing.expect(fields.len >= 58); // At least 58 rules
-    try std.testing.expect(fields.len <= 84); // Sanity upper bound
+    try std.testing.expect(fields.len <= 85); // Sanity upper bound
 }
 
 // ─── DialectBackend vtable Tests ───────────────────────────────

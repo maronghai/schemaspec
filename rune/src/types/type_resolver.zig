@@ -133,6 +133,7 @@ pub const TypeResolver = struct {
                 .on_update_current_timestamp = flags.on_update_ts,
                 .is_virtual = flags.is_virtual,
                 .is_stored = flags.is_stored,
+                .auto_inc_origin = flags.auto_inc_origin,
             },
             .default = if (field.default_val) |dv| dv.value else null,
             .check = field.check,
@@ -146,6 +147,16 @@ pub const TypeResolver = struct {
 
 // ─── Modifier Classification ────────────────────────────────────
 
+/// Origin of auto-increment for portability linting.
+pub const AutoIncOrigin = enum(u2) {
+    /// Dialect-agnostic: user wrote `n++` or `N++` (maps portably across all dialects).
+    DialectAgnostic,
+    /// Dialect-specific: user wrote explicit `pk` + `ai`/`++` modifiers separately.
+    ExplicitModifier,
+    /// Inferred: semantic pass inferred auto-increment (e.g., from `_id` suffix).
+    Inferred,
+};
+
 const ModifierFlags = struct {
     pk: bool = false,
     ai: bool = false,
@@ -157,14 +168,20 @@ const ModifierFlags = struct {
     has_timestamp_mod: bool = false,
     is_virtual: bool = false,
     is_stored: bool = false,
+    /// Origin of auto-increment (if ai is true).
+    auto_inc_origin: AutoIncOrigin = .Inferred,
 };
 
 /// Classifies a field's modifier list into boolean flags.
 pub fn classifyModifiers(field: Field) ModifierFlags {
     var flags = ModifierFlags{};
+    var saw_auto_inc_pk = false;
+    var saw_auto_inc = false;
+    var saw_primary_key = false;
     for (field.modifiers) |mod| {
         switch (mod.kind) {
             .auto_inc_pk => {
+                saw_auto_inc_pk = true;
                 if (field.type_info.isDatetime()) {
                     flags.on_update_ts = true;
                     flags.has_timestamp_mod = true;
@@ -174,19 +191,35 @@ pub fn classifyModifiers(field: Field) ModifierFlags {
                 }
             },
             .auto_inc => {
+                saw_auto_inc = true;
                 if (field.type_info.isDatetime()) {
                     flags.has_timestamp_mod = true;
                 } else {
                     flags.ai = true;
                 }
             },
-            .primary_key => flags.pk = true,
+            .primary_key => {
+                saw_primary_key = true;
+                flags.pk = true;
+            },
             .nullable => flags.nullable_mod = true,
             .unsigned => flags.unsigned = true,
             .inline_unique => flags.inline_unique = true,
             .inline_index => flags.inline_index = true,
             .virtual => flags.is_virtual = true,
             .stored => flags.is_stored = true,
+        }
+    }
+    // Determine auto-increment origin
+    if (flags.ai) {
+        if (saw_auto_inc_pk) {
+            flags.auto_inc_origin = .DialectAgnostic;
+        } else if (saw_auto_inc and saw_primary_key) {
+            flags.auto_inc_origin = .ExplicitModifier;
+        } else if (saw_auto_inc) {
+            flags.auto_inc_origin = .ExplicitModifier;
+        } else {
+            flags.auto_inc_origin = .Inferred;
         }
     }
     return flags;

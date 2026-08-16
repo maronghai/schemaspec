@@ -353,3 +353,78 @@ pub fn checkDecimalPrecisionPortability(alloc: std.mem.Allocator, results: *std.
         }
     }
 }
+
+/// `auto-increment-dialect-gap` — warns when an auto-increment primary key uses
+/// dialect-specific syntax instead of the dialect-agnostic `n++`/`N++` form.
+/// The `n++` (bigint) and `N++` (bigint unsigned) symbols map portably across
+/// all six dialects (MySQL/PostgreSQL/SQLite: AUTO_INCREMENT/IDENTITY;
+/// Oracle/DB2: sequence + trigger). Using explicit `pk` + `ai`/`++` modifiers
+/// separately, or relying on suffix inference (`_id`), produces dialect-specific
+/// behavior that may overflow or fail on Oracle/DB2. Non-fixable: the author
+/// should use `n++` or `N++` for portable auto-increment.
+pub fn checkAutoIncrementDialectGap(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
+    const type_resolver = @import("../../types/type_resolver.zig");
+
+    for (ast.tables) |table| {
+        for (table.fields) |field| {
+            // Only check primary key columns with auto_increment
+            var is_pk = false;
+            var is_auto_inc = false;
+            for (field.modifiers) |mod| {
+                if (mod.kind == .auto_inc_pk or mod.kind == .primary_key) is_pk = true;
+                if (mod.kind == .auto_inc or mod.kind == .auto_inc_pk) is_auto_inc = true;
+            }
+            if (!is_pk or !is_auto_inc) continue;
+
+            // Check if the type is numeric (auto-increment only makes sense on numeric types)
+            if (!field.type_info.isNumeric()) continue;
+
+            // The resolved AST doesn't have TypedColumn flags, so we need to re-classify
+            // the modifiers to determine the origin. We can use the same logic as type_resolver.
+            var saw_auto_inc_pk = false;
+            var saw_auto_inc = false;
+            var saw_primary_key = false;
+            for (field.modifiers) |mod| {
+                switch (mod.kind) {
+                    .auto_inc_pk => saw_auto_inc_pk = true,
+                    .auto_inc => saw_auto_inc = true,
+                    .primary_key => saw_primary_key = true,
+                    else => {},
+                }
+            }
+
+            // Determine origin
+            var origin: type_resolver.AutoIncOrigin = .Inferred;
+            if (saw_auto_inc_pk) {
+                origin = .DialectAgnostic;
+            } else if (saw_auto_inc and saw_primary_key) {
+                origin = .ExplicitModifier;
+            } else if (saw_auto_inc) {
+                origin = .ExplicitModifier;
+            } else {
+                origin = .Inferred;
+            }
+
+            // Warn if not dialect-agnostic
+            if (origin != .DialectAgnostic) {
+                const origin_str = switch (origin) {
+                    .ExplicitModifier => "explicit 'pk' + 'ai' modifiers",
+                    .Inferred => "inferred from suffix (e.g. '_id')",
+                    else => "unknown",
+                };
+                const msg = try std.fmt.allocPrint(
+                    alloc,
+                    "auto-increment primary key '{s}' uses dialect-specific syntax ({s}); use 'n++' (bigint) or 'N++' (bigint unsigned) for portable auto-increment across Oracle/DB2/PostgreSQL",
+                    .{field.name, origin_str},
+                );
+                try results.append(alloc, .{
+                    .rule = "auto-increment-dialect-gap",
+                    .table = table.name,
+                    .message = msg,
+                    .severity = .warning,
+                });
+            }
+        }
+    }
+}
+

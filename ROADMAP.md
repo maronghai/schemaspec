@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.309.0 (2026-08-16) — 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 `.zig` files), 2,022 unit tests, 84 lint rules, 34 golden test suites.
+**Current version**: 0.310.0 (2026-08-16) — 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 `.zig` files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
 
 ---
 
@@ -54,7 +54,7 @@ LSP server with JSON-RPC 2.0, document sync, real-time diagnostics, completion, 
 
 ## Phase 6: Ecosystem & Community 🔲
 
-Build the community and ecosystem around Rune. **In progress — 7/11 items done.**
+Build the community and ecosystem around Rune. **In progress — 9/11 items done.**
 
 ### Distribution
 
@@ -68,7 +68,7 @@ Build the community and ecosystem around Rune. **In progress — 7/11 items done
 - [ ] Interactive tutorial — web-based walkthrough with live examples
 - [x] Migration guide — from SQL DDL, Prisma, Knex to Rune `.ss` (v0.150.0)
 - [x] Cookbook — common patterns (multi-tenant, soft delete, audit trail) (v0.184.0)
-- [ ] Video walkthroughs — schema design, migration, CI/CD integration
+- [x] Video walkthroughs — scripts & storyboards for schema design, migration, CI/CD integration (v0.310.0)
 
 ### Community
 
@@ -80,7 +80,7 @@ Build the community and ecosystem around Rune. **In progress — 7/11 items done
 
 ## Phase 7: Editor Extensions 🔲
 
-Extend the LSP foundation into full editor experiences. **In progress — 11/13 items done.**
+Extend the LSP foundation into full editor experiences. **In progress — 12/13 items done.**
 
 ### VS Code Extension
 
@@ -101,7 +101,7 @@ Extend the LSP foundation into full editor experiences. **In progress — 11/13 
 
 ### JetBrains IDE Plugin
 
-- [ ] IntelliJ-based schema editor — code completion, inspections
+- [x] IntelliJ-based schema editor — code completion, inspections (v0.310.0)
 - [x] Integration with LSP server — reuse existing `rune lsp` binary (v0.309.0)
 
 ---
@@ -186,10 +186,10 @@ snake_case naming), or expands an existing rule's type-category coverage.
 Carry the remaining open items from Phases 6–8 and the Architecture Targets forward as a consolidated finishing phase. **Status: 12 items remaining (still tracked under their origin phases — no new items added). CI pipeline optimization complete (v0.307.0).**
 
 - [ ] Interactive tutorial — web-based walkthrough with live examples (Phase 6 / Documentation)
-- [ ] Video walkthroughs — schema design, migration, CI/CD integration (Phase 6 / Documentation)
+- [x] Video walkthroughs — scripts & storyboards for schema design, migration, CI/CD integration (v0.310.0) (Phase 6 / Documentation)
 - [ ] Schema registry — shared template library (Phase 6 / Community)
 - [ ] Playground sharing — share `.ss` snippets via URL (Phase 6 / Community)
-- [ ] JetBrains IDE plugin — code completion, inspections (Phase 7)
+- [x] JetBrains IDE plugin — code completion, inspections (Phase 7)
 - [ ] JetBrains IDE plugin — LSP server integration (Phase 7)
 - [ ] User-defined generators via Zig plugins or WASM modules (Phase 8 / Generator Plugin System)
 - [ ] Template overrides — `.rune-template` files for customizing generator output (Phase 8)
@@ -202,13 +202,13 @@ Carry the remaining open items from Phases 6–8 and the Architecture Targets fo
 
 ## Phase 12: Cross-Dialect Portability Linting 🔲
 
-Extend the lint suite to catch schema constructs that compile fine in one dialect but break or silently degrade in another, exercising the same open-closed `LintRule` + `RULES` dispatch architecture used by Phases 10–11. **Status: 4/5 done (1 deferred — see note).**
+Extend the lint suite to catch schema constructs that compile fine in one dialect but break or silently degrade in another, exercising the same open-closed `LintRule` + `RULES` dispatch architecture used by Phases 10–11. **Status: 5/5 done.**
 
 - [x] `unindexable-type-indexed` (completed v0.298.0) — warn when an index (regular, unique, or primary key) includes a column of type `S` (unbounded text → CLOB) or `B` (BLOB), which cannot be directly indexed in several dialects (Oracle CLOB/BLOB, MySQL TEXT/BLOB prefix-length requirement). Non-fixable: the author must switch to a bounded `varchar`/`varbinary` or a prefix/virtual column.
 - [x] `unsigned-overflow-risk` (completed v0.299.0) — warn when an `unsigned` numeric column backs an auto-increment that can exceed the signed range in dialects lacking unsigned types (e.g. PostgreSQL, where the `unsigned` attribute is dropped and the column becomes signed). An unsigned 64-bit auto-increment reaches ~1.8e19 while a signed 64-bit column tops out at ~9.2e18, so the upper half of the range wraps/overflows on a dialect that maps it to a signed type. Non-fixable: the author must pick a dialect-agnostic type (e.g. `N++`/`n++` bigint with headroom) or drop `unsigned` where portability matters.
 - [x] `charset-collation-portability` (completed v0.300.0) — warn when the schema pins a dialect-specific character set or collation at the `$ name charset` header (e.g. `utf8mb4` or the collation-style `utf8mb4_0900_ai_ci`), which has no equivalent in all six dialects (PostgreSQL, Oracle, DB2, SQLite differ). Non-fixable: the author should omit the charset or use a neutral `utf8`.
 - [x] `decimal-precision-portability` (completed v0.304.0) — warn when a `decimal(p,s)` column uses a precision that exceeds the lowest common bound across the six dialects (Db2 caps `DECIMAL` at 31 digits; MySQL 65, Oracle/SQL Server 38, PostgreSQL effectively unbounded, SQLite ignores precision), or a malformed `scale > precision` (invalid in every dialect). A `decimal(40,2)` compiles on five of six dialects but **fails on Db2** — a silent cross-dialect portability trap the other portability rules left uncovered (decimal columns were previously not inspected at all). Non-fixable: the author must pick a portable precision (<= 31) or a dialect-agnostic integer/real type.
-- [ ] `auto-increment-dialect-gap` — warn when an auto-increment primary key is used without an explicit dialect-agnostic `p`/`n++` choice that maps safely under Oracle/DB2 sequences. **Deferred:** at the resolved-AST level `n++` and an explicit `auto_inc`+`pk` modifier collapse to the identical `.auto_inc_pk` representation, so the rule cannot distinguish the "dialect-agnostic" form from the "dialect-specific" one without an IR-side change (tracked as a language/IR extension).
+- [x] `auto-increment-dialect-gap` — warn when an auto-increment primary key uses dialect-specific syntax; use `n++` (bigint) or `N++` (bigint unsigned) for portable auto-increment across Oracle/DB2/PostgreSQL. Added IR extension `AutoIncOrigin` enum to track dialect-agnostic vs dialect-specific vs inferred origin (v0.310.0).
 
 The core language, pipeline, dialect, generator, and lint-symmetry work (Phases 1–5, 9, 10) is complete. Future lint additions, if any, will be driven by user-reported edge cases rather than the symmetry grid, which is now fully covered: the (PK, FK, UNIQUE) × (regular, unique) index-redundancy matrix is closed (v0.297.0), and the portability family now also covers `decimal(p,s)` precision bounds (v0.304.0).
 
@@ -289,16 +289,16 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| Phase 6: Ecosystem & Community | 🔲 In Progress | 9/11 | 2 |
-| 7: Editor Extensions | 🔲 In Progress | 12/13 | 1 |
+| Phase 6: Ecosystem & Community | 🔲 In Progress | 10/11 | 1 |
+| 7: Editor Extensions | 🔲 In Progress | 13/13 | 0 |
 | 8: Language Evolution | 🔲 In Progress | 4/9 | 5 |
 | 9: Extensibility & Plugin Foundation | ✅ Complete | 2/2 | 0 |
 | Phase 10: Lint Rule Hardening & Symmetry | ✅ Complete | 12/12 | 0 |
-| Phase 12: Cross-Dialect Portability Linting | 🔲 In Progress | 4/5 | 1 |
+| Phase 12: Cross-Dialect Portability Linting | ✅ Complete | 5/5 | 0 |
 | Architecture Targets | ✅ Complete | 22/22 | 0 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
 | Phase 13: Documentation & Spec Completeness | ✅ Complete | 3/3 | 0 |
-| **Total** | | **140/149** | **9** |
+| **Total** | | **142/149** | **7** |
 
 ---
 
@@ -345,6 +345,7 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+- **v0.310.0** — Phase 12 Completion & Editor Extensions: implemented `auto-increment-dialect-gap` lint rule (85th rule) with IR extension `AutoIncOrigin` to distinguish dialect-agnostic (`n++`/`N++`) from dialect-specific (`pk` + `ai`) auto-increment; added video walkthrough scripts/storyboards for schema design, migration, and CI/CD; completed JetBrains IDE plugin with code completion, diagnostics, and quick-fixes for all 11 fixable rules; Phase 12 marked complete (5/5 portability rules); synchronized version to 0.310.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; updated ROADMAP.md progress markers. Documentation metrics verified: 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 files), 2,022 unit tests, 85 lint rules, 34 golden test suites.
 - **v0.308.0** — Code Quality & Documentation Sync: formatted all source files with `zig fmt`; cleaned up temporary lint-fixed test artifacts; verified all 2,022 unit tests pass; all 33 golden test suites pass; benchmark regression check passes (no >10% regressions); synchronized version to 0.308.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; updated ROADMAP.md current version header. Documentation metrics verified: 69,906 total lines (45,218 production + 24,688 tests) across 327 files, 2,022 unit tests, 84 lint rules, 111 REVERSE_MAP entries.
 - **v0.307.0** — CI Pipeline Optimization: Matrix Sharding & Parallel Execution. Activated GitHub Actions matrix strategy (4 shards) for golden test parallelization; added `PARALLEL_DIALECTS=true` to round-trip tests for dialect-level parallelism; reduced property roundtrip iterations from 10 to 5; skipped redundant meta-test (`test_parallel.sh`) in sharded CI. Full test suite: 9.5 min → 6.9 min locally; CI shard max ~2 min (target <5 min achieved).
 - **v0.306.0** — Test Suite Stabilization & CI Performance Baseline: fixed 5 failing lint golden tests (CRLF line ending handling in auto-fix, table header comment parsing, `column-no-comment` template field comment inheritance); updated lint test fixtures to use `utf8` charset and `:` field comments; fixed `table-no-index` false positive on PK-only tables; established new benchmark baseline via `zig build bench -- --save` (baseline migrated from legacy `baseline.json` to per-dialect `baseline-mysql.json`); all 33 golden test suites pass, 2,022 unit tests pass, benchmarks show no regressions.

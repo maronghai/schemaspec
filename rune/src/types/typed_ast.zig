@@ -3,6 +3,7 @@ const ast_mod = @import("ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
 const ir_version = @import("ir_version.zig");
+const type_resolver = @import("type_resolver.zig");
 const Writer = std.Io.Writer;
 const Field = ast_mod.Field;
 const TypeInfo = ast_mod.TypeInfo;
@@ -36,6 +37,8 @@ pub const ColumnFlags = packed struct {
     on_update_current_timestamp: bool = false,
     is_virtual: bool = false,
     is_stored: bool = false,
+    /// Origin of auto-increment (if auto_increment is true).
+    auto_inc_origin: type_resolver.AutoIncOrigin = .Inferred,
 };
 
 pub const TypedAst = struct {

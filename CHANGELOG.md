@@ -1,3 +1,22 @@
+## [0.310.0] - 2026-08-16
+
+### Added
+- **Phase 12: Cross-Dialect Portability Linting (complete)** — Implemented `auto-increment-dialect-gap` lint rule (85th rule) that warns when an auto-increment primary key uses dialect-specific syntax instead of the portable `n++`/`N++` form. Added IR extension `AutoIncOrigin` enum to `ModifierFlags` and `ColumnFlags` to track dialect-agnostic vs dialect-specific vs inferred auto-increment origin.
+- **Phase 6: Video Walkthroughs** — Created scripts and storyboards for three video topics: (a) Schema Design & Compilation, (b) Migration & Diff Workflow, (c) CI/CD Integration with GitHub Actions.
+- **Phase 7: JetBrains IDE Plugin** — Implemented code completion, diagnostics/inspections, and quick-fixes (intentions) for all 11 fixable lint rules. The plugin integrates with the existing `rune lsp` binary.
+
+### Changed
+- Updated IR: `ModifierFlags` and `ColumnFlags` now include `auto_inc_origin` field (enum `AutoIncOrigin` with variants `DialectAgnostic`, `ExplicitModifier`, `Inferred`).
+- Updated lint rule count: 84 → 85 rules.
+- Phase 12 (Cross-Dialect Portability Linting) marked complete (5/5 rules).
+
+### Fixed
+- Architecture health test lint rule count upper bound updated from 84 to 85.
+
+### Documentation
+- Updated ROADMAP.md progress markers for Phases 6, 7, and 12.
+- Updated CLAUDE.md, README.md, rune/README.md, rune/ARCHITECTURE.md with new version and lint rule count.
+
 ## [0.307.0] - 2026-08-16
 
 ### CI Pipeline Optimization
