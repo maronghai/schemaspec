@@ -126,7 +126,6 @@ pub fn checkViewSelectStar(alloc: std.mem.Allocator, results: *std.ArrayList(Lin
     }
 }
 
-
 /// Warn when a view's SELECT has no WHERE filter.
 /// An unfiltered view performs a full-table scan on every query and may expose
 /// more rows than intended (performance/security smell). Symmetric with the
@@ -149,7 +148,6 @@ pub fn checkViewSelectMissingWhere(alloc: std.mem.Allocator, results: *std.Array
         }
     }
 }
-
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -268,4 +266,3 @@ fn containsWordIgnoreCase(haystack: []const u8, needle: []const u8) bool {
 fn isWordBoundary(c: u8) bool {
     return c == ' ' or c == '\t' or c == '\n' or c == '\r' or c == '(' or c == ',' or c == ';' or c == '.';
 }
-

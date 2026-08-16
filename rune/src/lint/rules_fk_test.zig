@@ -125,7 +125,6 @@ test "lint: table with no FKs passes fk-unidirectional" {
     try testing.expect(!th.findRule(results, "fk-unidirectional"));
 }
 
-
 test "lint: FK to non-unique column detected" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
@@ -148,7 +147,7 @@ test "lint: FK to primary key column passes" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const users = try th.makeTestTable(alloc, "users", &.{ th.makePkField("id") }, &.{});
+    const users = try th.makeTestTable(alloc, "users", &.{th.makePkField("id")}, &.{});
     const user_id = th.makeField("user_id", .{ .simple = "n" }, &.{}, .{
         .fields = &.{"user_id"},
         .ref_table = "users",

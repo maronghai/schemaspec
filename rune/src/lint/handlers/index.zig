@@ -90,7 +90,6 @@ pub fn checkIndexColumnMissing(alloc: std.mem.Allocator, results: *std.ArrayList
 
 // ─── Helpers ──────────────────────────────────────────────────
 
-
 fn setEquals(a: []const []const u8, b: []const []const u8) bool {
     if (a.len != b.len) return false;
     for (a) |x| {
@@ -352,7 +351,6 @@ pub fn checkUniqueIndexRedundantWithPk(alloc: std.mem.Allocator, results: *std.A
         }
     }
 }
-
 
 /// `unique-index-redundant-with-unique` — completes the UNIQUE-redundancy direction of the index-redundancy
 /// family. `index-redundant-with-unique` only flags `regular` standalone indexes that duplicate the index a
@@ -661,8 +659,6 @@ pub fn checkUniquePrefixRedundancy(alloc: std.mem.Allocator, results: *std.Array
         }
     }
 }
-
-
 
 /// `unindexable-type-indexed` — warns when an index (regular, unique, or primary key)
 /// includes a column whose SS type is `S` (unbounded text → CLOB) or `B` (BLOB).

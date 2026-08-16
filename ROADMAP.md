@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.307.0 (2026-08-16) — 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 `.zig` files), 2,022 unit tests, 84 lint rules, 34 golden test suites.
+**Current version**: 0.308.0 (2026-08-16) — 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 `.zig` files), 2,022 unit tests, 84 lint rules, 34 golden test suites.
 
 ---
 
@@ -345,6 +345,7 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+- **v0.308.0** — Code Quality & Documentation Sync: formatted all source files with `zig fmt`; cleaned up temporary lint-fixed test artifacts; verified all 2,022 unit tests pass; all 33 golden test suites pass; benchmark regression check passes (no >10% regressions); synchronized version to 0.308.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; updated ROADMAP.md current version header. Documentation metrics verified: 69,906 total lines (45,218 production + 24,688 tests) across 327 files, 2,022 unit tests, 84 lint rules, 111 REVERSE_MAP entries.
 - **v0.307.0** — CI Pipeline Optimization: Matrix Sharding & Parallel Execution. Activated GitHub Actions matrix strategy (4 shards) for golden test parallelization; added `PARALLEL_DIALECTS=true` to round-trip tests for dialect-level parallelism; reduced property roundtrip iterations from 10 to 5; skipped redundant meta-test (`test_parallel.sh`) in sharded CI. Full test suite: 9.5 min → 6.9 min locally; CI shard max ~2 min (target <5 min achieved).
 - **v0.306.0** — Test Suite Stabilization & CI Performance Baseline: fixed 5 failing lint golden tests (CRLF line ending handling in auto-fix, table header comment parsing, `column-no-comment` template field comment inheritance); updated lint test fixtures to use `utf8` charset and `:` field comments; fixed `table-no-index` false positive on PK-only tables; established new benchmark baseline via `zig build bench -- --save` (baseline migrated from legacy `baseline.json` to per-dialect `baseline-mysql.json`); all 33 golden test suites pass, 2,022 unit tests pass, benchmarks show no regressions.
 - **v0.305.0** — Documentation Accuracy Refresh & CI Baseline Stabilization (doc-only release): verified and corrected headline metrics across all documentation — source LOC `69,800+` → **`69,900+`** (verified 69,911 total = 45,419 production + 24,492 tests across 327 `.zig` files), unit-test count `2,030+` → **`2,022`** (verified 2,022 `test "…"` declarations), lint rules confirmed at **84**, golden suites confirmed at **34**, `REVERSE_MAP` entries confirmed at **111**; synchronized version strings 0.304.0 → 0.305.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`; established new benchmark baseline via `zig build bench -- --save`; 2,022 unit tests pass, benchmarks show no regressions.

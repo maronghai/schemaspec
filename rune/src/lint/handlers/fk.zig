@@ -462,7 +462,6 @@ pub fn checkFkMissingIndex(alloc: std.mem.Allocator, results: *std.ArrayList(Lin
     }
 }
 
-
 /// Check that a foreign key references a column that is a primary key or unique.
 /// A FK pointing at a non-unique, non-PK column is a referential-integrity
 /// hazard: the target row is not guaranteed unique, so the relationship semantics
@@ -514,4 +513,3 @@ pub fn checkFkToNonUnique(alloc: std.mem.Allocator, results: *std.ArrayList(Lint
         }
     }
 }
-

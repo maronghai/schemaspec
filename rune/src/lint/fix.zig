@@ -78,7 +78,7 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
         var line = source[line_start..line_end];
         // Handle CRLF line endings: strip trailing \r
         if (line.len > 0 and line[line.len - 1] == '\r') {
-            line = line[0..line.len - 1];
+            line = line[0 .. line.len - 1];
         }
 
         // Detect table header

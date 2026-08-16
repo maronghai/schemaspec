@@ -183,7 +183,6 @@ pub fn checkColumnNoComment(alloc: std.mem.Allocator, results: *std.ArrayList(Li
     }
 }
 
-
 /// True when a column name follows timestamp naming conventions:
 /// exactly `created_at` / `updated_at` / `deleted_at`, or ending in `_at` / `_on`.
 fn isTimestampName(name: []const u8) bool {

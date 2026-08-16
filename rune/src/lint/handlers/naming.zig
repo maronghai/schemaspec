@@ -270,7 +270,6 @@ pub fn checkCustomTypeNameTooLong(alloc: std.mem.Allocator, results: *std.ArrayL
     }
 }
 
-
 /// Check that custom types (`~`) have unique names. Duplicate custom-type
 /// definitions would collide in the generated SQL (e.g. two `CREATE TYPE`
 /// statements with the same name) and confuse the type resolver, so this

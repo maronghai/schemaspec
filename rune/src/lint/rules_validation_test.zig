@@ -451,8 +451,6 @@ test "lint: bad default on boolean column triggers column-bad-default" {
     try testing.expect(th.findRule(results, "column-bad-default"));
 }
 
-
-
 test "lint: numeric default on string column triggers column-bad-default" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();

@@ -335,7 +335,6 @@ test "lint: custom type with short name passes length check" {
     try testing.expect(!th.findRule(results, "custom-type-name-too-long"));
 }
 
-
 // ─── custom-type-duplicate tests ────────────────────────────
 
 test "lint: duplicate custom type name triggers warning" {

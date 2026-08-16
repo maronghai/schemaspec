@@ -231,7 +231,6 @@ test "custom type diff: detects dropped types" {
     try testing.expectEqualStrings("STATUS", result.custom_type_diffs[0].name);
 }
 
-
 // ─── view-no-comment tests ──────────────────────────────────
 
 test "lint: view without comment triggers note" {
@@ -334,7 +333,6 @@ test "lint: enum value with short name passes length check" {
     const results = try lint_mod.lintSchema(alloc, test_ast, .{});
     try testing.expect(!th.findRule(results, "enum-value-too-long"));
 }
-
 
 // ─── view-select-missing-where tests ─────────────────────────
 

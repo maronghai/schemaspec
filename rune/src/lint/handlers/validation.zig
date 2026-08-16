@@ -460,11 +460,10 @@ fn looksLikeSqlFunctionCall(inner: []const u8) bool {
 
     // No-paren token forms — exactly these SQL expressions.
     const tokens = [_][]const u8{
-        "now", "epoch", "sysdate", "today",
-        "current_timestamp", "current_date", "current_time",
-        "utc_timestamp", "utc_date", "utc_time",
-        "localtimestamp", "localtime",
-        "curdate", "curtime",
+        "now",               "epoch",        "sysdate",        "today",
+        "current_timestamp", "current_date", "current_time",   "utc_timestamp",
+        "utc_date",          "utc_time",     "localtimestamp", "localtime",
+        "curdate",           "curtime",
     };
     for (tokens) |t| {
         if (std.ascii.eqlIgnoreCase(trimmed, t)) return true;
@@ -472,11 +471,10 @@ fn looksLikeSqlFunctionCall(inner: []const u8) bool {
 
     // Parenthesized function-call forms: <name>(<args>) where <name> is known.
     const funcs = [_][]const u8{
-        "now", "epoch", "sysdate", "today", "uuid",
-        "uuid_generate_v4", "gen_random_uuid", "rand", "getdate", "getutcdate",
-        "current_timestamp", "current_date", "current_time",
-        "utc_timestamp", "utc_date", "utc_time",
-        "localtimestamp", "localtime", "curdate", "curtime",
+        "now",               "epoch",           "sysdate",      "today",         "uuid",
+        "uuid_generate_v4",  "gen_random_uuid", "rand",         "getdate",       "getutcdate",
+        "current_timestamp", "current_date",    "current_time", "utc_timestamp", "utc_date",
+        "utc_time",          "localtimestamp",  "localtime",    "curdate",       "curtime",
     };
     for (funcs) |f| {
         if (trimmed.len < f.len + 2) continue;
@@ -489,8 +487,6 @@ fn looksLikeSqlFunctionCall(inner: []const u8) bool {
     }
     return false;
 }
-
-
 
 /// Check for auto-increment columns that are not part of the primary key.
 /// An `auto_inc` column that is not a key is meaningless on MySQL (where

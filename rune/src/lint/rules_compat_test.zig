@@ -140,7 +140,7 @@ test "lint: unsigned-overflow-risk negative (unsigned but not auto-increment)" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const col = th.makeField("balance", .{ .simple = "N" }, &.{ .{ .kind = .unsigned, .line_no = 1 } }, null);
+    const col = th.makeField("balance", .{ .simple = "N" }, &.{.{ .kind = .unsigned, .line_no = 1 }}, null);
     const table = try th.makeTestTable(alloc, "accounts", &.{ th.makePkField("id"), col }, &.{});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
@@ -151,7 +151,7 @@ test "lint: unsigned-overflow-risk negative (auto-increment but not unsigned)" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
     defer arena.deinit();
     const alloc = arena.allocator();
-    const id = th.makeField("id", .{ .simple = "N" }, &.{ .{ .kind = .auto_inc, .line_no = 1 } }, null);
+    const id = th.makeField("id", .{ .simple = "N" }, &.{.{ .kind = .auto_inc, .line_no = 1 }}, null);
     const table = try th.makeTestTable(alloc, "widgets", &.{id}, &.{});
     const tables = try alloc.dupe(ResolvedTable, &.{table});
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
@@ -168,7 +168,6 @@ test "lint: unsigned-overflow-risk negative (unsigned + auto-increment but non-n
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "unsigned-overflow-risk"));
 }
-
 
 test "lint: charset-collation-portability positive (mysql-specific utf8mb4)" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);
@@ -227,7 +226,6 @@ test "lint: charset-collation-portability negative (no charset)" {
     const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
     try testing.expect(!th.findRule(results, "charset-collation-portability"));
 }
-
 
 test "lint: decimal-precision-portability fires when precision exceeds portable bound (Db2 cap 31)" {
     var arena = std.heap.ArenaAllocator.init(testing.allocator);

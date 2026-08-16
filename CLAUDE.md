@@ -197,7 +197,7 @@ rune/src/
   lsp/          protocol.zig, documents.zig,                # LSP server (JSON-RPC, document sync, completion, hover, go-to-def, code actions, formatting, references, highlights, workspace symbols, signature help, code lens)
                 compile_service.zig, server.zig, features.zig
   generators/      common.zig, common_test.zig, json_schema.zig, sql_ddl.zig, prisma.zig, docs.zig, drizzle.zig, typeorm.zig, sqlalchemy.zig, knex.zig, openapi.zig, graphql.zig  # generator implementations + shared test helpers
-  tests.zig                                                       # colocated test index (118 files)
+  tests.zig                                                       # colocated test index (119 files)
   utils/      edit_distance.zig                         # edit distance + suggestion
   pipeline/    forward.zig, handlers.zig, generate.zig,      # pipeline orchestration + CLI handlers
                validation.zig,                             # validation handler (extracted for SRP)
