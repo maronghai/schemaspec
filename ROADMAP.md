@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.308.0 (2026-08-16) — 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 `.zig` files), 2,022 unit tests, 84 lint rules, 34 golden test suites.
+**Current version**: 0.309.0 (2026-08-16) — 69,900+ lines of Zig (45,400+ production + 24,500+ tests across 327 `.zig` files), 2,022 unit tests, 84 lint rules, 34 golden test suites.
 
 ---
 
@@ -102,7 +102,7 @@ Extend the LSP foundation into full editor experiences. **In progress — 11/13 
 ### JetBrains IDE Plugin
 
 - [ ] IntelliJ-based schema editor — code completion, inspections
-- [ ] Integration with LSP server — reuse existing `rune lsp` binary
+- [x] Integration with LSP server — reuse existing `rune lsp` binary (v0.309.0)
 
 ---
 
@@ -289,8 +289,8 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | 3: ORM & API Schema Output | ✅ Complete | 13/13 | 0 |
 | 4: Incremental & Live Workflows | ✅ Complete | 10/10 | 0 |
 | 5: Developer Experience | ✅ Complete | 13/13 | 0 |
-| Phase 6: Ecosystem & Community | 🔲 In Progress | 7/11 | 4 |
-| 7: Editor Extensions | 🔲 In Progress | 11/13 | 2 |
+| Phase 6: Ecosystem & Community | 🔲 In Progress | 9/11 | 2 |
+| 7: Editor Extensions | 🔲 In Progress | 12/13 | 1 |
 | 8: Language Evolution | 🔲 In Progress | 4/9 | 5 |
 | 9: Extensibility & Plugin Foundation | ✅ Complete | 2/2 | 0 |
 | Phase 10: Lint Rule Hardening & Symmetry | ✅ Complete | 12/12 | 0 |
@@ -298,7 +298,7 @@ Tracked items that should be addressed but don't fit neatly into a phase.
 | Architecture Targets | ✅ Complete | 22/22 | 0 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
 | Phase 13: Documentation & Spec Completeness | ✅ Complete | 3/3 | 0 |
-| **Total** | | **138/149** | **11** |
+| **Total** | | **140/149** | **9** |
 
 ---
 

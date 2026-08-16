@@ -12,6 +12,7 @@ pub const ColorMode = enums.ColorMode;
 pub const LintFormat = enum { text, json, sarif };
 pub const DocsFormat = enum { markdown, json };
 pub const ExportFormat = enum { json, text, markdown };
+pub const ShareFormat = enum { url, json, qr };
 
 pub const Command = union(enum) {
     compile: struct { input: ?[]const u8, output: ?[]const u8, trace: bool, stats: bool, check: bool, verbose_passes: bool, stream: bool = false, parallel: bool = false, cache: bool = false, cache_dir: ?[]const u8 = null },
@@ -34,6 +35,7 @@ pub const Command = union(enum) {
     tune: struct { input: ?[]const u8 = null, dry_run: bool = false },
     lsp,
     version: struct { json: bool = false },
+    share: struct { input: ?[]const u8 = null, output: ?[]const u8 = null, format: ShareFormat = .url },
     help: struct { subcommand: ?[]const u8 = null },
 };
 
@@ -114,6 +116,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "watch", .args = "<input> [--interval <ms>] [--recursive] [--parallel]", .description = "Watch file/directory and recompile on change" },
     .{ .name = "tune", .args = "[input.ss] [--dry-run]", .description = "Extract common fields into templates" },
     .{ .name = "lsp", .args = "", .description = "Start LSP language server (stdio)" },
+    .{ .name = "share", .args = "[input.ss] [--share-format url|json|qr] [-F]", .description = "Generate shareable URL for .ss snippet (playground)" },
 };
 
 /// Known long flags for edit-distance suggestions.
@@ -126,6 +129,7 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--generators",     "--from-sql",      "--fix",         "--rules",         "--output-dir", "--recursive",
     "--per-table",      "--include-views", "--diff",        "--write",         "--audit",      "--cache",
     "--cache-dir",
+    "--share-format",   "-F",
 };
 
 // ─── Data-Driven Help System ──────────────────────────────────

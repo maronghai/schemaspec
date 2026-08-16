@@ -221,3 +221,30 @@ pub fn parseLspArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
     _ = fargs;
     return shared.parseSimpleSubcommand(dialect, target, .lsp, opts);
 }
+
+
+pub fn parseShareArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    var format: types.ShareFormat = .url;
+    var output: ?[]const u8 = null;
+    var input: ?[]const u8 = null;
+    var j: usize = 1;
+    while (j < fargs.len) : (j += 1) {
+        if ((std.mem.eql(u8, fargs[j], "--share-format") or std.mem.eql(u8, fargs[j], "-F")) and j + 1 < fargs.len) {
+            j += 1;
+            if (std.mem.eql(u8, fargs[j], "json")) {
+                format = .json;
+            } else if (std.mem.eql(u8, fargs[j], "qr")) {
+                format = .qr;
+            } else if (!std.mem.eql(u8, fargs[j], "url")) {
+                return error.UnknownFormat;
+            }
+        } else if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
+            j += 1;
+            output = fargs[j];
+        } else if (fargs[j][0] != '-') {
+            // Positional argument (input file)
+            input = fargs[j];
+        }
+    }
+    return shared.parseSimpleSubcommand(dialect, target, .{ .share = .{ .input = input, .output = output, .format = format } }, opts);
+}

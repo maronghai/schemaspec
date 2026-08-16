@@ -21,9 +21,9 @@ pub fn readStdin(io: std.Io, alloc: std.mem.Allocator) ![]const u8 {
     return try result.toOwnedSlice(alloc);
 }
 
-/// Read a file by path, or stdin if path is "-".
+/// Read a file by path, or stdin if path is "-" or empty.
 pub fn readFileOrStdin(io: std.Io, alloc: std.mem.Allocator, path: []const u8) ![]const u8 {
-    if (std.mem.eql(u8, path, STDIN_PATH)) {
+    if (path.len == 0 or std.mem.eql(u8, path, STDIN_PATH)) {
         return readStdin(io, alloc);
     }
     return try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited);
@@ -46,4 +46,20 @@ pub fn writeOutput(io: std.Io, data: []const u8, output_path: ?[]const u8, quiet
         try w.interface.writeAll(data);
         try w.flush();
     }
+}
+
+
+/// Open a file for writing, creating parent directories if needed.
+/// Returns a File handle for writing.
+pub fn openFileForWrite(io: std.Io, _: std.mem.Allocator, path: []const u8) !std.Io.File {
+    // Create parent directories
+    const dir = std.fs.path.dirname(path) orelse ".";
+    if (dir.len > 0 and !std.mem.eql(u8, dir, ".")) {
+        try std.Io.Dir.cwd().createDirPath(io, dir);
+    }
+    return try std.Io.Dir.cwd().createFile(io, path, .{
+        .read = false,
+        .truncate = true,
+        .exclusive = false,
+    });
 }

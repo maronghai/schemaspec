@@ -444,6 +444,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .{ .name = "lint", .parse = parse_utils.parseLintArgs },
         .{ .name = "watch", .parse = parse_utils.parseWatchArgs },
         .{ .name = "tune", .parse = parse_utils.parseTuneArgs },
+        .{ .name = "share", .parse = parse_utils.parseShareArgs },
         .{ .name = "lsp", .parse = parse_utils.parseLspArgs },
     };
     for (parsers) |entry| {

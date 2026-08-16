@@ -261,6 +261,20 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs) !void 
             const file_data = try readFileOrStdin(io, alloc, cmd.input);
             return tune_mod.handleTune(io, alloc, file_data, cmd.dry_run);
         },
+        .share => |cmd| {
+            const share_mod = @import("share.zig");
+            const file_data = try readFileOrStdin(io, alloc, cmd.input);
+            const share_format = switch (cmd.format) {
+                .url => share_mod.ShareFormat.url,
+                .json => share_mod.ShareFormat.json,
+                .qr => share_mod.ShareFormat.qr,
+            };
+            return share_mod.handleShare(io, alloc, file_data, .{
+                .input = cmd.input,
+                .output = cmd.output,
+                .format = share_format,
+            });
+        },
         .lsp => {
             const lsp_server = @import("lsp/server.zig");
             var server = lsp_server.Server.init(alloc, io);
