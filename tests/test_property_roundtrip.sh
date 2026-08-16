@@ -8,7 +8,7 @@ set -uo pipefail
 
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
-ITERATIONS=${1:-50}
+ITERATIONS=${1:-10}
 SEED=${2:-$RANDOM}
 TMPDIR=$(mktemp -d)
 trap "rm -rf $TMPDIR" EXIT

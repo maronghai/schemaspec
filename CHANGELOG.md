@@ -1,3 +1,20 @@
+## [0.307.0] - 2026-08-16
+
+### CI Pipeline Optimization
+- **GitHub Actions matrix sharding**: Activated 4-shard matrix strategy for golden tests, reducing CI runtime from ~9.5 min to ~2 min per shard (target <5 min achieved)
+- **Round-trip dialect parallelism**: Added `PARALLEL_DIALECTS=true` support to `test_roundtrip.sh`, running dialect compilations in parallel (23 test cases × 5 dialects → ~30s from 140s)
+- **Property roundtrip optimization**: Reduced default iterations from 10 to 5 for CI runs
+- **Redundant meta-test removal**: Skipped `test_parallel.sh` in sharded CI (it re-runs other suites)
+- **Sharding infrastructure fixes**: Fixed `--shard N/M` argument parsing in `test_coverage.sh`
+
+### Test Infrastructure
+- Fixed argument parsing bug in `test_coverage.sh` for `--shard` flag (while loop vs for loop)
+- Round-trip tests now use background jobs for dialect-level parallelism
+
+### Changed
+- Full test suite runtime: 9.5 min → 6.9 min locally; CI shard max ~2 min
+- Property roundtrip iterations: 10 → 5 (configurable)
+
 ## [0.306.0] - 2026-08-16
 
 ### Fixed

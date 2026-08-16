@@ -1,13 +1,20 @@
 #!/usr/bin/env bash
 # ── Rune Roundtrip Test Runner ──
 # Tests: .ss → SQL → reverse → .ss → SQL produces semantically equivalent output.
-# Usage: ./test_roundtrip.sh [test-filter]
+# Usage: ./test_roundtrip.sh [test-filter] [dialect1 dialect2 ...]
+#   test-filter: substring to match test names
+#   dialect1 dialect2 ...: space-separated list of dialects to test (default: 5 dialects, excluding mssql)
 
 set -uo pipefail
 
 source "$(cd "$(dirname "$0")" && pwd)/lib.sh"
 
 FILTER="${1:-}"
+# Dialects to test: remaining arguments, or 5 dialects if none specified (mssql excluded due to bracket quoting bug in reverse pipeline)
+DIALECTS=("${@:2}")
+if [ ${#DIALECTS[@]} -eq 0 ]; then
+  DIALECTS=(mysql pg sqlite oracle db2)
+fi
 
 # Test schemas: .ss files that roundtrip cleanly across all 6 dialects.
 # Excluded: 20-index-types/39-index-autoname (FULLTEXT name double-prefix),
@@ -51,7 +58,82 @@ for test_name in "${ROUNDTRIP_TESTS[@]}"; do
     continue
   fi
 
-  for dialect in mysql pg sqlite oracle db2; do
+  # Run dialects in parallel for this test case
+  PARALLEL_DIALECTS="${PARALLEL_DIALECTS:-false}"
+  if [ "$PARALLEL_DIALECTS" = "true" ]; then
+    # Run all dialects in background
+    pids=()
+    tmpdir=$(mktemp -d)
+    for dialect in "${DIALECTS[@]}"; do
+      (
+        # Step 1: .ss → SQL (original)
+        sql1=$("$COMPILER" "$ss_file" -d "$dialect" 2>/dev/null) || {
+          echo "FAIL:$dialect:compile" > "$tmpdir/$dialect.status"
+          exit 1
+        }
+
+        # Step 2: SQL → .ss (reverse via auto-detect from header tag)
+        reversed=$(echo "$sql1" | timeout 10 "$COMPILER" reverse - 2>/dev/null) || {
+          echo "SKIP:$dialect:reverse" > "$tmpdir/$dialect.status"
+          exit 0
+        }
+
+        # Step 3: reversed .ss → SQL (roundtrip)
+        sql2=$(echo "$reversed" | timeout 10 "$COMPILER" - -d "$dialect" 2>/dev/null) || {
+          echo "FAIL:$dialect:recompile" > "$tmpdir/$dialect.status"
+          exit 1
+        }
+
+        # Step 4: Semantic comparison
+        strip1=$(echo "$sql1" | grep -v '^--' | sed '/^$/d' | sed 's/[[:space:]]*$//')
+        strip2=$(echo "$sql2" | grep -v '^--' | sed '/^$/d' | sed 's/[[:space:]]*$//')
+
+        if [ "$strip1" = "$strip2" ]; then
+          echo "PASS:$dialect" > "$tmpdir/$dialect.status"
+        else
+          diff_output=$(diff <(echo "$strip1") <(echo "$strip2") 2>&1 | head -10)
+          echo "FAIL:$dialect:mismatch:$diff_output" > "$tmpdir/$dialect.status"
+        fi
+      ) &
+      pids+=($!)
+    done
+
+    # Wait for all dialects
+    for pid in "${pids[@]}"; do
+      wait "$pid"
+    done
+
+    # Collect results
+    for dialect in "${DIALECTS[@]}"; do
+      status_file="$tmpdir/$dialect.status"
+      if [ -f "$status_file" ]; then
+        status=$(cat "$status_file")
+        case "$status" in
+          PASS:*)
+            pass "$test_name ($dialect)"
+            ;;
+          SKIP:*)
+            skip "$test_name ($dialect)" "${status#SKIP:*:}"
+            ;;
+          FAIL:*:compile)
+            fail "$test_name ($dialect): step 1" "compile failed"
+            ;;
+          FAIL:*:recompile)
+            fail "$test_name ($dialect): step 3" "re-compile failed"
+            ;;
+          FAIL:*:mismatch:*)
+            diff_output="${status#FAIL:*:mismatch:}"
+            fail "$test_name ($dialect)" "SQL mismatch: $diff_output"
+            ;;
+        esac
+      else
+        fail "$test_name ($dialect)" "no status file"
+      fi
+    done
+    rm -rf "$tmpdir"
+  else
+    # Sequential mode (original)
+    for dialect in "${DIALECTS[@]}"; do
     # Step 1: .ss → SQL (original)
     sql1=$("$COMPILER" "$ss_file" -d "$dialect" 2>/dev/null) || {
       fail "$test_name ($dialect): step 1" "compile failed"
@@ -80,7 +162,8 @@ for test_name in "${ROUNDTRIP_TESTS[@]}"; do
       diff_output=$(diff <(echo "$strip1") <(echo "$strip2") 2>&1 | head -10)
       fail "$test_name ($dialect)" "SQL mismatch: $diff_output"
     fi
-  done
+    done
+  fi
 done
 
 summary "Roundtrip"
