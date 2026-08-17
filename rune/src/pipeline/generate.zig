@@ -4,7 +4,6 @@ const compileToTypedAst = compile_helper.compileToTypedAst;
 const io_mod = @import("../io.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const generator = @import("../generator.zig");
-const plugin = @import("../plugin.zig");
 const fmt = @import("../diagnostic/format.zig");
 
 // ─── Generate Handlers ──────────────────────────────────────────

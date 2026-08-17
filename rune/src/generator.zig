@@ -2,7 +2,6 @@ const std = @import("std");
 const typed_ast = @import("types/typed_ast.zig");
 const dialect_enum = @import("dialect/enum.zig");
 const Dialect = dialect_enum.Dialect;
-const plugin = @import("plugin.zig");
 
 // ─── Generator Registry ───────────────────────────────────────
 // Pluggable generator infrastructure for `rune generate`.
