@@ -297,7 +297,7 @@ rune/src/
 
 - **Two-Pass FK Diffing** (`diff/fks.zig`): First pass matches identical FKs (structure + actions). Second pass matches structurally identical FKs with different actions → `modify`. Remaining unmatched FKs → `drop`/`add`.
 
-- **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null. The general path uses comptime iteration over `DIALECT_NAMES` to match all dialects via `REVERSE_MAP` data, with case-insensitive parameterized type matching for Oracle (`VARCHAR2(N)`, `NUMBER(P,S)`) and Db2 (`DECIMAL(P,S)`, `VARCHAR(N)`). Reverse mapping data lives in `types/reverse_map.zig` (canonical location), consumed by both `reverse/map.zig` and `diff/semantic.zig`. Adding a new dialect requires only 3 changes: add to `Dialect` enum, add struct field to `DialectTypeMap`, add case to `getDialectType()`.
+- **Reverse Lookup Vtable**: `DialectBackend.reverseLookup` (optional) allows dialect-specific reverse engineering (e.g. SQLite's heuristic-based INTEGER/TEXT disambiguation). Fallback to general `reverse/map.zig` matching when vtable is null. The general path uses comptime iteration over `DIALECT_NAMES` to match all dialects via `REVERSE_MAP` data, with case-insensitive parameterized type matching for Oracle (`VARCHAR2(N)`, `NUMBER(P,S)`) and Db2 (`DECIMAL(P,S)`, `VARCHAR(N)`). Reverse mapping data lives in `types/reverse_map.zig` (canonical location), consumed by both `reverse/map.zig` and `diff/semantic.zig`. Adding a new dialect requires only 3 changes: add to `Dialect` enum, add struct field to `DialectTypeMap`, add case to `getDialectType()`. **112 entries**.
 
 - **Weighted Confidence Scoring** (`reverse/map.zig`): `computeConfidence(base_score, col_name)` applies naming-convention bonuses to base confidence scores from REVERSE_MAP or hardcoded values. Bonuses: +5 for snake_case, +3 for semantic suffixes (`_id`, `_at`, `_on`, `_name`), +3 for boolean prefixes (`is_`, `has_`, `can_`). Scores capped at 100. Applied in `reverseLookup` to all code paths (REVERSE_MAP match, parameterized types, ENUM, unknown, SQLite vtable).
 
@@ -378,7 +378,7 @@ rune/src/
 | | `type_registry.zig` | Thin delegation to DialectBackend.lookupSym (forward type mapping) |
 | | `type_resolver.zig` | TypeResolver namespace — ResolvedAst → TypedAst type resolution |
 | | `symbol_table.zig` | Schema-level symbol table for name resolution |
-| | `reverse_map.zig` | Shared REVERSE_MAP data (111 entries) + ReverseMapping struct with extensible DialectTypeMap (`DIALECT_NAMES` comptime array + `getDialectType()` accessor) |
+| | `reverse_map.zig` | Shared REVERSE_MAP data (112 entries) + ReverseMapping struct with extensible DialectTypeMap (`DIALECT_NAMES` comptime array + `getDialectType()` accessor) |
 | `semantic/` | `analyzer.zig` | SemanticAnalyzer + diagnosticTrace |
 | | `pass_manager.zig` | PassContext + SemanticPass + DEFAULT_PASSES + validateDependencyOrder |
 | | `trace.zig` | Shared AST trace formatting |
