@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.315.0 (2026-08-17) — 70,700+ lines of Zig (46,100+ production + 24,500+ tests across 329 `.zig` files), 2,033 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 34 golden test suites.
+**Current version**: 0.320.0 (2026-08-17) — 70,700+ lines of Zig (46,100+ production + 24,500+ tests across 329 `.zig` files), 2,033 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 34 golden test suites.
 
 ---
 
@@ -223,7 +223,7 @@ Close the gap between the implemented language and its specification/reference d
 ## Phase 14: Ecosystem Maturation (Next Focus) 🔲
 
 Carry the remaining open items from Phases 6/8/11 forward as a consolidated next-phase focus. These are large, IR/pipeline-stage-level features (not registry-entry extensions), so each should be scoped as its own RFC + phase.
-**Status: 0 items started (7 carried forward).**
+**Status: 1 item started (API stub done, 6 carried forward).**
 
 ### Distribution & Community
 
@@ -232,7 +232,7 @@ Carry the remaining open items from Phases 6/8/11 forward as a consolidated next
 
 ### Generator Plugin System
 
-- [ ] User-defined generators via Zig plugins or WASM modules (Phase 8)
+- [~] User-defined generators via Zig plugins or WASM modules (Phase 8) — API stub implemented in `wasm/plugin.zig` (Zig 0.16 std has no WASM runtime; returns NotImplemented). Full implementation requires WASM runtime integration (wasmtime, wasmer, or custom).
 - [ ] Template overrides — `.rune-template` files for customizing generator output (Phase 8)
 - [ ] Generator marketplace — community-contributed generators (Phase 8)
 
@@ -366,6 +366,7 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+- **v0.320.0** — Phase 14 Kickoff: Generator Plugin System (WASM Stub) + Documentation Accuracy & Architecture Health: implemented WASM plugin system API stub in `wasm/plugin.zig` (Zig 0.16 std has no WASM runtime; returns NotImplemented); added `loadWasmPlugins`, `loadWasmPlugin`, `getGenerator`, `listAllGenerators` to `generator.zig` with plugin-aware lookup; fixed Zig 0.16 compilation errors in `wasm/plugin.zig` (ArrayList API, std.os.getenv → std.process.Environ); all 2,033 unit tests pass, 34/34 golden test suites pass, benchmarks show no regressions; synchronized version strings 0.315.0 → 0.320.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode).
 - **v0.315.0** — Documentation Accuracy & Homebrew Sync: fixed REVERSE_MAP entry count documentation drift (111 → 112) in `ROADMAP.md` Phase 2 description and `rune/ARCHITECTURE.md` (3 locations); updated Homebrew formula (`packaging/homebrew/rune.rb`) from 0.312.0 → 0.315.0; synchronized version strings 0.314.0 → 0.315.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); zero engine/parser/IR changes — documentation-only; 2,033 unit tests pass, benchmarks show no regressions.
 - **v0.313.0** — Documentation Accuracy & Metric Re-Sync (Phase 13 sweep): re-verified all headline metrics against the live source tree (329 `.zig` files = 210 production + 119 test; 70,767 total LOC = 46,215 production + 24,552 tests; 85 lint rules; 112 `REVERSE_MAP` entries; 34 golden test suites) and corrected a unit-test-count drift — `2,022` → **`2,033`** (verified 2,033 `test "…"` declarations, +11 since v0.312.0) — across `ROADMAP.md` and `rune/README.md`; zero engine/parser/IR changes — documentation-only; synchronized version strings 0.312.0 → 0.313.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, vscode); 2,033 unit tests pass, benchmarks show no regressions.
 - **v0.312.0** — Architecture Health Hardening & Documentation/Spec Accuracy Refresh: added 2 comptime architecture-health tests guarding the open-closed lint `RULES` dispatch table (registration completeness + no duplicates); marked Phase 7 (Editor Extensions) complete (13/13) and reconciled ROADMAP Phase 7/11 bookkeeping inconsistencies; refreshed drifted metrics (lint rules 84→85, unit-test count 2,030+→2,022, production LOC 45,400+→46,100+, `.zig` files 328→329) across `CLAUDE.md`, `README.md`, `rune/README.md`, `rune/ARCHITECTURE.md`, `ROADMAP.md`; synchronized version 0.311.0→0.312.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, homebrew, vscode). 2,022 unit tests pass, benchmarks show no regressions.

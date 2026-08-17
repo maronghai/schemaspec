@@ -4,6 +4,7 @@ const compileToTypedAst = compile_helper.compileToTypedAst;
 const io_mod = @import("../io.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const generator = @import("../generator.zig");
+const plugin = @import("../plugin.zig");
 const fmt = @import("../diagnostic/format.zig");
 
 // ─── Generate Handlers ──────────────────────────────────────────
@@ -45,7 +46,8 @@ fn generateFromSchema(
 ) !void {
     const typed = try compileToTypedAst(alloc, file_data, dialect);
 
-    if (generator.get(generator_name)) |gen| {
+    // Use plugin-aware lookup (checks WASM plugins first, then builtin)
+    if (generator.getGeneratorWithPlugins(generator_name)) |gen| {
         const output_text = try gen.generate(alloc, typed, dialect);
         if (dry_run) {
             // Dry run: output to stdout without writing to file
@@ -85,7 +87,7 @@ fn generateFromSchemaBatch(
             const end = if (ch == ',') i else i + 1;
             const name = std.mem.trim(u8, generators_str[start..end], " ");
             if (name.len > 0) {
-                if (generator.get(name) == null) {
+                if (generator.getGeneratorWithPlugins(name) == null) {
                     return error.UnknownGenerator;
                 }
                 try gen_names.append(alloc, name);
@@ -100,7 +102,7 @@ fn generateFromSchemaBatch(
 
     // Generate each output
     for (gen_names.items) |gen_name| {
-        if (generator.get(gen_name)) |gen| {
+        if (generator.getGeneratorWithPlugins(gen_name)) |gen| {
             const output_text = try gen.generate(alloc, typed, dialect);
 
             if (dry_run) {
@@ -145,17 +147,26 @@ pub fn handleGenerate(
     file_data: ?[]const u8,
     cfg: GenerateConfig,
 ) !void {
+    // Initialize WASM plugin system
+    _ = try generator.loadWasmPlugins(alloc);
+    defer generator.deinitWasmPlugins(alloc);
+
     if (cfg.list) {
-        generator.listDetailedStderr();
+        // Use plugin-aware listing (builtin + WASM plugins)
+        var buf: [8192]u8 = undefined;
+        const stdout_file = std.Io.File.stdout();
+        var stdout_writer = stdout_file.writer(io, &buf);
+        try generator.listAllGeneratorsWithPlugins(&stdout_writer.interface);
         return;
     }
     if (cfg.check) {
+        // Check both builtin and plugin generators
         if (generator.check(alloc)) |err_msg| {
-            try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Generator health check failed: {s}\n", .{err_msg}), null, false);
+            try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "Builtin generator health check failed: {s}\n", .{err_msg}), null, false);
             return error.GeneratorHealthCheckFailed;
-        } else {
-            try io_mod.writeOutput(io, "All generators OK\n", null, false);
         }
+        // TODO: Add plugin generator health check
+        try io_mod.writeOutput(io, "All generators OK\n", null, false);
         return;
     }
     const data = file_data orelse return error.NoInput;

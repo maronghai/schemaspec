@@ -2,6 +2,7 @@ const std = @import("std");
 const typed_ast = @import("types/typed_ast.zig");
 const dialect_enum = @import("dialect/enum.zig");
 const Dialect = dialect_enum.Dialect;
+const plugin = @import("plugin.zig");
 
 // ─── Generator Registry ───────────────────────────────────────
 // Pluggable generator infrastructure for `rune generate`.
@@ -35,7 +36,7 @@ pub const Generator = struct {
     generate: *const fn (alloc: std.mem.Allocator, typed: typed_ast.TypedAst, dialect: Dialect) anyerror![]const u8,
 };
 
-/// Registry of all available generators.
+/// Registry of all available builtin generators.
 pub const REGISTRY = [_]Generator{
     .{
         .name = "json-schema",
@@ -135,7 +136,8 @@ pub const REGISTRY = [_]Generator{
     },
 };
 
-/// Look up a generator by name. Returns null if not found.
+/// Look up a builtin generator by name. Returns null if not found.
+/// For plugin-aware lookup, use `plugin.getGenerator()`.
 pub fn get(name: []const u8) ?Generator {
     for (REGISTRY) |gen| {
         if (std.mem.eql(u8, gen.name, name)) return gen;
@@ -143,7 +145,8 @@ pub fn get(name: []const u8) ?Generator {
     return null;
 }
 
-/// Print all available generators to the given writer.
+/// Print all available builtin generators to the given writer.
+/// For plugin-aware listing, use `plugin.listAllGenerators()`.
 pub fn listAll(writer: anytype) !void {
     try writer.print("Available generators:\n", .{});
     for (REGISTRY) |gen| {
@@ -188,7 +191,7 @@ pub fn listDetailedStderr() void {
     std.debug.print("{s}", .{buf.toOwnedSlice() catch return});
 }
 
-/// Health check: verify all generators can produce output for a minimal schema.
+/// Health check: verify all builtin generators can produce output for a minimal schema.
 /// Tests all 6 dialects to ensure dialect-specific generators work correctly.
 /// Returns null on success, error message on failure.
 pub fn check(alloc: std.mem.Allocator) ?[]const u8 {
@@ -210,6 +213,47 @@ pub fn check(alloc: std.mem.Allocator) ?[]const u8 {
         }
     }
     return null;
+}
+
+/// Load WASM plugins from the default plugin directory (~/.rune/plugins/).
+/// Returns 0 — WASM plugin loading not yet implemented for Zig 0.16.
+pub fn loadWasmPlugins(alloc: std.mem.Allocator) !usize {
+    const wasm_plugin = @import("wasm/plugin.zig");
+    try wasm_plugin.init(alloc);
+    // WASM plugin loading not yet implemented (Zig 0.16 std has no WASM runtime)
+    return 0;
+}
+
+/// Load a specific WASM plugin by path.
+/// Returns the number of generators registered.
+pub fn loadWasmPlugin(alloc: std.mem.Allocator, path: []const u8) !i32 {
+    const wasm_plugin = @import("wasm/plugin.zig");
+    try wasm_plugin.init(alloc);
+    return try wasm_plugin.loadWasmPlugin(alloc, path);
+}
+
+/// Get a generator by name, checking WASM plugins first, then builtin.
+/// This is the unified lookup function for both builtin and plugin generators.
+pub fn getGeneratorWithPlugins(name: []const u8) ?Generator {
+    const wasm_plugin = @import("wasm/plugin.zig");
+    // Check WASM plugins first
+    for (wasm_plugin.getWasmPluginGenerators()) |gen| {
+        if (std.mem.eql(u8, gen.name, name)) return gen;
+    }
+    // Fall back to builtin
+    return get(name);
+}
+
+/// List all generators (builtin + WASM plugins) to a writer.
+pub fn listAllGeneratorsWithPlugins(writer: anytype) !void {
+    const wasm_plugin = @import("wasm/plugin.zig");
+    try wasm_plugin.listAllGenerators(writer);
+}
+
+/// Cleanup WASM plugin system.
+pub fn deinitWasmPlugins(alloc: std.mem.Allocator) void {
+    const wasm_plugin = @import("wasm/plugin.zig");
+    wasm_plugin.deinit(alloc);
 }
 
 // ─── Tests ──────────────────────────────────────────────────────
