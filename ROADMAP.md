@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.314.0 (2026-08-17) — 70,700+ lines of Zig (46,100+ production + 24,500+ tests across 329 `.zig` files), 2,033 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 34 golden test suites.
+**Current version**: 0.315.0 (2026-08-17) — 70,700+ lines of Zig (46,100+ production + 24,500+ tests across 329 `.zig` files), 2,033 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 34 golden test suites.
 
 ---
 
@@ -30,7 +30,7 @@ Multi-error recovery, partial schema compilation, cycle detection, FK validation
 
 Added all 6 SQL dialect backends. Shipped v0.48–v0.76.
 
-MySQL, PostgreSQL, SQLite, MSSQL, Oracle, IBM Db2. DialectBackend vtable (32 function pointers — 25 required + 7 optional — plus 3 behavioral flags), shared helpers, dialect-specific test suites (470+ golden tests), dialect-aware reverse engineering, dialect auto-detection, and shared reverse mapping data (111 entries).
+MySQL, PostgreSQL, SQLite, MSSQL, Oracle, IBM Db2. DialectBackend vtable (32 function pointers — 25 required + 7 optional — plus 3 behavioral flags), shared helpers, dialect-specific test suites (470+ golden tests), dialect-aware reverse engineering, dialect auto-detection, and shared reverse mapping data (112 entries).
 
 ### Phase 3: ORM & API Schema Output ✅
 
@@ -366,6 +366,7 @@ Focus: Performance, platform coverage, and ecosystem maturity.
 For detailed per-version release notes, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Recent Releases
+- **v0.315.0** — Documentation Accuracy & Homebrew Sync: fixed REVERSE_MAP entry count documentation drift (111 → 112) in `ROADMAP.md` Phase 2 description and `rune/ARCHITECTURE.md` (3 locations); updated Homebrew formula (`packaging/homebrew/rune.rb`) from 0.312.0 → 0.315.0; synchronized version strings 0.314.0 → 0.315.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and all packaging manifests (npm, scoop, homebrew, vscode); zero engine/parser/IR changes — documentation-only; 2,033 unit tests pass, benchmarks show no regressions.
 - **v0.313.0** — Documentation Accuracy & Metric Re-Sync (Phase 13 sweep): re-verified all headline metrics against the live source tree (329 `.zig` files = 210 production + 119 test; 70,767 total LOC = 46,215 production + 24,552 tests; 85 lint rules; 112 `REVERSE_MAP` entries; 34 golden test suites) and corrected a unit-test-count drift — `2,022` → **`2,033`** (verified 2,033 `test "…"` declarations, +11 since v0.312.0) — across `ROADMAP.md` and `rune/README.md`; zero engine/parser/IR changes — documentation-only; synchronized version strings 0.312.0 → 0.313.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, vscode); 2,033 unit tests pass, benchmarks show no regressions.
 - **v0.312.0** — Architecture Health Hardening & Documentation/Spec Accuracy Refresh: added 2 comptime architecture-health tests guarding the open-closed lint `RULES` dispatch table (registration completeness + no duplicates); marked Phase 7 (Editor Extensions) complete (13/13) and reconciled ROADMAP Phase 7/11 bookkeeping inconsistencies; refreshed drifted metrics (lint rules 84→85, unit-test count 2,030+→2,022, production LOC 45,400+→46,100+, `.zig` files 328→329) across `CLAUDE.md`, `README.md`, `rune/README.md`, `rune/ARCHITECTURE.md`, `ROADMAP.md`; synchronized version 0.311.0→0.312.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, homebrew, vscode). 2,022 unit tests pass, benchmarks show no regressions.
 - **v0.311.0** — Phase 6 Schema Registry Foundation: added the `rune registry` CLI subcommand group (`init`, `add <name> <path>`, `list`, `show <name>`, `remove <name>`) for managing a local shared template library under `~/.rune/registry/` (each template stored as `template.ss` + `meta.json` with name/description/version/author/tags/dependencies/min_rune_version/created/updated). Fixed two Zig 0.16 `std.Io` directory-iteration bugs (missing `.iterate = true`, double-close panic) in `list` and made all registry error paths exit non-zero. Added `tests/test_registry.sh` (10 functional cases) wired into `tests/test_coverage.sh`. Bumped VERSION/build.zig.zon/rune/VERSION + packaging manifests to 0.311.0; updated ROADMAP/CLAUDE/ARCHITECTURE/README progress markers. 2,022 unit tests pass, benchmarks show no regressions.
