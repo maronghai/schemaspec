@@ -6,7 +6,11 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-BIN="$ROOT_DIR/rune/zig-out/bin/rune"
+# .exe suffix on Windows/MSYS — the extensionless file is a Linux ELF there.
+case "$OSTYPE" in
+  msys*|cygwin*|win32) BIN="$ROOT_DIR/rune/zig-out/bin/rune.exe" ;;
+  *)                   BIN="$ROOT_DIR/rune/zig-out/bin/rune" ;;
+esac
 TESTS_DIR="$SCRIPT_DIR/conditionals"
 
 # Create test directory
@@ -59,9 +63,11 @@ echo ""
 
 # Test 1: @if(dialect=pg) fields excluded when targeting MySQL
 run_test "conditional-exclude-mysql" \
-'$ users
-id N
-name V100
+'$ mydb
+
+# users
+id N++
+name s100
 
 @if(dialect=pg)
 bio T
@@ -73,9 +79,11 @@ avatar B
 
 # Test 2: @if(dialect=pg) fields included when targeting PostgreSQL
 run_test "conditional-include-pg" \
-'$ users
-id N
-name V100
+'$ mydb
+
+# users
+id N++
+name s100
 
 @if(dialect=pg)
 bio T
@@ -87,9 +95,11 @@ avatar B
 
 # Test 3: Multiple dialect conditions
 run_test "conditional-multi-dialect" \
-'$ users
-id N
-name V100
+'$ mydb
+
+# users
+id N++
+name s100
 
 @if(dialect=pg|sqlite)
 extended_data T
@@ -99,9 +109,11 @@ extended_data T
     ""
 
 run_test "conditional-multi-dialect-exclude" \
-'$ users
-id N
-name V100
+'$ mydb
+
+# users
+id N++
+name s100
 
 @if(dialect=pg|sqlite)
 extended_data T
@@ -112,9 +124,11 @@ extended_data T
 
 # Test 4: Non-conditional fields always included
 run_test "conditional-always-included" \
-'$ users
-id N
-name V100
+'$ mydb
+
+# users
+id N++
+name s100
 
 @if(dialect=pg)
 bio T
@@ -125,9 +139,11 @@ bio T
 
 # Test 5: Field ordering preserved after filtering
 run_test "conditional-field-order" \
-'$ users
-id N
-name V100
+'$ mydb
+
+# users
+id N++
+name s100
 
 @if(dialect=pg)
 email V255
@@ -137,6 +153,34 @@ created_at d' \
     "mysql" \
     "created_at" \
     "email"
+
+# Test 7: @if inside a table that uses a template (index remap after merge).
+# Template's id is inserted BEFORE the block; the block must still wrap bio.
+run_test "conditional-template-before" '$ demo
+
+% base
+id n++
+...
+
+# users > base
+name s32
+@if(dialect=pg)
+bio T
+@endif'     "pg"     "bio"     ""
+
+# Test 8: same shape on MySQL - pg_only must be excluded (regression test for
+# the stale-index bug where template insertion shifted @if ranges)
+run_test "conditional-template-exclude-mysql" '$ demo
+
+% base
+id n++
+...
+
+# users > base
+@if(dialect=pg)
+pg_only T
+@endif
+name s32'     "mysql"     "CREATE TABLE"     "pg_only"
 
 echo ""
 echo "=== Results: $PASS passed, $FAIL failed ==="

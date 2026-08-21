@@ -177,11 +177,14 @@ pub fn compilePipeline(alloc: std.mem.Allocator, file_data: []const u8, cfg: Com
 
 /// Compile a .ss file by path, handling @import directives.
 pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, json_errors: bool) !PipelineResult {
-    return compileFileWithPaths(io, alloc, file_path, &.{}, json_errors);
+    return compileFileWithPaths(io, alloc, file_path, &.{}, json_errors, .mysql);
 }
 
 /// Compile a .ss file by path with additional import search paths.
-pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, import_paths: []const []const u8, json_errors: bool) !PipelineResult {
+/// The target dialect must be passed through: conditional blocks
+/// (@if(dialect=...)) are resolved during semantic analysis, so a
+/// dropped dialect here silently resolves them for the wrong target.
+pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, import_paths: []const []const u8, json_errors: bool, dialect: dialect_enum.Dialect) !PipelineResult {
     const file_data = try std.Io.Dir.cwd().readFileAlloc(io, file_path, alloc, .unlimited);
     const base_dir = import_res.computeBaseDir(alloc, file_path);
 
@@ -208,12 +211,18 @@ pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []c
         .resolve_imports = true,
         .merge_imports = true,
         .json_errors = json_errors,
+        .dialect = dialect,
     });
 }
 
 /// Compile a .ss file path to ResolvedAst (used by diff/migrate pipelines).
 pub fn compileToAst(io: std.Io, alloc: std.mem.Allocator, path: []const u8) !resolved_ast.ResolvedAst {
-    const pipeline = try compileFile(io, alloc, path, false);
+    return compileToAstWithDialect(io, alloc, path, .mysql);
+}
+
+/// Dialect-aware variant: conditional blocks resolve for `dialect`.
+pub fn compileToAstWithDialect(io: std.Io, alloc: std.mem.Allocator, path: []const u8, dialect: dialect_enum.Dialect) !resolved_ast.ResolvedAst {
+    const pipeline = try compileFileWithPaths(io, alloc, path, &.{}, false, dialect);
     return pipeline.resolved;
 }
 

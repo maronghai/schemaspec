@@ -38,7 +38,7 @@ pub fn handleCompileRequest(
     cfg: CompileConfig,
 ) !void {
     const pipeline = if (cfg.input) |path|
-        try compileFileWithPaths(io, alloc, path, cfg.import_paths, cfg.json_errors)
+        try compileFileWithPaths(io, alloc, path, cfg.import_paths, cfg.json_errors, cfg.dialect)
     else
         try compilePipeline(alloc, try io_mod.readStdin(io, alloc), .{
             .verbose_passes = cfg.verbose_passes,

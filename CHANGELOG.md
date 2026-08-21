@@ -1,3 +1,27 @@
+## [0.321.0] - 2026-08-22
+
+### Fixed
+- **Conditional blocks + templates: stale field-index remap (correctness bug)** — `@if(dialect=...)` ranges were recorded by the parser against the pre-merge field list, then copied verbatim through template resolution; any template that inserted fields shifted the ranges onto the wrong columns. Worst case: a PG-only field leaked into MySQL DDL (verified: `% base` + table with `@if(dialect=pg)` at the top of the body emitted the conditional column unconditionally). Fix: `applyTemplateWithOrigin` tracks each merged field's pre-merge index, and `remapConditionalBlocks` re-derives every block's `[start,end)` from it — blocks whose fields were fully replaced by template dedup are dropped.
+- **File-path compilation dropped the target dialect** (`pipeline/forward.zig`) — `compileFileWithPaths` never forwarded `.dialect` to `compilePipeline`, so every file-based invocation (the default CLI path) resolved conditional blocks for MySQL regardless of `-d`; stdin compiles were unaffected, which is why the golden suites (stdin-free but dialect-explicit via batch) and LSP disagreed with real CLI runs. The dialect now flows through `compileFileWithPaths`/`compileToAst`/`prepareDiff`/migrate's auto-lint compile.
+- Fixed an `appendAssumeCapacity` overflow in `applyTemplateWithOrigin` (tables with more than 8 fields crashed the merge with an assertion; caught by `zig build bench` on the bench schema) — safe `append` throughout.
+- `tests/test_conditionals.sh`: fixed Windows invocation (missing `.exe` suffix — the suite was silently executing a Linux ELF and reporting empty output), updated 6 v0.191-era inputs to current grammar (missing `#table` headers), added 2 regression cases for template+@if remap; suite registered in `test_coverage.sh` (now 37 suites).
+
+### Added
+- 5 unit tests in `semantic/template.zig` covering index remap (shift-before, keep-after, spanning multi-field block, dropped block, end-to-end resolveAndApply).
+- 2 regression cases in `tests/test_conditionals.sh` (template+@if remap, both dialect directions).
+
+### Changed
+- Version strings → **0.321.0** across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, packaging manifests.
+
+## [0.320.1] - 2026-08-22
+
+### Changed
+- **Test infrastructure: ~2.6x faster coverage run (6m54s to 2m39s)**:
+  - New `rune compile-batch <manifest>` subcommand — single-process batch compilation (`input<TAB>output<TAB>dialect` per line), removing the ~92% process-spawn overhead that dominated golden-test wall time on Windows.
+  - `tests/lib.sh` engine: dialect suites compile all cases via one `compile-batch` call and diff everything in one CR-insensitive awk process; suite-level concurrency (JOBS=4 default, `--serial` fallback) in `test_coverage.sh`; case-level parallelism in `test_roundtrip.sh`; migrate tests pass `--no-lint` so runs stop leaking `.lint-fixed.ss` artifacts.
+  - `--no-lint` registered in `KNOWN_FLAGS` (parser accepted it since v0.316.0 but unknown-flag detection rejected it).
+- Regenerated stale goldens that an MSYS stdin quirk in the old comparator had silently masked: 26 MSSQL DDL goldens (IDENTITY/index-name drift since v0.83.0), diff-goldens missing the later-added summary tail, parser-recovery sqlite reverse (confidence scoring v0.175.0), 5 oracle reverse goldens.
+
 ## [0.320.0] - 2026-08-21
 
 ### Added

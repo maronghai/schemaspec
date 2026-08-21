@@ -73,7 +73,7 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
         const lint_mod = @import("../lint.zig");
         const lint_config = @import("../lint/config.zig");
         const new_source = try io_mod.readFileOrStdin(io, alloc, cfg.new_path);
-        const new_ast = try pipeline_forward.compileToAst(io, alloc, cfg.new_path);
+        const new_ast = try pipeline_forward.compileToAstWithDialect(io, alloc, cfg.new_path, cfg.dialect);
         const lint_results = try lint_mod.lintSchema(alloc, new_ast, .{});
 
         // Check if any fixable issues exist
@@ -102,7 +102,7 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
         }
     }
 
-    const result = try diff_pipe.prepareDiff(io, alloc, cfg.old_path, actual_new_path);
+    const result = try diff_pipe.prepareDiffWithDialect(io, alloc, cfg.old_path, actual_new_path, cfg.dialect);
     diff_pipe.emitTraceAndStats(result, cfg.trace, cfg.stats);
 
     if (cfg.check) {

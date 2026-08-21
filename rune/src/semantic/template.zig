@@ -43,6 +43,7 @@ pub fn resolveAndApply(
     var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 8);
     for (tree.tables) |*t| {
         var fields: []const Field = t.fields;
+        var origin: []const ?usize = &.{};
         var tmpl_slot: ?usize = null;
         if (t.template_ref) |tref| {
             if (resolved.get(tref)) |parent_fields| {
@@ -54,12 +55,16 @@ pub fn resolveAndApply(
                         }
                     }
                 }
-                fields = try applyTemplate(alloc, t, parent_fields, tmpl_slot);
+                const merged = try applyTemplateWithOrigin(alloc, t, parent_fields, tmpl_slot);
+                fields = merged.fields;
+                origin = merged.origin;
             }
         } else if (default_tmpl) |dt| {
             const dname = dt.name orelse "";
             if (resolved.get(dname)) |parent_fields| {
-                fields = try applyTemplate(alloc, t, parent_fields, dt.slot_index);
+                const merged = try applyTemplateWithOrigin(alloc, t, parent_fields, dt.slot_index);
+                fields = merged.fields;
+                origin = merged.origin;
             }
         }
         try tables.append(alloc, .{
@@ -70,7 +75,9 @@ pub fn resolveAndApply(
             .fields = try alloc.dupe(Field, fields),
             .fks = t.fks,
             .indexes = t.indexes,
-            .conditional_blocks = t.conditional_blocks,
+            // Conditional-block indices refer to the pre-merge field list —
+            // remap them so @if ranges survive template field insertion.
+            .conditional_blocks = remapConditionalBlocks(alloc, t.conditional_blocks, origin),
             .embeds = t.embeds,
             .line_no = t.line_no,
             .template_ref = t.template_ref,
@@ -172,7 +179,27 @@ fn applyTemplate(
     template_fields: []const Field,
     template_slot: ?usize,
 ) ![]const Field {
-    if (table.fields.len == 0) return template_fields;
+    const merged = try applyTemplateWithOrigin(alloc, table, template_fields, template_slot);
+    return merged.fields;
+}
+
+/// Merged fields plus, for each merged position, the index into the table's
+/// original field list it came from (null = inserted from the template).
+/// Used to remap conditional-block field indices after merging.
+const MergedWithOrigin = struct {
+    fields: []const Field,
+    origin: []const ?usize,
+};
+
+fn applyTemplateWithOrigin(
+    alloc: std.mem.Allocator,
+    table: *const Table,
+    template_fields: []const Field,
+    template_slot: ?usize,
+) !MergedWithOrigin {
+    if (table.fields.len == 0) {
+        return .{ .fields = template_fields, .origin = &.{} };
+    }
 
     var table_slot: ?usize = null;
     for (table.fields, 0..) |f, i| {
@@ -185,29 +212,235 @@ fn applyTemplate(
     var table_names = std.StringHashMap(void).init(alloc);
     for (table.fields) |f| try table_names.put(f.name, {});
 
+    var result = try std.ArrayList(Field).initCapacity(alloc, 8);
+    var origin = try std.ArrayList(?usize).initCapacity(alloc, 8);
+
     if (table_slot) |slot| {
         const table_before = table.fields[0..slot];
         const table_after = table.fields[slot + 1 ..];
 
-        var result = try std.ArrayList(Field).initCapacity(alloc, 8);
-        for (table_before) |f| try result.append(alloc, f);
+        for (table_before, 0..) |f, i| {
+            try result.append(alloc, f);
+            try origin.append(alloc, i);
+        }
         for (template_fields) |f| {
-            if (!table_names.contains(f.name)) try result.append(alloc, f);
-        }
-        for (table_after) |f| try result.append(alloc, f);
-        return try result.toOwnedSlice(alloc);
-    } else {
-        const insert_pos = template_slot orelse template_fields.len;
-        var result = try std.ArrayList(Field).initCapacity(alloc, 8);
-        for (template_fields[0..insert_pos]) |f| {
-            if (!std.mem.eql(u8, f.name, "...") and !table_names.contains(f.name)) try result.append(alloc, f);
-        }
-        for (table.fields) |f| try result.append(alloc, f);
-        if (insert_pos < template_fields.len) {
-            for (template_fields[insert_pos..]) |f| {
-                if (!std.mem.eql(u8, f.name, "...") and !table_names.contains(f.name)) try result.append(alloc, f);
+            if (!table_names.contains(f.name)) {
+                try result.append(alloc, f);
+                try origin.append(alloc, null);
             }
         }
-        return try result.toOwnedSlice(alloc);
+        for (table_after, 0..) |f, i| {
+            const idx = slot + 1 + i;
+            try result.append(alloc, f);
+            try origin.append(alloc, idx);
+        }
+    } else {
+        const insert_pos = template_slot orelse template_fields.len;
+        for (template_fields[0..insert_pos]) |f| {
+            if (!std.mem.eql(u8, f.name, "...") and !table_names.contains(f.name)) {
+                try result.append(alloc, f);
+                try origin.append(alloc, null);
+            }
+        }
+        for (table.fields, 0..) |f, i| {
+            try result.append(alloc, f);
+            try origin.append(alloc, i);
+        }
+        if (insert_pos < template_fields.len) {
+            for (template_fields[insert_pos..]) |f| {
+                if (!std.mem.eql(u8, f.name, "...") and !table_names.contains(f.name)) {
+                    try result.append(alloc, f);
+                    try origin.append(alloc, null);
+                }
+            }
+        }
     }
+    return .{
+        .fields = try result.toOwnedSlice(alloc),
+        .origin = try origin.toOwnedSlice(alloc),
+    };
+}
+
+/// Remap a table's conditional-block field indices from the original
+/// (pre-merge) field positions to the merged field positions.
+/// A block whose range collapses to zero fields is dropped.
+fn remapConditionalBlocks(
+    alloc: std.mem.Allocator,
+    blocks: []const ast_mod.ConditionalBlock,
+    origin: []const ?usize,
+) []const ast_mod.ConditionalBlock {
+    if (blocks.len == 0 or origin.len == 0) return blocks;
+
+    var out = std.ArrayList(ast_mod.ConditionalBlock).initCapacity(alloc, blocks.len) catch return blocks;
+    for (blocks) |block| {
+        var new_start: ?usize = null;
+        var new_end: usize = 0;
+        for (origin, 0..) |o, j| {
+            const oi = o orelse continue;
+            if (oi >= block.start_field and oi < block.end_field) {
+                if (new_start == null) new_start = j;
+                new_end = j + 1;
+            }
+        }
+        // Drop the block when none of its fields survived the merge.
+        if (new_start == null or new_start.? >= new_end) continue;
+        out.append(alloc, .{
+            .dialects = block.dialects,
+            .start_field = new_start.?,
+            .end_field = new_end,
+            .line_no = block.line_no,
+        }) catch continue;
+    }
+    return out.toOwnedSlice(alloc) catch blocks;
+}
+
+// ─── Unit Tests ─────────────────────────────────────────────
+
+const testing = std.testing;
+
+fn makeField(name: []const u8) ast_mod.Field {
+    return .{
+        .name = name,
+        .type_info = .{ .simple = "s" },
+        .modifiers = &.{},
+        .default_val = null,
+        .check = null,
+        .fk = null,
+        .comment = null,
+        .line_no = 1,
+    };
+}
+
+fn makeTable(name: []const u8, field_names: []const []const u8) Table {
+    const fields = std.heap.page_allocator.alloc(Field, field_names.len) catch unreachable;
+    for (field_names, 0..) |n, i| fields[i] = makeField(n);
+    return .{
+        .template_ref = null,
+        .name = name,
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    };
+}
+
+fn makeTemplate(name: []const u8, field_names: []const []const u8) Template {
+    const fields = std.heap.page_allocator.alloc(Field, field_names.len) catch unreachable;
+    for (field_names, 0..) |n, i| fields[i] = makeField(n);
+    return .{
+        .name = name,
+        .parents = &.{},
+        .fields = fields,
+        .slot_index = null,
+        .line_no = 1,
+    };
+}
+
+test "remapConditionalBlocks: template inserts before block shifts indices" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Original: [name(0), bio(1)] with block covering bio at [1,2).
+    // Merge prepends template's id → merged [id, name, bio]; bio moves to 2.
+    const origin = [_]?usize{ null, 0, 1 };
+    const blocks = [_]ast_mod.ConditionalBlock{
+        .{ .dialects = &.{"pg"}, .start_field = 1, .end_field = 2, .line_no = 3 },
+    };
+    const remapped = remapConditionalBlocks(alloc, &blocks, &origin);
+    try testing.expectEqual(@as(usize, 1), remapped.len);
+    try testing.expectEqual(@as(usize, 2), remapped[0].start_field);
+    try testing.expectEqual(@as(usize, 3), remapped[0].end_field);
+}
+
+test "remapConditionalBlocks: template insertion after block keeps range" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Original: [bio(0), name(1)], block covers bio [0,1).
+    // Merge appends template's id after slot → merged [bio, name, id].
+    const origin = [_]?usize{ 0, 1, null };
+    const blocks = [_]ast_mod.ConditionalBlock{
+        .{ .dialects = &.{"pg"}, .start_field = 0, .end_field = 1, .line_no = 2 },
+    };
+    const remapped = remapConditionalBlocks(alloc, &blocks, &origin);
+    try testing.expectEqual(@as(usize, 1), remapped.len);
+    try testing.expectEqual(@as(usize, 0), remapped[0].start_field);
+    try testing.expectEqual(@as(usize, 1), remapped[0].end_field);
+}
+
+test "remapConditionalBlocks: multi-field block spanning inserted fields" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Original: [a(0), b(1), c(2)] block covers [b, c] = [1,3).
+    // Merge: template x before a, y between a and b → [x, a, y, b, c].
+    const origin = [_]?usize{ null, 0, null, 1, 2 };
+    const blocks = [_]ast_mod.ConditionalBlock{
+        .{ .dialects = &.{"pg"}, .start_field = 1, .end_field = 3, .line_no = 4 },
+    };
+    const remapped = remapConditionalBlocks(alloc, &blocks, &origin);
+    try testing.expectEqual(@as(usize, 1), remapped.len);
+    try testing.expectEqual(@as(usize, 3), remapped[0].start_field);
+    try testing.expectEqual(@as(usize, 5), remapped[0].end_field);
+}
+
+test "remapConditionalBlocks: fully dropped block is removed" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Original block covered only a template-shadowed field that the merge
+    // replaced (its origin index vanished). Origin has no entry in [0,1).
+    const origin = [_]?usize{ null, 1 };
+    const blocks = [_]ast_mod.ConditionalBlock{
+        .{ .dialects = &.{"pg"}, .start_field = 0, .end_field = 1, .line_no = 1 },
+    };
+    const remapped = remapConditionalBlocks(alloc, &blocks, &origin);
+    try testing.expectEqual(@as(usize, 0), remapped.len);
+}
+
+test "resolveAndApply end-to-end: @if survives template merge" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // % base: id + slot; table adds name, then an @if block around bio.
+    // Merged order must be [id, name, bio] with the block remapped to [2,3).
+    const base_tmpl = try alloc.create(Template);
+    base_tmpl.* = makeTemplate("base", &.{ "id", "..." });
+    base_tmpl.slot_index = 1;
+
+    const tables = try alloc.alloc(Table, 1);
+    tables[0] = makeTable("users", &.{ "name", "bio" });
+    const blocks = try alloc.alloc(ast_mod.ConditionalBlock, 1);
+    blocks[0] = .{ .dialects = &.{"pg"}, .start_field = 1, .end_field = 2, .line_no = 4 };
+    tables[0].template_ref = "base";
+    tables[0].conditional_blocks = blocks;
+
+    const templates = try alloc.alloc(Template, 1);
+    templates[0] = base_tmpl.*;
+
+    const tree = ast_mod.Ast{
+        .schema = null,
+        .templates = templates,
+        .tables = tables,
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+
+    const resolved = try resolveAndApply(alloc, tree);
+    try testing.expectEqual(@as(usize, 1), resolved.len);
+    const t = resolved[0];
+    try testing.expectEqual(@as(usize, 3), t.fields.len);
+    try testing.expectEqualStrings("id", t.fields[0].name);
+    try testing.expectEqualStrings("name", t.fields[1].name);
+    try testing.expectEqualStrings("bio", t.fields[2].name);
+    try testing.expectEqual(@as(usize, 1), t.conditional_blocks.len);
+    try testing.expectEqual(@as(usize, 2), t.conditional_blocks[0].start_field);
+    try testing.expectEqual(@as(usize, 3), t.conditional_blocks[0].end_field);
 }

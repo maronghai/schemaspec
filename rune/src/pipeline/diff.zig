@@ -64,8 +64,13 @@ pub const DiffResult = struct {
 
 /// Compile both schemas and compute their diff. Shared by all diff/migrate handlers.
 pub fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8) !DiffResult {
-    const old_ast = try pipeline_forward.compileToAst(io, alloc, old_path);
-    const new_ast = try pipeline_forward.compileToAst(io, alloc, new_path);
+    return prepareDiffWithDialect(io, alloc, old_path, new_path, .mysql);
+}
+
+/// Dialect-aware variant: conditional blocks in both schemas resolve for `dialect`.
+pub fn prepareDiffWithDialect(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, new_path: []const u8, dialect: dialect_enum.Dialect) !DiffResult {
+    const old_ast = try pipeline_forward.compileToAstWithDialect(io, alloc, old_path, dialect);
+    const new_ast = try pipeline_forward.compileToAstWithDialect(io, alloc, new_path, dialect);
     const schema_diff = try diff.diff(old_ast, new_ast, alloc);
     return .{ .old_ast = old_ast, .new_ast = new_ast, .schema_diff = schema_diff };
 }
@@ -76,7 +81,7 @@ pub fn prepareDiff(io: std.Io, alloc: std.mem.Allocator, old_path: []const u8, n
 /// Uses in-memory compilation — no temp files.
 fn prepareDiffFromSql(io: std.Io, alloc: std.mem.Allocator, ss_path: []const u8, sql_path: []const u8, dialect: dialect_enum.Dialect) !DiffResult {
     // 1. Compile the .ss file → old_resolved
-    const old_ast = try pipeline_forward.compileToAst(io, alloc, ss_path);
+    const old_ast = try pipeline_forward.compileToAstWithDialect(io, alloc, ss_path, dialect);
 
     // 2. Read the SQL data (from file or stdin when sql_path is "-")
     const sql_data = try io_mod.readFileOrStdin(io, alloc, sql_path);
@@ -97,7 +102,7 @@ pub fn handleDiff(io: std.Io, alloc: std.mem.Allocator, cfg: DiffConfig) !void {
     const result = if (cfg.from_sql) |sql_path|
         try prepareDiffFromSql(io, alloc, cfg.old_path, sql_path, cfg.dialect)
     else
-        try prepareDiff(io, alloc, cfg.old_path, cfg.new_path);
+        try prepareDiffWithDialect(io, alloc, cfg.old_path, cfg.new_path, cfg.dialect);
     emitTraceAndStats(result, cfg.trace, cfg.stats);
 
     if (cfg.check) {
