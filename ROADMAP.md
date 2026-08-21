@@ -2,11 +2,11 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.318.0 (2026-08-17) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,036 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 34 golden test suites, 12 generators × 6 dialects.
+**Current version**: 0.320.0 (2026-08-21) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,036 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 36 golden test suites, 12 generators × 6 dialects.
 
 > This roadmap was restructured on 2026-08-21: all thirteen completed phases are condensed into a summary, and every remaining open item is consolidated under Phase 14 (each item now appears exactly once). Historical detail lives in [CHANGELOG.md](CHANGELOG.md) and git history.
 >
-> **Version-drift reconciliation (2026-08-21):** commit 0.316.0 had bumped the tree's `VERSION` straight to 0.320.0 while git HEAD remained "0.318.0", and no 0.319/0.320 commits exist. All version strings now read **0.318.0** (matching HEAD), and [CHANGELOG.md](CHANGELOG.md) has backfilled entries for v0.313.0–v0.318.0 reconstructed from git history. The next feature release should be **0.319.0** (see [plans/plan-0.319.0.md](plans/plan-0.319.0.md)).
+> **Version-drift reconciliation (2026-08-21):** commit 0.316.0 had bumped the tree's `VERSION` straight to 0.320.0 while git HEAD remained "0.318.0", and no 0.319/0.320 commits exist. All version strings now read **0.318.0** (matching HEAD), and [CHANGELOG.md](CHANGELOG.md) has backfilled entries for v0.313.0–v0.318.0 reconstructed from git history. The next feature release should be **0.319.0** (see [plans/plan-0.319.0.md](plans/plan-0.319.0.md)). *(Reconciled as planned: v0.319.0 shipped template overrides, v0.320.0 shipped composite types — see [plans/plan-0.320.0.md](plans/plan-0.320.0.md).)*
 
 ---
 
@@ -88,7 +88,7 @@ All tracked refactors shipped: generator deduplication, FlagRegistry, granular r
 
 ## Phase 14: Ecosystem Maturation (Current Focus) 🔲
 
-Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-level features (not registry-entry extensions), each scoped as its own RFC + release. **Status: 2 of 7 done (plugin API stub, template overrides), 5 remaining.**
+Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-level features (not registry-entry extensions), each scoped as its own RFC + release. **Status: 3 of 7 done (plugin API stub, template overrides, composite types), 4 remaining.**
 
 ### Generator Plugin System
 
@@ -103,7 +103,7 @@ Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-l
 
 ### Advanced Schema Features
 
-- [ ] Composite types — reusable field groupings beyond templates (from Phase 8).
+- [x] Composite types — reusable field groupings beyond templates (from Phase 8) — shipped v0.320.0: top-level declaration (`* name`) + in-place embedding inside table bodies (`*name`); new `resolve_composites` semantic pass (18th) expands embeds between `resolve_conditionals` and `autofk`; errors on unknown/duplicate/empty, warns on unused; see [schemaspec/schema.md §11](schemaspec/schema.md#11-composite-types) and [plans/plan-0.320.0.md](plans/plan-0.320.0.md).
 - [ ] Live collaboration — multi-user schema editing via LSP extensions (from Phase 8).
 
 ---
@@ -136,11 +136,11 @@ Process debt observed during the 2026-08-21 roadmap audit:
 | 11: Ecosystem & CI Completion | ✅ Closed (tracker) | — | — |
 | 12: Cross-Dialect Portability Linting | ✅ Complete | 5/5 | 0 |
 | 13: Documentation & Spec Completeness | ✅ Complete | 3/3 | 0 |
-| 14: Ecosystem Maturation | 🔲 Current focus | 1/7 (+1 partial) | 6 |
+| 14: Ecosystem Maturation | 🔲 Current focus | 2/7 (+1 partial) | 5 |
 | Architecture Targets | ✅ Complete | 22/22 | 0 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
 | Maintenance & Release Hygiene | ◧ In progress | 2/4 | 2 |
-| **Total** | | **146/155** | **9** |
+| **Total** | | **147/155** | **8** |
 
 *Counting note: Phases 6/8 open items are listed once, under Phase 14; the former summary's "143/149" under-counted Phase 6 (listed 11/11 while 2 items were open).*
 
@@ -150,7 +150,7 @@ Process debt observed during the 2026-08-21 roadmap audit:
 
 ### 2026 Q3 (Jul–Sep) — current
 
-~~Template overrides~~ shipped in v0.319.0. **Release hygiene**: CHANGELOG backfilled and version strings aligned to HEAD (done 2026-08-21); descriptive commit messages still to adopt.
+~~Template overrides~~ shipped in v0.319.0; ~~composite types~~ shipped in v0.320.0 (see [plans/plan-0.320.0.md](plans/plan-0.320.0.md)). **Release hygiene**: CHANGELOG backfilled and version strings aligned to HEAD (done 2026-08-21); descriptive commit messages adopted from v0.320.0 onward.
 
 ### 2026 Q4 (Oct–Dec)
 

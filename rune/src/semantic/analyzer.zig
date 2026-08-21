@@ -90,6 +90,7 @@ pub const SemanticAnalyzer = struct {
         );
         ctx.dialect = self.dialect;
         ctx.views = tree.views;
+        ctx.composites = tree.composites;
         for (DEFAULT_PASSES) |pass| {
             if (self.verbose) {
                 const table_count = ctx.tables.items.len;

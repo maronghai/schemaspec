@@ -108,8 +108,9 @@ Input (.ss text)
     Output: []ResolvedTable (templates applied to each table)
     │
     ▼
-[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 17 pass implementations)
-    Pass manager: validate_template_types, resolve_names, resolve_conditionals, autofk,
+[4] Semantic Analyzer (analyzer.zig + pass_manager.zig + 18 pass implementations)
+    Pass manager: validate_template_types, resolve_names, resolve_conditionals, resolve_composites,
+    autofk,
     suffix_inference, validate, validate_type_modifiers, validate_indexes, validate_duplicates,
     validate_circular_fk, validate_fk_targets, validate_unused_templates, validate_fk_types,
     validate_index_names, validate_views, template_type_conflict
@@ -294,7 +295,8 @@ PG and SQLite share 7 method implementations (via `common.zig`: `emitIndex`, `em
 ```zig
 SemanticPass = struct { name: []const u8, run: fn(*PassContext) !void, depends_on: []const []const u8, access: PassAccess };
 DEFAULT_PASSES = [_]SemanticPass{
-    validate_template_types, resolve_names, resolve_conditionals, autofk, suffix_inference,
+    validate_template_types, resolve_names, resolve_conditionals, resolve_composites,
+    autofk, suffix_inference,
     validate, validate_type_modifiers, validate_indexes,
     validate_duplicates, validate_circular_fk, validate_fk_targets, validate_unused_templates,
     validate_fk_types, validate_index_names, validate_views, template_type_conflict,
@@ -413,6 +415,31 @@ No code changes needed — users define types in `.ss` files. For built-in suppo
 3. Add entry to `CORE_TYPES` in `type_registry.zig` (for single-char symbols)
 4. Add to `REVERSE_MAP` in `types/reverse_map.zig` for reverse engineering support
 5. Add unit tests and golden file tests
+
+## Composite Type System
+
+Reusable field groupings, declared at top level and embedded inside table bodies (v0.320.0):
+
+```
+* audit              ; declaration
+created_at t+
+updated_at t++
+
+# orders             ; table
+id n++
+*audit               ; embed — expands in place here
+total m
+```
+
+### How it works
+
+1. **Tokenizer**: Lines starting with `*` are classified as `Composite`
+2. **Parser**: Top-level `*name` opens a composite block (fields collected until the next block header); `*name` inside a table body records a `CompositeEmbed` (name + insert position) in `Table.embeds`
+3. **AST**: Declarations live in `Ast.composites`; embed sites live in `Table.embeds` (carried through template resolution into `ResolvedTable.embeds`)
+4. **Semantic pass**: `resolve_composites` (between `resolve_conditionals` and `autofk`) splices each embed's fields at its recorded position; errors on unknown references, duplicate definitions, empty composites; warns on unused composites
+5. **Downstream**: expansion happens before autofk/suffix_inference/validate/diff — all later stages see plain fields
+
+Composites vs templates: templates merge at the whole-table level with `...` slot control and support inheritance/mixins; composites embed a field group at any position, multiple times per table.
 
 ## Adding a New SQL Dialect
 

@@ -59,7 +59,7 @@ pub const Parser = struct {
 
     // ─── Block State ─────────────────────────────────────────────
 
-    const BlockMode = enum { none, template, table };
+    const BlockMode = enum { none, template, table, composite };
 
     const BlockState = struct {
         name: ?[]const u8 = null,
@@ -75,6 +75,8 @@ pub const Parser = struct {
         fks: std.ArrayList(FkDecl),
         indexes: std.ArrayList(IndexDecl),
         conditional_blocks: std.ArrayList(ast_mod.ConditionalBlock),
+        /// Composite embeds (`*name` lines) collected inside a table body, in source order.
+        embeds: std.ArrayList(ast_mod.CompositeEmbed),
         /// Currently open @if block dialects (null if not inside @if).
         pending_if_dialects: ?[]const []const u8 = null,
         /// Start field index of the current @if block.
@@ -90,6 +92,7 @@ pub const Parser = struct {
                 .fks = try std.ArrayList(FkDecl).initCapacity(alloc, 4),
                 .indexes = try std.ArrayList(IndexDecl).initCapacity(alloc, 4),
                 .conditional_blocks = try std.ArrayList(ast_mod.ConditionalBlock).initCapacity(alloc, 4),
+                .embeds = try std.ArrayList(ast_mod.CompositeEmbed).initCapacity(alloc, 4),
             };
             bs.parents_buf = &bs.parents_buf_storage;
             return bs;
@@ -110,6 +113,7 @@ pub const Parser = struct {
             self.fks.clearRetainingCapacity();
             self.indexes.clearRetainingCapacity();
             self.conditional_blocks.clearRetainingCapacity();
+            self.embeds.clearRetainingCapacity();
             self.pending_if_dialects = null;
             self.pending_if_start = 0;
             self.line_no = 0;
@@ -136,6 +140,7 @@ pub const Parser = struct {
         var views = try std.ArrayList(ast_mod.View).initCapacity(self.alloc, 8);
         var sql_comments = try std.ArrayList(SqlComment).initCapacity(self.alloc, 8);
         var custom_types = try std.ArrayList(ast_mod.CustomType).initCapacity(self.alloc, 8);
+        var composites = try std.ArrayList(ast_mod.Composite).initCapacity(self.alloc, 4);
 
         var block = try BlockState.init(self.alloc);
 
@@ -191,6 +196,8 @@ pub const Parser = struct {
                         try self.flushCurrentTemplate(&templates, &block);
                     } else if (block.mode == .table) {
                         try self.flushCurrentTable(&tables, &block);
+                    } else if (block.mode == .composite) {
+                        self.flushCurrentComposite(&composites, &block);
                     }
 
                     // Parse new template header
@@ -224,6 +231,8 @@ pub const Parser = struct {
                         try self.flushCurrentTemplate(&templates, &block);
                     } else if (block.mode == .table) {
                         try self.flushCurrentTable(&tables, &block);
+                    } else if (block.mode == .composite) {
+                        self.flushCurrentComposite(&composites, &block);
                     }
 
                     const pending_engine = block.engine;
@@ -272,6 +281,56 @@ pub const Parser = struct {
                         }
                         views.append(self.alloc, view) catch continue;
                     }
+                },
+                .Composite => {
+                    // `*name` — composite type declaration (top level) or embed (inside table)
+                    if (line.tokens.len < 2 or line.tokens[1].len == 0) {
+                        diag.printDiagnostic(self.alloc, .{
+                            .severity = .@"error",
+                            .line_no = line.line_no,
+                            .message = "composite declaration requires a name: * name",
+                            .source_line = line.raw,
+                        });
+                        continue;
+                    }
+                    const comp_name = try self.alloc.dupe(u8, line.tokens[1]);
+                    if (block.mode == .table) {
+                        // Embed site inside a table body — record position for in-place expansion.
+                        try block.embeds.append(self.alloc, .{
+                            .name = comp_name,
+                            .insert_pos = block.fields.items.len,
+                            .line_no = line.line_no,
+                        });
+                        continue;
+                    }
+                    if (block.mode == .template) {
+                        diag.printDiagnostic(self.alloc, .{
+                            .severity = .@"error",
+                            .line_no = line.line_no,
+                            .message = "composite embed inside template is not supported — declare the field group directly",
+                            .source_line = line.raw,
+                        });
+                        continue;
+                    }
+                    // Top-level: consecutive `*name` lines are sequential declarations.
+                    // Composite bodies have no explicit terminator, so a new `*name`
+                    // simply closes the previous composite (same rule as templates).
+                    // Top-level declaration: close any open block, start collecting fields.
+                    if (block.mode == .template) {
+                        try self.flushCurrentTemplate(&templates, &block);
+                    } else if (block.mode == .table) {
+                        try self.flushCurrentTable(&tables, &block);
+                    } else if (block.mode == .composite) {
+                        self.flushCurrentComposite(&composites, &block);
+                    }
+                    block.reset();
+                    const captured_doc = self.pending_doc;
+                    self.pending_doc = null;
+                    block.name = comp_name;
+                    block.doc = captured_doc;
+                    block.line_no = line.line_no;
+                    block.loc = Parser.locFromLine(line, line.tokens[0]);
+                    block.mode = .composite;
                 },
                 .Field => {
                     if (block.mode != .none) {
@@ -492,6 +551,8 @@ pub const Parser = struct {
                     .actual = @errorName(err),
                 });
             };
+        } else if (block.mode == .composite) {
+            self.flushCurrentComposite(&composites, &block);
         }
 
         // Merge custom_types into schema
@@ -526,6 +587,7 @@ pub const Parser = struct {
         const tables_slice = try tables.toOwnedSlice(self.alloc);
         const views_slice = try views.toOwnedSlice(self.alloc);
         const sql_comments_slice = try sql_comments.toOwnedSlice(self.alloc);
+        const composites_slice = try composites.toOwnedSlice(self.alloc);
 
         // Free ArrayList internal buffers (toOwnedSlice transfers ownership of items)
         templates.deinit(self.alloc);
@@ -533,6 +595,7 @@ pub const Parser = struct {
         views.deinit(self.alloc);
         sql_comments.deinit(self.alloc);
         custom_types.deinit(self.alloc);
+        composites.deinit(self.alloc);
 
         return .{
             .schema = final_schema,
@@ -540,6 +603,7 @@ pub const Parser = struct {
             .tables = tables_slice,
             .views = views_slice,
             .sql_comments = sql_comments_slice,
+            .composites = composites_slice,
         };
     }
 
@@ -592,9 +656,31 @@ pub const Parser = struct {
             .fks = try block.fks.toOwnedSlice(self.alloc),
             .indexes = try block.indexes.toOwnedSlice(self.alloc),
             .conditional_blocks = try block.conditional_blocks.toOwnedSlice(self.alloc),
+            .embeds = try block.embeds.toOwnedSlice(self.alloc),
             .line_no = block.line_no,
             .loc = block.loc,
         });
+    }
+
+    fn flushCurrentComposite(
+        self: *Parser,
+        composites: *std.ArrayList(ast_mod.Composite),
+        block: *BlockState,
+    ) void {
+        if (block.fields.items.len == 0) {
+            diag.printDiagnostic(self.alloc, .{
+                .severity = .@"error",
+                .line_no = block.line_no,
+                .message = std.fmt.allocPrint(self.alloc, "composite '{s}' has no fields", .{block.name orelse ""}) catch "composite has no fields",
+            });
+            return;
+        }
+        composites.append(self.alloc, .{
+            .name = block.name orelse "",
+            .fields = block.fields.toOwnedSlice(self.alloc) catch &.{},
+            .line_no = block.line_no,
+            .loc = block.loc,
+        }) catch {};
     }
 
     fn flushCurrentTemplate(

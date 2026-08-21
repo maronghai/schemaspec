@@ -141,6 +141,16 @@ rune lsp    # Starts the LSP server over stdio
 
 Supported features: diagnostics, completion, hover, go-to-definition, document symbols, references, highlights, rename, code actions, formatting, inlay hints, code lens.
 
+## Language Features
+
+- **Single-char type symbols**: `n` int, `N` bigint, `s` varchar, `t` datetime, `b` boolean, `j` json, ... (full table in [schemaspec/type.md](../schemaspec/type.md))
+- **Modifiers**: `n++` auto-increment PK, `!` PK, `?` nullable, `@u` unique, `=value` default
+- **Templates** (`% name`, `#table > tmpl`): whole-table field patterns with `...` slot control and inheritance/mixins
+- **Composite types** (`* name` / `*name`, v0.320.0): reusable field groups embedded at any position inside a table body ([Schema Spec §11](../schemaspec/schema.md#11-composite-types))
+- **Conditional blocks** (`@if(dialect=pg|sqlite)`): dialect-specific fields
+- **Custom types** (`~ name base_type mysql=x pg=y`): type aliases with dialect overrides
+- **Views** (`& name = SELECT ...`), **inline FKs** (`> users.id`), **CHECK constraints** (`[1,100]`, `{a,b,c}`)
+
 ## Architecture
 
 For deep dives into the codebase architecture, IR boundaries, dialect backend vtable, semantic pass manager, and module roles, see [ARCHITECTURE.md](ARCHITECTURE.md).

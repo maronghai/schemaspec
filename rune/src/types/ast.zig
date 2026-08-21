@@ -234,8 +234,27 @@ pub const Table = struct {
     /// Conditional blocks: fields between @if and @endif that are dialect-specific.
     /// Each block specifies which dialects it applies to and the field index range.
     conditional_blocks: []const ConditionalBlock = &.{},
+    /// Composite type embeds (`*name` lines inside the table body), in source order.
+    embeds: []const CompositeEmbed = &.{},
     line_no: usize,
     loc: ?SourceLocation = null,
+};
+
+/// Reusable field grouping declared at top level: `* name` followed by field lines.
+/// Expanded in place at each embed site by the resolve_composites semantic pass.
+pub const Composite = struct {
+    name: []const u8,
+    fields: []const Field,
+    line_no: usize,
+    loc: ?SourceLocation = null,
+};
+
+/// An embed site inside a table body: `*name`, expanded at insert_pos
+/// (index into the table's literal field list, before composite expansion).
+pub const CompositeEmbed = struct {
+    name: []const u8,
+    insert_pos: usize,
+    line_no: usize,
 };
 
 /// A conditional block within a table: @if(dialect=pg|sqlite) ... @endif
@@ -309,6 +328,8 @@ pub const Ast = struct {
     tables: []const Table,
     views: []const View,
     sql_comments: []const SqlComment,
+    /// Composite type declarations (`* name` at top level).
+    composites: []const Composite = &.{},
     /// Number of parse errors recorded during parsing.
     /// When > 0, the AST is partial (some tables/templates may be missing).
     error_count: usize = 0,

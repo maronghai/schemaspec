@@ -208,6 +208,22 @@ name s32              ; → id, name, version, create_at, update_at
 
 Templates support inheritance (`% audit > base`) and mixins (`% mixed base + soft_delete`).
 
+### Composite Types
+
+Composite types are reusable **field groupings** embedded at any position inside a table body — finer-grained than templates.
+
+```asm
+* audit                       ; declare a field group
+created_at t+
+updated_at t++
+created_by s64 > users.id
+
+#orders
+id n++
+*audit                        ; expands in place, right here
+total m
+```
+
 ### Views
 
 ```asm

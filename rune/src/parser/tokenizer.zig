@@ -20,6 +20,7 @@ pub const LineType = enum {
     SpecComment,
     Empty,
     Version,
+    Composite,
 };
 
 pub const Line = struct {
@@ -84,6 +85,7 @@ pub const Tokenizer = struct {
         if (line.len >= 4 and line[0] == '@' and std.mem.eql(u8, line[0..4], "@if(")) return .ConditionalIf;
         if (line.len >= 6 and line[0] == '@' and std.mem.eql(u8, line[0..6], "@endif")) return .ConditionalEnd;
         if (line.len >= 8 and line[0] == '@' and std.mem.eql(u8, line[0..8], "@version")) return .Version;
+        if (line[0] == '*') return .Composite;
         if (line[0] == '@') return .Index;
         if (line[0] == '+') return .Doc;
         return .Field;
@@ -159,7 +161,7 @@ pub const Tokenizer = struct {
         }
 
         // Split leading structural markers: #base → #, base
-        if (tok.len > 1 and (tok[0] == '#' or tok[0] == '%' or tok[0] == '$' or tok[0] == '@' or tok[0] == '^' or tok[0] == '~' or tok[0] == '&')) {
+        if (tok.len > 1 and (tok[0] == '#' or tok[0] == '%' or tok[0] == '$' or tok[0] == '@' or tok[0] == '^' or tok[0] == '~' or tok[0] == '&' or tok[0] == '*')) {
             try tokens.append(alloc, tok[0..1]);
             try splitToken(alloc, tokens, tok[1..]);
             return;

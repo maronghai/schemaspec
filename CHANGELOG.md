@@ -1,3 +1,22 @@
+## [0.320.0] - 2026-08-21
+
+### Added
+- **Phase 14: Composite Types** — reusable field groupings, the first new language construct since conditional blocks:
+  - Syntax: top-level declaration `* name` + field lines; embedding inside a table body with `*name` (no space). The embed expands **in place** at its position in the field list — finer-grained than templates (whole-table merge with slot control).
+  - Composite fields carry all modifiers, defaults, CHECK constraints, comments, and inline FKs. A composite may be embedded in multiple tables and multiple times in the same table.
+  - New semantic pass `resolve_composites` (18th in `DEFAULT_PASSES`), placed between `resolve_conditionals` and `autofk`: expansion happens after conditional-block indices are consumed and before auto-FK/suffix inference/validate/diff — all downstream stages see plain fields.
+  - Errors: unknown composite reference, duplicate definition, empty composite, embed inside template. Warnings: unused composite (symmetric with unused templates). Consecutive top-level `*name` lines are sequential declarations (no explicit terminator), matching template block semantics.
+  - Implementation: tokenizer `.Composite` line type; parser block-state machine `.composite` mode + `Table.embeds`/`Ast.composites`; `ResolvedTable.embeds` carried through template resolution; `PassContext.composites`.
+- `tests/test_composite.sh` — 10-case golden suite (in-place expansion with modifiers, embed position ordering, inline FK preservation, multi-table reuse, unknown/duplicate/nested errors, unused warning, suffix-inference interaction, pg dialect), wired into `tests/test_coverage.sh` as the 36th suite.
+- Unit tests in `semantic/pass/resolve_composites.zig` (expansion order, multi-embed splicing, error paths).
+
+### Documentation
+- schemaspec: `grammar.ebnf` gains `composite_decl`/`composite_embed` productions; `schema.md` §11 documents syntax/rules and a composites-vs-templates-vs-custom-types comparison table; `type.md` FAQ Q12 points field-group questions at composites.
+- README.md: "Composite Types" feature section; rune/README.md: new "Language Features" overview; rune/ARCHITECTURE.md: "Composite Type System" section + pass list updated to 18.
+
+### Changed
+- Version strings 0.319.0 → **0.320.0** across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, packaging manifests (npm, scoop, homebrew, vscode). `main.zig` needs no edit (version injected from build.zig.zon via build_options).
+
 ## [0.319.0] - 2026-08-21
 
 ### Added

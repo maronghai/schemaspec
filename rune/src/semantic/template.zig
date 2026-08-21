@@ -71,6 +71,7 @@ pub fn resolveAndApply(
             .fks = t.fks,
             .indexes = t.indexes,
             .conditional_blocks = t.conditional_blocks,
+            .embeds = t.embeds,
             .line_no = t.line_no,
             .template_ref = t.template_ref,
         });

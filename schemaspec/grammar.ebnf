@@ -1,7 +1,7 @@
 (* ── Top Level ── *)
 
 spec             = { blank_line | schema_decl | import_decl | type_def_decl | engine_decl
-                   | template_def | view_decl | table_decl } ;
+                   | composite_decl | template_def | view_decl | table_decl } ;
 blank_line       = newline ;
 
 (* ── Schema ── *)
@@ -64,7 +64,7 @@ query            = { char } - newline ;  (* everything after = until end of line
 (* ── Field List ── *)
 
 field_list       = { field_decl | blank_line | foreign_key_decl
-                   | index_decl | composite_pk_decl | template_slot } ;
+                   | index_decl | composite_pk_decl | composite_embed | template_slot } ;
 field_decl       = field_name, [ WS, type_symbol ], [ WS, modifier_list ],
                    [ WS, inline_fk ], [ WS, check_clause ], [ WS, comment_line ], newline ;
 modifier_list    = modifier, { WS, modifier } ;
@@ -190,6 +190,19 @@ composite_pk_decl = "!", WS, field_name, { WS, field_name }, newline ;
 (* ── Template Slot ── *)
 
 template_slot    = "..." ;
+
+(* ── Composite Type ── *)
+(* Reusable field grouping. Declared at top level with `* name` followed   *)
+(* by field lines; embedded inside a table body with `*name` (no space).   *)
+(* The embed expands in place at its position in the field list.           *)
+(* Composite bodies have no explicit terminator — a new block header      *)
+(* (`*`, `%`, `#`, ...) closes the current declaration.                    *)
+(* Nesting composites inside composites or templates is not supported.     *)
+
+composite_decl   = "*", WS, composite_name, newline, composite_field_list ;
+composite_name   = word ;
+composite_field_list = { field_decl | blank_line } ;
+composite_embed  = "*", composite_name, newline ;
 
 (* ── Index ── *)
 (* Full:    @ idx_name (field1, field2)                              *)

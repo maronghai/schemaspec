@@ -528,3 +528,18 @@ rune reverse -d pg schema.sql  # Reverse-engineer PG DDL
 ```
 
 Rune maps `n` → `integer`, `t` → `timestamp`, `T` → `timestamptz`, `U` → `uuid`, `p` → `serial`, `B` → `bytea`, `e(...)` → `text` + `CHECK`, and `n++` → `GENERATED ALWAYS AS IDENTITY` for PostgreSQL.
+
+### Q12: How do I declare a group of fields that always appear together?
+
+Field *groupings* are not part of the type symbol system. Use **composite types** (`* name` declaration, `*name` embed) — see [Schema Spec §11](schema.md#11-composite-types). For single-field type aliases, use custom types (`~ name base_type`) — see the Schema Spec.
+
+```asm
+* audit          ; composite: reusable field GROUP
+created_at t+
+updated_at t++
+
+#orders
+id n++
+*audit           ; expands in place
+total m
+```

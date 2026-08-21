@@ -276,7 +276,7 @@ rune/src/
 
 - **FlagRegistry** (`cli/flag_registry.zig`): All 20 global CLI flags defined once in `GLOBAL_FLAG_REGISTRY` array. `matchesFlag()` matches long and short forms. `isKnownGlobalFlag()` provides unknown-flag detection. `parseGlobalFlags` uses `matchesFlag` for boolean flag detection instead of raw `std.mem.eql` chains.
 
-- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (17 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
+- **Semantic Pass Manager** (`semantic/pass_manager.zig`): `PassContext` + `SemanticPass` interface + `DEFAULT_PASSES` array. Pass implementations in `semantic/pass/*.zig` (18 passes). `semantic/analyzer.zig` orchestrates template resolution + pass execution. Dependency ordering validated at comptime. Each pass declares its access pattern via `PassAccess` struct (`reads_tables`, `writes_tables`, `modifies_table_list`, `writes_types`). `--verbose-passes` CLI flag prints pass execution details. New passes: create `semantic/pass/<name>.zig` with `pub fn run(ctx: *PassContext) !void` and add to `DEFAULT_PASSES`.
 
 - **ResolvedAst IR** (`types/resolved_ast.zig`): `ResolvedTable` + `ResolvedAst` — output of template resolution + semantic passes. `ResolvedTable` includes `template_ref` for tracking which template was applied. Separated from `types/ast.zig` (parser output) for clean IR boundary. Re-exported from `ast.zig` for backward compatibility.
 
@@ -287,6 +287,8 @@ rune/src/
 - **Template Slot Merging** (`semantic/template.zig`): Template inheritance with `...` slot controls field insertion order. Merge formula: `parent_before + child_before + <concrete> + child_after + parent_after`. Max 4 parents via mixin syntax (`+`).
 
 - **Conditional Schema Blocks** (`parser/parser.zig`, `semantic/pass/resolve_conditionals.zig`): `@if(dialect=pg|sqlite)` ... `@endif` blocks within table definitions allow dialect-specific fields. Fields inside the block are only included when compiling for a matching dialect. The parser records conditional blocks in `Table.conditional_blocks`, and the `resolve_conditionals` semantic pass filters them based on the target dialect. The pass runs after `resolve_names` and before `autofk`.
+
+- **Composite Types** (`parser/parser.zig`, `semantic/pass/resolve_composites.zig`, v0.320.0): reusable field groupings declared at top level (`* name` + field lines) and embedded inside table bodies (`*name`, no space). Embeds expand **in place** at their position in the field list, carrying all modifiers/defaults/CHECKs/comments/FKs. The parser records declarations in `Ast.composites` and embed sites (name + insert position) in `Table.embeds`; the `resolve_composites` semantic pass splices them before `autofk` runs (and after `resolve_conditionals`, so conditional-block indices are already consumed). Errors: unknown reference, duplicate definition, empty composite; unused composites warn. Composites vs templates: templates merge whole-table with slot control; composites embed field groups at any position, multiple times per table.
 
 - **Schema Version Directive** (`parser/parser.zig`, `types/ast.zig`): `@version X.Y.Z` declares schema version metadata. The version flows through the pipeline (AST → ResolvedAst → TypedAst) and is emitted as a SQL comment (`-- Schema version: X.Y.Z`) after the header. Used for forward/backward compatibility tracking and schema evolution.
 
@@ -385,7 +387,7 @@ rune/src/
 | | `trace.zig` | Shared AST trace formatting |
 | | `diagnostic.zig` | Multi-error diagnostic collector (printAll, formatJson, formatLsp, formatTerminal) |
 | | `template.zig` | Template inheritance resolution |
-| | `pass/*.zig` | 17 semantic passes (autofk, resolve_names, resolve_conditionals, suffix_inference, validate, template_type_conflict, validate_unused_enums, etc.) |
+| | `pass/*.zig` | 18 semantic passes (autofk, resolve_names, resolve_conditionals, resolve_composites, suffix_inference, validate, template_type_conflict, validate_unused_enums, etc.) |
 | root | `main.zig` | CLI entry point, command dispatch |
 | | `cache.zig` | Table-level compilation cache for incremental compilation (content hash, lookup, store, disk persistence) |
 | | `config_merge.zig` | Config merge logic (CLI flags + config file defaults) |

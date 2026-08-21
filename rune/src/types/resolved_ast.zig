@@ -21,6 +21,9 @@ pub const ResolvedTable = struct {
     indexes: []const IndexDecl,
     /// Conditional blocks: fields between @if and @endif that are dialect-specific.
     conditional_blocks: []const ast_mod.ConditionalBlock = &.{},
+    /// Composite embeds (`*name` lines) pending expansion, in source order.
+    /// Consumed by the resolve_composites semantic pass; empty afterwards.
+    embeds: []const ast_mod.CompositeEmbed = &.{},
     line_no: usize,
     /// Template reference: the name of the template applied to this table (if any).
     template_ref: ?[]const u8 = null,

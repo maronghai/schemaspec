@@ -16,8 +16,9 @@ A minimal DSL for declaring database schemas using single-character symbols. Bui
 8. [Templates](#8-templates)
 9. [Conditional Blocks](#9-conditional-blocks)
 10. [Views](#10-views)
-11. [Grammar & Diagnostics](#11-grammar--diagnostics)
-12. [FAQ](#12-faq)
+11. [Composite Types](#11-composite-types)
+12. [Grammar & Diagnostics](#12-grammar--diagnostics)
+13. [FAQ](#13-faq)
 
 ---
 
@@ -654,6 +655,47 @@ Views define virtual tables using SQL SELECT queries.
 - **SQLite**: `CREATE VIEW` (no OR REPLACE)
 
 Views are emitted in source order (by line number) interleaved with tables.
+
+---
+
+## 11. Composite Types
+
+Composite types are reusable field groupings — like templates, but embedded **at any position inside a table body** rather than merged at the table level.
+
+**Declaration** (top level, `*` + space + name):
+```
+* audit
+created_at t+
+updated_at t++
+created_by s64 > users.id
+```
+
+**Embedding** (inside a table body, `*` + name, no space):
+```
+#orders
+id n++
+*audit
+total m
+```
+
+The embed expands **in place**: the composite's fields appear exactly where the `*name` line sits, with all modifiers, defaults, CHECK constraints, comments, and inline FKs intact. A composite may be embedded in multiple tables and multiple times in the same table.
+
+### Rules
+
+- A new block header (`*`, `%`, `#`, ...) closes the current composite declaration — there is no explicit terminator.
+- Unknown composite references, duplicate definitions, and empty composites are errors.
+- Unused composites produce a warning (symmetric with unused templates).
+- Nesting composites inside composites or templates is not supported.
+- Expansion happens during semantic analysis, after conditional blocks are resolved and before auto-FK / suffix inference — so `_id` suffix inference and autofk apply to expanded fields normally.
+
+### Composites vs Templates vs Custom Types
+
+| | Template (`%`) | Composite (`*`) | Custom type (`~`) |
+|---|---|---|---|
+| Granularity | whole table | any field-group position | single field type |
+| Multiple per table | no (one ref + slot) | yes, any positions | n/a |
+| Slot control (`...`) | yes | no (position = embed site) | n/a |
+| Inheritance / mixins | yes (`>`/`+`) | no | no |
 
 ---
 
