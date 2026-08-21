@@ -151,6 +151,10 @@ Supported features: diagnostics, completion, hover, go-to-definition, document s
 - **Custom types** (`~ name base_type mysql=x pg=y`): type aliases with dialect overrides
 - **Views** (`& name = SELECT ...`), **inline FKs** (`> users.id`), **CHECK constraints** (`[1,100]`, `{a,b,c}`)
 
+## WASM Library
+
+`zig build -Dtarget=wasm32-wasi` produces `zig-out/bin/rune.wasm` — the full compiler as a WebAssembly module (16 `rune_*` exports; entry point disabled, `-rdynamic` keeps them from being GC'd). The JS wrapper at [wasm/rune.js](wasm/rune.js) loads it in browsers and Deno with a minimal WASI stub and exposes `compile`, `lint`, `diff`, `migrate`, `docs`, `format`, `reverse`, and more. See [../playground/index.html](../playground/index.html) for a working consumer.
+
 ## Architecture
 
 For deep dives into the codebase architecture, IR boundaries, dialect backend vtable, semantic pass manager, and module roles, see [ARCHITECTURE.md](ARCHITECTURE.md).

@@ -34,16 +34,21 @@ pub fn build(b: *std.Build) void {
     });
     mod.addOptions("build_options", options);
 
-    const exe = if (target.result.cpu.arch == .wasm32)
-        b.addLibrary(.{
-            .name = "rune",
-            .root_module = mod,
-        })
-    else
-        b.addExecutable(.{
-            .name = "rune",
-            .root_module = mod,
-        });
+    const exe = b.addExecutable(.{
+        .name = "rune",
+        .root_module = mod,
+    });
+    if (target.result.cpu.arch == .wasm32) {
+        // WASM library build: no entry point, and -rdynamic so every
+        // `pub export fn rune_*` becomes a module export (unreferenced
+        // export fns are otherwise GC'd by wasm-ld).
+        // Produces zig-out/bin/rune.wasm (consumed by wasm/rune.js).
+        exe.entry = .disabled;
+        exe.rdynamic = true;
+        // The semantic passes recurse over deeply nested ASTs with large
+        // stack frames; 16 MB (the wasm default) overflows on error paths.
+        exe.stack_size = 64 * 1024 * 1024;
+    }
 
     b.installArtifact(exe);
     const run_cmd = b.addRunArtifact(exe);
@@ -101,7 +106,11 @@ pub fn build(b: *std.Build) void {
         .root_module = bench_mod,
     });
 
-    b.installArtifact(bench_exe);
+    // bench is a native CLI tool — skip installing it for wasm targets so
+    // the install dir doesn't accumulate a misleading bench.wasm.
+    if (target.result.cpu.arch != .wasm32) {
+        b.installArtifact(bench_exe);
+    }
 
     const run_bench = b.addRunArtifact(bench_exe);
     run_bench.step.dependOn(b.getInstallStep());

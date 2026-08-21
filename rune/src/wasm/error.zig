@@ -4,6 +4,17 @@ const common = @import("common.zig");
 // ─── WASM Error Handling ────────────────────────────────────────
 // Error state management for WASM exports.
 
+/// Allocate `len` bytes from the WASM arena for caller use (e.g. writing
+/// schema text into module memory before calling a rune_* function).
+/// The arena is reclaimed by `rune_reset()`.
+pub export fn rune_wasm_alloc(len: usize) ?[*]u8 {
+    const alloc = common.gpa.allocator();
+    // Zero-length allocations have no valid pointer; hand back one byte so
+    // callers can still pass a non-null (empty) buffer.
+    const buf = alloc.alloc(u8, @max(len, 1)) catch return null;
+    return buf.ptr;
+}
+
 /// Free all memory allocated by rune_compile.
 pub export fn rune_reset() void {
     common.clearError();

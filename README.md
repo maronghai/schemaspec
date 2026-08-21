@@ -239,6 +239,18 @@ $ mydb
   ~ ip_addr mysql=s45 pg=inet   ; dialect-specific
 ```
 
+## Playground
+
+A browser-based playground ships in [`playground/`](playground/index.html) — edit a schema, compile it to any dialect, lint it, and generate docs, all in the browser via the WASM library (no server, no install):
+
+```bash
+cd rune && zig build -Dtarget=wasm32-wasi   # produces rune/zig-out/bin/rune.wasm
+python -m http.server 8000                   # from the repo root
+# open http://localhost:8000/playground/
+```
+
+The **Share link** button encodes the current schema into the URL hash (`#<base64url>`) — the same format `rune share` emits — so links open pre-loaded in any playground instance.
+
 ## Configuration
 
 Create a `rune.toml` in your project root to set defaults:

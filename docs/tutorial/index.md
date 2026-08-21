@@ -1,5 +1,8 @@
 # Rune Interactive Tutorial
 
+> 想边学边练？启动本地 Playground：`cd rune && zig build -Dtarget=wasm32-wasi`，然后在仓库根目录 `python -m http.server 8000`，浏览器打开 `http://localhost:8000/playground/`。每章示例都可以直接粘贴进去编译。
+
+
 Welcome to the Rune tutorial! This hands-on guide will teach you how to design database schemas using Rune's minimal `.ss` syntax, compile them to SQL for any dialect, generate migrations, and integrate with your development workflow.
 
 ## Prerequisites

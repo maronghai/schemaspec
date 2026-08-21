@@ -31,9 +31,23 @@ pub export fn rune_compile(schema_ptr: [*]const u8, schema_len: usize, options_p
         .dialect = dialect,
         .run_semantic = true,
     }) catch |err| {
+        if (err == error.SemanticError) {
+            // Semantic diagnostics were silenced (no stderr on wasm) — surface
+            // them via the validate JSON report instead.
+            if (rune_validate(schema_ptr, schema_len, options_ptr, options_len)) |report| {
+                common.storeError(alloc, std.mem.span(report));
+            } else {
+                common.storeError(alloc, @errorName(err));
+            }
+            return null;
+        }
         common.storeError(alloc, @errorName(err));
         return null;
     };
+    if (result.partial) {
+        common.storeError(alloc, "schema has parse errors — see rune validate for details");
+        return null;
+    }
 
     // Resolve types (ResolvedAst → TypedAst)
     const typed = TypeResolver.resolve(alloc, result.resolved, dialect) catch |err| {

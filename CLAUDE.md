@@ -188,12 +188,13 @@ Provides: syntax highlighting (TextMate grammar), language configuration (bracke
 rune/src/
   main.zig, cli.zig, io.zig, utils.zig, completions.zig, color.zig, config.zig, config_merge.zig  # CLI + glue
   cache.zig                                                          # table-level compilation cache (incremental)
-  wasm.zig                                                   # WASM library entry point (wasm32-wasi)
+  wasm.zig                                                   # WASM library entry point (wasm32-wasi; build -> rune.wasm via entry=.disabled + rdynamic; rune_wasm_alloc export; consumed by ../playground)
   wasm/common.zig, wasm/error.zig, wasm/compile.zig,        # WASM sub-modules (split from monolith)
   wasm/diff.zig, wasm/reverse.zig, wasm/lint.zig,
   wasm/format.zig, wasm/generate.zig, wasm/export.zig,
   wasm/docs.zig
   cli/init.zig, cli/hooks.zig                             # init + hooks (split from completions.zig)
+  ../playground/index.html                                          # browser playground (WASM consumer; served statically)
   bench.zig, ast_visitor.zig, formatter.zig, lint.zig, version.zig  # standalone modules (lint.zig = barrel for lint/ sub-modules)
   lint/rules.zig, lint/format.zig, lint/config.zig, lint/fix.zig  # lint engine split
   lint/handlers/structural.zig, lint/handlers/naming.zig, lint/handlers/validation.zig, lint/handlers/compat.zig, lint/handlers/fk.zig, lint/handlers/index.zig, lint/handlers/view.zig, lint/handlers/enum.zig, lint/handlers/portability.zig  # 9 handler modules

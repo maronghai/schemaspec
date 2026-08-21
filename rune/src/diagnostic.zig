@@ -109,6 +109,9 @@ fn formatDiagnosticTo(w: anytype, d: Diagnostic) !void {
 }
 
 pub fn printDiagnostic(alloc: std.mem.Allocator, d: Diagnostic) void {
+    // WASM builds have no stderr; std.debug.print's locked-writer path
+    // overflows the stack there. Errors surface via rune_last_error().
+    if (comptime @import("builtin").target.cpu.arch.isWasm()) return;
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
     formatDiagnosticTo(w, d) catch return;

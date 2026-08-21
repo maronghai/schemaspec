@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.321.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,036 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
+**Current version**: 0.322.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,036 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
 
 > This roadmap was restructured on 2026-08-21: all thirteen completed phases are condensed into a summary, and every remaining open item is consolidated under Phase 14 (each item now appears exactly once). Historical detail lives in [CHANGELOG.md](CHANGELOG.md) and git history.
 >
@@ -88,7 +88,7 @@ All tracked refactors shipped: generator deduplication, FlagRegistry, granular r
 
 ## Phase 14: Ecosystem Maturation (Current Focus) 🔲
 
-Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-level features (not registry-entry extensions), each scoped as its own RFC + release. **Status: 3 of 7 done (plugin API stub, template overrides, composite types), 4 remaining.**
+Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-level features (not registry-entry extensions), each scoped as its own RFC + release. **Status: 3 of 7 done (plugin API stub, template overrides, composite types), 4 remaining (2 now have their execution backend shipped).**
 
 ### Generator Plugin System
 
@@ -98,8 +98,8 @@ Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-l
 
 ### Distribution & Community
 
-- [ ] Interactive tutorial — web-based walkthrough with live examples (from Phase 6); the WASM library (`rune_compile` et al.) is the execution backend.
-- [ ] Playground sharing — share `.ss` snippets via URL (from Phase 6); depends on the playground above.
+- [~] Interactive tutorial — web-based walkthrough with live examples (from Phase 6) — backend shipped v0.322.0: working `rune.wasm` build (`entry=.disabled` + `-rdynamic`) and rewritten browser/Deno `wasm/rune.js`; remaining work is interactive chapter wiring in docs/tutorial/.
+- [~] Playground sharing — share `.ss` snippets via URL (from Phase 6) — playground shell shipped v0.322.0 ([playground/index.html](playground/index.html)): editor + SQL/Lint/Docs tabs, dialect switcher, share links via `#<base64url>` URL hash (same format as `rune share`). Remaining work is hosting at a public URL.
 
 ### Advanced Schema Features
 
@@ -115,8 +115,7 @@ Process debt observed during the 2026-08-21 roadmap audit:
 - [x] Backfill [CHANGELOG.md](CHANGELOG.md) for v0.313.0–v0.318.0 — entries reconstructed from git history (2026-08-21). No v0.319/v0.320 commits exist; the tree's `VERSION` had been bumped to 0.320.0 inside commit 0.316.0.
 - [x] Version alignment — all version strings (`VERSION`, `rune/VERSION`, `rune/build.zig.zon`, npm/scoop/homebrew/vscode manifests) now read **0.318.0**, matching git HEAD (fixed 2026-08-21).
 - [x] Commit-message / version alignment — v0.320.1 shipped with a bare-number title while `VERSION` still read 0.320.0 (the amend renamed the test-infra commit but not the tree); CHANGELOG backfilled for 0.320.0/0.320.1 and all strings aligned to **0.321.0** (2026-08-22). Descriptive titles from this release onward.
-- [~] Golden-test runner parity — `zig build golden-tests` shells out to bash; the shell suites themselves are now dialect-batched (`rune compile-batch`), so a Zig-native runner only needs to replicate manifest + awk-diff semantics.
-- [ ] Golden-test runner parity — confirm `zig build golden-tests` covers all 34 shell suites so Windows-native environments don't require bash (CI currently runs golden tests on Linux shards only).
+- [ ] Golden-test runner parity — `zig build golden-tests` shells out to bash; a Zig-native runner only needs to replicate the manifest + awk-diff semantics the shell suites now use (`rune compile-batch`).
 
 ---
 

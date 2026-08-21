@@ -1,3 +1,16 @@
+## [0.322.0] - 2026-08-22
+
+### Added
+- **Working WASM library build + browser Playground** — the execution backend for Phase 14's interactive-tutorial and playground-sharing items:
+  - `zig build -Dtarget=wasm32-wasi` now produces a real `rune.wasm` (~2.8 MB) instead of a stray `bench.wasm` plus an unusable static lib: wasm32 builds rune as an executable with `.entry = .disabled` and `-rdynamic` (unreferenced `export fn` symbols were otherwise GC'd by wasm-ld — only `memory` was exported before). bench is no longer installed for wasm targets.
+  - New `rune_wasm_alloc(len)` export — arena-backed allocation for callers to stage input strings; zero-length requests return a valid 1-byte buffer.
+  - `wasm/rune.js` rewritten: browser (`fetch`) + Deno dual loading, minimal WASI stub (entropy/clocks; everything else ENOSYS), full API surface (compile, validate, stats, diff, migrate, lint, format, tune, generate, export, docs, reverse, version, reset), errors thrown with messages from `rune_last_error()`. The old wrapper called nonexistent `rune_alloc`/`rune_free` exports.
+  - New `playground/index.html`: single-file editor + SQL/Lint/Docs tabs, 6-dialect switcher, example schemas, Ctrl/Cmd+Enter compile, and share links (`#<base64url>` in the URL hash — same format as `rune share`). Verified end-to-end in a real browser via the preview harness.
+  - Diagnostics printing is compiled out on wasm (`printDiagnostic` no-ops for wasm32): `std.debug.print`'s locked stderr writer overflowed the stack there, crashing any schema with semantic errors. Semantic failures now surface through `rune_last_error()` carrying the validate JSON report.
+
+### Changed
+- Version strings -> **0.322.0** across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, packaging manifests.
+
 ## [0.321.0] - 2026-08-22
 
 ### Fixed

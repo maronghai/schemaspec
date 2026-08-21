@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rune Playground</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --text: #c9d1d9; --dim: #8b949e; --accent: #58a6ff;
+    --ok: #3fb950; --err: #f85149; --warn: #d29922;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg); color: var(--text); height: 100vh;
+    display: flex; flex-direction: column;
+  }
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 20px; border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header h1 span { color: var(--accent); }
+  #version { color: var(--dim); font-size: 12px; }
+  header .spacer { flex: 1; }
+  button {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: #1f6feb; border-color: #1f6feb; }
+  main { flex: 1; display: flex; min-height: 0; }
+  .pane { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .pane + .pane { border-left: 1px solid var(--border); }
+  .pane-header {
+    display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border);
+    align-items: center; flex-wrap: wrap;
+  }
+  .tab { padding: 4px 10px; border-radius: 4px; cursor: pointer; color: var(--dim); font-size: 13px; }
+  .tab.active { background: var(--panel); color: var(--text); }
+  select, .tool {
+    background: var(--panel); color: var(--text); border: 1px solid var(--border);
+    border-radius: 4px; padding: 4px 8px; font-size: 13px;
+  }
+  .dialect-btn.active { border-color: var(--accent); color: var(--accent); }
+  #editor {
+    flex: 1; resize: none; border: none; outline: none; padding: 14px;
+    background: transparent; color: var(--text);
+    font-family: ui-monospace, Consolas, monospace; font-size: 14px; line-height: 1.55;
+    tab-size: 2; white-space: pre;
+  }
+  #output {
+    flex: 1; margin: 0; padding: 14px; overflow: auto;
+    font-family: ui-monospace, Consolas, monospace; font-size: 13px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  #output.ok { color: var(--text); }
+  #output.err { color: var(--err); }
+  #status { font-size: 12px; color: var(--dim); padding: 4px 12px; border-top: 1px solid var(--border); min-height: 24px; }
+  footer { text-align: center; padding: 6px; color: var(--dim); font-size: 11px; border-top: 1px solid var(--border); }
+  a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>⟶ Rune <span>Playground</span></h1>
+  <span id="version">loading wasm…</span>
+  <div class="spacer"></div>
+  <select id="examples" title="Load an example schema"></select>
+  <button id="share" title="Copy a shareable URL containing this schema">Share link</button>
+</header>
+<main>
+  <section class="pane">
+    <div class="pane-header">
+      <span style="font-size:13px;color:var(--dim)">schema.ss</span>
+      <div class="spacer" style="flex:1"></div>
+      <span id="dialects" title="Target SQL dialect"></span>
+    </div>
+    <textarea id="editor" spellcheck="false">$ demo
+
+# users
+id n++
+name s32
+email s128 @u
+
+# orders
+id n++
+user_id > users.id
+total m
+created_at t+</textarea>
+  </section>
+  <section class="pane">
+    <div class="pane-header">
+      <div class="tab active" data-tab="sql">SQL</div>
+      <div class="tab" data-tab="lint">Lint</div>
+      <div class="tab" data-tab="docs">Docs</div>
+      <div class="spacer" style="flex:1"></div>
+      <button class="primary" id="run">Compile ⏎</button>
+    </div>
+    <pre id="output" class="ok"></pre>
+    <div id="status"></div>
+  </section>
+</main>
+<footer>Rune — one character = one type · <a href="../docs/tutorial/index.md" target="_blank">tutorial</a> · press Ctrl/⌘+Enter to compile</footer>
+
+<script type="module">
+const EXAMPLES = {
+  'basic': `$ demo
+
+# users
+id n++
+name s32
+email s128 @u`,
+  'templates & inheritance': `% base
+id n++
+...
+version N
+create_at t+
+
+#base users
+name s32
+email s128`,
+  'foreign keys': `$ shop autofk
+
+# users
+id n++
+name s32
+
+# orders
+id n++
+user_id
+amount m
+
+> user_id users.id`,
+  'composite types (v0.320)': `$ myapp
+
+* audit
+created_at t+
+updated_at t++
+
+#users
+id n++
+name s32
+
+#orders
+id n++
+*audit
+total m`,
+  'conditional blocks': `$ app
+
+# users
+id n++
+name s32
+
+@if(dialect=pg)
+bio T
+avatar B
+@endif`,
+};
+
+import { compile, lint, docs, dialects, version } from '../rune/wasm/rune.js';
+
+const WASM_PATH = '../rune/zig-out/bin/rune.wasm';
+
+const editor = document.getElementById('editor');
+const output = document.getElementById('output');
+const status = document.getElementById('status');
+const runBtn = document.getElementById('run');
+const shareBtn = document.getElementById('share');
+const examplesSel = document.getElementById('examples');
+
+let currentTab = 'sql';
+let currentDialect = 'mysql';
+
+// ── init UI ──
+const dwrap = document.getElementById('dialects');
+for (const d of dialects) {
+  const b = document.createElement('button');
+  b.className = 'tool dialect-btn' + (d === 'mysql' ? ' active' : '');
+  b.textContent = d;
+  b.onclick = () => {
+    currentDialect = d;
+    dwrap.querySelectorAll('.dialect-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    run();
+  };
+  dwrap.appendChild(b);
+}
+
+for (const [name, src] of Object.entries(EXAMPLES)) {
+  const o = document.createElement('option');
+  o.value = name; o.textContent = name;
+  examplesSel.appendChild(o);
+}
+examplesSel.onchange = () => {
+  if (EXAMPLES[examplesSel.value]) {
+    editor.value = EXAMPLES[examplesSel.value];
+    run();
+  }
+};
+
+document.querySelectorAll('.tab').forEach(t => {
+  t.onclick = () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    currentTab = t.dataset.tab;
+    run();
+  };
+});
+
+function setOutput(text, cls) {
+  output.textContent = text;
+  output.className = cls || 'ok';
+}
+
+async function run() {
+  const src = editor.value;
+  try {
+    if (currentTab === 'sql') {
+      setOutput(await compile(src, { dialect: currentDialect, wasmPath: WASM_PATH }), 'ok');
+      status.textContent = '';
+    } else if (currentTab === 'lint') {
+      setOutput((await lint(src, { wasmPath: WASM_PATH })).trim() || '✓ no lint issues', 'ok');
+    } else if (currentTab === 'docs') {
+      setOutput(await docs(src, { wasmPath: WASM_PATH }), 'ok');
+    }
+  } catch (e) {
+    setOutput(e.message, 'err');
+    status.textContent = e.code != null ? `error code ${e.code}` : '';
+  }
+}
+
+// ── share links (#<base64url>) ──
+function b64urlEncode(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function b64urlDecode(s) {
+  let b64 = s.replace(/-/g, '+').replace(/_/g, '/');
+  while (b64.length % 4) b64 += '=';
+  const bin = atob(b64);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+shareBtn.onclick = async () => {
+  const url = location.origin + location.pathname + '#' + b64urlEncode(editor.value);
+  history.replaceState(null, '', '#' + b64urlEncode(editor.value));
+  try { await navigator.clipboard.writeText(url); status.textContent = 'share URL copied to clipboard'; }
+  catch { status.textContent = 'share URL is in the address bar'; }
+};
+
+// load from hash on startup
+if (location.hash.length > 1) {
+  try {
+    editor.value = b64urlDecode(location.hash.slice(1));
+    status.textContent = 'loaded schema from share link';
+  } catch { /* bad hash — keep default */ }
+}
+
+// compile on Ctrl/Cmd+Enter and on load
+editor.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); run(); }
+});
+runBtn.onclick = run;
+
+version({ wasmPath: WASM_PATH }).then(v => {
+  document.getElementById('version').textContent = 'rune ' + v;
+  run();
+}).catch(err => {
+  setOutput('Failed to load rune.wasm: ' + err.message + '\n\nServe this directory over HTTP (python -m http.server) — file:// cannot fetch the module.', 'err');
+});
+</script>
+</body>
+</html>
