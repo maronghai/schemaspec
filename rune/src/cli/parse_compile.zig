@@ -301,3 +301,9 @@ pub fn parseStatsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
     }
     return shared.parseSimpleSubcommand(dialect, target, .{ .stats = .{ .input = input, .format = stats_format, .per_table = per_table, .audit = audit, .min_score = min_score } }, opts);
 }
+
+pub fn parseCompileBatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
+    if (fargs.len < 2) return error.MissingArgs;
+    const manifest = fargs[1];
+    return shared.parseSimpleSubcommand(dialect, target, .{ .compile_batch = .{ .manifest = manifest } }, opts);
+}

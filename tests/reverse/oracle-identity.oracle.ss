@@ -1,7 +1,7 @@
 # customers
 id n !
 name s100
-email s255 ?
+email ?
 
 # orders
 id n ++

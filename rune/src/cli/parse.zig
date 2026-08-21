@@ -447,6 +447,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .{ .name = "share", .parse = parse_utils.parseShareArgs },
         .{ .name = "lsp", .parse = parse_utils.parseLspArgs },
         .{ .name = "registry", .parse = parse_utils.parseRegistryArgs },
+        .{ .name = "compile-batch", .parse = parse_compile.parseCompileBatchArgs },
     };
     for (parsers) |entry| {
         if (std.mem.eql(u8, sub, entry.name)) {

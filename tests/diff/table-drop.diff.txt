@@ -2,3 +2,5 @@
 -- CREATE TABLE `t2`
   + id
   + val
+
+2 tables changed1 added, 1 dropped

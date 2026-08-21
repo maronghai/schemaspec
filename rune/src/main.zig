@@ -15,6 +15,7 @@ const config_mod = @import("config.zig");
 const config_merge = @import("config_merge.zig");
 const fmt = @import("diagnostic/format.zig");
 const cli_errors = @import("cli/errors.zig");
+const dialect_enum = @import("dialect/enum.zig");
 
 // ─── Windows UTF-8 Console Support ──────────────────────────────
 
@@ -287,7 +288,50 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs, home_d
             defer server.deinit();
             return server.run();
         },
+        .compile_batch => |cmd| return handleCompileBatch(io, alloc, cmd.manifest),
     }
+}
+
+/// Batch-compile many .ss files in a single process.
+/// Manifest format: one `input<TAB>output<TAB>dialect` entry per line
+/// (blank lines and `#` comments ignored). Avoids per-file process spawn,
+/// which dominates golden-test wall time on Windows/MSYS.
+fn handleCompileBatch(io: std.Io, alloc: std.mem.Allocator, manifest_path: []const u8) !void {
+    const manifest_data = try io_mod.readFileOrStdin(io, alloc, manifest_path);
+    var ok_count: usize = 0;
+    var fail_count: usize = 0;
+
+    var lines = std.mem.splitScalar(u8, manifest_data, '\n');
+    while (lines.next()) |raw_line| {
+        const line = std.mem.trim(u8, raw_line, " \t\r");
+        if (line.len == 0 or line[0] == '#') continue;
+        var fields = std.mem.splitScalar(u8, line, '\t');
+        const input = fields.next() orelse continue;
+        const output = fields.next() orelse {
+            fail_count += 1;
+            fmt.printError("batch", "manifest line needs input<TAB>output<TAB>dialect");
+            continue;
+        };
+        const dialect_str = fields.next() orelse "";
+        const dialect = dialect_enum.parseDialect(dialect_str) catch .mysql;
+
+        handlers.handleCompileRequest(io, alloc, .{
+            .input = input,
+            .output_path = output,
+            .dialect = dialect,
+            .quiet = true,
+        }) catch |err| {
+            fail_count += 1;
+            fmt.printError("batch", input);
+            fmt.printError("batch", @errorName(err));
+            continue;
+        };
+        ok_count += 1;
+    }
+
+    if (fail_count > 0) return error.CompileBatchFailed;
+    const summary_msg = try std.fmt.allocPrint(alloc, "batch: {d} compiled, {d} failed\n", .{ ok_count, fail_count });
+    try io_mod.writeOutput(io, summary_msg, null, false);
 }
 
 /// Resolve input path, converting STDIN_PATH to null.

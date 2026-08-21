@@ -225,7 +225,6 @@ test "RULES covers all LintRule variants" {
     try std.testing.expectEqual(std.meta.fields(LintRule).len, RULES.len);
 }
 
-
 test "all lint rules have a dispatch handler registered" {
     // Hardens the open-closed LintRule + RULES architecture: every LintRule
     // variant must have a handler registered in the RULES dispatch table.

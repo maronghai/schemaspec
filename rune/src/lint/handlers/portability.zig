@@ -415,7 +415,7 @@ pub fn checkAutoIncrementDialectGap(alloc: std.mem.Allocator, results: *std.Arra
                 const msg = try std.fmt.allocPrint(
                     alloc,
                     "auto-increment primary key '{s}' uses dialect-specific syntax ({s}); use 'n++' (bigint) or 'N++' (bigint unsigned) for portable auto-increment across Oracle/DB2/PostgreSQL",
-                    .{field.name, origin_str},
+                    .{ field.name, origin_str },
                 );
                 try results.append(alloc, .{
                     .rule = "auto-increment-dialect-gap",
@@ -427,4 +427,3 @@ pub fn checkAutoIncrementDialectGap(alloc: std.mem.Allocator, results: *std.Arra
         }
     }
 }
-

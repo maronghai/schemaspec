@@ -5,6 +5,7 @@
 #   e.g. ./test.sh           — run all tests
 #        ./test.sh 01         — run tests matching "01"
 #        ./test.sh template   — run tests matching "template"
+# Case-level parallelism: CASE_JOBS=N (default 4).
 
 set -euo pipefail
 
@@ -15,46 +16,7 @@ EXPECTED_DIR="$SCRIPT_DIR/expected"
 
 FILTER="${1:-}"
 
-for ss_file in "$TEST_DIR"/*.ss; do
-  [ -f "$ss_file" ] || continue
-  base=$(basename "$ss_file" .ss)
-
-  # Apply filter
-  if [ -n "$FILTER" ] && [[ "$base" != *"$FILTER"* ]]; then
-    continue
-  fi
-
-  # Skip SQLite-only, OpenAPI, and GraphQL test files
-  if [[ "$base" == sqlite-* ]] || [[ "$base" == openapi-* ]] || [[ "$base" == graphql-* ]]; then
-    continue
-  fi
-
-  expected_file="$EXPECTED_DIR/$base.sql"
-  if [ ! -f "$expected_file" ]; then
-    skip "$base" "no golden file"
-    continue
-  fi
-
-  # Compile to temp file
-  tmp_file=$(mktemp)
-  trap "rm -f '$tmp_file'" EXIT
-
-  if ! "$COMPILER" "$ss_file" -o "$tmp_file" 2>/dev/null; then
-    fail "$base" "compiler failed"
-    rm -f "$tmp_file"
-    continue
-  fi
-
-  # Compare (ignoring version comment for resilience)
-  if compare_files "$expected_file" "$tmp_file"; then
-    pass "$base"
-  else
-    diff_output=$(diff_versions "$expected_file" "$tmp_file")
-    fail "$base" "$diff_output"
-  fi
-
-  rm -f "$tmp_file"
-done
+run_golden_cases "MySQL" "" ".sql" '^(sqlite-|openapi-|graphql-)'
 
 summary "MySQL"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

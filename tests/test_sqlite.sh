@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # ── Rune SQLite Test Runner ──
-# Compiles each .ss test file with SQLite dialect and diffs against golden output.
+# Compiles sqlite-* .ss test files and diffs against golden .sqlite.sql output.
 # Usage: ./test_sqlite.sh [test-filter]
+# Case-level parallelism + single-process batch compile (see lib.sh).
 
 set -euo pipefail
 
@@ -12,43 +13,7 @@ EXPECTED_DIR="$SCRIPT_DIR/expected"
 
 FILTER="${1:-}"
 
-for ss_file in "$TEST_DIR"/*.ss; do
-  [ -f "$ss_file" ] || continue
-  base=$(basename "$ss_file" .ss)
-
-  # Only run sqlite-* test files
-  if [[ "$base" != sqlite-* ]]; then
-    continue
-  fi
-
-  if [ -n "$FILTER" ] && [[ "$base" != *"$FILTER"* ]]; then
-    continue
-  fi
-
-  expected_file="$EXPECTED_DIR/$base.sqlite.sql"
-  if [ ! -f "$expected_file" ]; then
-    skip "$base" "no golden file"
-    continue
-  fi
-
-  tmp_file=$(mktemp)
-  trap "rm -f '$tmp_file'" EXIT
-
-  if ! "$COMPILER" "$ss_file" -d sqlite -o "$tmp_file" 2>/dev/null; then
-    fail "$base" "compiler failed"
-    rm -f "$tmp_file"
-    continue
-  fi
-
-  if compare_files "$expected_file" "$tmp_file"; then
-    pass "$base"
-  else
-    diff_output=$(diff_versions "$expected_file" "$tmp_file")
-    fail "$base" "$diff_output"
-  fi
-
-  rm -f "$tmp_file"
-done
+run_golden_cases "SQLite" "sqlite" ".sqlite.sql" "" "^sqlite-"
 
 summary "SQLite"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

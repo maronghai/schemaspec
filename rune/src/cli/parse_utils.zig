@@ -222,7 +222,6 @@ pub fn parseLspArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, ta
     return shared.parseSimpleSubcommand(dialect, target, .lsp, opts);
 }
 
-
 pub fn parseShareArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     var format: types.ShareFormat = .url;
     var output: ?[]const u8 = null;
@@ -270,4 +269,3 @@ pub fn parseRegistryArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
     }
     return shared.parseSimpleSubcommand(dialect, target, .{ .registry = .{ .subcmd = subcmd, .name = name, .path = path, .output = output } }, opts);
 }
-

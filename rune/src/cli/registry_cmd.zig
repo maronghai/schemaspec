@@ -16,8 +16,6 @@ fn getCurrentDateString(io: std.Io) ![]const u8 {
     return try std.fmt.allocPrint(alloc, "{d:0>4}-{d:0>2}-{d:0>2}", .{ year, month, day });
 }
 
-
-
 // Registry directory: ~/.rune/registry/
 // Structure:
 //   ~/.rune/registry/
@@ -142,7 +140,7 @@ pub fn handleRegistry(io: std.Io, alloc: std.mem.Allocator, cmd: anytype, home_d
 
     // For other commands, ensure registry exists
     const registry_dir = try getRegistryPath(alloc, home_dir);
-        if (std.Io.Dir.cwd().statFile(io, registry_dir, .{})) |_| {
+    if (std.Io.Dir.cwd().statFile(io, registry_dir, .{})) |_| {
         // Registry exists
     } else |err| switch (err) {
         error.FileNotFound => {
@@ -192,7 +190,6 @@ pub fn handleRegistry(io: std.Io, alloc: std.mem.Allocator, cmd: anytype, home_d
             } else if (trimmed.len > 0) {
                 break;
             }
-            
         }
 
         const meta = TemplateMeta{
@@ -267,15 +264,15 @@ pub fn handleRegistry(io: std.Io, alloc: std.mem.Allocator, cmd: anytype, home_d
 
         const meta = readTemplateMeta(io, alloc, home_dir, name) catch {
             const msg = try std.fmt.allocPrint(alloc, "Template not found: {s}", .{name});
-        defer alloc.free(msg);
-        fmt.printError("registry", msg);
+            defer alloc.free(msg);
+            fmt.printError("registry", msg);
             return error.RegistryTemplateNotFound;
         };
 
         const content = readTemplateContent(io, alloc, home_dir, name) catch {
             const msg = try std.fmt.allocPrint(alloc, "Failed to read template content: {s}", .{name});
-        defer alloc.free(msg);
-        fmt.printError("registry", msg);
+            defer alloc.free(msg);
+            fmt.printError("registry", msg);
             return error.RegistryTemplateNotFound;
         };
 

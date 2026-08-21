@@ -37,6 +37,7 @@ pub const Command = union(enum) {
     version: struct { json: bool = false },
     share: struct { input: ?[]const u8 = null, output: ?[]const u8 = null, format: ShareFormat = .url },
     registry: struct { subcmd: []const u8, name: ?[]const u8 = null, path: ?[]const u8 = null, output: ?[]const u8 = null },
+    compile_batch: struct { manifest: []const u8 },
     help: struct { subcommand: ?[]const u8 = null },
 };
 
@@ -118,6 +119,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "tune", .args = "[input.ss] [--dry-run]", .description = "Extract common fields into templates" },
     .{ .name = "lsp", .args = "", .description = "Start LSP language server (stdio)" },
     .{ .name = "share", .args = "[input.ss] [--share-format url|json|qr] [-F]", .description = "Generate shareable URL for .ss snippet (playground)" },
+    .{ .name = "compile-batch", .args = "<manifest>", .description = "Compile many .ss files in one process (manifest: input<TAB>output<TAB>dialect per line)" },
 };
 
 /// Known long flags for edit-distance suggestions.
@@ -129,7 +131,7 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--config",         "--template",      "--graph",        "--stream",        "--interval",   "--parallel",
     "--generators",     "--from-sql",      "--fix",          "--rules",         "--output-dir", "--recursive",
     "--per-table",      "--include-views", "--diff",         "--write",         "--audit",      "--cache",
-    "--cache-dir",      "--template-dir",  "--share-format", "-F",
+    "--cache-dir",      "--template-dir",  "--share-format", "-F",              "--no-lint",
 };
 
 // ─── Data-Driven Help System ──────────────────────────────────

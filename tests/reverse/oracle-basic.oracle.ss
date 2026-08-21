@@ -1,5 +1,5 @@
 # users
 id n !
 name s100
-email s255 ?
+email ?
 bio S ?

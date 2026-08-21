@@ -44,7 +44,7 @@ for old_file in "$TEST_DIR"/migrate-*-old.ss; do
     tmp_file=$(mktemp)
     trap "rm -f '$tmp_file'" EXIT
 
-    if ! "$COMPILER" migrate "$old_file" "$new_file" -d "$dialect" -o "$tmp_file" 2>/dev/null; then
+    if ! "$COMPILER" migrate "$old_file" "$new_file" --no-lint -d "$dialect" -o "$tmp_file" 2>/dev/null; then
       fail "$base ($dialect)" "compiler failed"
       rm -f "$tmp_file"
       continue

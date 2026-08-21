@@ -49,9 +49,7 @@ pub fn handleShare(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
         .json => {
             var out = try getOutputWriter(io, alloc, cfg.output);
             defer out.flush() catch {};
-            try (&out.interface).print("{{\n  \"url\": \"{s}\",\n  \"encoded\": \"{s}\",\n  \"original_size\": {d},\n  \"compressed_size\": {d}\n}}\n", .{
-                result.url, result.encoded, result.original_size, result.compressed_size
-            });
+            try (&out.interface).print("{{\n  \"url\": \"{s}\",\n  \"encoded\": \"{s}\",\n  \"original_size\": {d},\n  \"compressed_size\": {d}\n}}\n", .{ result.url, result.encoded, result.original_size, result.compressed_size });
         },
         .qr => {
             var out = try getOutputWriter(io, alloc, cfg.output);

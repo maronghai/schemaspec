@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
 # ── Rune Test Coverage Runner ──
 # Runs all test suites and reports a summary.
-# Usage: ./test_coverage.sh [--quick] [--fast] [--shard N/M]
+# Usage: ./test_coverage.sh [--quick] [--fast] [--shard N/M] [--serial] [JOBS=N]
 #   --quick      Skip benchmark and slow tests (legacy flag)
 #   --fast       Fast mode for PR validation: skip property roundtrip, reduce round-trip
 #   --shard N/M  Run shard M of N (for CI parallelism, 1-indexed)
+#   --serial     Run suites one at a time (default: parallel with JOBS workers)
+#   JOBS=N       Max concurrent suites (default: 4)
 
 set -euo pipefail
 
@@ -14,12 +16,15 @@ QUICK=false
 FAST=false
 SHARD_TOTAL=1
 SHARD_INDEX=1
+SERIAL=false
+JOBS="${JOBS:-4}"
 
 while [ $# -gt 0 ]; do
   arg="$1"
   case "$arg" in
     --quick) QUICK=true ;;
     --fast) FAST=true ;;
+    --serial) SERIAL=true ;;
     --shard)
       shift
       SHARD_SPEC="$1"
@@ -73,6 +78,14 @@ PASSED=0
 FAILED=0
 SKIPPED=0
 
+# ── Suite execution: parallel with bounded jobs, or serial ──
+# Suites run concurrently (JOBS workers); results print in registration order
+# after all complete. Each suite writes to its own temp file — no shared state.
+SUITE_CMDS=()
+SUITE_NAMES=()
+OUTDIR=$(mktemp -d)
+trap 'rm -rf "$OUTDIR"' EXIT
+
 run_suite() {
   local name="$1"
   local cmd="$2"
@@ -94,20 +107,59 @@ run_suite() {
   fi
 
   TOTAL=$((TOTAL + 1))
-  if output=$(bash -c "$cmd" 2>&1); then
-    PASSED=$((PASSED + 1))
-    echo "  ✅  $name"
+  if [ "$SERIAL" = true ]; then
+    if output=$(bash -c "$cmd" 2>&1); then
+      PASSED=$((PASSED + 1))
+      echo "  ✅  $name"
+    else
+      FAILED=$((FAILED + 1))
+      echo "  ❌  $name"
+      echo "$output" | tail -3 | sed 's/^/      /'
+    fi
   else
-    FAILED=$((FAILED + 1))
-    echo "  ❌  $name"
-    echo "$output" | tail -3 | sed 's/^/      /'
+    SUITE_NAMES+=("$name")
+    SUITE_CMDS+=("$cmd")
   fi
 }
 
-# Unit tests always run (fast)
+finish_suites() {
+  [ ${#SUITE_NAMES[@]} -eq 0 ] && return
+
+  # Launch all suites with a job-slot throttle.
+  local pids=()
+  for i in "${!SUITE_NAMES[@]}"; do
+    (
+      bash -c "${SUITE_CMDS[$i]}" > "$OUTDIR/$i.out" 2>&1
+      echo $? > "$OUTDIR/$i.rc"
+    ) &
+    pids+=($!)
+    # Throttle: wait for a slot when JOBS are in flight
+    while [ "$(jobs -rp | wc -l)" -ge "$JOBS" ]; do
+      sleep 0.2
+    done
+  done
+  wait "${pids[@]}" 2>/dev/null || true
+
+  # Report in registration order
+  for i in "${!SUITE_NAMES[@]}"; do
+    local rc=1
+    [ -f "$OUTDIR/$i.rc" ] && rc=$(cat "$OUTDIR/$i.rc")
+    if [ "$rc" -eq 0 ]; then
+      PASSED=$((PASSED + 1))
+      echo "  ✅  ${SUITE_NAMES[$i]}"
+    else
+      FAILED=$((FAILED + 1))
+      echo "  ❌  ${SUITE_NAMES[$i]}"
+      tail -3 "$OUTDIR/$i.out" | sed 's/^/      /' || true
+    fi
+  done
+}
+
+# Unit tests queue alongside the golden suites (parallel mode) so the
+# ~40s zig build doesn't block golden-suite startup; in serial mode it
+# runs inline as before.
 echo "Unit Tests (Zig):"
 run_suite "zig build test" "cd rune && zig build test"
-
 echo ""
 echo "Golden Tests (Shell):"
 
@@ -174,6 +226,9 @@ if [ "$QUICK" = false ] && [ "$FAST" = false ]; then
   echo "Performance Tests:"
   run_suite "Benchmark Regression" "bash tests/test_bench.sh --check"
 fi
+
+# Run queued suites (parallel mode) and print results in order.
+finish_suites
 
 echo ""
 echo "═══════════════════════════════════════════════════"

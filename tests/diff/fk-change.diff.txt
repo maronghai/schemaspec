@@ -1,2 +1,4 @@
 -- ALTER TABLE `order`
   - FK → user (drop)
+
+1 table changed1 modified

@@ -1,2 +1,4 @@
 -- ALTER TABLE `t`
   - @uk_email (drop index)
+
+1 table changed1 modified

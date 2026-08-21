@@ -48,7 +48,6 @@ pub fn writeOutput(io: std.Io, data: []const u8, output_path: ?[]const u8, quiet
     }
 }
 
-
 /// Open a file for writing, creating parent directories if needed.
 /// Returns a File handle for writing.
 pub fn openFileForWrite(io: std.Io, _: std.mem.Allocator, path: []const u8) !std.Io.File {

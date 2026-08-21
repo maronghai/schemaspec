@@ -3,3 +3,5 @@
   + title
 -- ALTER TABLE "t"
   + email (add)
+
+2 tables changed1 added, 1 modified

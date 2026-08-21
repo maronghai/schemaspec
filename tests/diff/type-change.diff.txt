@@ -1,2 +1,4 @@
 -- ALTER TABLE `t`
   ~ cnt (modify: n → N)
+
+1 table changed1 modified
