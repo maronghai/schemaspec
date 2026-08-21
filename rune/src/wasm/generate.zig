@@ -9,6 +9,9 @@ const common = @import("common.zig");
 
 /// Generate output using a named generator (prisma, drizzle, openapi, etc.).
 /// Options: "generator=<name> dialect=<dialect>".
+/// Note: `.rune-template` overrides are NOT supported here — the WASM
+/// environment has no filesystem for template discovery; built-in
+/// generator logic always applies.
 pub export fn rune_generate(schema_ptr: [*]const u8, schema_len: usize, options_ptr: [*]const u8, options_len: usize) ?[*:0]const u8 {
     const alloc = common.gpa.allocator();
     const schema = schema_ptr[0..schema_len];

@@ -5,6 +5,7 @@ const io_mod = @import("../io.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const generator = @import("../generator.zig");
 const fmt = @import("../diagnostic/format.zig");
+const template_override = @import("../generators/template_override.zig");
 
 // ─── Generate Handlers ──────────────────────────────────────────
 // Schema generation: compile → resolve → generate → write output.
@@ -27,6 +28,9 @@ pub const GenerateConfig = struct {
     list: bool = false,
     /// Run generator health check and exit.
     check: bool = false,
+    /// Explicit template-override directory (--template-dir). null = default
+    /// discovery (./.rune/templates/ then ~/.rune/templates/).
+    template_dir: ?[]const u8 = null,
 };
 
 /// Compile a schema and run a named generator on it. Handles the full pipeline:
@@ -42,12 +46,19 @@ fn generateFromSchema(
     output_path: ?[]const u8,
     quiet: bool,
     dry_run: bool,
+    template_dir: ?[]const u8,
+    environ_map: *const std.process.Environ.Map,
 ) !void {
     const typed = try compileToTypedAst(alloc, file_data, dialect);
 
     // Use plugin-aware lookup (checks WASM plugins first, then builtin)
     if (generator.getGeneratorWithPlugins(generator_name)) |gen| {
-        const output_text = try gen.generate(alloc, typed, dialect);
+        var output_text = try gen.generate(alloc, typed, dialect);
+        // Template override: if a `.rune-template` file exists for this
+        // generator, its rendered content replaces the built-in output.
+        if (try applyTemplateOverride(io, alloc, output_text, generator_name, typed, dialect, template_dir, environ_map)) |rendered| {
+            output_text = rendered;
+        }
         if (dry_run) {
             // Dry run: output to stdout without writing to file
             try io_mod.writeOutput(io, output_text, null, quiet);
@@ -57,6 +68,30 @@ fn generateFromSchema(
     } else {
         return error.UnknownGenerator;
     }
+}
+
+/// Check for a `.rune-template` override for `generator_name` and render it.
+/// Returns null when no override exists (caller keeps the built-in output).
+pub fn applyTemplateOverride(
+    io: std.Io,
+    alloc: std.mem.Allocator,
+    builtin_output: []const u8,
+    generator_name: []const u8,
+    typed: anytype,
+    dialect: dialect_enum.Dialect,
+    explicit_dir: ?[]const u8,
+    environ_map: *const std.process.Environ.Map,
+) !?[]const u8 {
+    _ = builtin_output;
+    const tmpl = (try template_override.load(io, alloc, generator_name, explicit_dir, environ_map)) orelse return null;
+    const table_names = try alloc.alloc([]const u8, typed.tables.len);
+    for (typed.tables, 0..) |table, i| table_names[i] = table.name;
+    const ctx: template_override.RenderContext = .{
+        .schema_name = typed.schema_name orelse "",
+        .dialect_name = @tagName(dialect),
+        .tables = table_names,
+    };
+    return try template_override.render(alloc, tmpl, ctx);
 }
 
 /// Batch generation: run multiple generators from a single compilation.
@@ -73,6 +108,8 @@ fn generateFromSchemaBatch(
     output_path: ?[]const u8,
     quiet: bool,
     dry_run: bool,
+    template_dir: ?[]const u8,
+    environ_map: *const std.process.Environ.Map,
 ) !void {
     const typed = try compileToTypedAst(alloc, file_data, dialect);
 
@@ -102,7 +139,11 @@ fn generateFromSchemaBatch(
     // Generate each output
     for (gen_names.items) |gen_name| {
         if (generator.getGeneratorWithPlugins(gen_name)) |gen| {
-            const output_text = try gen.generate(alloc, typed, dialect);
+            var output_text = try gen.generate(alloc, typed, dialect);
+            // Template override: rendered `.rune-template` replaces built-in output.
+            if (try applyTemplateOverride(io, alloc, output_text, gen_name, typed, dialect, template_dir, environ_map)) |rendered| {
+                output_text = rendered;
+            }
 
             if (dry_run) {
                 // Dry run: output to stdout with header
@@ -145,6 +186,7 @@ pub fn handleGenerate(
     alloc: std.mem.Allocator,
     file_data: ?[]const u8,
     cfg: GenerateConfig,
+    environ_map: *const std.process.Environ.Map,
 ) !void {
     // Initialize WASM plugin system
     _ = try generator.loadWasmPlugins(alloc);
@@ -171,9 +213,9 @@ pub fn handleGenerate(
     const data = file_data orelse return error.NoInput;
     const is_batch = std.mem.indexOf(u8, cfg.generators, ",") != null;
     if (is_batch) {
-        try generateFromSchemaBatch(io, alloc, data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run);
+        try generateFromSchemaBatch(io, alloc, data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run, cfg.template_dir, environ_map);
     } else {
-        try generateFromSchema(io, alloc, data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run);
+        try generateFromSchema(io, alloc, data, cfg.generators, cfg.dialect, cfg.output, cfg.quiet, cfg.dry_run, cfg.template_dir, environ_map);
     }
 }
 

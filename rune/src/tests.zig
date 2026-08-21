@@ -82,6 +82,7 @@ comptime {
     _ = @import("generators/symbol_index_test.zig");
     _ = @import("generators/common_check_test.zig");
     _ = @import("generators/common_defaults_test.zig");
+    _ = @import("generators/template_override_test.zig");
     _ = @import("generator_test.zig");
     // ── lint ─────────────────────────────────────────────────────
     _ = @import("lint/rules.zig");

@@ -478,9 +478,12 @@ rune generate graphql schema.ss        # → GraphQL type definitions
 rune generate docs schema.ss          # → Markdown documentation
 rune generate --list                  # → list available generators
 rune generate schema.ss --generators prisma,drizzle,openapi  # → Batch generation
+rune generate prisma schema.ss --template-dir .rune/templates  # → Custom output via .rune-template
 ```
 
 13 built-in generators: JSON Schema, SQL DDL, Prisma, Drizzle ORM, TypeORM, SQLAlchemy, Knex, OpenAPI 3.1, GraphQL, Markdown docs, symbol-index, and Pydantic v2 models. All generators are dialect-aware — pass `-d pg` for PostgreSQL-specific output. Batch generation runs multiple generators from a single compilation.
+
+**Template overrides**: drop a `<generator>.rune-template` file into `.rune/templates/` (project-local), `~/.rune/templates/` (user-global), or any directory passed via `--template-dir`, and its rendered content replaces that generator's built-in output. Placeholders: `{{SCHEMA_NAME}}`, `{{DIALECT}}`, `{{VERSION}}`, `{{GENERATOR}}`, and a `{{#TABLES}}...{{TABLE_NAME}}...{{/TABLES}}` loop; unknown `{{...}}` tokens pass through verbatim. Without a template file, output is unchanged.
 
 ### Init
 

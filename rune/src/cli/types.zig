@@ -26,7 +26,7 @@ pub const Command = union(enum) {
     docs: struct { input: ?[]const u8, output: ?[]const u8, doc_format: DocsFormat = .markdown },
     export_cmd: struct { input: ?[]const u8, output: ?[]const u8, format: ExportFormat = .json },
     format_cmd: struct { input: ?[]const u8, output: ?[]const u8, check: bool = false, diff: bool = false, write: bool = false, dialect: ?dialect_enum.Dialect = null },
-    generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool, check: bool = false, dry_run: bool = false },
+    generate: struct { generator: []const u8, generators_str: ?[]const u8 = null, input: ?[]const u8, output: ?[]const u8, list: bool, check: bool = false, dry_run: bool = false, template_dir: ?[]const u8 = null },
     init: struct { name: ?[]const u8, output: ?[]const u8, output_dir: ?[]const u8 = null, template: ?[]const u8 = null },
     completions: struct { shell: []const u8 },
     hooks: struct { hook_type: []const u8 },
@@ -122,15 +122,14 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
 
 /// Known long flags for edit-distance suggestions.
 pub const KNOWN_FLAGS = [_][]const u8{
-    "--version",        "--help",          "--stats",       "--quiet",         "--check",      "--dry-run",
-    "--dialect",        "--target",        "--format",      "--validate-only", "--strict",     "--json-errors",
-    "--verbose-passes", "--import-path",   "--trace",       "--rollback",      "--output",     "--list",
-    "--name",           "--dir",           "--incremental", "--color",         "--init",       "--summary",
-    "--config",         "--template",      "--graph",       "--stream",        "--interval",   "--parallel",
-    "--generators",     "--from-sql",      "--fix",         "--rules",         "--output-dir", "--recursive",
-    "--per-table",      "--include-views", "--diff",        "--write",         "--audit",      "--cache",
-    "--cache-dir",
-    "--share-format",   "-F",
+    "--version",        "--help",          "--stats",        "--quiet",         "--check",      "--dry-run",
+    "--dialect",        "--target",        "--format",       "--validate-only", "--strict",     "--json-errors",
+    "--verbose-passes", "--import-path",   "--trace",        "--rollback",      "--output",     "--list",
+    "--name",           "--dir",           "--incremental",  "--color",         "--init",       "--summary",
+    "--config",         "--template",      "--graph",        "--stream",        "--interval",   "--parallel",
+    "--generators",     "--from-sql",      "--fix",          "--rules",         "--output-dir", "--recursive",
+    "--per-table",      "--include-views", "--diff",         "--write",         "--audit",      "--cache",
+    "--cache-dir",      "--template-dir",  "--share-format", "-F",
 };
 
 // ─── Data-Driven Help System ──────────────────────────────────
@@ -209,12 +208,14 @@ pub const COMMAND_HELP = [_]CommandHelp{
             "  -o, --output    Output file path",
             "  --dry-run       Preview output without writing to file",
             "  --generators    Comma-separated list for batch generation",
+            "  --template-dir  Directory of .rune-template override files",
             "  --check         Generator health validation",
         },
         .examples = &.{
             "  rune generate json-schema schema.ss  # Generate JSON Schema",
             "  rune generate --list                 # Show available generators",
             "  rune generate --generators prisma,drizzle schema.ss  # Batch",
+            "  rune generate prisma schema.ss --template-dir .rune/templates  # Custom output template",
         },
     },
     .{

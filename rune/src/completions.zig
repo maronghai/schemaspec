@@ -30,7 +30,7 @@ pub const COMPLETIONS_BASH =
     \\    commands="init validate check stats diff migrate reverse docs format generate completions hooks lint watch lsp"
     \\
     \\    if [[ ${cur} == -* ]]; then
-    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --color --init --parallel --interval --stream --summary --stat --config --name --dir --incremental --graph --from-sql --generators --write" -- ${cur}) )
+    \\        COMPREPLY=( $(compgen -W "--help --version --dialect --target --trace --stats --check --quiet --strict --json-errors --verbose-passes --import-path --rollback --output --dry-run --validate-only --format --list --template --template-dir --color --init --parallel --interval --stream --summary --stat --config --name --dir --incremental --graph --from-sql --generators --write" -- ${cur}) )
     \\        return 0
     \\    fi
     \\
@@ -146,6 +146,7 @@ pub const COMPLETIONS_ZSH =
     \\                        '*/-d[Target SQL dialect]:dialect:(mysql pg postgres sqlite mssql oracle db2)' \
     \\                        '--target[Output format]:target:(sql json-schema)' \
     \\                        '--generators[Generators to run]' \
+    \\                        '--template-dir[Template override directory]:dir:_files -/' \
     \\                        '*/-o[Output file path]:file:_files'
     \\                    ;;
     \\            esac
@@ -207,6 +208,7 @@ pub const COMPLETIONS_FISH =
     \\complete -c rune -l graph -d 'Show migration dependency graph'
     \\complete -c rune -l from-sql -r -d 'Compare against SQL dump file'
     \\complete -c rune -l generators -r -d 'Comma-separated list of generators'
+    \\complete -c rune -l template-dir -r -d 'Template override directory'
     \\
     \\# generate subcommand
     \\complete -c rune -n '__fish_seen_subcommand_from generate' -a 'json-schema sql-ddl prisma docs drizzle typeorm sqlalchemy knex openapi graphql symbol-index' -d 'Generator'
@@ -272,7 +274,7 @@ pub const COMPLETIONS_POWERSHELL =
     \\        [System.Management.Automation.CompletionResult]::new('powershell', 'powershell', 'ParameterValue', 'PowerShell')
     \\    )
     \\
-    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--stat', '--config', '--name', '--dir', '--incremental', '--graph', '--from-sql', '--generators', '--write', '-h', '-v', '-d', '-t', '-s', '-q')
+    \\    $flags = @('--help', '--version', '--dialect', '--target', '--trace', '--stats', '--check', '--quiet', '--strict', '--json-errors', '--verbose-passes', '--import-path', '--output', '--format', '--rollback', '--dry-run', '--validate-only', '--list', '--template', '--template-dir', '--color', '--init', '--parallel', '--interval', '--stream', '--summary', '--stat', '--config', '--name', '--dir', '--incremental', '--graph', '--from-sql', '--generators', '--write', '-h', '-v', '-d', '-t', '-s', '-q')
     \\
     \\    $cursorToken = $commandAst.CommandElements[-1].Value
     \\    $tokens = $commandAst.CommandElements | ForEach-Object { $_.Value }

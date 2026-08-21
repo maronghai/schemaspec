@@ -86,7 +86,7 @@ pub fn main(init: std.process.Init) !void {
     config_merge.mergeCliConfig(&final_parsed, cfg);
 
     const home_dir = init.environ_map.get("HOME") orelse init.environ_map.get("USERPROFILE") orelse "/tmp";
-    return dispatch(init.io, alloc, final_parsed, home_dir) catch |err| {
+    return dispatch(init.io, alloc, final_parsed, home_dir, init.environ_map) catch |err| {
         cli_errors.handleDispatchError(err, final_parsed);
     };
 }
@@ -98,7 +98,7 @@ fn resolveOutputFormat(target: cli.Target) handlers.OutputFormat {
     };
 }
 
-fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs, home_dir: []const u8) !void {
+fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs, home_dir: []const u8, environ_map: *const std.process.Environ.Map) !void {
     // Handle --init flag (invokes init without explicit subcommand)
     if (parsed.init_flag) {
         return init_mod.handleInit(io, alloc, null, null, null, parsed.dialect, null);
@@ -214,7 +214,8 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs, home_d
                 .dry_run = cmd.dry_run,
                 .list = cmd.list,
                 .check = cmd.check,
-            });
+                .template_dir = cmd.template_dir,
+            }, environ_map);
         },
         .init => |cmd| return init_mod.handleInit(io, alloc, cmd.name, cmd.output, cmd.output_dir, parsed.dialect, cmd.template),
         .format_cmd => |cmd| {

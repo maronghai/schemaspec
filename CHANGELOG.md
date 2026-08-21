@@ -1,3 +1,62 @@
+## [0.319.0] - 2026-08-21
+
+### Added
+- **Phase 14: Template Overrides (`.rune-template` files)** — users can now customize generator output without touching generator code:
+  - New `generators/template_override.zig` — per-generator template discovery (`<generator>.rune-template`) with search order `--template-dir` > `./.rune/templates/` (project-local) > `~/.rune/templates/` (user-global); no template found → built-in output, byte-identical to previous behavior.
+  - Placeholder rendering: `{{SCHEMA_NAME}}`, `{{DIALECT}}`, `{{VERSION}}`, `{{GENERATOR}}`, and a `{{#TABLES}}...{{TABLE_NAME}}...{{/TABLES}}` loop; unknown `{{...}}` tokens pass through verbatim; unmatched loop blocks error with non-zero exit.
+  - Wired into both single (`rune generate <name>`) and batch (`--generators a,b,c`) paths via `pipeline/generate.zig`; `handleGenerate` now takes the process environ map for `$HOME`/`$USERPROFILE` resolution.
+  - CLI: new `--template-dir <dir>` flag on `rune generate` (parse + `KNOWN_FLAGS` + completions for bash/zsh/fish/powershell + help text).
+  - WASM path (`wasm/generate.zig`) intentionally does not support overrides (no filesystem in browsers) — documented.
+- `tests/test_template_override.sh` — 9-case functional suite (fallback, project-local override, explicit-dir precedence, loop expansion, batch mixing, unmatched-block error, unknown-placeholder passthrough, dry-run/file-write modes), wired into `tests/test_coverage.sh` as the 35th golden suite.
+- 11 unit tests in `generators/template_override_test.zig` (render placeholders, loop expansion, empty tables, unmatched-block errors, discovery order).
+
+### Documentation
+- README.md: generate section gained the `--template-dir` example and a "Template overrides" paragraph; CLAUDE.md: Quick Usage line + Source Layout row for `template_override.zig`; docs/cookbook.md: new "Customizing Generator Output" section (placeholder table + registry-vs-templates distinction); ROADMAP.md: Phase 14 item marked done (2 of 7), Q3 focus updated.
+
+### Changed
+- Synchronized version strings 0.318.0 → 0.319.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, homebrew, vscode).
+
+## [0.318.0] - 2026-08-17
+
+### Changed
+- Removed the 11 temporary `tests/migrate-*.ss.lint-fixed.ss` artifacts that v0.317.0 had committed by mistake (they are generated at test time, not source files). Net effect of v0.317.0 + v0.318.0: only the two one-line import removals below remain.
+
+## [0.317.0] - 2026-08-17
+
+### Fixed
+- Removed stale `plugin.zig` imports from `generator.zig` and `pipeline/generate.zig` (left over from the v0.316.0 refactor; the surviving plugin entry points import `wasm/plugin.zig` directly).
+- Committed 11 temporary `tests/migrate-*.ss.lint-fixed.ss` test artifacts in error — reverted in v0.318.0.
+
+## [0.316.0] - 2026-08-17
+
+### Added
+- **Phase 14 kickoff: Generator Plugin System API stub** — new `rune/src/wasm/plugin.zig` (116 lines) providing the API surface for future WASM-plugin generators: `init`, `loadWasmPlugin` (returns `error.NotImplemented`), `loadWasmPluginsFromDir`, `getWasmPluginGenerators`, `getGenerator`, `listAllGenerators`, `deinit`. Zig 0.16 std has no WASM runtime; full implementation requires embedding one (wasmtime, wasmer, or custom).
+- Plugin-aware entry points in `generator.zig`: `loadWasmPlugins`, `loadWasmPlugin`, `getGeneratorWithPlugins` (checks plugins first, then builtin `REGISTRY`), `listAllGeneratorsWithPlugins`, `deinitWasmPlugins`.
+- `pipeline/generate.zig` now routes generator lookup/listing through the plugin-aware functions and initializes/deinitializes the plugin system around generation.
+
+### Changed
+- Version strings jumped 0.315.0 → **0.320.0** in this commit (skipping 0.316–0.319) to match a pre-drafted Phase 14 plan; this is the root of the version drift reconciled on 2026-08-21 (all strings realigned to 0.318.0 = git HEAD). Git history contains no 0.319.0/0.320.0 commits.
+
+## [0.315.0] - 2026-08-17
+
+### Documentation
+- Fixed REVERSE_MAP entry-count drift (111 → 112) in `ROADMAP.md` Phase 2 description and `rune/ARCHITECTURE.md` (3 locations); updated Homebrew formula (`packaging/homebrew/rune.rb`) from 0.312.0 → 0.315.0.
+- Synchronized version strings 0.314.0 → 0.315.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, homebrew, vscode).
+
+## [0.314.0] - 2026-08-17
+
+### Documentation
+- Added the missing "**112 entries**" note to CLAUDE.md's Reverse Lookup Vtable section and corrected its Module Roles table (`reverse_map.zig`: "111 entries" → "112 entries"); ROADMAP.md header gained the `112 REVERSE_MAP entries` metric.
+- Synchronized version strings 0.313.0 → 0.314.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, vscode).
+
+## [0.313.0] - 2026-08-17
+
+### Documentation
+- Metric re-sync (Phase 13 sweep): corrected unit-test-count drift `2,022` → **`2,033`** (verified `test "…"` declarations) across `ROADMAP.md` header and `rune/README.md`; added the Phase 14 placeholder section to ROADMAP.md.
+- Synchronized version strings 0.312.0 → 0.313.0 across `VERSION`, `rune/VERSION`, `rune/build.zig.zon`, and packaging manifests (npm, scoop, vscode).
+
+> **Backfill note (added 2026-08-21):** entries for v0.313.0–v0.318.0 were reconstructed from git history during the release-hygiene audit — CHANGELOG had stopped at v0.312.0 while six further commits shipped undocumented. No v0.319.0 or v0.320.0 commits exist: the tree's `VERSION` was bumped straight to 0.320.0 inside commit 0.316.0 and has since been realigned to 0.318.0 (= git HEAD).
+
 ## [0.312.0] - 2026-08-16
 
 ### Added

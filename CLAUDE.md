@@ -124,6 +124,7 @@ Run a single golden test by filter: `bash tests/test.sh 01` (matches test name s
 ./rune/zig-out/bin/rune generate --list                  # List available generators with metadata
 ./rune/zig-out/bin/rune generate schema.ss --generators prisma,drizzle,openapi  # Batch generation
 ./rune/zig-out/bin/rune generate schema.ss --dry-run     # Preview generate output without writing
+./rune/zig-out/bin/rune generate prisma schema.ss --template-dir .rune/templates  # Custom output via .rune-template override
 ./rune/zig-out/bin/rune export schema.ss                  # Export schema as JSON
 ./rune/zig-out/bin/rune export schema.ss --format text    # Export as text summary
 ./rune/zig-out/bin/rune export schema.ss --format markdown # Export as Markdown
@@ -409,6 +410,7 @@ rune/src/
 | | `generators/knex.zig` | Knex.js migration file generator |
 | | `generators/openapi.zig` | OpenAPI 3.1 specification generator |
 | | `generators/graphql.zig` | GraphQL type definitions generator |
+| | `generators/template_override.zig` | `.rune-template` output overrides — per-generator template discovery (`--template-dir` > `./.rune/templates/` > `~/.rune/templates/`) + `{{FIELD}}` placeholder rendering with `{{#TABLES}}` loop |
 
 ### Testing
 

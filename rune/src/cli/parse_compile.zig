@@ -176,6 +176,7 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
     var want_dry_run = false;
     var want_check = false;
     var generators_str: ?[]const u8 = null;
+    var template_dir: ?[]const u8 = null;
 
     // First pass: scan for flags
     var j: usize = 1;
@@ -189,6 +190,9 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
         } else if (std.mem.eql(u8, fargs[j], "--generators") and j + 1 < fargs.len) {
             j += 1;
             generators_str = fargs[j];
+        } else if (std.mem.eql(u8, fargs[j], "--template-dir") and j + 1 < fargs.len) {
+            j += 1;
+            template_dir = fargs[j];
         }
     }
 
@@ -199,10 +203,10 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
     while (j < fargs.len) : (j += 1) {
         if (std.mem.eql(u8, fargs[j], "--list") or std.mem.eql(u8, fargs[j], "-l") or
             std.mem.eql(u8, fargs[j], "--generators") or std.mem.eql(u8, fargs[j], "--dry-run") or
-            std.mem.eql(u8, fargs[j], "--check"))
+            std.mem.eql(u8, fargs[j], "--check") or std.mem.eql(u8, fargs[j], "--template-dir"))
         {
             // Skip flags and their values
-            if (std.mem.eql(u8, fargs[j], "--generators")) j += 1;
+            if (std.mem.eql(u8, fargs[j], "--generators") or std.mem.eql(u8, fargs[j], "--template-dir")) j += 1;
             continue;
         }
         if (generator == null and generators_str == null) {
@@ -229,6 +233,7 @@ pub fn parseGenerateArgs(fargs: []const []const u8, dialect: dialect_enum.Dialec
             .list = want_list,
             .check = want_check,
             .dry_run = want_dry_run,
+            .template_dir = template_dir,
         } },
         .quiet = opts.quiet,
         .strict = opts.strict,
