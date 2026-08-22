@@ -1,3 +1,15 @@
+## [0.329.0] - 2026-08-23
+
+### Fixed
+- **`rune format` no longer corrupts brace-syntax schemas** (systematic source-rewriting defect, found by deep analysis): `formatDialect` had no branch for the table-closing `}` — it fell into the field-definition path and was indented to `  }`, and because a closing brace never reset `in_block`, every subsequent line's state was wrong. The formatter now tracks brace depth (`# name {` opens, lone `}` closes at column 0), and `@if(dialect=x) {` opens a nested block whose `}` is indented like a field. Formatting is idempotent again (previously the mangled `  }` re-trimmed and re-indented forever).
+- **`rune tune` no longer treats `}` as a field**: `parseTableBlocks` collected closing braces into field_lines, so template extraction emitted a bare `}` as a "common field"; `tableName("# users {")` returned `users {`. Braces are now excluded from field collection (matching LSP folding_range, which handled them correctly all along) and stripped from header names.
+- **tests/format golden files were CRLF** (since v0.250.0): every test in test_format.sh failed on any machine where the compiler emits LF — 20/20 failing on Windows while CI passed. Converted to LF.
+- **test_coverage.sh never ran the formatter suite** (runner/suite drift): `Formatter` added as suite #36; coverage total is now 36.
+
+### Added
+- Golden tests: three brace-syntax format cases (07-brace-syntax, 08-brace-multitable, 09-brace-ifblock with nested @if) — the entire previous set used only brace-less legacy syntax, which is why the corruption escaped.
+- Unit tests: formatter idempotency + closing-brace + nested-if cases; tune brace-extraction parity with brace-less behavior (+8; unit total 2077 → 2085).
+
 ## [0.328.0] - 2026-08-23
 
 ### Fixed

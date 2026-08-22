@@ -214,6 +214,7 @@ run_suite "TypeORM (2 tests)" "bash tests/test_typeorm.sh"
 run_suite "SQLAlchemy (2 tests)" "bash tests/test_sqlalchemy.sh"
 run_suite "Knex (2 tests)" "bash tests/test_knex.sh"
 run_suite "Color (5 tests)" "bash tests/test_color.sh"
+run_suite "Formatter (10 tests)" "bash tests/test_format.sh"
 run_suite "Lint (12 tests)" "bash tests/test_lint.sh"
 # Parallel test is a meta-test that runs other suites; skip when sharding (redundant)
   if [ "$SHARD_TOTAL" -gt 1 ]; then

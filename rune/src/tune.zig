@@ -139,7 +139,10 @@ fn parseTableBlocks(alloc: std.mem.Allocator, source: []const u8) ![]TableBlock 
             current_name = tableName(line);
             current_header = line;
             has_table = true;
-        } else if (has_table and line.len > 0 and line[0] != ';' and line[0] != '%' and line[0] != '@' and line[0] != '$') {
+        } else if (has_table and line.len > 0 and line[0] != ';' and line[0] != '%' and line[0] != '@' and line[0] != '$'
+            // Brace syntax: `{`/`}` delimit the table body — structural, not fields.
+            // (tableName() strips a trailing `{` from the header separately.)
+        and line[0] != '{' and !std.mem.eql(u8, std.mem.trim(u8, line, " \t"), "}")) {
             try current_fields.append(alloc, line);
         }
     }
@@ -154,7 +157,12 @@ fn parseTableBlocks(alloc: std.mem.Allocator, source: []const u8) ![]TableBlock 
 }
 
 fn tableName(header: []const u8) []const u8 {
-    const rest = if (header.len > 1 and header[1] == ' ') header[2..] else header[1..];
+    var rest = if (header.len > 1 and header[1] == ' ') header[2..] else header[1..];
+    // Brace syntax: "# users {" → "users"
+    rest = std.mem.trim(u8, rest, " \t");
+    if (rest.len > 0 and rest[rest.len - 1] == '{') {
+        rest = std.mem.trim(u8, rest[0 .. rest.len - 1], " \t");
+    }
     // "# user" → "user"
     // "# base user" → "user" (first word is template, second is table)
     // "# user > base" → "user" (before >)
@@ -357,4 +365,55 @@ test "tableName extracts table name from header" {
     try std.testing.expectEqualStrings("user", tableName("# user"));
     try std.testing.expectEqualStrings("user", tableName("# user : A user table"));
     try std.testing.expectEqualStrings("user", tableName("# base user"));
+}
+
+// ─── v0.329.0: brace syntax ─────────────────────────────────
+
+test "tune brace syntax: closing brace is not a field" {
+    const source =
+        \\# user {
+        \\id p
+        \\name s
+        \\}
+        \\
+        \\# post {
+        \\id p
+        \\name s
+        \\title s
+        \\}
+        \\
+    ;
+    const result = try tune(std.heap.page_allocator, source);
+    // The template must contain only real fields, never a bare `}` line.
+    try std.testing.expect(std.mem.indexOf(u8, result, "% base") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "\n}\n") == null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "}") == null);
+}
+
+test "tune brace syntax: table names lose the trailing brace" {
+    try std.testing.expectEqualStrings("user", tableName("# user {"));
+    try std.testing.expectEqualStrings("user", tableName("#user{"));
+}
+
+test "tune brace syntax: extraction matches brace-less behavior" {
+    const source =
+        \\# users {
+        \\id n++ PK
+        \\created_at t+
+        \\}
+        \\
+        \\# posts {
+        \\id n++ PK
+        \\created_at t+
+        \\title s
+        \\}
+        \\
+    ;
+    const result = try tune(std.heap.page_allocator, source);
+    try std.testing.expect(std.mem.indexOf(u8, result, "% base") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "id n++ PK") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "created_at t+") != null);
+    // Table references carry the brace-stripped name.
+    try std.testing.expect(std.mem.indexOf(u8, result, "#base users") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result, "#base posts") != null);
 }

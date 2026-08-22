@@ -62,7 +62,7 @@ bash tests/test_init.sh             # Init & completions (12 tests)
 bash tests/test_color.sh            # Color output (5 tests)
 bash tests/test_validate.sh         # Validate command (4 tests)
 bash tests/test_stats_json.sh       # Stats JSON output (3 tests)
-bash tests/test_format.sh           # Formatter golden tests (10 tests)
+bash tests/test_format.sh           # Formatter golden tests (29 tests incl. brace syntax)
 bash tests/test_conditionals.sh     # Conditional schema blocks @if(dialect=) (6 tests)
 bash tests/test_composite.sh        # Composite types declarations + embeds (13 tests)
 bash tests/test_template_override.sh  # .rune-template output overrides (10 tests)
@@ -263,6 +263,7 @@ rune/src/
 - **DiffConfig / MigrateConfig** (`pipeline/diff.zig`, `pipeline/migrate.zig`): Configuration structs for diff and migrate handlers, replacing 8-11 positional parameters each. Follows the `CompileConfig` pattern. `handleDiff(io, alloc, DiffConfig)`, `handleMigrate(io, alloc, MigrateConfig)`, and `handleReverse(io, alloc, file_data, ReverseConfig)` are the unified entry points.
 
 - **FormatConfig / ExportConfig / StatsConfig** (`pipeline/handlers.zig`): Configuration structs for format, export, and stats handlers, replacing 5-7 positional parameters each. Follows the `CompileConfig` pattern. All handlers now use `io_mod.writeOutput` for consistent I/O instead of mixing `std.debug.print` and `io_mod.writeOutput`. Output-channel rule (v0.328.0): every standalone command writes to stdout through `writeOutput` regardless of format (stats text included, via `printStatsTo`/`printPerTableStatsTo`); stderr is reserved for diagnostics — inline `-s` stats stay on stderr so the SQL stream on stdout stays pipeable.
+- **Formatter Brace-State Invariant (v0.329.0)** (`formatter.zig`): `formatDialect` tracks brace depth — `# name {` opens a block (indented body), a lone `}` closes it at column 0 and resets block state; `@if(dialect=x) {` opens a nested block whose `}` is indented like a field. Formatting is idempotent: golden tests assert format(format(x)) == format(x). Source-rewriting tools must treat `{`/`}` as structural (tune.zig's parseTableBlocks excludes them from fields) — LSP folding_range is the reference implementation of the stack discipline.
 - **Help System Name-Keyed Lookup** (`cli/types.zig`, `cli/help.zig`): `COMMAND_HELP` entries carry a `.command` name field; `printSubcommandHelp` finds them by name (the old position-coupled indexing had drifted and rendered the wrong command's options). A comptime coverage check enforces exactly one help entry per `COMMAND_REGISTRY` command in both directions — adding a command without its help block is a compile error. The lint rule count in help text derives from the LintRule enum at comptime (`LINT_RULE_COUNT`), so it cannot lag the implementation.
 
 - **Config Merge** (`config_merge.zig`): Extracted from `main.zig` for testability. `mergeCliConfig(parsed, cfg)` merges CLI flags with config file defaults (CLI takes precedence). Handles 7 merge cases: dialect, quiet, json_errors, color, target, stream, parallel. Each case has unit tests verifying precedence semantics.

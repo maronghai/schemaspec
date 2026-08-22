@@ -136,3 +136,49 @@ test "formatter: multiple tables with blank line" {
     const expected = "# users\n  id n pk\n\n# posts\n  id n pk\n";
     try std.testing.expectEqualStrings(expected, result);
 }
+
+// ─── v0.329.0: brace syntax ─────────────────────────────────
+
+test "formatter: closing brace at column 0 closes the block" {
+    const alloc = std.testing.allocator;
+    const input = "# users {\nid n pk\n}\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    try std.testing.expectEqualStrings("# users {\n  id n pk\n}\n", result);
+}
+
+test "formatter: brace format is idempotent" {
+    const alloc = std.testing.allocator;
+    const input = "# users {\nid n pk\nname s100\n}\n";
+    const once = try formatter.format(alloc, input);
+    defer alloc.free(once);
+    const twice = try formatter.format(alloc, once);
+    defer alloc.free(twice);
+    try std.testing.expectEqualStrings(once, twice);
+}
+
+test "formatter: multiple brace tables with blank line" {
+    const alloc = std.testing.allocator;
+    const input = "$ schema\n# users {\nid n\n}\n\n# posts {\ntitle s\n}\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    try std.testing.expectEqualStrings("$ schema\n# users {\n  id n\n}\n\n# posts {\n  title s\n}\n", result);
+}
+
+test "formatter: nested @if braces inside a table" {
+    const alloc = std.testing.allocator;
+    const input = "# users {\n@if(dialect=pg) {\njsonb j\n}\n@endif\n}\n";
+    const result = try formatter.format(alloc, input);
+    defer alloc.free(result);
+    try std.testing.expectEqualStrings("# users {\n@if(dialect=pg) {\n  jsonb j\n}\n@endif\n}\n", result);
+}
+
+test "formatter: nested @if brace form is idempotent" {
+    const alloc = std.testing.allocator;
+    const input = "# users {\n@if(dialect=pg) {\njsonb j\n}\n@endif\n}\n";
+    const once = try formatter.format(alloc, input);
+    defer alloc.free(once);
+    const twice = try formatter.format(alloc, once);
+    defer alloc.free(twice);
+    try std.testing.expectEqualStrings(once, twice);
+}

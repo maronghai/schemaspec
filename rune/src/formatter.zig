@@ -186,6 +186,7 @@ pub fn formatDialect(alloc: std.mem.Allocator, input: []const u8, dialect: ?Dial
     var result = try std.ArrayList(u8).initCapacity(alloc, input.len + INITIAL_PADDING);
     var lines = std.mem.splitScalar(u8, input, '\n');
     var in_block = false; // inside a table or template
+    var brace_depth: usize = 0; // open `{` blocks (table/template headers carry one)
     var in_if_block = false; // inside @if/@endif conditional block
     var prev_blank = false;
     var first_line = true;
@@ -216,9 +217,24 @@ pub fn formatDialect(alloc: std.mem.Allocator, input: []const u8, dialect: ?Dial
 
         // Detect block boundaries and special constructs
         if (first_char == '#' or first_char == '~') {
-            // Table or template header — end any previous block, start new block
+            // Table or template header — end any previous block, start new block.
+            // `# name {` opens a brace block that a lone `}` will close.
             in_block = true;
             in_if_block = false;
+            if (line[line.len - 1] == '{') {
+                brace_depth += 1;
+            }
+            try result.appendSlice(alloc, line);
+            try result.append(alloc, '\n');
+        } else if (brace_depth > 0 and first_char == '}') {
+            // Closing brace of a table/template block — emit at column 0,
+            // close the block. Idempotent: the emitted `}` trims back to the
+            // same branch on the next pass.
+            brace_depth -= 1;
+            if (brace_depth == 0) {
+                in_block = false;
+                in_if_block = false;
+            }
             try result.appendSlice(alloc, line);
             try result.append(alloc, '\n');
         } else if (first_char == '$' or first_char == '!') {
@@ -231,6 +247,12 @@ pub fn formatDialect(alloc: std.mem.Allocator, input: []const u8, dialect: ?Dial
             // @if(...) / @endif — conditional block control flow, always at root level
             if (std.mem.startsWith(u8, line, "@if")) {
                 in_if_block = true;
+                // `@if(dialect=x) {` opens a nested brace block: its `}` is
+                // indented like a field and must not close the table.
+                if (line[line.len - 1] == '{') {
+                    brace_depth += 1;
+                    in_if_block = false; // the brace's contents are plain fields
+                }
             } else {
                 in_if_block = false;
             }
