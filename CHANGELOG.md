@@ -1,3 +1,10 @@
+## [0.324.0] - 2026-08-22
+
+### Fixed
+- **rune lint --fix no longer rewrites clean files or converts line endings** (two-part correctness bug, both verified by repro): the file rewrite was gated on any lint results existing rather than on fixes actually applying, so a clean schema with one info-level finding got rewritten even at zero fixes; and the fix loop stripped trailing CR for matching but re-emitted lines with bare LF, silently converting every CRLF schema to LF. Now: rewrite only happens when fixed.fixes.len > 0, and each pass-through line restores its CR. tests/test_lint.sh is 12/12 on Windows for the first time (lint_fix_clean_noop).
+
+### Added
+- **Playground GitHub Pages deployment** (`.github/workflows/pages.yml`; completes Phase 14's playground-sharing item): push to main builds rune.wasm and deploys the playground preserving repo-relative layout (playground/ + rune/wasm/rune.js + rune.wasm) so the existing `../rune/...` paths work unchanged under a Pages subpath; `.nojekyll` included. Requires one-time enablement: Settings -> Pages -> Source: GitHub Actions.
 ## [0.323.0] - 2026-08-22
 
 ### Fixed

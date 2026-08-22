@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.323.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,036 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
+**Current version**: 0.324.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,036 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
 
 > This roadmap was restructured on 2026-08-21: all thirteen completed phases are condensed into a summary, and every remaining open item is consolidated under Phase 14 (each item now appears exactly once). Historical detail lives in [CHANGELOG.md](CHANGELOG.md) and git history.
 >
@@ -88,7 +88,7 @@ All tracked refactors shipped: generator deduplication, FlagRegistry, granular r
 
 ## Phase 14: Ecosystem Maturation (Current Focus) 🔲
 
-Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-level features (not registry-entry extensions), each scoped as its own RFC + release. **Status: 4 of 7 done (plugin API stub, template overrides, composite types, interactive tutorial), 3 remaining (playground sharing has its shell + share-format shipped; hosting remains).**
+Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-level features (not registry-entry extensions), each scoped as its own RFC + release. **Status: 5 of 7 done (plugin API stub, template overrides, composite types, interactive tutorial, playground sharing), 2 remaining (WASM plugin runtime needs an embedded interpreter; live collaboration is exploratory).**
 
 ### Generator Plugin System
 
@@ -99,7 +99,7 @@ Every remaining roadmap item is consolidated here — large, IR/pipeline-stage-l
 ### Distribution & Community
 
 - [x] Interactive tutorial — web-based walkthrough with live examples (from Phase 6) — shipped v0.322.0 + v0.323.0: working `rune.wasm` build (`entry=.disabled` + `-rdynamic`), rewritten browser/Deno `wasm/rune.js`, and all 33 compilable tutorial snippets wired with Open-in-Playground links (hash-preload verified end-to-end).
-- [~] Playground sharing — share `.ss` snippets via URL (from Phase 6) — playground shell shipped v0.322.0 ([playground/index.html](playground/index.html)): editor + SQL/Lint/Docs tabs, dialect switcher, share links via `#<base64url>` URL hash (same format as `rune share`). Remaining work is hosting at a public URL.
+- [x] Playground sharing — share `.ss` snippets via URL (from Phase 6) — shipped v0.322.0 + v0.324.0: playground shell ([playground/index.html](playground/index.html)) with editor + SQL/Lint/Docs tabs, dialect switcher, and `#<base64url>` share links (same format as `rune share`); GitHub Pages deployment workflow (`.github/workflows/pages.yml`) builds rune.wasm on push to main and publishes with the repo-relative layout intact. One-time repo enablement: Settings -> Pages -> Source: GitHub Actions.
 
 ### Advanced Schema Features
 
@@ -114,6 +114,7 @@ Process debt observed during the 2026-08-21 roadmap audit:
 
 - [x] Backfill [CHANGELOG.md](CHANGELOG.md) for v0.313.0–v0.318.0 — entries reconstructed from git history (2026-08-21). No v0.319/v0.320 commits exist; the tree's `VERSION` had been bumped to 0.320.0 inside commit 0.316.0.
 - [x] Version alignment — all version strings (`VERSION`, `rune/VERSION`, `rune/build.zig.zon`, npm/scoop/homebrew/vscode manifests) now read **0.318.0**, matching git HEAD (fixed 2026-08-21).
+- [x] Commit-title typo (2026-08-22) — the v0.323.0 commit was amended with title "0.333.0" while every tree version string correctly read 0.323.0; content unaffected, recorded here rather than rewriting history.
 - [x] Commit-message / version alignment — v0.320.1 shipped with a bare-number title while `VERSION` still read 0.320.0 (the amend renamed the test-infra commit but not the tree); CHANGELOG backfilled for 0.320.0/0.320.1 and all strings aligned to **0.321.0** (2026-08-22). Descriptive titles from this release onward.
 - [x] Golden-test runner parity — `zig build golden-tests` runs the full coverage runner (`test_coverage.sh --fast --serial`, all 37 suites); Windows-native environments still need bash for the suites themselves, but one entry point now covers everything CI covers.
 
@@ -136,11 +137,11 @@ Process debt observed during the 2026-08-21 roadmap audit:
 | 11: Ecosystem & CI Completion | ✅ Closed (tracker) | — | — |
 | 12: Cross-Dialect Portability Linting | ✅ Complete | 5/5 | 0 |
 | 13: Documentation & Spec Completeness | ✅ Complete | 3/3 | 0 |
-| 14: Ecosystem Maturation | 🔲 Current focus | 4/7 (+1 partial) | 3 |
+| 14: Ecosystem Maturation | 🔲 Current focus | 5/7 | 2 |
 | Architecture Targets | ✅ Complete | 22/22 | 0 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
 | Maintenance & Release Hygiene | ◧ In progress | 2/4 | 2 |
-| **Total** | | **149/155** | **6** |
+| **Total** | | **150/155** | **5** |
 
 *Counting note: Phases 6/8 open items are listed once, under Phase 14; the former summary's "143/149" under-counted Phase 6 (listed 11/11 while 2 items were open).*
 

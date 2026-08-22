@@ -76,8 +76,11 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
         if (i < source.len) i += 1;
 
         var line = source[line_start..line_end];
-        // Handle CRLF line endings: strip trailing \r
+        // Handle CRLF line endings: strip trailing CR for matching, remember
+        // it, and re-emit it so a no-fix pass is byte-for-byte identical.
+        var had_cr = false;
         if (line.len > 0 and line[line.len - 1] == '\r') {
+            had_cr = true;
             line = line[0 .. line.len - 1];
         }
 
@@ -198,6 +201,7 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
         }
 
         try output.appendSlice(alloc, line);
+        if (had_cr) try output.append(alloc, '\r');
         if (line_end < source.len) {
             try output.append(alloc, '\n');
         }

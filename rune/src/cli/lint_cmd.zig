@@ -149,16 +149,22 @@ pub fn handleLint(io: std.Io, alloc: std.mem.Allocator, cmd: LintCmd, parsed: cl
         }
     }
 
-    // Lint auto-fix: apply fixes to source text
+    // Lint auto-fix: apply fixes to source text. Only rewrite the file when
+    // at least one fix actually applied — a schema with lint findings but no
+    // fixable issues must not be touched (byte-for-byte).
+    var wrote_fixed = false;
     if (cmd.fix and results.items.len > 0) {
         const fixed = try lint_mod.lintFix(alloc, file_data, results.items);
-        if (cmd.dry_run) {
-            try io_mod.writeOutput(io, fixed.source, null, parsed.quiet);
-        } else if (cmd.input) |input_path| {
-            std.Io.Dir.cwd().writeFile(io, .{
-                .sub_path = input_path,
-                .data = fixed.source,
-            }) catch return error.AccessDenied;
+        if (fixed.fixes.len > 0) {
+            if (cmd.dry_run) {
+                try io_mod.writeOutput(io, fixed.source, null, parsed.quiet);
+            } else if (cmd.input) |input_path| {
+                std.Io.Dir.cwd().writeFile(io, .{
+                    .sub_path = input_path,
+                    .data = fixed.source,
+                }) catch return error.AccessDenied;
+            }
+            wrote_fixed = true;
         }
         for (fixed.fixes) |fix| {
             std.debug.print("fixed: [{s}] {s} — {s}\n", .{ fix.rule, fix.table, fix.description });
