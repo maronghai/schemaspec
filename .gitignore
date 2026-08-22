@@ -50,6 +50,7 @@ Thumbs.db
 node_modules/
 dist/
 package-lock.json
+pnpm-lock.yaml
 bun.lock
 nul
 zig-upx/
