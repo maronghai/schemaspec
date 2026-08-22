@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.325.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,059 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
+**Current version**: 0.326.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,065 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
 
 > This roadmap was restructured on 2026-08-21: all thirteen completed phases are condensed into a summary, and every remaining open item is consolidated under Phase 14 (each item now appears exactly once). Historical detail lives in [CHANGELOG.md](CHANGELOG.md) and git history.
 >
@@ -117,6 +117,7 @@ Process debt observed during the 2026-08-21 roadmap audit:
 - [x] Commit-title typo (2026-08-22) — the v0.323.0 commit was amended with title "0.333.0" while every tree version string correctly read 0.323.0; content unaffected, recorded here rather than rewriting history.
 - [x] Commit-message / version alignment — v0.320.1 shipped with a bare-number title while `VERSION` still read 0.320.0 (the amend renamed the test-infra commit but not the tree); CHANGELOG backfilled for 0.320.0/0.320.1 and all strings aligned to **0.321.0** (2026-08-22). Descriptive titles from this release onward.
 - [x] Composite embed × index-bearing feature audit (v0.325.0) — deep analysis found the v0.321.0 index-remap fix covered conditional blocks but missed composite embeds: three repro'd bugs (@if wrapping an embed line was ignored; template merge and conditional strip both left `insert_pos` stale). Fixed via parser dialect stamping + two remap passes; the position invariant is now documented in `types/ast.zig` and [schemaspec/schema.md §11](schemaspec/schema.md#11-composite-types).
+- [x] Lint auto-increment false positives on datetime defaults (v0.326.0) — the ubiquitous audit-field pattern (`created_at t+` / `updated_at t++`, meaning DEFAULT CURRENT_TIMESTAMP) tripped four auto-increment rules and made `--strict` CI gates fail on valid schemas; `--fix` also appended redundant explicit defaults. Rules now gate through a shared `hasIdentityModifier` predicate; genuine misuses (`s++`, double `n++`) still reported.
 - [x] Golden-test runner parity — `zig build golden-tests` runs the full coverage runner (`test_coverage.sh --fast --serial`, all 37 suites); Windows-native environments still need bash for the suites themselves, but one entry point now covers everything CI covers.
 
 ---

@@ -156,6 +156,37 @@ else
 fi
 rm -f "$FIX_TMP"
 
+# Test 11: Audit-field pattern (created_at t+ / updated_at t++) produces no auto-increment
+# warnings — `+`/`++` on datetime types mean DEFAULT CURRENT_TIMESTAMP, not AUTO_INCREMENT.
+AUDIT_TMP=$(mktemp)
+cat > "$AUDIT_TMP" <<'EOF'
+# orders
+id          n++
+name        s32
+created_at  t+
+updated_at  t++
+EOF
+LINT_OUT=$("$BIN" lint "$AUDIT_TMP" 2>&1 || true)
+if echo "$LINT_OUT" | grep -qE "auto-increment|composite-pk"; then
+    echo -e "  ${RED}✗${RESET} lint_timestamp_default_not_autoinc (false positive)"
+    echo "$LINT_OUT" | grep -E "auto-increment|composite-pk"
+    FAIL=$((FAIL + 1))
+else
+    echo -e "  ${GREEN}✓${RESET} lint_timestamp_default_not_autoinc"
+    PASS=$((PASS + 1))
+fi
+
+# Test 12: --fix leaves the t+/t++ lines untouched (they already imply defaults)
+"$BIN" lint "$AUDIT_TMP" --fix > /dev/null 2>&1 || true
+if grep -q "created_at  t+$" "$AUDIT_TMP" && grep -q "updated_at  t++$" "$AUDIT_TMP"; then
+    echo -e "  ${GREEN}✓${RESET} lint_timestamp_default_fix_noop"
+    PASS=$((PASS + 1))
+else
+    echo -e "  ${RED}✗${RESET} lint_timestamp_default_fix_noop (--fix rewrote t+/t++ lines)"
+    FAIL=$((FAIL + 1))
+fi
+rm -f "$AUDIT_TMP"
+
 echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo -e "${GREEN}Lint: $PASS passed${RESET}, ${RED}$FAIL failed${RESET}"
 echo -e "${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"

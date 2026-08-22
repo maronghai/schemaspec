@@ -290,6 +290,82 @@ test "lint: auto-increment on boolean type detected" {
     try testing.expect(th.findRule(results, "column-auto-increment-type"));
 }
 
+// ─── datetime timestamp-default vs auto-increment (v0.326.0) ────────────────
+// `+`/`++` on datetime types mean DEFAULT CURRENT_TIMESTAMP — the
+// auto-increment rule family must not fire on them.
+
+fn makeTimestampField(name: []const u8, kind: ast_mod.ModifierType) ast_mod.Field {
+    return th.makeField(name, .{ .simple = "t" }, &.{.{ .kind = kind, .line_no = 1 }}, null);
+}
+
+test "lint: timestamp default modifier is not auto-increment-type" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{
+        th.makePkField("id"),
+        makeTimestampField("created_at", .auto_inc),
+        makeTimestampField("updated_at", .auto_inc_pk),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-auto-increment-type"));
+}
+
+test "lint: timestamp default modifiers are not composite-pk" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // Two `t++` audit columns + one real n++ PK: only 1 identity PK.
+    const table = try th.makeTestTable(alloc, "orders", &.{
+        th.makePkField("id"),
+        makeTimestampField("created_at", .auto_inc_pk),
+        makeTimestampField("updated_at", .auto_inc_pk),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "composite-pk"));
+}
+
+test "lint: timestamp default modifier is not auto-increment-without-pk" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{
+        th.makePkField("id"),
+        makeTimestampField("created_at", .auto_inc),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "auto-increment-without-pk"));
+}
+
+test "lint: two genuine n++ pks still trip composite-pk" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{
+        th.makePkField("id"),
+        th.makePkField("sku"),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(th.findRule(results, "composite-pk"));
+}
+
+test "lint: timestamp default satisfies column-default-required" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const table = try th.makeTestTable(alloc, "orders", &.{
+        th.makePkField("id"),
+        makeTimestampField("created_at", .auto_inc),
+    }, &.{});
+    const tables = try alloc.dupe(ResolvedTable, &.{table});
+    const results = try lint_mod.lintSchema(alloc, th.makeAst(tables), .{});
+    try testing.expect(!th.findRule(results, "column-default-required"));
+}
+
 // ─── column-unique-naming tests ───────────────────────────────
 
 test "lint: case-insensitive duplicate column names detected" {

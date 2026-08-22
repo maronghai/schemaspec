@@ -1,3 +1,12 @@
+## [0.326.0] - 2026-08-22
+
+### Fixed
+- **Lint auto-increment rule family no longer fires on datetime timestamp-default modifiers** (false-positive family; verified by repro): `+`/`++` on datetime types mean DEFAULT CURRENT_TIMESTAMP (parser whitelist at parse_field.zig allows `n, N, t, d`; codegen renders correctly), but four rules treated the modifier as genuine AUTO_INCREMENT — every schema using the ubiquitous audit-field pattern (`created_at t+` / `updated_at t++`) got 2–4 spurious warnings, and `--strict` CI gates failed on them. Affected rules: `composite-pk`, `column-auto-increment-type`, `column-auto-increment-nullable` (defense-in-depth), `auto-increment-without-pk`. Genuine misuses (`s++`, double `n++` PKs) are still reported.
+- `column-default-required` no longer reports datetime fields carrying `+`/`++` (they already imply a default), and `lint --fix` no longer appends a redundant `= CURRENT_TIMESTAMP` to such lines (source files stop churning with no-op diffs).
+
+### Added
+- Golden tests: two audit-field-pattern cases in tests/test_lint.sh (14 total) — zero auto-increment warnings for `t+`/`t++` and `--fix` leaving those lines byte-identical.
+
 ## [0.325.0] - 2026-08-22
 
 ### Fixed

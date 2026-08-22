@@ -45,6 +45,10 @@ pub fn detectDefaultValue(field_line: []const u8) ?[]const u8 {
     const trimmed = std.mem.trim(u8, field_line, " \t");
     if (trimmed.len == 0) return null;
 
+    // A datetime field with `+`/`++` already implies DEFAULT
+    // CURRENT_TIMESTAMP — appending an explicit one is redundant churn.
+    if (isDatetimeWithTimestampDefault(trimmed)) return null;
+
     // Find the type symbol — it's typically the last non-modifier token
     var last_token_start: usize = trimmed.len;
     var pos = trimmed.len;
@@ -79,6 +83,31 @@ pub fn detectDefaultValue(field_line: []const u8) ?[]const u8 {
     }
 
     return null;
+}
+
+/// True for a datetime field line (`t`/`d`) whose type symbol carries a
+/// trailing `+`/`++` timestamp-default modifier. The modifier scan skips
+/// other suffixes so `t?`/`t!` don't match.
+fn isDatetimeWithTimestampDefault(line: []const u8) bool {
+    var i: usize = 0;
+    while (i < line.len) : (i += 1) {
+        if (line[i] != 't' and line[i] != 'd') continue;
+        // Must be a standalone symbol: preceded by start/space.
+        if (i > 0 and line[i - 1] != ' ' and line[i - 1] != '\t') continue;
+        var j = i + 1;
+        var saw_plus = false;
+        while (j < line.len and line[j] != ' ' and line[j] != '\t') : (j += 1) {
+            if (line[j] == '+') {
+                saw_plus = true;
+            } else if (line[j] != '?' and line[j] != '!') {
+                // Another letter — not the bare t/d symbol; bail on this hit.
+                break;
+            }
+        }
+        if (j < line.len and line[j] != ' ' and line[j] != '\t') continue;
+        if (saw_plus) return true;
+    }
+    return false;
 }
 
 // ─── Pre-Scan: Build Fix Maps ────────────────────────────────
@@ -144,4 +173,14 @@ test "detectDefaultValue returns correct defaults" {
     try testing.expectEqualStrings(" = 0", detectDefaultValue("score e").?);
     try testing.expectEqualStrings(" = 0", detectDefaultValue("amount m").?);
     try testing.expect(detectDefaultValue("") == null);
+}
+
+test "detectDefaultValue skips datetime fields with timestamp-default modifiers" {
+    // `+`/`++` on datetime types already imply DEFAULT CURRENT_TIMESTAMP —
+    // no fix should append an explicit one.
+    try testing.expect(detectDefaultValue("created_at t+") == null);
+    try testing.expect(detectDefaultValue("updated_at t++") == null);
+    try testing.expect(detectDefaultValue("deleted_at d+") == null);
+    // Plain datetime still gets the explicit default.
+    try testing.expect(detectDefaultValue("archived_at t") != null);
 }

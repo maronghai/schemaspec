@@ -30,9 +30,29 @@ pub fn isNullable(field: ast_mod.Field) bool {
     return false;
 }
 
-/// Check if a field has an explicit default value.
+/// Check if a field has an explicit default value. Datetime fields carrying
+/// the `+`/`++` modifiers already imply DEFAULT CURRENT_TIMESTAMP, so they
+/// count as defaulted for the required-default rules.
 pub fn hasExplicitDefault(field: ast_mod.Field) bool {
-    return field.default_val != null;
+    if (field.default_val != null) return true;
+    if (field.type_info.isDatetime()) {
+        for (field.modifiers) |mod| {
+            if (mod.kind == .auto_inc or mod.kind == .auto_inc_pk) return true;
+        }
+    }
+    return false;
+}
+
+/// True when the field's `+`/`++` modifiers mean genuine identity
+/// auto-increment. On datetime types the same modifiers mean DEFAULT
+/// CURRENT_TIMESTAMP (see parse_field.zig's validity whitelist), so
+/// auto-increment rules must not fire on them.
+pub fn hasIdentityModifier(field: ast_mod.Field) bool {
+    if (field.type_info.isDatetime()) return false;
+    for (field.modifiers) |mod| {
+        if (mod.kind == .auto_inc or mod.kind == .auto_inc_pk) return true;
+    }
+    return false;
 }
 
 // ─── General Validation Rules ──────────────────────────────────
@@ -169,7 +189,7 @@ pub fn checkCompositePk(alloc: std.mem.Allocator, results: *std.ArrayList(LintRe
         var auto_inc_count: usize = 0;
         for (table.fields) |field| {
             for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc_pk) {
+                if (mod.kind == .auto_inc_pk and !field.type_info.isDatetime()) {
                     auto_inc_count += 1;
                 }
             }
@@ -216,14 +236,8 @@ pub fn checkColumnUniqueNullable(alloc: std.mem.Allocator, results: *std.ArrayLi
 pub fn checkColumnAutoIncrementType(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.tables) |table| {
         for (table.fields) |field| {
-            var has_auto_inc = false;
-            for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc_pk or mod.kind == .auto_inc) {
-                    has_auto_inc = true;
-                    break;
-                }
-            }
-            if (!has_auto_inc) continue;
+            // Datetime `+`/`++` means DEFAULT CURRENT_TIMESTAMP — not auto-increment.
+            if (!hasIdentityModifier(field)) continue;
             // Check if the type is non-integer
             if (field.type_info.isString() or field.type_info.isBoolean() or field.type_info.isDatetime() or field.type_info.isBlob()) {
                 const type_name = switch (field.type_info) {
@@ -279,13 +293,11 @@ pub fn checkColumnUniqueNaming(alloc: std.mem.Allocator, results: *std.ArrayList
 pub fn checkColumnAutoIncrementNullable(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.tables) |table| {
         for (table.fields) |field| {
-            var has_auto_inc = false;
             var has_nullable = false;
             for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc_pk or mod.kind == .auto_inc) has_auto_inc = true;
                 if (mod.kind == .nullable) has_nullable = true;
             }
-            if (has_auto_inc and has_nullable) {
+            if (hasIdentityModifier(field) and has_nullable) {
                 const msg = try std.fmt.allocPrint(alloc, "auto-increment on nullable column '{s}' — should be NOT NULL", .{field.name});
                 try results.append(alloc, .{
                     .rule = "column-auto-increment-nullable",
@@ -496,11 +508,8 @@ fn looksLikeSqlFunctionCall(inner: []const u8) bool {
 pub fn checkAutoIncrementWithoutPk(alloc: std.mem.Allocator, results: *std.ArrayList(LintResult), ast: ResolvedAst, _: LintConfig) !void {
     for (ast.tables) |table| {
         for (table.fields) |field| {
-            var has_auto_inc = false;
-            for (field.modifiers) |mod| {
-                if (mod.kind == .auto_inc) has_auto_inc = true;
-            }
-            if (has_auto_inc and !isPrimaryKey(field)) {
+            if (!hasIdentityModifier(field)) continue;
+            if (!isPrimaryKey(field)) {
                 const msg = try std.fmt.allocPrint(alloc, "auto-increment column '{s}' is not part of the primary key", .{field.name});
                 try results.append(alloc, .{
                     .rule = "auto-increment-without-pk",
