@@ -28,7 +28,7 @@ jobs:
         run: cd rune && zig build -Doptimize=ReleaseSafe
 
       - name: Unit tests
-        run: cd rune && zig build test
+        run: cd rune && zig build test --summary all
 
   # Sharded golden tests (4 shards in parallel)
   test-shard:
@@ -80,7 +80,7 @@ jobs:
         run: cd rune && zig build -Doptimize=ReleaseSafe
 
       - name: Unit tests
-        run: cd rune && zig build test
+        run: cd rune && zig build test --summary all
 
   # ARM64 cross-compilation tests (unchanged)
   test-arm64:
@@ -97,7 +97,7 @@ jobs:
         run: cd rune && zig build -Doptimize=ReleaseSafe -Dtarget=aarch64-linux
 
       - name: Unit tests (native)
-        run: cd rune && zig build test
+        run: cd rune && zig build test --summary all
 
       - name: MySQL golden tests (native)
         run: bash tests/test.sh
