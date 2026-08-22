@@ -1,3 +1,28 @@
+## [0.328.0] - 2026-08-23
+
+### Fixed
+- **`rune lint --show-rules` and `rune lint --init` now work** (both were advertised in help text and COMMAND_HELP but unreachable): `--show-rules` was missing from `KNOWN_FLAGS`, so the unknown-flag pre-check rejected it before parseLintArgs ever ran; `--init` was consumed by the global flag pass (`want_init`) and never forwarded to the lint parser, while main.zig short-circuited any `init_flag` to the starter-schema init. Now: the flag is in KNOWN_FLAGS, the global pass forwards it to subcommand parsers (GlobalFlags.init_flag), and bare `rune --init` still means starter schema (short-circuit gated on `.compile`).
+- **Per-command help rendered the wrong command's options**: `printSubcommandHelp` indexed `COMMAND_HELP` by array position against `COMMAND_REGISTRY`, but the two arrays had drifted (19 registry names vs 19 entries including version/help orphans, different order) — `rune lint --help` printed format's options. Help entries are now keyed by a `.command` name field with lookup by name; a comptime coverage check (plus runtime tests) enforces exactly one entry per registry command in both directions; missing docs/share/compile-batch entries added; stale version/help entries removed.
+- **Lint rule count in help text can no longer drift from the implementation**: both hardcoded "(84 rules)" strings replaced by a comptime-derived constant (`LINT_RULE_COUNT` = LintRule enum field count = 85) shared by COMMAND_REGISTRY and COMMAND_HELP.
+- **`rune stats` text output moved from stderr to stdout**: text format went through `printStats`/`printPerTableStats` (std.debug.print → stderr) while JSON/markdown/summary used writeOutput (stdout) — piping `rune stats x.ss | grep` captured nothing. Text paths now render through new `printStatsTo`/`printPerTableStatsTo` writer variants into writeOutput; inline `-s` compile/validate stats intentionally stay on stderr (must not pollute the SQL stream).
+- **bench regression gate no longer false-fails from a Debug tree**: the bench executable is pinned to ReleaseSafe in build.zig regardless of `-Doptimize`; baselines are ReleaseSafe-saved, so `zig build bench -- --check` from a default Debug tree compared like-for-like only by accident (Debug measured ~+25% across every stage).
+- **cache.zig loadFromDisk never worked** (found by the first test exercising it): the hand-written manifest parser read key names as values (`"dialect"` became the dialect), so every load returned zero entries; plus two memory bugs — stored table_name/dialect slices pointed into the freed manifest buffer (use-after-free on later lookup), and loaded SQL buffers leaked after store duplicated them.
+- **handleShare leaked its encoded/url allocations** (caught by the newly activated tests).
+- tests/test_lint.sh and tests/test_color.sh now select `rune.exe` on Windows/MSYS like every other suite (they hardcoded the extensionless ELF path; both suites had been failing 9/14 and 3/5 there for unrelated-to-code reasons). Coverage runner: 35/35.
+
+### Added
+- **cache.zig and share.zig unit tests are live**: both files carried inline tests that were absent from the tests.zig comptime index (dead code — share's didn't even compile under Zig 0.16). Index activated (+5 tests); cache gains an end-to-end flushToDisk→loadFromDisk roundtrip test; share gains a base64url decode roundtrip and file-output test. Unit total: 2068 → 2077.
+
+## [0.327.1] - 2026-08-22
+
+### Added
+- diagnostic/format.zig: `To(writer)` variants for all standardized printers (`printErrorTo`, `printWarningTo`, `printErrorWithContextTo`, `printWarningWithContextTo`, `printErrTo`, `printWarnTo`, `printOkTo`); plain stderr versions delegate through a fixed-buffer path so `zig build test` output stays clean. Tests cover formats and overflow tolerance.
+
+## [0.327.2] - 2026-08-22
+
+### Changed
+- .gitignore: added pnpm-lock.yaml.
+
 ## [0.327.0] - 2026-08-22
 
 ### Changed

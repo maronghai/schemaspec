@@ -98,10 +98,14 @@ pub fn build(b: *std.Build) void {
     golden_step.dependOn(&run_golden_sh.step);
 
     // ─── Benchmark ────────────────────────────────────────────────
+    // Bench is pinned to ReleaseSafe regardless of the global -Doptimize:
+    // baselines are saved from ReleaseSafe builds, so running `zig build
+    // bench -- --check` from a default Debug tree must compare like-for-like
+    // (Debug timings are ~25% slower across every stage and would false-positive).
     const bench_mod = b.createModule(.{
         .root_source_file = b.path("src/bench.zig"),
         .target = target,
-        .optimize = optimize,
+        .optimize = .ReleaseSafe,
     });
     bench_mod.addOptions("build_options", options);
     const bench_exe = b.addExecutable(.{

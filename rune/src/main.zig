@@ -100,8 +100,10 @@ fn resolveOutputFormat(target: cli.Target) handlers.OutputFormat {
 }
 
 fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs, home_dir: []const u8, environ_map: *const std.process.Environ.Map) !void {
-    // Handle --init flag (invokes init without explicit subcommand)
-    if (parsed.init_flag) {
+    // Handle --init flag (invokes init without explicit subcommand).
+    // Only when no subcommand is present — subcommands like `rune lint --init`
+    // give the flag their own meaning via their own parsers.
+    if (parsed.init_flag and parsed.command == .compile) {
         return init_mod.handleInit(io, alloc, null, null, null, parsed.dialect, null);
     }
 
@@ -238,6 +240,12 @@ fn dispatch(io: std.Io, alloc: std.mem.Allocator, parsed: cli.ParsedArgs, home_d
                 .dry_run = cmd.dry_run,
                 .include_views = cmd.include_views,
                 .summary = cmd.summary,
+                .show_rules = cmd.show_rules,
+                // `--init` is consumed by the global flag pass (want_init →
+                // init_flag) and never reaches parseLintArgs, so lint's config
+                // generation must read it from parsed.init_flag. Bare
+                // `rune --init` (no subcommand) still means the starter schema.
+                .init_config = cmd.init_config or parsed.init_flag,
             }, parsed);
         },
         .watch => |cmd| {

@@ -66,6 +66,9 @@ comptime {
     _ = @import("io_test.zig");
     // ── watch ────────────────────────────────────────────────────
     _ = @import("watch_test.zig");
+    // ── cache / share (inline tests, previously unindexed) ───────
+    _ = @import("cache.zig");
+    _ = @import("share.zig");
     // ── generators ───────────────────────────────────────────────
     _ = @import("generators/json_schema_test.zig");
     _ = @import("generators/common_test.zig");

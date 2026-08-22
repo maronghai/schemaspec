@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.327.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,065 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
+**Current version**: 0.328.0 (2026-08-23) — 71,300+ lines of Zig (46,600+ production + 24,700+ tests across 330 `.zig` files), 2,077 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites (35 runner-covered), 12 generators × 6 dialects.
 
 > This roadmap was restructured on 2026-08-21: all thirteen completed phases are condensed into a summary, and every remaining open item is consolidated under Phase 14 (each item now appears exactly once). Historical detail lives in [CHANGELOG.md](CHANGELOG.md) and git history.
 >
@@ -120,6 +120,7 @@ Process debt observed during the 2026-08-21 roadmap audit:
 - [x] Lint auto-increment false positives on datetime defaults (v0.326.0) — the ubiquitous audit-field pattern (`created_at t+` / `updated_at t++`, meaning DEFAULT CURRENT_TIMESTAMP) tripped four auto-increment rules and made `--strict` CI gates fail on valid schemas; `--fix` also appended redundant explicit defaults. Rules now gate through a shared `hasIdentityModifier` predicate; genuine misuses (`s++`, double `n++`) still reported.
 - [x] Golden-test runner parity — `zig build golden-tests` runs the full coverage runner (`test_coverage.sh --fast --serial`, all 37 suites); Windows-native environments still need bash for the suites themselves, but one entry point now covers everything CI covers.
 - [x] Monorepo sub-project boundaries (v0.327.0) — language spec deduplicated to a single source of truth in `schemaspec/` (stale snapshots under `rune/` removed; three spec errors corrected against golden-test evidence), five sub-project boundaries documented in CLAUDE.md with change-impact matrix, wasm export contract documented ([docs/wasm-api.md](docs/wasm-api.md)), and version propagation scripted (`scripts/sync-version.sh --check`, wired into CI).
+- [x] CLI consistency audit + fixes (v0.328.0) — deep analysis surfaced a cluster of "same fact stated in N places" defects, all fixed: `lint --show-rules`/`--init` were unreachable (flag-gate + dispatch drops), per-command help rendered the wrong command's options (position-coupled arrays had drifted — now name-keyed with comptime coverage enforcement), lint rule count in help was hardcoded 84 vs actual 85 (now comptime-derived), `rune stats` text went to stderr while JSON went to stdout (unified on stdout via writer variants), bench gate false-failed from Debug trees (bench now pinned ReleaseSafe), cache.zig's disk-load parser never worked plus two memory bugs and handleShare leaks (found by newly activated tests), and two golden suites hardcoded the ELF path (broken on Windows). Unit tests 2068 → 2077.
 
 ---
 
@@ -143,8 +144,8 @@ Process debt observed during the 2026-08-21 roadmap audit:
 | 14: Ecosystem Maturation | 🔲 Current focus | 5/7 | 2 |
 | Architecture Targets | ✅ Complete | 22/22 | 0 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
-| Maintenance & Release Hygiene | ✅ Complete (8/8) | 8/8 | 0 |
-| **Total** | | **156/159** | **3** |
+| Maintenance & Release Hygiene | ✅ Complete (9/9) | 9/9 | 0 |
+| **Total** | | **157/159** | **2** |
 
 *Counting note: Phases 6/8 open items are listed once, under Phase 14; the former summary's "143/149" under-counted Phase 6 (listed 11/11 while 2 items were open).*
 
@@ -154,7 +155,7 @@ Process debt observed during the 2026-08-21 roadmap audit:
 
 ### 2026 Q3 (Jul–Sep) — current
 
-~~Template overrides~~ shipped in v0.319.0; ~~composite types~~ shipped in v0.320.0 (see [plans/plan-0.320.0.md](plans/plan-0.320.0.md)). **Release hygiene**: CHANGELOG backfilled and version strings aligned to HEAD (done 2026-08-21); descriptive commit messages adopted from v0.320.0 onward.
+~~Template overrides~~ shipped in v0.319.0; ~~composite types~~ shipped in v0.320.0 (see [plans/plan-0.320.0.md](plans/plan-0.320.0.md)). **Release hygiene**: CHANGELOG backfilled and version strings aligned to HEAD (done 2026-08-21); descriptive commit messages adopted from v0.320.0 onward; CLI consistency audit shipped in v0.328.0 (help/flag/output-channel/bench-gate fixes, see Maintenance section).
 
 ### 2026 Q4 (Oct–Dec)
 

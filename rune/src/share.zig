@@ -30,7 +30,9 @@ pub const ShareResult = struct {
 /// Handle the share command.
 pub fn handleShare(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, cfg: ShareConfig) !void {
     const encoded = try encodeForPlayground(alloc, file_data);
+    defer alloc.free(encoded);
     const url = try buildPlaygroundUrl(alloc, encoded);
+    defer alloc.free(url);
 
     const result = ShareResult{
         .url = url,
@@ -126,10 +128,34 @@ test "encodeForPlayground: basic" {
 
     // Verify it's valid base64url (no +, /, =)
     for (encoded) |c| {
-        std.testing.expect(c != '+');
-        std.testing.expect(c != '/');
-        std.testing.expect(c != '=');
+        try std.testing.expect(c != '+');
+        try std.testing.expect(c != '/');
+        try std.testing.expect(c != '=');
     }
+}
+
+test "encodeForPlayground roundtrip decodes to the original" {
+    const alloc = std.testing.allocator;
+    const data = "$ test\n# users\n  id n++ PK\n  name s100?\n";
+    const encoded = try encodeForPlayground(alloc, data);
+    defer alloc.free(encoded);
+
+    // Decode: restore URL-safe chars, pad, then base64-decode.
+    const decoded = try alloc.alloc(u8, encoded.len + ((4 - encoded.len % 4) % 4));
+    defer alloc.free(decoded);
+    @memcpy(decoded[0..encoded.len], encoded);
+    for (decoded[0..encoded.len]) |*c| {
+        if (c.* == '-') c.* = '+';
+        if (c.* == '_') c.* = '/';
+    }
+    @memset(decoded[encoded.len..], '=');
+
+    const decoder = std.base64.Base64Decoder.init(std.base64.standard_alphabet_chars, '=');
+    const plain = try decoder.calcSizeForSlice(decoded);
+    const out = try alloc.alloc(u8, plain);
+    defer alloc.free(out);
+    try decoder.decode(out, decoded);
+    try std.testing.expectEqualStrings(data, out);
 }
 
 test "buildPlaygroundUrl: format" {
@@ -138,19 +164,25 @@ test "buildPlaygroundUrl: format" {
     const url = try buildPlaygroundUrl(alloc, encoded);
     defer alloc.free(url);
 
-    std.testing.expect(std.mem.startsWith(u8, url, "https://rune-lang.org/playground#"));
-    std.testing.expect(std.mem.endsWith(u8, url, "abc123"));
+    try std.testing.expect(std.mem.startsWith(u8, url, "https://rune-lang.org/playground#"));
+    try std.testing.expect(std.mem.endsWith(u8, url, "abc123"));
 }
 
-test "handleShare: url format" {
+test "handleShare url format writes playground URL" {
     const alloc = std.testing.allocator;
-    var buf = std.ArrayList(u8).init(alloc);
-    defer buf.deinit(alloc);
-    const io = std.io.getStdOut().mock(buf.writer());
+    const testing = std.testing;
+
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const tmp_abs_len = try tmp.dir.realPath(testing.io, &path_buf);
+    const out_path = try std.fs.path.join(alloc, &.{ path_buf[0..tmp_abs_len], "share_url.txt" });
+    defer alloc.free(out_path);
 
     const data = "$ test\n# users\n  id n++\n  name s100\n";
-    try handleShare(io, alloc, data, .{ .input = null, .output = null, .format = .url });
+    try handleShare(testing.io, alloc, data, .{ .input = null, .output = out_path, .format = .url });
 
-    const output = buf.items;
-    std.testing.expect(std.mem.startsWith(u8, output, "https://rune-lang.org/playground#"));
+    const written = try std.Io.Dir.cwd().readFileAlloc(testing.io, out_path, alloc, .unlimited);
+    defer alloc.free(written);
+    try std.testing.expect(std.mem.startsWith(u8, written, "https://rune-lang.org/playground#"));
 }

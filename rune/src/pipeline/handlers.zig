@@ -193,7 +193,12 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
                 try io_mod.writeOutput(io, md, null, false);
             },
             .text, .summary => {
-                stats_mod.printPerTableStats(table_stats);
+                // Standalone stats command: text goes to stdout like every
+                // other format (the stderr printers are for inline -s).
+                var buf = std.Io.Writer.Allocating.init(alloc);
+                defer buf.deinit();
+                try stats_mod.printPerTableStatsTo(&buf.writer, table_stats);
+                try io_mod.writeOutput(io, try buf.toOwnedSlice(), null, false);
             },
         }
         return;
@@ -209,7 +214,10 @@ pub fn handleStats(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
             try io_mod.writeOutput(io, md, null, false);
         },
         .text => {
-            printStats(s);
+            var buf = std.Io.Writer.Allocating.init(alloc);
+            defer buf.deinit();
+            try stats_mod.printStatsTo(&buf.writer, s);
+            try io_mod.writeOutput(io, try buf.toOwnedSlice(), null, false);
         },
         .summary => {
             const summary = try stats_mod.formatSummary(alloc, s);

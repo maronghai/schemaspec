@@ -2,6 +2,7 @@ const std = @import("std");
 const types = @import("types.zig");
 
 const COMMAND_REGISTRY = types.COMMAND_REGISTRY;
+const COMMAND_HELP = types.COMMAND_HELP;
 
 // ─── Usage ─────────────────────────────────────────────────────
 
@@ -77,24 +78,26 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
     std.debug.print("Usage: rune {s}", .{subcommand});
 
     // Find help details in the registry
-    inline for (COMMAND_REGISTRY, 0..) |cmd, i| {
+    inline for (COMMAND_REGISTRY) |cmd| {
         if (std.mem.eql(u8, cmd.name, subcommand)) {
             std.debug.print(" {s}\n", .{cmd.args});
             std.debug.print("\n{s}\n", .{cmd.description});
 
-            // Print options and examples from COMMAND_HELP (comptime-indexed)
-            const help_entries = types.COMMAND_HELP;
-            if (i < help_entries.len) {
-                const help = help_entries[i];
-                if (help.options.len > 0) {
+            // Look up the COMMAND_HELP entry by command name (NOT by array
+            // position — position-coupling silently drifted and rendered the
+            // wrong command's options). The comptime coverage check in
+            // types.zig guarantees exactly one entry per registry command.
+            const help = findHelp(&COMMAND_HELP, subcommand);
+            if (help) |h| {
+                if (h.options.len > 0) {
                     std.debug.print("\nOptions:\n", .{});
-                    for (help.options) |opt| {
+                    for (h.options) |opt| {
                         std.debug.print("{s}\n", .{opt});
                     }
                 }
-                if (help.examples.len > 0) {
+                if (h.examples.len > 0) {
                     std.debug.print("\nExamples:\n", .{});
-                    for (help.examples) |ex| {
+                    for (h.examples) |ex| {
                         std.debug.print("{s}\n", .{ex});
                     }
                 }
@@ -103,4 +106,12 @@ pub fn printSubcommandHelp(subcommand: []const u8) void {
         }
     }
     std.debug.print("\nUnknown command: {s}\n", .{subcommand});
+}
+
+/// Find a COMMAND_HELP entry by its `.command` name key.
+fn findHelp(entries: []const types.CommandHelp, name: []const u8) ?types.CommandHelp {
+    for (entries) |entry| {
+        if (std.mem.eql(u8, entry.command, name)) return entry;
+    }
+    return null;
 }

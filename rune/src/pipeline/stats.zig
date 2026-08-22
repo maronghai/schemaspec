@@ -167,21 +167,39 @@ pub fn computeStats(resolved: resolved_ast.ResolvedAst) Stats {
 }
 
 /// Print stats to stderr.
+///
+/// Stderr is intentional for the inline `-s` compile/validate path (stats must
+/// not pollute the SQL stream on stdout). The standalone `rune stats` command
+/// uses printStatsTo + writeOutput so text output lands on stdout like every
+/// other format.
 pub fn printStats(stats: Stats) void {
-    std.debug.print("tables:           {d}\n", .{stats.tables});
-    std.debug.print("fields:           {d}\n", .{stats.fields});
-    std.debug.print("  non-null:       {d}\n", .{stats.not_null_fields});
-    std.debug.print("  numeric:        {d}\n", .{stats.numeric_fields});
-    std.debug.print("  string:         {d}\n", .{stats.string_fields});
-    std.debug.print("  datetime:       {d}\n", .{stats.datetime_fields});
-    std.debug.print("  boolean:        {d}\n", .{stats.boolean_fields});
-    std.debug.print("  other:          {d}\n", .{stats.other_fields});
-    std.debug.print("views:            {d}\n", .{stats.views});
-    std.debug.print("foreign_keys:     {d}\n", .{stats.foreign_keys});
-    std.debug.print("indexes:          {d}\n", .{stats.indexes});
-    std.debug.print("check_constraints:{d}\n", .{stats.check_constraints});
-    std.debug.print("custom_types:    {d}\n", .{stats.custom_types});
+    var buf: [2048]u8 = undefined;
+    var w = std.Io.Writer.fixed(&buf);
+    printStatsTo(&w, stats) catch return;
+    w.flush() catch return;
+    std.debug.print("{s}", .{w.buffered()});
 }
+
+/// Write stats to the given writer (stdout-compatible).
+pub fn printStatsTo(writer: *std.Io.Writer, stats: Stats) !void {
+    try writer.print("tables:           {d}\n", .{stats.tables});
+    try writer.print("fields:           {d}\n", .{stats.fields});
+    try writer.print("  non-null:       {d}\n", .{stats.not_null_fields});
+    try writer.print("  numeric:        {d}\n", .{stats.numeric_fields});
+    try writer.print("  string:         {d}\n", .{stats.string_fields});
+    try writer.print("  datetime:       {d}\n", .{stats.datetime_fields});
+    try writer.print("  boolean:        {d}\n", .{stats.boolean_fields});
+    try writer.print("  other:          {d}\n", .{stats.other_fields});
+    try writer.print("views:            {d}\n", .{stats.views});
+    try writer.print("foreign_keys:     {d}\n", .{stats.foreign_keys});
+    try writer.print("indexes:          {d}\n", .{stats.indexes});
+    try writer.print("check_constraints:{d}\n", .{stats.check_constraints});
+    try writer.print("custom_types:    {d}\n", .{stats.custom_types});
+}
+
+// ─── Shared stderr plumbing ────────────────────────────────────
+// (removed — stderr printers now buffer through std.Io.Writer.fixed /
+// Writer.Allocating and delegate emission to std.debug.print)
 
 /// Format stats as a JSON string.
 pub fn formatStatsJson(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
@@ -252,20 +270,32 @@ pub fn formatStatsMarkdown(alloc: std.mem.Allocator, stats: Stats) ![]const u8 {
 
 // ─── Per-Table Output ──────────────────────────────────────────
 
-/// Print per-table stats to stderr.
+/// Print per-table stats to stderr (see printStats for channel rationale).
 pub fn printPerTableStats(table_stats: []const TableStats) void {
+    // Per-table output is unbounded; stream through a growing buffer.
+    var aw: std.Io.Writer.Allocating = .init(std.heap.page_allocator);
+    defer aw.deinit();
+    printPerTableStatsTo(&aw.writer, table_stats) catch return;
+    aw.writer.flush() catch return;
+    std.debug.print("{s}", .{aw.written()});
+}
+
+// ─── (removed) stderr plumbing helpers ─────────────────────────
+
+/// Write per-table stats to the given writer (stdout-compatible).
+pub fn printPerTableStatsTo(writer: *std.Io.Writer, table_stats: []const TableStats) !void {
     for (table_stats) |ts| {
-        std.debug.print("\n{s}:\n", .{ts.name});
-        std.debug.print("  fields:         {d}\n", .{ts.fields});
-        std.debug.print("  non-null:       {d}\n", .{ts.not_null_fields});
-        std.debug.print("  numeric:        {d}\n", .{ts.numeric_fields});
-        std.debug.print("  string:         {d}\n", .{ts.string_fields});
-        std.debug.print("  datetime:       {d}\n", .{ts.datetime_fields});
-        std.debug.print("  boolean:        {d}\n", .{ts.boolean_fields});
-        std.debug.print("  other:          {d}\n", .{ts.other_fields});
-        std.debug.print("  foreign_keys:   {d}\n", .{ts.foreign_keys});
-        std.debug.print("  indexes:        {d}\n", .{ts.indexes});
-        std.debug.print("  check_constraints: {d}\n", .{ts.check_constraints});
+        try writer.print("\n{s}:\n", .{ts.name});
+        try writer.print("  fields:         {d}\n", .{ts.fields});
+        try writer.print("  non-null:       {d}\n", .{ts.not_null_fields});
+        try writer.print("  numeric:        {d}\n", .{ts.numeric_fields});
+        try writer.print("  string:         {d}\n", .{ts.string_fields});
+        try writer.print("  datetime:       {d}\n", .{ts.datetime_fields});
+        try writer.print("  boolean:        {d}\n", .{ts.boolean_fields});
+        try writer.print("  other:          {d}\n", .{ts.other_fields});
+        try writer.print("  foreign_keys:   {d}\n", .{ts.foreign_keys});
+        try writer.print("  indexes:        {d}\n", .{ts.indexes});
+        try writer.print("  check_constraints: {d}\n", .{ts.check_constraints});
     }
 }
 

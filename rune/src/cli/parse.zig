@@ -33,6 +33,7 @@ pub fn parseSimpleSubcommand(dialect: dialect_enum.Dialect, target: Target, cmd:
         .import_paths = opts.import_paths,
         .color = opts.color,
         .config_path = opts.config_path,
+        .init_flag = opts.init_flag,
     };
 }
 
@@ -221,6 +222,11 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             want_validate_only = true;
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--init" })) {
             want_init = true;
+            // Pass through: subcommands give --init their own meaning
+            // (e.g. `rune lint --init` generates a lint config file).
+            // Bare `rune --init` still short-circuits to the starter schema
+            // (gated on .compile in main.zig).
+            try filtered.append(alloc, arg);
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--strict" })) {
             want_strict = true;
         } else if (flag_reg.matchesFlag(arg, .{ .long = "--json-errors" })) {
@@ -397,6 +403,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .import_paths = flags.import_paths,
         .summary = flags.want_summary,
         .config_path = flags.config_path,
+        .init_flag = flags.want_init,
     };
 
     // No positional args or starts with a flag: default compile or help

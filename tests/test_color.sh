@@ -4,7 +4,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
-BIN="$ROOT_DIR/rune/zig-out/bin/rune"
+# .exe suffix on Windows/MSYS — the extensionless file is a Linux ELF there.
+case "$OSTYPE" in
+  msys*|cygwin*|win32) BIN="$ROOT_DIR/rune/zig-out/bin/rune.exe" ;;
+  *)                   BIN="$ROOT_DIR/rune/zig-out/bin/rune" ;;
+esac
 
 pass=0
 fail=0

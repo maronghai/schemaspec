@@ -64,14 +64,17 @@ bash tests/test_validate.sh         # Validate command (4 tests)
 bash tests/test_stats_json.sh       # Stats JSON output (3 tests)
 bash tests/test_format.sh           # Formatter golden tests (10 tests)
 bash tests/test_conditionals.sh     # Conditional schema blocks @if(dialect=) (6 tests)
+bash tests/test_composite.sh        # Composite types declarations + embeds (13 tests)
+bash tests/test_template_override.sh  # .rune-template output overrides (10 tests)
+bash tests/test_registry.sh         # rune registry command (Schema Registry, 10 tests)
 bash tests/test_graphql.sh          # GraphQL generator (4 tests)
 bash tests/test_knex.sh             # Knex generator (2 tests)
-bash tests/test_lint.sh             # Lint command golden tests (12 tests)
+bash tests/test_lint.sh             # Lint command golden tests (14 tests)
 bash tests/test_openapi.sh          # OpenAPI generator (3 tests)
 bash tests/test_reverse_mssql.sh    # MSSQL reverse engineering (3 tests)
 bash tests/test_sqlalchemy.sh       # SQLAlchemy generator (2 tests)
 bash tests/test_typeorm.sh          # TypeORM generator (2 tests)
-bash tests/test_coverage.sh         # Full test suite runner (all 25 suites)
+bash tests/test_coverage.sh         # Full test suite runner (all suites)
 ```
 
 Run a single golden test by filter: `bash tests/test.sh 01` (matches test name substring).
@@ -259,7 +262,8 @@ rune/src/
 
 - **DiffConfig / MigrateConfig** (`pipeline/diff.zig`, `pipeline/migrate.zig`): Configuration structs for diff and migrate handlers, replacing 8-11 positional parameters each. Follows the `CompileConfig` pattern. `handleDiff(io, alloc, DiffConfig)`, `handleMigrate(io, alloc, MigrateConfig)`, and `handleReverse(io, alloc, file_data, ReverseConfig)` are the unified entry points.
 
-- **FormatConfig / ExportConfig / StatsConfig** (`pipeline/handlers.zig`): Configuration structs for format, export, and stats handlers, replacing 5-7 positional parameters each. Follows the `CompileConfig` pattern. All handlers now use `io_mod.writeOutput` for consistent I/O instead of mixing `std.debug.print` and `io_mod.writeOutput`.
+- **FormatConfig / ExportConfig / StatsConfig** (`pipeline/handlers.zig`): Configuration structs for format, export, and stats handlers, replacing 5-7 positional parameters each. Follows the `CompileConfig` pattern. All handlers now use `io_mod.writeOutput` for consistent I/O instead of mixing `std.debug.print` and `io_mod.writeOutput`. Output-channel rule (v0.328.0): every standalone command writes to stdout through `writeOutput` regardless of format (stats text included, via `printStatsTo`/`printPerTableStatsTo`); stderr is reserved for diagnostics — inline `-s` stats stay on stderr so the SQL stream on stdout stays pipeable.
+- **Help System Name-Keyed Lookup** (`cli/types.zig`, `cli/help.zig`): `COMMAND_HELP` entries carry a `.command` name field; `printSubcommandHelp` finds them by name (the old position-coupled indexing had drifted and rendered the wrong command's options). A comptime coverage check enforces exactly one help entry per `COMMAND_REGISTRY` command in both directions — adding a command without its help block is a compile error. The lint rule count in help text derives from the LintRule enum at comptime (`LINT_RULE_COUNT`), so it cannot lag the implementation.
 
 - **Config Merge** (`config_merge.zig`): Extracted from `main.zig` for testability. `mergeCliConfig(parsed, cfg)` merges CLI flags with config file defaults (CLI takes precedence). Handles 7 merge cases: dialect, quiet, json_errors, color, target, stream, parallel. Each case has unit tests verifying precedence semantics.
 
@@ -317,7 +321,7 @@ rune/src/
 
 - **Parallel Table Compilation** (`codegen/parallel.zig`): Dependency analysis and concurrent compilation for independent tables using `std.Thread`. `analyzeDependencies()` builds a `DepGraph` from FK references, `topoSort()` produces a valid compilation order, and `compileParallel()` generates SQL in topological order with threaded compilation for independent table groups. Each thread uses its own arena allocator for thread safety. BufferPool provides thread-safe buffer reuse across parallel compilation threads (mutex-protected acquire/release). Falls back to sequential for schemas with <10 tables or fully-dependent tables. CLI flag: `--parallel` (used with `--stream`).
 
-- **Incremental Compilation Cache** (`cache.zig`): Table-level content hash cache for streaming compilation. `TableCache` stores generated SQL keyed by `(table_name, dialect, SHA-256(content_hash))`. Content hash captures columns, FKs, indexes, and engine — everything that affects generated SQL output. Cache is opt-in via `--cache` CLI flag (default off). When enabled, `StreamingCodegen.generateTable()` checks cache before codegen and stores results after. Cache statistics (hits/misses/entries) are reported after compilation. Template inheritance is handled naturally: after resolution, TypedTable has resolved fields, so the hash captures the final state. **Disk persistence**: cache entries are written to `.rune-cache/<dialect>/<hash>.sql` files with a `manifest.json` index for fast lookup. Atomic writes (temp file + rename) ensure crash safety. Custom cache directory via `--cache-dir` flag.
+- **Incremental Compilation Cache** (`cache.zig`): Table-level content hash cache for streaming compilation. `TableCache` stores generated SQL keyed by `(table_name, dialect, SHA-256(content_hash))`. Content hash captures columns, FKs, indexes, and engine — everything that affects generated SQL output. Cache is opt-in via `--cache` CLI flag (default off). When enabled, `StreamingCodegen.generateTable()` checks cache before codegen and stores results after. Cache statistics (hits/misses/entries) are reported after compilation. Template inheritance is handled naturally: after resolution, TypedTable has resolved fields, so the hash captures the final state. **Disk persistence**: cache entries are written to `.rune-cache/<dialect>/<hash>.sql` files with a `manifest.json` index for fast lookup. Atomic writes (temp file + rename) ensure crash safety. Custom cache directory via `--cache-dir` flag. **Ownership invariant (v0.328.0)**: `store()` duplicates table_name/dialect/sql — callers may pass slices into temporary storage; the map key is owned separately from the entry value (replacing an entry frees old value copies but keeps the map-key name). Inline tests include a flush→load disk roundtrip.
 
 ### Module Roles
 
@@ -417,7 +421,7 @@ rune/src/
 
 ### Testing
 
-- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 119 colocated test files wired via `tests.zig` comptime index. Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline tests (private helpers / pass implementations). Run via `zig build test`
+- **Unit tests**: Zig `test` blocks in dedicated `*_test.zig` colocated files alongside production modules. 120 colocated test files wired via `tests.zig` comptime index (which also imports inline tests from production modules — cache.zig, share.zig). Only `diff/fields.zig` and `semantic/pass/*.zig` retain inline-only tests (private helpers / pass implementations). Run via `zig build test`
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 30 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 

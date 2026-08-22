@@ -2,7 +2,11 @@
 # Golden tests for `rune lint` command
 set -euo pipefail
 
-BIN="${TEST_BIN:-./rune/zig-out/bin/rune}"
+# .exe suffix on Windows/MSYS — the extensionless file is a Linux ELF there.
+case "$OSTYPE" in
+  msys*|cygwin*|win32) BIN="${TEST_BIN:-./rune/zig-out/bin/rune.exe}" ;;
+  *)                   BIN="${TEST_BIN:-./rune/zig-out/bin/rune}" ;;
+esac
 DIR="$(cd "$(dirname "$0")" && pwd)"
 LINT_DIR="$DIR/lint"
 PASS=0

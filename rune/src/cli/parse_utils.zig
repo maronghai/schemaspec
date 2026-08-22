@@ -202,6 +202,7 @@ pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
         .import_paths = opts.import_paths,
         .color = opts.color,
         .config_path = opts.config_path,
+        .init_flag = opts.init_flag,
     };
 }
 

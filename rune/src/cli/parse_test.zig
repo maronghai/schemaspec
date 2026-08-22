@@ -287,3 +287,44 @@ test "parseArgs: --init flag" {
     const result = try parse.parseArgs(alloc, &.{ "rune", "--init" });
     try testing.expect(result.init_flag);
 }
+
+// ─── v0.328.0: lint flag plumbing + help coverage + rule count ──
+
+test "parseArgs: lint --show-rules reaches the lint command" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    const result = try parse.parseArgs(alloc, &.{ "rune", "lint", "--show-rules" });
+    try testing.expect(result.command == .lint);
+    try testing.expect(result.command.lint.show_rules);
+}
+
+test "parseArgs: lint --init sets both init paths" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // --init is consumed by the global flag pass AND forwarded to the
+    // subcommand parser; both signals must be set.
+    const result = try parse.parseArgs(alloc, &.{ "rune", "lint", "--init" });
+    try testing.expect(result.command == .lint);
+    try testing.expect(result.init_flag);
+    try testing.expect(result.command.lint.init_config);
+}
+
+test "lint description derives rule count from the enum" {
+    // The help text must never lag the rule implementation.
+    const expected = std.fmt.comptimePrint("Lint schema for quality issues ({d} rules)", .{types.LINT_RULE_COUNT});
+    try testing.expectEqualStrings(expected, types.LINT_DESCRIPTION);
+    try testing.expectEqual(@as(usize, 85), types.LINT_RULE_COUNT);
+}
+
+test "COMMAND_HELP covers every registry command exactly once" {
+    for (types.COMMAND_REGISTRY) |reg| {
+        var count: usize = 0;
+        for (types.COMMAND_HELP) |h| {
+            if (std.mem.eql(u8, h.command, reg.name)) count += 1;
+        }
+        try testing.expectEqual(@as(usize, 1), count);
+    }
+    try testing.expectEqual(types.COMMAND_REGISTRY.len, types.COMMAND_HELP.len);
+}

@@ -1,6 +1,15 @@
+const std = @import("std");
 const dialect_enum = @import("../dialect/enum.zig");
 const enums = @import("../types/enums.zig");
 const color_mod = @import("../color.zig");
+
+/// Single source of truth for the lint rule count shown in help text —
+/// derived from the LintRule enum so it can never drift from the
+/// implementation (rules.zig tests pin RULES.len to this same count).
+pub const LINT_RULE_COUNT = @typeInfo(@import("../lint/rule_enum.zig").LintRule).@"enum".fields.len;
+
+/// Shared lint command description used by both COMMAND_REGISTRY and COMMAND_HELP.
+pub const LINT_DESCRIPTION = std.fmt.comptimePrint("Lint schema for quality issues ({d} rules)", .{LINT_RULE_COUNT});
 
 // ─── Command Types ─────────────────────────────────────────────
 
@@ -90,6 +99,9 @@ pub const GlobalFlags = struct {
     import_paths: []const []const u8,
     summary: bool = false,
     config_path: ?[]const u8 = null,
+    /// Global `--init` was seen. Subcommands give it their own meaning;
+    /// bare `rune --init` short-circuits to the starter schema (main.zig).
+    init_flag: bool = false,
 };
 
 // ─── Command Registry ─────────────────────────────────────────
@@ -114,7 +126,7 @@ pub const COMMAND_REGISTRY = [_]CommandInfo{
     .{ .name = "init", .args = "[name] [--output-dir <dir>] [--template <name>]", .description = "Create a starter .ss schema file" },
     .{ .name = "completions", .args = "<shell>", .description = "Generate shell completions (bash|zsh|fish|powershell)" },
     .{ .name = "hooks", .args = "<type>", .description = "Generate git hooks (pre-commit)" },
-    .{ .name = "lint", .args = "[input.ss] [--fix] [--dry-run] [--strict] [--summary] [--format json|sarif] [--rules <file>]", .description = "Lint schema for quality issues (84 rules)" },
+    .{ .name = "lint", .args = "[input.ss] [--fix] [--dry-run] [--strict] [--summary] [--format json|sarif] [--rules <file>]", .description = LINT_DESCRIPTION },
     .{ .name = "watch", .args = "<input> [--interval <ms>] [--recursive] [--parallel]", .description = "Watch file/directory and recompile on change" },
     .{ .name = "tune", .args = "[input.ss] [--dry-run]", .description = "Extract common fields into templates" },
     .{ .name = "lsp", .args = "", .description = "Start LSP language server (stdio)" },
@@ -131,22 +143,97 @@ pub const KNOWN_FLAGS = [_][]const u8{
     "--config",         "--template",      "--graph",        "--stream",        "--interval",   "--parallel",
     "--generators",     "--from-sql",      "--fix",          "--rules",         "--output-dir", "--recursive",
     "--per-table",      "--include-views", "--diff",         "--write",         "--audit",      "--cache",
-    "--cache-dir",      "--template-dir",  "--share-format", "-F",              "--no-lint",
+    "--cache-dir",      "--template-dir",  "--share-format", "-F",              "--no-lint",    "--show-rules",
 };
 
 // ─── Data-Driven Help System ──────────────────────────────────
-// Per-command help details. Adding a new command = add entry to
-// COMMAND_REGISTRY + add entry to COMMAND_HELP.
+// Per-command help details, keyed by command name (NOT by array position —
+// the two arrays were previously position-coupled and drifted apart, making
+// `rune lint --help` print format's options). Adding a new command = add
+// entry to COMMAND_REGISTRY + add entry to COMMAND_HELP with the same name;
+// the comptime coverage test below enforces both directions.
 
 pub const CommandHelp = struct {
+    /// Command name this entry documents. Must match a COMMAND_REGISTRY name.
+    command: []const u8,
     usage: []const u8,
     description: []const u8,
     options: []const []const u8,
     examples: []const []const u8,
 };
 
+/// Comptime check: every registry command has exactly one COMMAND_HELP entry.
+/// Runs at compile time; any drift is a compile error, not a runtime mis-render.
+const help_coverage_check = blk: {
+    @setEvalBranchQuota(20000);
+    for (COMMAND_REGISTRY) |reg| {
+        var count: usize = 0;
+        for (COMMAND_HELP) |h| {
+            if (std.mem.eql(u8, h.command, reg.name)) count += 1;
+        }
+        if (count != 1) {
+            const msg = "COMMAND_HELP must have exactly one entry for command '" ++ reg.name ++
+                "' (found a different number); help output would be wrong";
+            @compileError(msg);
+        }
+    }
+    break :blk true;
+};
+
 pub const COMMAND_HELP = [_]CommandHelp{
     .{
+        .command = "validate",
+        .usage = "[input.ss]",
+        .description = "Validate .ss schema (no output)",
+        .options = &.{
+            "  -s, --stats     Print compilation statistics",
+            "  --per-table     Show per-table field/constraint breakdown",
+            "  --format        Output format: text (default), json, sarif",
+            "  --verbose-passes Print semantic pass execution details",
+            "  --strict        Treat warnings as errors (for CI/CD)",
+            "  --fix           Auto-fix fixable issues",
+        },
+        .examples = &.{
+            "  rune validate schema.ss              # Validate schema",
+            "  rune validate schema.ss -s           # Validate with stats",
+            "  rune validate schema.ss --fix        # Validate and auto-fix issues",
+            "  rune validate schema.ss --format json # Validate as JSON",
+        },
+    },
+    .{
+        .command = "check",
+        .usage = "[input.ss]",
+        .description = "Check schema validity (exit 1 on error)",
+        .options = &.{
+            "  -s, --stats     Print compilation statistics",
+            "  --format        Output format: text (default), json",
+            "  --verbose-passes Print semantic pass execution details",
+        },
+        .examples = &.{
+            "  rune check schema.ss                 # Check validity",
+            "  rune check schema.ss --format json   # Check as JSON",
+        },
+    },
+    .{
+        .command = "stats",
+        .usage = "[input.ss]",
+        .description = "Print schema statistics (table/field/view counts)",
+        .options = &.{
+            "  --format        Output format: text (default), json, markdown",
+            "  --per-table     Show per-table breakdown",
+            "  --audit         Run schema health analysis with recommendations",
+            "  --min-score N   Exit 1 if health score < N (with --audit, for CI gates)",
+        },
+        .examples = &.{
+            "  rune stats schema.ss                 # Print stats",
+            "  rune stats schema.ss --format json   # Stats as JSON",
+            "  rune stats schema.ss --per-table     # Per-table breakdown",
+            "  rune stats schema.ss --audit         # Schema health audit",
+            "  rune stats schema.ss --audit --min-score 80  # CI quality gate",
+        },
+    },
+    .{
+        .command = "diff",
         .usage = "<old.ss> <new.ss>",
         .description = "Show schema differences",
         .options = &.{
@@ -164,6 +251,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
+        .command = "migrate",
         .usage = "<old.ss> <new.ss> [--name <label>] [--dir <path>] [--incremental] [--graph]",
         .description = "Generate ALTER TABLE migration SQL",
         .options = &.{
@@ -187,6 +275,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
+        .command = "reverse",
         .usage = "[input.sql]",
         .description = "Reverse SQL DDL to .ss schema",
         .options = &.{
@@ -203,6 +292,52 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
+        .command = "docs",
+        .usage = "[input.ss]",
+        .description = "Generate Markdown documentation",
+        .options = &.{
+            "  --format        Output format: markdown (default), json",
+            "  -o, --output    Output file path",
+        },
+        .examples = &.{
+            "  rune docs schema.ss                  # Generate Markdown docs",
+            "  rune docs schema.ss -o out.md        # Write docs to file",
+        },
+    },
+    .{
+        .command = "export",
+        .usage = "[input.ss] [--format json|text|markdown]",
+        .description = "Export schema as structured data",
+        .options = &.{
+            "  --format        Output format: json (default), text, markdown",
+            "  -o, --output    Output file path",
+        },
+        .examples = &.{
+            "  rune export schema.ss                # Export as JSON",
+            "  rune export schema.ss --format text  # Export as text summary",
+        },
+    },
+    .{
+        .command = "format",
+        .usage = "[input.ss] [--check] [--diff] [--write] [--dialect <d>]",
+        .description = "Auto-format .ss schema file",
+        .options = &.{
+            "  --check         Exit 1 if formatting changes are needed",
+            "  --diff          Show formatting differences without applying",
+            "  --write         Format and write back to the input file in-place",
+            "  -d, --dialect   Target SQL dialect for dialect-aware formatting",
+            "  -o, --output    Output file path (default: stdout)",
+        },
+        .examples = &.{
+            "  rune format schema.ss --write            # Format in-place",
+            "  rune format schema.ss --write -d pg      # Format in-place with PostgreSQL keywords",
+            "  rune format schema.ss -o out.ss          # Format to file",
+            "  rune format schema.ss --check            # Check if formatting needed",
+            "  rune format schema.ss --diff             # Show what would change",
+        },
+    },
+    .{
+        .command = "generate",
         .usage = "<generator> [input.ss]",
         .description = "Generate output in specified format",
         .options = &.{
@@ -221,54 +356,8 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
-        .usage = "[input.ss]",
-        .description = "Validate .ss schema (no output)",
-        .options = &.{
-            "  -s, --stats     Print compilation statistics",
-            "  --per-table     Show per-table field/constraint breakdown",
-            "  --format        Output format: text (default), json, sarif",
-            "  --verbose-passes Print semantic pass execution details",
-            "  --strict        Treat warnings as errors (for CI/CD)",
-        },
-        .examples = &.{
-            "  rune validate schema.ss              # Validate schema",
-            "  rune validate schema.ss -s           # Validate with stats",
-            "  rune validate schema.ss --fix        # Validate and auto-fix issues",
-            "  rune validate schema.ss --format json # Validate as JSON",
-        },
-    },
-    .{
-        .usage = "[input.ss]",
-        .description = "Check schema validity (exit 1 on error)",
-        .options = &.{
-            "  -s, --stats     Print compilation statistics",
-            "  --format        Output format: text (default), json",
-            "  --verbose-passes Print semantic pass execution details",
-        },
-        .examples = &.{
-            "  rune check schema.ss                 # Check validity",
-            "  rune check schema.ss --format json   # Check as JSON",
-        },
-    },
-    .{
-        .usage = "[input.ss]",
-        .description = "Print schema statistics (table/field/view counts)",
-        .options = &.{
-            "  --format        Output format: text (default), json, markdown",
-            "  --per-table     Show per-table breakdown",
-            "  --audit         Run schema health analysis with recommendations",
-            "  --min-score N   Exit 1 if health score < N (with --audit, for CI gates)",
-        },
-        .examples = &.{
-            "  rune stats schema.ss                 # Print stats",
-            "  rune stats schema.ss --format json   # Stats as JSON",
-            "  rune stats schema.ss --per-table     # Per-table breakdown",
-            "  rune stats schema.ss --audit         # Schema health audit",
-            "  rune stats schema.ss --audit --min-score 80  # CI quality gate",
-        },
-    },
-    .{
-        .usage = "[input.ss] [--output-dir <dir>] [--template <name>]",
+        .command = "init",
+        .usage = "[name] [--output-dir <dir>] [--template <name>]",
         .description = "Create a starter .ss schema file",
         .options = &.{
             "  -d, --dialect   Target dialect: mysql (default), pg, sqlite, mssql, oracle, db2",
@@ -283,6 +372,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
+        .command = "completions",
         .usage = "<shell>",
         .description = "Generate shell completions (bash|zsh|fish|powershell)",
         .options = &.{},
@@ -292,6 +382,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
+        .command = "hooks",
         .usage = "<type>",
         .description = "Generate git hooks (pre-commit)",
         .options = &.{
@@ -302,8 +393,9 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
-        .usage = "[input.ss] [--fix] [--dry-run] [--strict] [--format json|sarif] [--rules <file>]",
-        .description = "Lint schema for quality issues (84 rules)",
+        .command = "lint",
+        .usage = "[input.ss] [--fix] [--dry-run] [--strict] [--summary] [--format json|sarif] [--rules <file>]",
+        .description = LINT_DESCRIPTION,
         .options = &.{
             "  --json-errors   Output results as JSON (machine-readable)",
             "  --strict        Exit 1 if any warnings found (for CI/CD)",
@@ -328,6 +420,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
+        .command = "watch",
         .usage = "<input> [--interval <ms>] [--recursive] [--parallel]",
         .description = "Watch file/directory and recompile on change",
         .options = &.{
@@ -350,6 +443,7 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
+        .command = "tune",
         .usage = "[input.ss] [--dry-run]",
         .description = "Extract common fields into templates",
         .options = &.{
@@ -361,72 +455,32 @@ pub const COMMAND_HELP = [_]CommandHelp{
         },
     },
     .{
-        .usage = "[input.ss] [--check] [--diff] [--write] [--dialect <d>]",
-        .description = "Auto-format .ss schema file",
-        .options = &.{
-            "  --check         Exit 1 if formatting changes are needed",
-            "  --diff          Show formatting differences without applying",
-            "  --write         Format and write back to the input file in-place",
-            "  -d, --dialect   Target SQL dialect for dialect-aware formatting",
-            "  -o, --output    Output file path (default: stdout)",
-        },
-        .examples = &.{
-            "  rune format schema.ss --write            # Format in-place",
-            "  rune format schema.ss --write -d pg      # Format in-place with PostgreSQL keywords",
-            "  rune format schema.ss -o out.ss          # Format to file",
-            "  rune format schema.ss --check            # Check if formatting needed",
-            "  rune format schema.ss --diff             # Show what would change",
-        },
-    },
-    .{
-        .usage = "[input.ss] [--format json|text|markdown]",
-        .description = "Export schema as structured data",
-        .options = &.{
-            "  --format        Output format: json (default), text, markdown",
-            "  -o, --output    Output file path",
-        },
-        .examples = &.{
-            "  rune export schema.ss                # Export as JSON",
-            "  rune export schema.ss --format text  # Export as text summary",
-        },
-    },
-    .{
+        .command = "lsp",
         .usage = "",
         .description = "Start LSP language server (stdio)",
         .options = &.{},
         .examples = &.{},
     },
     .{
-        .usage = "",
-        .description = "Print version and exit",
+        .command = "share",
+        .usage = "[input.ss] [--share-format url|json|qr] [-F]",
+        .description = "Generate shareable URL for .ss snippet (playground)",
         .options = &.{
-            "  --json          Output version as JSON",
-        },
-        .examples = &.{},
-    },
-    .{
-        .usage = "<init|add|list|show|remove> [args]",
-        .description = "Manage shared template registry",
-        .options = &.{
-            "  init            Initialize local registry directory (~/.rune/registry/)",
-            "  add <name> <path>  Add a template file to the registry",
-            "  list              List available templates with descriptions",
-            "  show <name>       Show template content and metadata",
-            "  remove <name>     Remove a template from the registry",
-            "  -o, --output      Output file path (for show command)",
+            "  -F, --share-format  Output format: url (default), json, qr",
+            "  -o, --output        Output file path (default: stdout)",
         },
         .examples = &.{
-            "  rune registry init                    # Initialize local registry",
-            "  rune registry add my-template template.ss  # Add template",
-            "  rune registry list                    # List templates",
-            "  rune registry show my-template        # Show template details",
-            "  rune registry remove my-template      # Remove template",
+            "  rune share schema.ss                 # Print playground URL",
+            "  rune share schema.ss -F json         # Share data as JSON",
         },
     },
     .{
-        .usage = "[subcommand]",
-        .description = "Show help for a command",
+        .command = "compile-batch",
+        .usage = "<manifest>",
+        .description = "Compile many .ss files in one process (manifest: input<TAB>output<TAB>dialect per line)",
         .options = &.{},
-        .examples = &.{},
+        .examples = &.{
+            "  printf 'a.ss\\ta.sql\\tmysql\\n' > m.tsv && rune compile-batch m.tsv",
+        },
     },
 };

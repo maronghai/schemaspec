@@ -56,6 +56,8 @@ pub const TableCache = struct {
     pub fn deinit(self: *TableCache) void {
         var it = self.entries.iterator();
         while (it.next()) |entry| {
+            self.alloc.free(entry.value_ptr.*.key.table_name);
+            self.alloc.free(entry.value_ptr.*.key.dialect);
             self.alloc.free(entry.value_ptr.*.sql);
         }
         self.entries.deinit(self.alloc);
@@ -146,14 +148,31 @@ pub const TableCache = struct {
     }
 
     /// Store a table's SQL in the in-memory cache.
+    /// The key's table_name and dialect are duplicated — callers may pass
+    /// slices backed by temporary storage (e.g. loadFromDisk's manifest buffer).
     pub fn store(self: *TableCache, key: CacheKey, sql: []const u8) !void {
+        const owned_dialect = try self.alloc.dupe(u8, key.dialect);
+        errdefer self.alloc.free(owned_dialect);
         const owned_sql = try self.alloc.dupe(u8, sql);
+        errdefer self.alloc.free(owned_sql);
+
         const gop = try self.entries.getOrPut(self.alloc, key.table_name);
+        if (!gop.found_existing) {
+            // New entry: the map needs its own copy of the table name.
+            const owned_name = try self.alloc.dupe(u8, key.table_name);
+            gop.key_ptr.* = owned_name;
+        }
         if (gop.found_existing) {
+            // Replace in place — the map key (old table-name copy) stays valid.
             self.alloc.free(gop.value_ptr.sql);
+            self.alloc.free(gop.value_ptr.key.dialect);
         }
         gop.value_ptr.* = .{
-            .key = key,
+            .key = .{
+                .table_name = gop.key_ptr.*,
+                .dialect = owned_dialect,
+                .content_hash = key.content_hash,
+            },
             .sql = owned_sql,
         };
     }
@@ -266,52 +285,78 @@ pub const TableCache = struct {
         defer self.alloc.free(content);
 
         // Parse simple JSON manifest: {"entries":{"table":{"dialect":"mysql","hash":"abc..."}}}
-        // Simple parser — doesn't need full JSON library
+        // Cursor-based parser: after skipping the "entries" wrapper, each
+        // iteration reads table_name (key), then dialect and hash values.
         var pos: usize = 0;
+
+        // Skip to the inner entries object: find "entries" then its '{'
+        skipToChar(content, &pos, '{'); // outer {
+        if (!skipPastString(content, &pos, "entries")) return;
+        skipToChar(content, &pos, '{'); // inner {
+
         while (pos < content.len) {
-            // Find table name (key in outer object)
-            if (findJsonString(content, &pos)) |table_name| {
-                // Skip : and {
-                skipToChar(content, &pos, ':');
-                skipToChar(content, &pos, '{');
+            // Table name is the object key: "orders" : { ... }
+            skipWhitespace(content, &pos);
+            if (pos >= content.len or content[pos] == '}') break;
+            const table_name = findJsonString(content, &pos) orelse break;
+            skipToChar(content, &pos, '{');
 
-                // Find dialect
-                if (findJsonString(content, &pos)) |dialect| {
-                    // Skip : and "
-                    skipToChar(content, &pos, ':');
-                    skipToChar(content, &pos, '"');
+            // Inside: "dialect" : "pg", "hash" : "..."
+            const dialect_key = findJsonString(content, &pos) orelse break;
+            if (!std.mem.eql(u8, dialect_key, "dialect")) break;
+            skipToChar(content, &pos, '"');
+            pos -= 1; // findJsonString expects to consume the opening quote itself
+            const dialect = findJsonString(content, &pos) orelse break;
+            skipToChar(content, &pos, ',');
 
-                    // Find hash value
-                    if (readJsonValue(content, &pos)) |hash| {
-                        // Build file path and load SQL
-                        var file_buf: [68]u8 = undefined;
-                        var hash_bytes: [64]u8 = undefined;
-                        const hash_len = @min(hash.len, 64);
-                        @memcpy(hash_bytes[0..hash_len], hash[0..hash_len]);
-                        if (hash_len < 64) {
-                            @memset(hash_bytes[hash_len..64], '0');
-                        }
+            const hash_key = findJsonString(content, &pos) orelse break;
+            if (!std.mem.eql(u8, hash_key, "hash")) break;
+            skipToChar(content, &pos, '"');
+            pos -= 1;
+            const hash = findJsonString(content, &pos) orelse break;
 
-                        const key = CacheKey{
-                            .table_name = table_name,
-                            .dialect = dialect,
-                            .content_hash = hash_bytes,
-                        };
-                        key.fileName(&file_buf);
-
-                        var dialect_buf: [256]u8 = undefined;
-                        const dialect_path = std.fmt.bufPrint(&dialect_buf, "{s}/{s}", .{ dir, dialect }) catch continue;
-                        const file_path = std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ dialect_path, &file_buf }) catch continue;
-                        defer self.alloc.free(file_path);
-
-                        const sql = std.Io.Dir.cwd().readFileAlloc(self.io, file_path, self.alloc, .unlimited) catch continue;
-                        _ = self.store(key, sql) catch continue;
-                    }
-                }
-            } else {
-                break;
+            // Build file path and load SQL
+            var file_buf: [68]u8 = undefined;
+            var hash_bytes: [64]u8 = undefined;
+            const hash_len = @min(hash.len, 64);
+            @memcpy(hash_bytes[0..hash_len], hash[0..hash_len]);
+            if (hash_len < 64) {
+                @memset(hash_bytes[hash_len..64], '0');
             }
+
+            const key = CacheKey{
+                .table_name = table_name,
+                .dialect = dialect,
+                .content_hash = hash_bytes,
+            };
+            key.fileName(&file_buf);
+
+            var dialect_buf: [256]u8 = undefined;
+            const dialect_path = std.fmt.bufPrint(&dialect_buf, "{s}/{s}", .{ dir, dialect }) catch continue;
+            const file_path = std.fmt.allocPrint(self.alloc, "{s}/{s}", .{ dialect_path, &file_buf }) catch continue;
+            defer self.alloc.free(file_path);
+
+            const sql = std.Io.Dir.cwd().readFileAlloc(self.io, file_path, self.alloc, .unlimited) catch continue;
+            defer self.alloc.free(sql);
+            _ = self.store(key, sql) catch continue;
+
+            // Advance past this entry's closing brace
+            skipToChar(content, &pos, '}');
         }
+    }
+
+    fn skipWhitespace(content: []const u8, pos: *usize) void {
+        while (pos.* < content.len and (content[pos.*] == ' ' or content[pos.*] == '\n' or content[pos.*] == '\t')) : (pos.* += 1) {}
+    }
+
+    /// Advance pos past the string `needle` (which must appear as a JSON string).
+    fn skipPastString(content: []const u8, pos: *usize, needle: []const u8) bool {
+        while (pos.* < content.len) {
+            if (findJsonString(content, pos)) |s| {
+                if (std.mem.eql(u8, s, needle)) return true;
+            } else return false;
+        }
+        return false;
     }
 
     /// Helper: find next JSON string value starting at pos. Returns slice of string content.
@@ -556,4 +601,32 @@ test "store replaces existing entry" {
     try std.testing.expect(result != null);
     try std.testing.expectEqualStrings("SQL v2", result.?);
     try std.testing.expectEqual(@as(u32, 1), cache.stats().entries);
+}
+
+test "flushToDisk + loadFromDisk roundtrips entries" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+    var path_buf: [std.fs.max_path_bytes]u8 = undefined;
+    const tmp_abs_len = try tmp.dir.realPath(std.testing.io, &path_buf);
+    const dir_path = try std.testing.allocator.dupe(u8, path_buf[0..tmp_abs_len]);
+    defer std.testing.allocator.free(dir_path);
+
+    const key = testKey("orders", "pg", "bbb");
+
+    {
+        var cache = TableCache.init(std.testing.allocator, std.testing.io);
+        defer cache.deinit();
+        cache.cache_dir = dir_path;
+        try cache.store(key, "CREATE TABLE orders (id BIGINT);");
+        cache.flushToDisk();
+    }
+
+    // Fresh instance loads what the first one flushed.
+    var loaded = TableCache.init(std.testing.allocator, std.testing.io);
+    defer loaded.deinit();
+    loaded.loadFromDisk(dir_path);
+
+    const sql = loaded.lookup(key);
+    try std.testing.expect(sql != null);
+    try std.testing.expectEqualStrings("CREATE TABLE orders (id BIGINT);", sql.?);
 }
