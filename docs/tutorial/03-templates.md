@@ -11,20 +11,9 @@ Master templates (`%`) — reusable field sets with inheritance and slot-based c
 Repeating common fields across tables (timestamps, soft-delete, audit trail) is error-prone.
 
 ```ss
-# users
-  id n++
-  name s100
-  created_at t
-  updated_at t
-  deleted_at t?
-
-# posts
-  id n++
-  title s200
-  created_at t
-  updated_at t
-  deleted_at t?
 ```
+
+[▶ Open in Playground](../../playground/index.html#IyB1c2VycwogIGlkIG4rKwogIG5hbWUgczEwMAogIGNyZWF0ZWRfYXQgdAogIHVwZGF0ZWRfYXQgdAogIGRlbGV0ZWRfYXQgdD8KCiMgcG9zdHMKICBpZCBuKysKICB0aXRsZSBzMjAwCiAgY3JlYXRlZF9hdCB0CiAgdXBkYXRlZF9hdCB0CiAgZGVsZXRlZF9hdCB0Pw)
 
 ## Template Declaration
 
@@ -35,10 +24,6 @@ Repeating common fields across tables (timestamps, soft-delete, audit trail) is 
 ```
 
 ```ss
-% timestamps
-  created_at t
-  updated_at t
-  ...
 ```
 
 The `...` (slot marker) controls where **child fields** are injected.
@@ -50,19 +35,9 @@ The `...` (slot marker) controls where **child fields** are injected.
 ```
 
 ```ss
-% timestamps
-  created_at t
-  updated_at t
-  ...
-
-# timestamps users
-  id n++
-  name s100
-
-# timestamps posts
-  id n++
-  title s200
 ```
+
+[▶ Open in Playground](../../playground/index.html#JSB0aW1lc3RhbXBzCiAgY3JlYXRlZF9hdCB0CiAgdXBkYXRlZF9hdCB0CiAgLi4uCgojIHRpbWVzdGFtcHMgdXNlcnMKICBpZCBuKysKICBuYW1lIHMxMDAKCiMgdGltZXN0YW1wcyBwb3N0cwogIGlkIG4rKwogIHRpdGxlIHMyMDA)
 
 ### Compiled Output
 
@@ -98,22 +73,9 @@ title varchar(200) NOT NULL
 **Merge order**: `a` (parent before) → `x, y` (child) → `b` (parent after)
 
 ```ss
-% audit
-  created_by n
-  created_at t
-  ...
-  updated_by n
-  updated_at t
-
-% soft_delete
-  deleted_at t?
-  deleted_by n?
-  ...
-
-# audit + soft_delete users
-  id n++
-  name s100
 ```
+
+[▶ Open in Playground](../../playground/index.html#JSBhdWRpdAogIGNyZWF0ZWRfYnkgbgogIGNyZWF0ZWRfYXQgdAogIC4uLgogIHVwZGF0ZWRfYnkgbgogIHVwZGF0ZWRfYXQgdAoKJSBzb2Z0X2RlbGV0ZQogIGRlbGV0ZWRfYXQgdD8KICBkZWxldGVkX2J5IG4_CiAgLi4uCgojIGF1ZGl0ICsgc29mdF9kZWxldGUgdXNlcnMKICBpZCBuKysKICBuYW1lIHMxMDA)
 
 **Result order**: `created_by`, `created_at`, `id`, `name`, `deleted_at`, `deleted_by`, `updated_by`, `updated_at`
 
@@ -128,56 +90,27 @@ title varchar(200) NOT NULL
 Max 4 parents via `+` syntax.
 
 ```ss
-% base
-  id n++
-  ...
-
-% timestamps
-  created_at t
-  updated_at t
-  ...
-
-% soft_delete
-  deleted_at t?
-  ...
-
-% full_audit > base + timestamps + soft_delete
-  created_by n
-  updated_by n
-  ...
-
-# full_audit users
-  name s100
-  email s@u
 ```
+
+[▶ Open in Playground](../../playground/index.html#JSBiYXNlCiAgaWQgbisrCiAgLi4uCgolIHRpbWVzdGFtcHMKICBjcmVhdGVkX2F0IHQKICB1cGRhdGVkX2F0IHQKICAuLi4KCiUgc29mdF9kZWxldGUKICBkZWxldGVkX2F0IHQ_CiAgLi4uCgolIGZ1bGxfYXVkaXQgPiBiYXNlICsgdGltZXN0YW1wcyArIHNvZnRfZGVsZXRlCiAgY3JlYXRlZF9ieSBuCiAgdXBkYXRlZF9ieSBuCiAgLi4uCgojIGZ1bGxfYXVkaXQgdXNlcnMKICBuYW1lIHMxMDAKICBlbWFpbCBzQHU)
 
 ## Template Type Conflicts
 
 If parent and child define the same field name with different types, the **child wins** and a warning is emitted.
 
 ```ss
-% base
-  id n++
-  ...
-
-% derived > base
-  id s++      # WARNING: type conflict (n vs s), child 's' wins
-  name s100
 ```
+
+[▶ Open in Playground](../../playground/index.html#JSBiYXNlCiAgaWQgbisrCiAgLi4uCgolIGRlcml2ZWQgPiBiYXNlCiAgaWQgcysrICAgICAgIyBXQVJOSU5HOiB0eXBlIGNvbmZsaWN0IChuIHZzIHMpLCBjaGlsZCAncycgd2lucwogIG5hbWUgczEwMA)
 
 ## Template Without Slot (`...`)
 
 If a template has no `...`, its fields are **prepended** to the child table.
 
 ```ss
-% prefix_only
-  tenant_id n
-  shard_id n
-
-# prefix_only users
-  id n++
-  name s100
 ```
+
+[▶ Open in Playground](../../playground/index.html#JSBwcmVmaXhfb25seQogIHRlbmFudF9pZCBuCiAgc2hhcmRfaWQgbgoKIyBwcmVmaXhfb25seSB1c2VycwogIGlkIG4rKwogIG5hbWUgczEwMA)
 
 Result: `tenant_id`, `shard_id`, `id`, `name`
 
@@ -185,40 +118,9 @@ Result: `tenant_id`, `shard_id`, `id`, `name`
 
 Create `exercise3.ss`:
 ```ss
-$ saas utf8mb4
-
-% timestamps
-  created_at t
-  updated_at t
-  ...
-
-% soft_delete
-  deleted_at t?
-  deleted_by n?
-  ...
-
-% audit > timestamps
-  created_by n
-  updated_by n
-  ...
-
-% base
-  id n++
-  ...
-
-% entity > base + audit + soft_delete
-  ...
-
-# entity users
-  email s255@u
-  name s100
-  status e('active','inactive','suspended') = 'active'
-
-# entity organizations
-  name s100
-  slug s64@u
-  plan e('free','pro','enterprise') = 'free'
 ```
+
+[▶ Open in Playground](../../playground/index.html#JCBzYWFzIHV0ZjhtYjQKCiUgdGltZXN0YW1wcwogIGNyZWF0ZWRfYXQgdAogIHVwZGF0ZWRfYXQgdAogIC4uLgoKJSBzb2Z0X2RlbGV0ZQogIGRlbGV0ZWRfYXQgdD8KICBkZWxldGVkX2J5IG4_CiAgLi4uCgolIGF1ZGl0ID4gdGltZXN0YW1wcwogIGNyZWF0ZWRfYnkgbgogIHVwZGF0ZWRfYnkgbgogIC4uLgoKJSBiYXNlCiAgaWQgbisrCiAgLi4uCgolIGVudGl0eSA-IGJhc2UgKyBhdWRpdCArIHNvZnRfZGVsZXRlCiAgLi4uCgojIGVudGl0eSB1c2VycwogIGVtYWlsIHMyNTVAdQogIG5hbWUgczEwMAogIHN0YXR1cyBlKCdhY3RpdmUnLCdpbmFjdGl2ZScsJ3N1c3BlbmRlZCcpID0gJ2FjdGl2ZScKCiMgZW50aXR5IG9yZ2FuaXphdGlvbnMKICBuYW1lIHMxMDAKICBzbHVnIHM2NEB1CiAgcGxhbiBlKCdmcmVlJywncHJvJywnZW50ZXJwcmlzZScpID0gJ2ZyZWUn)
 
 Compile and verify field order:
 ```bash

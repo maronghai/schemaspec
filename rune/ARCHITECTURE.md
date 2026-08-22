@@ -625,7 +625,7 @@ The LSP server (`rune lsp`) provides IDE integration via JSON-RPC over stdio. It
 | `lsp/completions.zig` | ~250 | Context-sensitive completion (keywords, types, modifiers) |
 | `lsp/hover.zig` | ~200 | Hover info (table stats, column types, FK relationships) |
 | `lsp/go_to_definition.zig` | ~50 | Navigate FK references to target tables |
-| `lsp/code_actions.zig` | ~150 | Quick fixes (add PK, add comment, snake_case, FK index) |
+| `lsp/code_actions.zig` | ~150 | Quick fixes (add PK, add comment, snake_case, FK index). All actions are built via `appendCodeAction`, which heap-copies changes/diagnostics — anonymous struct literals there held dangling stack pointers (fixed v0.323.0) |
 | `lsp/rename.zig` | ~130 | Symbol rename with reference tracking |
 | `lsp/references.zig` | ~100 | Find all references to a table or column name |
 | `lsp/highlights.zig` | ~100 | Document highlights — highlight all occurrences of symbol under cursor |

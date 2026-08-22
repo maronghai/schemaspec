@@ -11,6 +11,34 @@ const lineNoToZeroBased = helpers.lineNoToZeroBased;
 
 // ─── Code Actions ──────────────────────────────────────────
 
+/// Append one code action, deep-copying the edit's changes slice and the
+/// diagnostics slice onto the heap. The anonymous-literal form
+/// (`changes = &.{...}`) materializes a stack temporary that dies at the end
+/// of the append statement — every action built that way carried a dangling
+/// pointer that corrupted the JSON serialized to the editor (and crashed
+/// tests that free the action). Ownership: `new_text` strings stay owned by
+/// the caller-side allocator and are freed by freeCodeActions.
+fn appendCodeAction(
+    alloc: std.mem.Allocator,
+    actions: *std.ArrayList(CodeAction),
+    title: []const u8,
+    diag: ?Diagnostic,
+    range: Range,
+    new_text: []const u8,
+) void {
+    const changes = alloc.dupe(TextEdit, &.{.{ .range = range, .new_text = new_text }}) catch return;
+    const diags: ?[]const Diagnostic = if (diag) |d| alloc.dupe(Diagnostic, &.{d}) catch null else null;
+    actions.append(alloc, .{
+        .title = title,
+        .kind = .quick_fix,
+        .diagnostics = diags,
+        .edit = .{ .changes = changes },
+    }) catch {
+        alloc.free(changes);
+        if (diags) |d| alloc.free(d);
+    };
+}
+
 /// Generate code actions (quick fixes) for a given range and diagnostics.
 pub fn getCodeActions(
     alloc: std.mem.Allocator,
@@ -34,15 +62,7 @@ pub fn getCodeActions(
                     new_text_buf.writer.print("{s} ++", .{first_col.name}) catch continue;
                     const new_text = new_text_buf.toOwnedSlice() catch continue;
 
-                    actions.append(alloc, .{
-                        .title = "Add primary key to first column",
-                        .kind = .quick_fix,
-                        .diagnostics = &.{diag},
-                        .edit = .{ .changes = &.{.{
-                            .range = makeRange(col_line, 0, col_line, @intCast(first_col.name.len)),
-                            .new_text = new_text,
-                        }} },
-                    }) catch {};
+                    appendCodeAction(alloc, &actions, "Add primary key to first column", diag, makeRange(col_line, 0, col_line, @intCast(first_col.name.len)), new_text);
                     break;
                 }
             }
@@ -56,15 +76,8 @@ pub fn getCodeActions(
                 const table_line = lineNoToZeroBased(table.line_no);
                 if (table_line == diag.range.start.line) {
                     const name_end: u32 = @intCast(table.name.len);
-                    actions.append(alloc, .{
-                        .title = "Add table comment",
-                        .kind = .quick_fix,
-                        .diagnostics = &.{diag},
-                        .edit = .{ .changes = &.{.{
-                            .range = makeRange(table_line, name_end, table_line, name_end),
-                            .new_text = alloc.dupe(u8, " # Add a description here") catch continue,
-                        }} },
-                    }) catch {};
+                    const duped = alloc.dupe(u8, " # Add a description here") catch continue;
+                    appendCodeAction(alloc, &actions, "Add table comment", diag, makeRange(table_line, name_end, table_line, name_end), duped);
                     break;
                 }
             }
@@ -77,15 +90,7 @@ pub fn getCodeActions(
                 if (std.mem.indexOf(u8, rest, "\"")) |end_q| {
                     const name = rest[0..end_q];
                     const snake = toSnakeCase(alloc, name) catch continue;
-                    actions.append(alloc, .{
-                        .title = "Rename to snake_case",
-                        .kind = .quick_fix,
-                        .diagnostics = &.{diag},
-                        .edit = .{ .changes = &.{.{
-                            .range = diag.range,
-                            .new_text = snake,
-                        }} },
-                    }) catch {};
+                    appendCodeAction(alloc, &actions, "Rename to snake_case", diag, diag.range, snake);
                 }
             }
         }
@@ -102,15 +107,8 @@ pub fn getCodeActions(
                     if (table.columns.len > 0) {
                         last_col_line = lineNoToZeroBased(table.columns[table.columns.len - 1].line_no);
                     }
-                    actions.append(alloc, .{
-                        .title = "Add created_at and updated_at timestamps",
-                        .kind = .quick_fix,
-                        .diagnostics = &.{diag},
-                        .edit = .{ .changes = &.{.{
-                            .range = makeRange(last_col_line, 0, last_col_line, 0),
-                            .new_text = alloc.dupe(u8, "  created_at t @u\n  updated_at t @u\n") catch continue,
-                        }} },
-                    }) catch {};
+                    const duped = alloc.dupe(u8, "  created_at t @u\n  updated_at t @u\n") catch continue;
+                    appendCodeAction(alloc, &actions, "Add created_at and updated_at timestamps", diag, makeRange(last_col_line, 0, last_col_line, 0), duped);
                     break;
                 }
             }
@@ -127,15 +125,8 @@ pub fn getCodeActions(
                         const col_name_end: u32 = @intCast(col.name.len);
                         // Find the end of the line
                         const line_end: u32 = diag.range.end.character;
-                        actions.append(alloc, .{
-                            .title = "Add default value (false)",
-                            .kind = .quick_fix,
-                            .diagnostics = &.{diag},
-                            .edit = .{ .changes = &.{.{
-                                .range = makeRange(col_line, col_name_end, col_line, line_end),
-                                .new_text = std.fmt.allocPrint(alloc, "{s} = false", .{col.name}) catch continue,
-                            }} },
-                        }) catch {};
+                        const new_text = std.fmt.allocPrint(alloc, "{s} = false", .{col.name}) catch continue;
+                        appendCodeAction(alloc, &actions, "Add default value (false)", diag, makeRange(col_line, col_name_end, col_line, line_end), new_text);
                         break;
                     }
                 }
@@ -152,15 +143,8 @@ pub fn getCodeActions(
                         const col_line = lineNoToZeroBased(col.line_no);
                         const col_name_end: u32 = @intCast(col.name.len);
                         const line_end: u32 = diag.range.end.character;
-                        actions.append(alloc, .{
-                            .title = "Add default value (null)",
-                            .kind = .quick_fix,
-                            .diagnostics = &.{diag},
-                            .edit = .{ .changes = &.{.{
-                                .range = makeRange(col_line, col_name_end, col_line, line_end),
-                                .new_text = std.fmt.allocPrint(alloc, "{s} = null", .{col.name}) catch continue,
-                            }} },
-                        }) catch {};
+                        const new_text = std.fmt.allocPrint(alloc, "{s} = null", .{col.name}) catch continue;
+                        appendCodeAction(alloc, &actions, "Add default value (null)", diag, makeRange(col_line, col_name_end, col_line, line_end), new_text);
                         break;
                     }
                 }
@@ -175,17 +159,8 @@ pub fn getCodeActions(
                 for (table.columns) |col| {
                     if (col.sql_type == .serial) {
                         const col_line = lineNoToZeroBased(col.line_no);
-                        actions.append(alloc, .{
-                            .title = "Replace serial with int auto_increment",
-                            .kind = .quick_fix,
-                            .diagnostics = &.{diag},
-                            .edit = .{
-                                .changes = &.{.{
-                                    .range = makeRange(col_line, 0, col_line, @intCast(col.name.len + 8)), // name + " serial"
-                                    .new_text = std.fmt.allocPrint(alloc, "{s} n ++", .{col.name}) catch continue,
-                                }},
-                            },
-                        }) catch {};
+                        const new_text = std.fmt.allocPrint(alloc, "{s} n ++", .{col.name}) catch continue;
+                        appendCodeAction(alloc, &actions, "Replace serial with int auto_increment", diag, makeRange(col_line, 0, col_line, @intCast(col.name.len + 8)), new_text); // name + " serial"
                         break;
                     }
                 }
@@ -194,15 +169,8 @@ pub fn getCodeActions(
 
         // Duplicate index suggestion
         if (std.mem.indexOf(u8, diag.message, "duplicate index") != null) {
-            actions.append(alloc, .{
-                .title = "Remove duplicate index",
-                .kind = .quick_fix,
-                .diagnostics = &.{diag},
-                .edit = .{ .changes = &.{.{
-                    .range = diag.range,
-                    .new_text = alloc.dupe(u8, "") catch continue,
-                }} },
-            }) catch {};
+            const duped = alloc.dupe(u8, "") catch continue;
+            appendCodeAction(alloc, &actions, "Remove duplicate index", diag, diag.range, duped);
         }
     }
 
@@ -236,14 +204,8 @@ pub fn getCodeActions(
                     if (std.mem.eql(u8, col.name, fk_col)) {
                         const col_line = lineNoToZeroBased(col.line_no);
                         const col_name_end: u32 = @intCast(col.name.len);
-                        actions.append(alloc, .{
-                            .title = "Add index for FK column",
-                            .kind = .quick_fix,
-                            .edit = .{ .changes = &.{.{
-                                .range = makeRange(col_line, col_name_end, col_line, col_name_end),
-                                .new_text = alloc.dupe(u8, " +") catch continue,
-                            }} },
-                        }) catch {};
+                        const duped = alloc.dupe(u8, " +") catch continue;
+                        appendCodeAction(alloc, &actions, "Add index for FK column", null, makeRange(col_line, col_name_end, col_line, col_name_end), duped);
                         break;
                     }
                 }
@@ -254,14 +216,17 @@ pub fn getCodeActions(
     return actions.toOwnedSlice(alloc) catch &.{};
 }
 
-/// Free all allocations owned by code actions.
+/// Free all allocations owned by code actions: each change's new_text, the
+/// changes slices, the diagnostics slices, and the action array itself.
 pub fn freeCodeActions(alloc: std.mem.Allocator, actions: []CodeAction) void {
     for (actions) |*action| {
+        if (action.diagnostics) |diags| alloc.free(diags);
         if (action.edit) |edit| {
             if (edit.changes) |changes| {
                 for (changes) |*change| {
                     alloc.free(change.new_text);
                 }
+                alloc.free(changes);
             }
         }
     }

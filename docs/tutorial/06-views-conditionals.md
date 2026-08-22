@@ -16,30 +16,13 @@ Learn view declarations and dialect-conditional schema blocks.
 ### Basic View
 
 ```ss
-# users
-  id n++
-  name s100
-  email s255@u
-  active b = true
-  created_at t
-
-& active_users = SELECT id, name, email FROM users WHERE active = 1
 ```
+
+[▶ Open in Playground](../../playground/index.html#IyB1c2VycwogIGlkIG4rKwogIG5hbWUgczEwMAogIGVtYWlsIHMyNTVAdQogIGFjdGl2ZSBiID0gdHJ1ZQogIGNyZWF0ZWRfYXQgdAoKJiBhY3RpdmVfdXNlcnMgPSBTRUxFQ1QgaWQsIG5hbWUsIGVtYWlsIEZST00gdXNlcnMgV0hFUkUgYWN0aXZlID0gMQ)
 
 ### Set Operations
 
 ```ss
-& all_accounts = SELECT id, name, 'user' AS type FROM users
-  UNION ALL
-  SELECT id, name, 'admin' AS type FROM admins
-
-& common_roles = SELECT role FROM user_roles
-  INTERSECT
-  SELECT role FROM admin_roles
-
-& unique_to_users = SELECT role FROM user_roles
-  EXCEPT
-  SELECT role FROM admin_roles
 ```
 
 Supported: `UNION`, `UNION ALL`, `INTERSECT`, `EXCEPT` (top-level, outside string literals).
@@ -79,29 +62,9 @@ Fields inside `@if` blocks are only included when compiling for matching dialect
 ### Example: Dialect-Specific Features
 
 ```ss
-# users
-  id n++
-  name s100
-  email s255@u
-
-@if(dialect=pg)
-  bio t
-  avatar B
-  search_vector j
-@endif
-
-@if(dialect=mysql)
-  bio S
-  avatar B
-@endif
-
-@if(dialect=sqlite)
-  bio S
-  avatar B
-@endif
-
-  status s16 = 'active'
 ```
+
+[▶ Open in Playground](../../playground/index.html#IyB1c2VycwogIGlkIG4rKwogIG5hbWUgczEwMAogIGVtYWlsIHMyNTVAdQoKQGlmKGRpYWxlY3Q9cGcpCiAgYmlvIHQKICBhdmF0YXIgQgogIHNlYXJjaF92ZWN0b3IgagpAZW5kaWYKCkBpZihkaWFsZWN0PW15c3FsKQogIGJpbyBTCiAgYXZhdGFyIEIKQGVuZGlmCgpAaWYoZGlhbGVjdD1zcWxpdGUpCiAgYmlvIFMKICBhdmF0YXIgQgpAZW5kaWYKCiAgc3RhdHVzIHMxNiA9ICdhY3RpdmUn)
 
 ### Compile for Different Dialects
 
@@ -114,12 +77,6 @@ rune schema.ss -d sqlite # includes bio, avatar
 ### Nested Conditionals
 
 ```ss
-@if(dialect=pg|mysql)
-  @if(dialect=pg)
-    pg_only_field t
-  @endif
-  shared_field n
-@endif
 ```
 
 > **Note**: Conditionals are resolved after template merging, before type resolution.
@@ -141,39 +98,9 @@ Flows through AST → ResolvedAst → TypedAst for forward/backward compatibilit
 
 Create `exercise6.ss`:
 ```ss
-$ analytics utf8mb4
-
-@version 2.1.0
-
-# events
-  id n++
-  user_id n > users.id
-  event_type s64
-  payload j
-  created_at t
-
-@if(dialect=pg)
-  search_vec j
-  geo_point I
-@endif
-
-@if(dialect=mysql|sqlite)
-  geo_lat n
-  geo_lng n
-@endif
-
-# users
-  id n++
-  email s255@u
-  name s100
-
-& recent_events = SELECT e.*, u.email
-  FROM events e
-  JOIN users u ON e.user_id = u.id
-  WHERE e.created_at > NOW() - INTERVAL 7 DAY
-
-& event_types = SELECT DISTINCT event_type FROM events
 ```
+
+[▶ Open in Playground](../../playground/index.html#JCBhbmFseXRpY3MgdXRmOG1iNAoKQHZlcnNpb24gMi4xLjAKCiMgZXZlbnRzCiAgaWQgbisrCiAgdXNlcl9pZCBuID4gdXNlcnMuaWQKICBldmVudF90eXBlIHM2NAogIHBheWxvYWQgagogIGNyZWF0ZWRfYXQgdAoKQGlmKGRpYWxlY3Q9cGcpCiAgc2VhcmNoX3ZlYyBqCiAgZ2VvX3BvaW50IEkKQGVuZGlmCgpAaWYoZGlhbGVjdD1teXNxbHxzcWxpdGUpCiAgZ2VvX2xhdCBuCiAgZ2VvX2xuZyBuCkBlbmRpZgoKIyB1c2VycwogIGlkIG4rKwogIGVtYWlsIHMyNTVAdQogIG5hbWUgczEwMAoKJiByZWNlbnRfZXZlbnRzID0gU0VMRUNUIGUuKiwgdS5lbWFpbAogIEZST00gZXZlbnRzIGUKICBKT0lOIHVzZXJzIHUgT04gZS51c2VyX2lkID0gdS5pZAogIFdIRVJFIGUuY3JlYXRlZF9hdCA-IE5PVygpIC0gSU5URVJWQUwgNyBEQVkKCiYgZXZlbnRfdHlwZXMgPSBTRUxFQ1QgRElTVElOQ1QgZXZlbnRfdHlwZSBGUk9NIGV2ZW50cw)
 
 Compile for all dialects:
 ```bash

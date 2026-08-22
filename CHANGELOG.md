@@ -1,3 +1,11 @@
+## [0.323.0] - 2026-08-22
+
+### Fixed
+- **LSP code actions: dangling stack pointers (production bug)** - all nine getCodeActions construction sites built actions with anonymous struct literals. Literals containing runtime values materialize as stack temporaries that die at the end of the append statement, so every emitted action carried a dangling pointer into dead stack memory. Consequences: the JSON serialized to the editor (handleCodeAction) read garbage (intermittent mojibake/crashes in editors), and freeing an action segfaulted - which is what the long-standing Windows-only CodeActions FK index suggestion test crash actually was. Fix: a single appendCodeAction helper deep-copies changes and diagnostics onto the allocator; freeCodeActions now also frees those slices; append-failure paths free partial allocations. zig build test is green for the first time on Windows: 2051/2051.
+
+### Added
+- **Interactive tutorial wiring** (completes Phase 14's tutorial item): all 33 compilable ss blocks across docs/tutorial chapters 01-06 carry an Open-in-Playground link that preloads the snippet via the playground hash (verified end-to-end in-browser).
+- zig build golden-tests now runs the full coverage runner (test_coverage.sh --fast --serial, all 37 suites) instead of glob-invoking each script.
 ## [0.322.0] - 2026-08-22
 
 ### Added

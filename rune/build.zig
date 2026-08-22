@@ -90,7 +90,10 @@ pub fn build(b: *std.Build) void {
     // The golden tests are shell scripts in tests/ — run them via bash
     // Use b.pathFromRoot to construct the correct path relative to the build file's directory
     const parent_dir = b.pathFromRoot("..");
-    const run_golden_sh = b.addSystemCommand(&.{ "bash", "-c", b.fmt("cd {s} && for t in tests/test_*.sh; do echo \"Running $t...\"; bash \"$t\" || exit 1; done", .{parent_dir}) });
+    // Run the full coverage runner (all 37 suites, serial for readable output).
+    // Suites internally use `rune compile-batch` + awk diffing; this step just
+    // needs bash, matching what CI's Linux shards execute.
+    const run_golden_sh = b.addSystemCommand(&.{ "bash", "-c", b.fmt("cd {s} && bash tests/test_coverage.sh --fast --serial", .{parent_dir}) });
     run_golden_sh.step.dependOn(b.getInstallStep());
     golden_step.dependOn(&run_golden_sh.step);
 

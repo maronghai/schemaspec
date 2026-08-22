@@ -22,18 +22,11 @@ Learn to define reusable type aliases with `~` for consistency and dialect-speci
 ## Basic Examples
 
 ```ss
-~ uuid n
-~ money m
-~ email s256
-~ status e('active','inactive','pending')
-~ slug s64
 ```
 
 ## Dialect Overrides
 
 ```ss
-~ uuid n mysql=char(36) pg=uuid sqlite=TEXT mssql=UNIQUEIDENTIFIER oracle=RAW(16) db2=CHAR(16) FOR BIT DATA
-~ id n mysql=int pg=serial sqlite=INTEGER mssql=INT oracle=NUMBER(10) db2=INTEGER
 ```
 
 Use the target dialect's native type syntax. Rune passes these through directly.
@@ -41,18 +34,9 @@ Use the target dialect's native type syntax. Rune passes these through directly.
 ## Using Custom Types
 
 ```ss
-$ shop
-
-~ uuid n mysql=char(36) pg=uuid
-~ money m
-~ sku s32
-
-# products
-  id uuid++
-  code sku@u
-  price money
-  name s200
 ```
+
+[▶ Open in Playground](../../playground/index.html#JCBzaG9wCgp-IHV1aWQgbiBteXNxbD1jaGFyKDM2KSBwZz11dWlkCn4gbW9uZXkgbQp-IHNrdSBzMzIKCiMgcHJvZHVjdHMKICBpZCB1dWlkKysKICBjb2RlIHNrdUB1CiAgcHJpY2UgbW9uZXkKICBuYW1lIHMyMDA)
 
 Compile for different dialects:
 ```bash
@@ -63,10 +47,9 @@ rune shop.ss -d pg     # id uuid, price numeric(16,2)
 ## Custom Types Referencing Custom Types
 
 ```ss
-~ uuid n mysql=char(36) pg=uuid
-~ user_id uuid          # references ~uuid
-~ order_id uuid
 ```
+
+[▶ Open in Playground](../../playground/index.html#fiB1dWlkIG4gbXlzcWw9Y2hhcigzNikgcGc9dXVpZAp-IHVzZXJfaWQgdXVpZCAgICAgICAgICAjIHJlZmVyZW5jZXMgfnV1aWQKfiBvcmRlcl9pZCB1dWlk)
 
 Max reference depth: 32 (prevents infinite recursion).
 
@@ -82,21 +65,9 @@ Max reference depth: 32 (prevents infinite recursion).
 
 Extend `exercise1.ss` with custom types:
 ```ss
-$ shop utf8mb4
-
-~ uuid n mysql=char(36) pg=uuid
-~ money m
-~ sku s32
-
-# products
-  id uuid++
-  code sku@u
-  price money
-  name s200
-  description S?
-  active b = true
-  created_at t
 ```
+
+[▶ Open in Playground](../../playground/index.html#JCBzaG9wIHV0ZjhtYjQKCn4gdXVpZCBuIG15c3FsPWNoYXIoMzYpIHBnPXV1aWQKfiBtb25leSBtCn4gc2t1IHMzMgoKIyBwcm9kdWN0cwogIGlkIHV1aWQrKwogIGNvZGUgc2t1QHUKICBwcmljZSBtb25leQogIG5hbWUgczIwMAogIGRlc2NyaXB0aW9uIFM_CiAgYWN0aXZlIGIgPSB0cnVlCiAgY3JlYXRlZF9hdCB0)
 
 Verify both dialects produce native UUID types:
 ```bash

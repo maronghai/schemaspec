@@ -11,15 +11,9 @@ Learn the fundamental building blocks of a Rune schema: schema declaration, tabl
 Rune schemas live in `.ss` files (Schema Source). Each line declares one construct.
 
 ```ss
-$ myapp utf8mb4 autofk
-
-# users
-  id n++
-  name s100
-  email s@u
-  active b = true
-  created_at t
 ```
+
+[▶ Open in Playground](../../playground/index.html#JCBteWFwcCB1dGY4bWI0IGF1dG9mawoKIyB1c2VycwogIGlkIG4rKwogIG5hbWUgczEwMAogIGVtYWlsIHNAdQogIGFjdGl2ZSBiID0gdHJ1ZQogIGNyZWF0ZWRfYXQgdA)
 
 Compile it:
 ```bash
@@ -50,10 +44,9 @@ $ schema_name [charset] [autofk]
 | `autofk` | No | Enable automatic FK inference from `_id` suffix |
 
 ```ss
-$ blog
-$ blog utf8mb4
-$ blog utf8mb4 autofk
 ```
+
+[▶ Open in Playground](../../playground/index.html#JCBibG9nCiQgYmxvZyB1dGY4bWI0CiQgYmxvZyB1dGY4bWI0IGF1dG9maw)
 
 ## Table Declaration (`#`)
 
@@ -62,10 +55,9 @@ $ blog utf8mb4 autofk
 ```
 
 ```ss
-# users
-# base users : user accounts table
-# users ^InnoDB
 ```
+
+[▶ Open in Playground](../../playground/index.html#IyB1c2VycwojIGJhc2UgdXNlcnMgOiB1c2VyIGFjY291bnRzIHRhYmxlCiMgdXNlcnMgXklubm9EQg)
 
 ## Field Declaration
 
@@ -109,28 +101,15 @@ field_name [type] [modifiers] [=default] [check] [> fk] [: comment]
 ### Default Values
 
 ```ss
-status b = true
-count n = 0
-name s = 'anonymous'
-created_at t = CURRENT_TIMESTAMP
-nullable_field s? = NULL
 ```
 
 ## Exercise
 
 Create `exercise1.ss`:
 ```ss
-$ shop utf8mb4
-
-# products
-  id n++
-  sku s32@u
-  name s200
-  price m
-  description S?
-  active b = true
-  created_at t
 ```
+
+[▶ Open in Playground](../../playground/index.html#JCBzaG9wIHV0ZjhtYjQKCiMgcHJvZHVjdHMKICBpZCBuKysKICBza3UgczMyQHUKICBuYW1lIHMyMDAKICBwcmljZSBtCiAgZGVzY3JpcHRpb24gUz8KICBhY3RpdmUgYiA9IHRydWUKICBjcmVhdGVkX2F0IHQ)
 
 Compile and verify:
 ```bash
