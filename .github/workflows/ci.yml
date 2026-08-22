@@ -21,6 +21,9 @@ jobs:
       - name: Check formatting
         run: zig fmt --check rune/src/
 
+      - name: Version consistency (VERSION vs packaging manifests)
+        run: bash scripts/sync-version.sh --check
+
       - name: Build
         run: cd rune && zig build -Doptimize=ReleaseSafe
 

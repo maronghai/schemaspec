@@ -2,7 +2,7 @@
 
 A single `.ss` file is the source of truth that generates SQL DDL for any dialect, migration scripts, ORM schemas, API validation rules, and documentation.
 
-**Current version**: 0.326.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,065 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
+**Current version**: 0.327.0 (2026-08-22) — 70,900+ lines of Zig (46,300+ production + 24,500+ tests across 330 `.zig` files), 2,065 unit tests, 85 lint rules, 112 `REVERSE_MAP` entries, 37 golden test suites, 12 generators × 6 dialects.
 
 > This roadmap was restructured on 2026-08-21: all thirteen completed phases are condensed into a summary, and every remaining open item is consolidated under Phase 14 (each item now appears exactly once). Historical detail lives in [CHANGELOG.md](CHANGELOG.md) and git history.
 >
@@ -119,6 +119,7 @@ Process debt observed during the 2026-08-21 roadmap audit:
 - [x] Composite embed × index-bearing feature audit (v0.325.0) — deep analysis found the v0.321.0 index-remap fix covered conditional blocks but missed composite embeds: three repro'd bugs (@if wrapping an embed line was ignored; template merge and conditional strip both left `insert_pos` stale). Fixed via parser dialect stamping + two remap passes; the position invariant is now documented in `types/ast.zig` and [schemaspec/schema.md §11](schemaspec/schema.md#11-composite-types).
 - [x] Lint auto-increment false positives on datetime defaults (v0.326.0) — the ubiquitous audit-field pattern (`created_at t+` / `updated_at t++`, meaning DEFAULT CURRENT_TIMESTAMP) tripped four auto-increment rules and made `--strict` CI gates fail on valid schemas; `--fix` also appended redundant explicit defaults. Rules now gate through a shared `hasIdentityModifier` predicate; genuine misuses (`s++`, double `n++`) still reported.
 - [x] Golden-test runner parity — `zig build golden-tests` runs the full coverage runner (`test_coverage.sh --fast --serial`, all 37 suites); Windows-native environments still need bash for the suites themselves, but one entry point now covers everything CI covers.
+- [x] Monorepo sub-project boundaries (v0.327.0) — language spec deduplicated to a single source of truth in `schemaspec/` (stale snapshots under `rune/` removed; three spec errors corrected against golden-test evidence), five sub-project boundaries documented in CLAUDE.md with change-impact matrix, wasm export contract documented ([docs/wasm-api.md](docs/wasm-api.md)), and version propagation scripted (`scripts/sync-version.sh --check`, wired into CI).
 
 ---
 
@@ -142,8 +143,8 @@ Process debt observed during the 2026-08-21 roadmap audit:
 | 14: Ecosystem Maturation | 🔲 Current focus | 5/7 | 2 |
 | Architecture Targets | ✅ Complete | 22/22 | 0 |
 | Technical Debt | ✅ Complete | 15/15 | 0 |
-| Maintenance & Release Hygiene | ◧ In progress | 2/4 | 2 |
-| **Total** | | **150/155** | **5** |
+| Maintenance & Release Hygiene | ✅ Complete (8/8) | 8/8 | 0 |
+| **Total** | | **156/159** | **3** |
 
 *Counting note: Phases 6/8 open items are listed once, under Phase 14; the former summary's "143/149" under-counted Phase 6 (listed 11/11 while 2 items were open).*
 

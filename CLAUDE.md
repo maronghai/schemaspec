@@ -421,6 +421,23 @@ rune/src/
 - **Golden tests**: Shell scripts compile `.ss` files and `diff` against `.sql` golden files in `tests/expected/`. Version comments are stripped before comparison for version-resilient testing. 30 scripts. Golden test utilities: `golden_test.zig` (stripVersion, compareOutput). Run via `bash tests/test.sh` or `zig build golden-tests`
 - Test data: `.ss` input files in `tests/`, expected output in `tests/expected/`, error recovery inputs in `tests/error-recovery/`, diff test pairs in `tests/diff/`, reverse test pairs in `tests/reverse/`
 
+### Sub-project Boundaries
+
+The repo is a monorepo containing five sub-projects. They are coupled at the artifact level only — no source-level imports across boundaries.
+
+| # | Sub-project | Paths | Contract | Change impact |
+|---|-------------|-------|----------|---------------|
+| 1 | rune-core | `rune/src/`, `rune/build.zig*`, root `tests/` | CLI flags, SQL output, 17 wasm exports | Run golden tests for touched area; version bump on release |
+| 2 | language-spec | `schemaspec/` | The spec documents themselves | Spec changes land here FIRST, then implementation follows; single source of truth (the copies under `rune/` were removed v0.326.0) |
+| 3 | playground | `playground/index.html` | Consumes wasm exports via `../rune/wasm/rune.js`; relative layout is load-bearing for GitHub Pages deploy (`pages.yml`) | Only when wasm API or playground UI changes; deploy via pages.yml path filter |
+| 4 | editor-integrations | `packaging/vscode/`, `packaging/neovim/`, `packaging/treesitter/` | LSP protocol, TextMate grammar | Repackage vscode extension when LSP features change |
+| 5 | distribution | `packaging/npm/`, `packaging/homebrew/`, `packaging/scoop/`, `Dockerfile` | Binary download URL convention (`github.com/rune-lang/rune/releases`) | Bump package.json versions on release (use `scripts/sync-version.sh`) |
+
+Rules of thumb:
+- Language behavior changes: update `schemaspec/` first, then parser/semantic/codegen, then golden tests.
+- Root `tests/` belong to rune-core (they test compiled-binary behavior, not the spec).
+- Version numbers live in `VERSION` (single source) and are propagated by `scripts/sync-version.sh --check` in CI.
+
 ## Conventions
 
 - Zig 0.16+, formatted with `zig fmt`

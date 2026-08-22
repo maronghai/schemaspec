@@ -451,7 +451,7 @@ Composites vs templates: templates merge at the whole-table level with `...` slo
 6. Add reverse mappings to `REVERSE_MAP` in `types/reverse_map.zig`
 7. Update `DialectTypeMap` struct with new dialect field
 8. Add golden file tests in `tests/`
-9. Update documentation (README.md, type.md, schema.md, ARCHITECTURE.md)
+9. Update documentation (README.md, schemaspec/type.md, schemaspec/schema.md, ARCHITECTURE.md)
 
 No changes needed in `codegen.zig` — it is fully dialect-agnostic.
 

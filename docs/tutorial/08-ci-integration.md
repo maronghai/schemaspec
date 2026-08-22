@@ -256,8 +256,8 @@ You've learned:
 
 ### Next Steps
 
-- Explore `rune/schema.md` for complete language reference
-- Read `rune/type.md` for full type system details
+- Explore `schemaspec/schema.md` for complete language reference
+- Read `schemaspec/type.md` for full type system details
 - Check `docs/coverage-matrix.md` for generator/dialect support
 - Join the community: GitHub Discussions, Discord
 - Contribute: RFC process, bug reports, generator plugins

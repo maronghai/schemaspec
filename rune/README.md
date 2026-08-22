@@ -184,9 +184,9 @@ rune/src/
   types/       ast.zig, resolved_ast.zig, typed_ast.zig, sql_type.zig, ...
   semantic/    analyzer.zig, pass_manager.zig, pass/*.zig
 
-rune/grammar.ebnf    # Formal EBNF grammar for the .ss language
-rune/schema.md       # Language reference (syntax, constructs, examples)
-rune/type.md         # Type system reference (symbols, dialects, custom types)
+schemaspec/grammar.ebnf  # Formal EBNF grammar for the .ss language
+schemaspec/schema.md     # Language reference (syntax, constructs, examples)
+schemaspec/type.md       # Type system reference (symbols, dialects, custom types)
 ```
 
 ## Contributing

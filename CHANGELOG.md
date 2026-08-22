@@ -1,3 +1,14 @@
+## [0.327.0] - 2026-08-22
+
+### Changed
+- **Monorepo restructure: sub-project boundaries documented, language spec deduplicated (single source of truth)**:
+  - `schemaspec/` is now the only home of the language spec. The stale snapshots under `rune/` (`rune/schema.md`, `rune/type.md`, `rune/grammar.ebnf`) are removed — they had diverged from the fuller `schemaspec/` versions (which cover composite types v0.320.0, conditional-block remap v0.321.0+, etc.). No code/build references existed; doc pointers in `rune/README.md`, `rune/ARCHITECTURE.md`, and docs/tutorial now point at `schemaspec/`.
+  - Spec corrections found during the merge audit (both verified against golden tests): FAQ Q7 used a nonexistent `-S` FK action token (correct: `-C` = ON DELETE CASCADE, per tests/94-fk-action-delete-cascade); type.md's dialect table claimed `t+` emits `ON UPDATE CURRENT_TIMESTAMP` (correct: `t+` is DEFAULT-only, `t++` adds ON UPDATE — MySQL and PG goldens both confirm). Also fixed duplicate note line and section numbering (two "## 10" headings) in schema.md.
+  - New "Sub-project Boundaries" section in CLAUDE.md: five sub-projects (rune-core / language-spec / playground / editor-integrations / distribution), each with its paths, contract, and change-impact matrix.
+  - New `docs/wasm-api.md`: contract for the 17 wasm exports consumed by the playground.
+  - New `scripts/sync-version.sh`: propagates `VERSION` to packaging/npm + packaging/vscode package.json files (`--check` mode for CI; preserves manifest line endings on Windows).
+  - CI check job now runs `scripts/sync-version.sh --check` so version drift between `VERSION` and packaging manifests fails fast.
+
 ## [0.326.0] - 2026-08-22
 
 ### Fixed

@@ -388,7 +388,8 @@ rune schema.ss -d postgres  # alias
 | `\d+` (int width) | `int(n)` | `integer` | PG ignores display width |
 | `+n` / `+N` / `+i` | `UNSIGNED` | *(ignored)* | PG has no UNSIGNED |
 | `n++` | `AUTO_INCREMENT` | `GENERATED ALWAYS AS IDENTITY` | SQL standard identity |
-| `t+` | `DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | PG has no ON UPDATE |
+| `t+` | `DEFAULT CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | PG has no ON UPDATE |
+| `t++` | `DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` | ON UPDATE is MySQL-only; on datetime types `++` adds it, `+` does not |
 
 ### PostgreSQL-Specific DDL
 

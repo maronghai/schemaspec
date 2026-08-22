@@ -126,8 +126,6 @@ field_name  [type_symbol]  [modifier...]  [check]  [: | -- | ; comment]
 
 > **Note**: See [Type Spec](type.md) for the full type symbol reference including `i` (smallint), `T` (timestamptz), `U` (uuid), `p` (serial), `J` (jsonb), `I` (inet).
 
-> **Note**: See [Type Spec](type.md) for the full type symbol reference including `i` (smallint), `T` (timestamptz), `U` (uuid), `p` (serial), `J` (jsonb), `I` (inet).
-
 ### Modifiers
 
 | Symbol | Meaning | Type | Example |
@@ -714,7 +712,7 @@ Compiling with `-d pg` expands `*audit` between `id` and `name`; other dialects 
 
 ---
 
-## 10. Grammar & Diagnostics
+## 12. Grammar & Diagnostics
 
 The full EBNF grammar is in [`grammar.ebnf`](grammar.ebnf). Key notes:
 
@@ -739,7 +737,7 @@ warning: unrecognized FK form on line 8
 
 ---
 
-## 10. FAQ
+## 13. FAQ
 
 ### Q1: ENUM types?
 
@@ -790,9 +788,9 @@ email s128
 ### Q7: FK actions?
 
 ```asm
-> user_id user.id -S S     ; ON DELETE CASCADE ON UPDATE CASCADE
-> coupon_id coupon.id -N S ; ON DELETE SET NULL ON UPDATE CASCADE
-> order_id order.id -S     ; ON DELETE CASCADE only
+> user_id user.id -C C     ; ON DELETE CASCADE ON UPDATE CASCADE
+> coupon_id coupon.id -N C ; ON DELETE SET NULL ON UPDATE CASCADE
+> order_id order.id -C     ; ON DELETE CASCADE only
 ```
 
 `-C` = ON DELETE CASCADE, `-N` = ON DELETE SET NULL, `C` = ON UPDATE CASCADE, `N` = ON UPDATE SET NULL. Omit for RESTRICT (default).

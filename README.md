@@ -251,6 +251,8 @@ python -m http.server 8000                   # from the repo root
 
 The **Share link** button encodes the current schema into the URL hash (`#<base64url>`) — the same format `rune share` emits — so links open pre-loaded in any playground instance.
 
+> The WASM library's export surface (17 functions consumed by the playground and `rune/wasm/rune.js`) is documented as a stability contract in [`docs/wasm-api.md`](docs/wasm-api.md).
+
 ## Configuration
 
 Create a `rune.toml` in your project root to set defaults:
