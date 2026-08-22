@@ -29,15 +29,35 @@ pub fn run(ctx: *PassContext) !void {
         try comp_map.put(comp.name, comp);
     }
 
+    const target_name = @tagName(ctx.dialect);
+
     // Track which composites get embedded (for the unused warning below).
     var used = std.StringHashMap(void).init(ctx.alloc);
     defer used.deinit();
 
     for (ctx.tables.items) |*table| {
         if (table.embeds.len == 0) continue;
+        var kept = try std.ArrayList(ast.CompositeEmbed).initCapacity(ctx.alloc, table.embeds.len);
         for (table.embeds) |e| {
+            // Any embed reference counts as usage, even one gated behind an
+            // unmatched @if — the composite is used, just not for this target.
             try used.put(e.name, {});
+            // Embed line inside an unmatched @if(dialect=...) block — skip it.
+            // Unknown-composite errors are also skipped: a composite only
+            // referenced from another dialect's block must not fail this build.
+            if (e.dialects) |ds| {
+                var matched = false;
+                for (ds) |d| {
+                    if (std.mem.eql(u8, d, target_name)) {
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) continue;
+            }
+            try kept.append(ctx.alloc, e);
         }
+        table.embeds = try kept.toOwnedSlice(ctx.alloc);
         table.fields = try expandTable(ctx, comp_map, table);
         table.embeds = &.{};
     }
@@ -266,4 +286,114 @@ test "resolve_composites: unused composite warns" {
     try testing.expect(!diagnostics.hasErrors());
     try testing.expect(diagnostics.diagnostics.items.len == 1);
     try testing.expect(std.mem.indexOf(u8, diagnostics.diagnostics.items[0].message, "unused composite: 'orphan'") != null);
+}
+
+fn makeEmbed(name: []const u8, pos: usize, dialects: ?[]const []const u8) ast.CompositeEmbed {
+    return .{ .name = name, .insert_pos = pos, .line_no = 5, .dialects = dialects };
+}
+
+test "resolve_composites: unmatched-dialect embed is skipped" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const comps = [_]ast.Composite{
+        try makeComposite(alloc, "audit", &.{ "created_at", "updated_at" }, 1),
+    };
+
+    const fields = try alloc.alloc(Field, 1);
+    fields[0] = makeField("id");
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    const embeds = try alloc.alloc(ast.CompositeEmbed, 1);
+    embeds[0] = makeEmbed("audit", 1, &.{"pg"});
+    try tables.append(alloc, .{
+        .name = "orders",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .embeds = embeds,
+        .line_no = 4,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtxWithComposites(alloc, &tables, &diagnostics, &comps);
+    ctx.dialect = .sqlite;
+    try run(&ctx);
+
+    // Embed skipped: fields untouched.
+    const got = ctx.tables.items[0].fields;
+    try testing.expectEqual(@as(usize, 1), got.len);
+    try testing.expectEqualStrings("id", got[0].name);
+    // No unused-composite warning either: the embed was dialect-gated.
+    try testing.expect(!diagnostics.hasErrors());
+    try testing.expectEqual(@as(usize, 0), diagnostics.diagnostics.items.len);
+}
+
+test "resolve_composites: matched-dialect embed expands" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const comps = [_]ast.Composite{
+        try makeComposite(alloc, "audit", &.{ "created_at", "updated_at" }, 1),
+    };
+
+    const fields = try alloc.alloc(Field, 1);
+    fields[0] = makeField("id");
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    const embeds = try alloc.alloc(ast.CompositeEmbed, 1);
+    embeds[0] = makeEmbed("audit", 1, &.{ "pg", "mysql" });
+    try tables.append(alloc, .{
+        .name = "orders",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .embeds = embeds,
+        .line_no = 4,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtxWithComposites(alloc, &tables, &diagnostics, &comps);
+    ctx.dialect = .pg;
+    try run(&ctx);
+
+    const got = ctx.tables.items[0].fields;
+    try testing.expectEqual(@as(usize, 3), got.len);
+    try testing.expectEqualStrings("created_at", got[1].name);
+}
+
+test "resolve_composites: unknown composite under unmatched dialect does not error" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const fields = try alloc.alloc(Field, 1);
+    fields[0] = makeField("id");
+
+    var tables = try std.ArrayList(ResolvedTable).initCapacity(alloc, 1);
+    const embeds = try alloc.alloc(ast.CompositeEmbed, 1);
+    embeds[0] = makeEmbed("nope", 1, &.{"pg"});
+    try tables.append(alloc, .{
+        .name = "orders",
+        .comment = null,
+        .engine = null,
+        .fields = fields,
+        .fks = &.{},
+        .indexes = &.{},
+        .embeds = embeds,
+        .line_no = 4,
+    });
+
+    var diagnostics = try diag_mod.DiagnosticCollector.init(alloc);
+    var ctx = makeCtxWithComposites(alloc, &tables, &diagnostics, &.{});
+    ctx.dialect = .sqlite;
+    try run(&ctx);
+
+    try testing.expect(!diagnostics.hasErrors());
 }

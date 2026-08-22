@@ -296,10 +296,13 @@ pub const Parser = struct {
                     const comp_name = try self.alloc.dupe(u8, line.tokens[1]);
                     if (block.mode == .table) {
                         // Embed site inside a table body — record position for in-place expansion.
+                        // If the embed line sits inside an @if block, carry its dialects:
+                        // embed lines add no field, so conditional-block ranges can't cover them.
                         try block.embeds.append(self.alloc, .{
                             .name = comp_name,
                             .insert_pos = block.fields.items.len,
                             .line_no = line.line_no,
+                            .dialects = if (block.pending_if_dialects) |ds| ds else null,
                         });
                         continue;
                     }

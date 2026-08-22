@@ -1,3 +1,15 @@
+## [0.325.0] - 2026-08-22
+
+### Fixed
+- **Composite embeds vs index-bearing features: three position/correctness bugs** (all verified by repro; same family as the v0.321.0 conditional-block fix, which remapped @if ranges after template merge but missed embeds):
+  - `@if(dialect=...)` wrapping an embed line (`*audit`) was silently ignored — embed lines record no field, so conditional-block ranges collapsed to empty and every dialect saw the embedded fields. The parser now stamps each embed with its enclosing block's dialects (`CompositeEmbed.dialects`), and `resolve_composites` skips unmatched embeds (unknown composites referenced only from other dialects' blocks no longer error either).
+  - Template merge did not remap `embed.insert_pos`: an embed after a template's inserted fields expanded at the pre-merge index, landing before them (e.g. `[created_at, updated_at, id, name]` instead of `[id, created_at, updated_at, name]`). `resolveAndApply` now feeds the existing origin map to a new `remapEmbeds` (same pattern as `remapConditionalBlocks`); embeds whose anchor fields were deduplicated away move to the end.
+  - Conditional filtering did not shift `insert_pos`: stripping a field left of the embed line pushed the expansion past surviving fields (e.g. audit fields landing at the table tail). `resolve_conditionals` now tracks kept original indices and remaps embed positions.
+- Composite-embed `insert_pos` semantics documented in `types/ast.zig`: positions refer to the literal (pre-merge, pre-filter) field list; every pass that adds or removes fields before `resolve_composites` must remap.
+
+### Added
+- Golden tests: three template/@if/composite combination cases in tests/test_composite.sh (13 total) — @if-wrapped embed dialect gating, embed position through template merge, embed position after conditional strip.
+
 ## [0.324.0] - 2026-08-22
 
 ### Fixed

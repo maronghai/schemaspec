@@ -251,10 +251,18 @@ pub const Composite = struct {
 
 /// An embed site inside a table body: `*name`, expanded at insert_pos
 /// (index into the table's literal field list, before composite expansion).
+/// The position is expressed against the literal (pre-merge, pre-filter)
+/// field list; every pass that adds or removes fields before
+/// resolve_composites must remap it.
 pub const CompositeEmbed = struct {
     name: []const u8,
     insert_pos: usize,
     line_no: usize,
+    /// Dialect restriction from an enclosing @if(dialect=...) block. Null when
+    /// unconditional. The embed line itself contributes no field to `fields`,
+    /// so ConditionalBlock ranges cannot express it — resolve_composites
+    /// checks this instead.
+    dialects: ?[]const []const u8 = null,
 };
 
 /// A conditional block within a table: @if(dialect=pg|sqlite) ... @endif

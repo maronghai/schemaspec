@@ -688,6 +688,21 @@ The embed expands **in place**: the composite's fields appear exactly where the 
 - Nesting composites inside composites or templates is not supported.
 - Expansion happens during semantic analysis, after conditional blocks are resolved and before auto-FK / suffix inference — so `_id` suffix inference and autofk apply to expanded fields normally.
 
+### Conditional Embeds
+
+An embed line may sit inside an `@if(dialect=...)` block; the expansion is then gated on the target dialect like any field:
+
+```
+#orders
+id n++
+@if(dialect=pg)
+*audit
+@endif
+name s32
+```
+
+Compiling with `-d pg` expands `*audit` between `id` and `name`; other dialects omit it entirely. A composite referenced only from non-matching blocks does not trigger the unused-composite warning for that build.
+
 ### Composites vs Templates vs Custom Types
 
 | | Template (`%`) | Composite (`*`) | Custom type (`~`) |

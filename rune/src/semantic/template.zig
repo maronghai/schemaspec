@@ -78,7 +78,9 @@ pub fn resolveAndApply(
             // Conditional-block indices refer to the pre-merge field list —
             // remap them so @if ranges survive template field insertion.
             .conditional_blocks = remapConditionalBlocks(alloc, t.conditional_blocks, origin),
-            .embeds = t.embeds,
+            // Embed insert positions refer to the same pre-merge list —
+            // remap them so composite expansion lands at the embed line.
+            .embeds = remapEmbeds(alloc, t.embeds, origin),
             .line_no = t.line_no,
             .template_ref = t.template_ref,
         });
@@ -294,6 +296,34 @@ fn remapConditionalBlocks(
     return out.toOwnedSlice(alloc) catch blocks;
 }
 
+/// Remap embed insert positions from the pre-merge field list to the merged
+/// list, using the same origin map as remapConditionalBlocks. An embed's new
+/// position is the merged index of the first surviving original field at or
+/// after the old position — i.e. where the embed line sat relative to the
+/// table's own fields. When every such field was deduplicated away, the
+/// embed moves to the end of the merged list.
+fn remapEmbeds(
+    alloc: std.mem.Allocator,
+    embeds: []const ast_mod.CompositeEmbed,
+    origin: []const ?usize,
+) []const ast_mod.CompositeEmbed {
+    if (embeds.len == 0 or origin.len == 0) return embeds;
+
+    const out = alloc.dupe(ast_mod.CompositeEmbed, embeds) catch return embeds;
+    for (out) |*embed| {
+        var new_pos: ?usize = null;
+        for (origin, 0..) |o, j| {
+            const oi = o orelse continue;
+            if (oi >= embed.insert_pos) {
+                new_pos = j;
+                break;
+            }
+        }
+        embed.insert_pos = new_pos orelse origin.len;
+    }
+    return out;
+}
+
 // ─── Unit Tests ─────────────────────────────────────────────
 
 const testing = std.testing;
@@ -402,6 +432,45 @@ test "remapConditionalBlocks: fully dropped block is removed" {
     };
     const remapped = remapConditionalBlocks(alloc, &blocks, &origin);
     try testing.expectEqual(@as(usize, 0), remapped.len);
+}
+
+test "remapEmbeds: template insertion before embed shifts position" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Original: [name(0)] with embed at pos 1 (after name).
+    // Merge prepends id → [id(0)=null, name(1)=0]; embed lands after name at 2.
+    const origin = [_]?usize{ null, 0 };
+    const embeds = [_]ast_mod.CompositeEmbed{
+        .{ .name = "audit", .insert_pos = 1, .line_no = 3 },
+    };
+    const remapped = remapEmbeds(alloc, &embeds, &origin);
+    try testing.expectEqual(@as(usize, 2), remapped[0].insert_pos);
+}
+
+test "remapEmbeds: deduplicated field pushes embed to end" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // insert_pos 1 → first surviving original >= 1 is origin value 1 at
+    // merged position 2 (index 0 was replaced by a template field, and a
+    // second insertion sits between them).
+    const dropped = [_]?usize{ 0, null, 1 };
+    const embeds = [_]ast_mod.CompositeEmbed{
+        .{ .name = "audit", .insert_pos = 1, .line_no = 3 },
+    };
+    const remapped = remapEmbeds(alloc, &embeds, &dropped);
+    try testing.expectEqual(@as(usize, 2), remapped[0].insert_pos);
+
+    // All surviving origins < insert_pos → end of list.
+    const all_before = [_]?usize{ 0, 1 };
+    const embeds2 = [_]ast_mod.CompositeEmbed{
+        .{ .name = "audit", .insert_pos = 5, .line_no = 3 },
+    };
+    const remapped2 = remapEmbeds(alloc, &embeds2, &all_before);
+    try testing.expectEqual(@as(usize, 2), remapped2[0].insert_pos);
 }
 
 test "resolveAndApply end-to-end: @if survives template merge" {

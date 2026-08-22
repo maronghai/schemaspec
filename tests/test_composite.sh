@@ -188,4 +188,78 @@ else
   fail "$TEST_NAME" "$OUTPUT"
 fi
 
+# Test 11: @if(dialect=) wrapping an embed line gates the expansion
+cat > "$TMPDIR/cond.ss" <<'EOF'
+$ myapp
+
+* audit
+created_at t+
+updated_at t++
+
+#orders
+id n++
+@if(dialect=pg)
+*audit
+@endif
+name s32
+EOF
+TEST_NAME="@if-wrapped embed expands only for matching dialect"
+PG_OUT=$("$COMPILER" cond.ss -d pg 2>&1)
+SQLITE_OUT=$("$COMPILER" cond.ss -d sqlite 2>&1)
+if echo "$PG_OUT" | grep -q '"created_at"' && ! echo "$SQLITE_OUT" | grep -q 'created_at'; then
+  pass "$TEST_NAME"
+else
+  fail "$TEST_NAME (pg has audit: $(echo "$PG_OUT" | grep -c created_at), sqlite has audit: $(echo "$SQLITE_OUT" | grep -c created_at))" "$SQLITE_OUT"
+fi
+
+# Test 12: embed position survives template merge (template inserts before it)
+cat > "$TMPDIR/tpl.ss" <<'EOF'
+$ myapp
+
+* audit
+created_at t+
+updated_at t++
+
+% base
+id n++
+
+#users > base
+*audit
+name s32
+EOF
+TEST_NAME="embed lands after template-merged fields"
+TPL_OUT=$("$COMPILER" tpl.ss 2>&1)
+ORDER=$(echo "$TPL_OUT" | sed -n '/CREATE TABLE `users`/,/ENGINE/p' | grep -oE '^\s+`[a-z_]+`' | tr -d ' `' | paste -sd, -)
+if [ "$ORDER" = "id,created_at,updated_at,name" ]; then
+  pass "$TEST_NAME"
+else
+  fail "$TEST_NAME (got: $ORDER)" "$TPL_OUT"
+fi
+
+# Test 13: embed position shifts when a conditional field before it is stripped
+cat > "$TMPDIR/shift.ss" <<'EOF'
+$ myapp
+
+* audit
+created_at t+
+
+#orders
+id n++
+@if(dialect=mysql)
+mysql_only T
+@endif
+*audit
+name s32
+EOF
+TEST_NAME="embed position shifts after conditional strip"
+PG_OUT=$("$COMPILER" shift.ss -d pg 2>&1)
+MYSQL_OUT=$("$COMPILER" shift.ss -d mysql 2>&1)
+PG_ORDER=$(echo "$PG_OUT" | sed -n '/CREATE TABLE "orders"/,/);/p' | grep -oE '^\s+"[a-z_]+"' | tr -d ' "' | paste -sd, -)
+MYSQL_ORDER=$(echo "$MYSQL_OUT" | sed -n '/CREATE TABLE `orders`/,/ENGINE/p' | grep -oE '^\s+`[a-z_]+`' | tr -d ' `' | paste -sd, -)
+if [ "$PG_ORDER" = "id,created_at,name" ] && [ "$MYSQL_ORDER" = "id,mysql_only,created_at,name" ]; then
+  pass "$TEST_NAME"
+else
+  fail "$TEST_NAME (pg: $PG_ORDER, mysql: $MYSQL_ORDER)" "$PG_OUT"
+fi
+
 summary
