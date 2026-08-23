@@ -201,6 +201,7 @@ comptime {
     _ = @import("lsp/inlay_hints_test.zig");
     _ = @import("lsp/helpers_test.zig");
     _ = @import("lsp/handlers_test.zig");
+    _ = @import("lsp/doc_arena_test.zig");
     _ = @import("lsp/handlers.zig");
     _ = @import("lsp/code_lens.zig");
     _ = @import("lsp/rename.zig");

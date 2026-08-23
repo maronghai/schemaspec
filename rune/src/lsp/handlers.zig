@@ -122,11 +122,13 @@ pub fn handleDidClose(self: *Server, _: ?std.Io.File, _: ?i64, params: ?std.json
 
     self.documents.close(uri);
 
-    // Clear cached compile result
+    // Clear cached compile result and the per-document compilation arena
+    // (its TypedAst and all intermediates die with the document).
     if (self.compile_results.fetchRemove(uri)) |kv| {
         self.arena.free(kv.value.diagnostics);
         self.arena.free(kv.key);
     }
+    self.destroyDocArena(uri);
 
     // Publish empty diagnostics to clear errors
     try self.publishDiagnostics(uri, &.{});

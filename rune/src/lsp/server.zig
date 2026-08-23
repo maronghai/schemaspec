@@ -19,6 +19,12 @@ pub const Server = struct {
     io: std.Io,
     documents: doc_mod.DocumentManager,
     compile_results: std.StringHashMap(compile_svc.CompileResult),
+    /// Per-document compilation arena. Each entry owns all intermediate
+    /// products (tokenizer output, ASTs, TypedAst) of that document's current
+    /// version; it is destroyed and recreated on every recompile. Without
+    /// this, everything would land in `arena` (the process arena) and a long
+    /// editing session would grow memory without bound.
+    doc_arenas: std.StringHashMap(*std.heap.ArenaAllocator),
     initialized: bool,
     dialect: Dialect,
 
@@ -28,9 +34,20 @@ pub const Server = struct {
             .io = io,
             .documents = doc_mod.DocumentManager.init(arena),
             .compile_results = std.StringHashMap(compile_svc.CompileResult).init(arena),
+            .doc_arenas = std.StringHashMap(*std.heap.ArenaAllocator).init(arena),
             .initialized = false,
             .dialect = .mysql,
         };
+    }
+
+    /// Destroy the per-document arena for `uri`, if present.
+    pub fn destroyDocArena(self: *Server, uri: []const u8) void {
+        if (self.doc_arenas.fetchRemove(uri)) |kv| {
+            const da = kv.value;
+            da.deinit();
+            self.arena.destroy(da);
+            self.arena.free(kv.key);
+        }
     }
 
     pub fn deinit(self: *Server) void {
@@ -39,6 +56,12 @@ pub const Server = struct {
             self.arena.free(entry.value_ptr.*.diagnostics);
         }
         self.compile_results.deinit();
+        var arena_iter = self.doc_arenas.iterator();
+        while (arena_iter.next()) |entry| {
+            entry.value_ptr.*.deinit();
+            self.arena.destroy(entry.value_ptr.*);
+        }
+        self.doc_arenas.deinit();
         self.documents.deinit();
     }
 
@@ -166,18 +189,33 @@ pub const Server = struct {
         const path = try self.documents.uriToPath(uri);
         defer self.arena.free(path);
 
-        const result = try compile_svc.compile(self.arena, doc.text, path, self.dialect);
+        // Compile in a fresh per-document arena: every recompile discards the
+        // previous version's tokenizer/AST/TypedAst wholesale instead of
+        // letting them accumulate in the process arena. Diagnostics are
+        // copied out to `self.arena` so they outlive the doc arena.
+        self.destroyDocArena(uri);
+        const da = try self.arena.create(std.heap.ArenaAllocator);
+        errdefer self.arena.destroy(da);
+        da.* = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        const result = compile_svc.compile(da.allocator(), doc.text, path, self.dialect) catch |err| {
+            da.deinit();
+            self.arena.destroy(da);
+            return err;
+        };
 
-        // Free old diagnostics if present
+        const owned_diags = try self.arena.dupe(lsp_protocol.Diagnostic, result.diagnostics);
+
+        // Free old diagnostics if present, then store the new result.
         if (self.compile_results.getEntry(uri)) |entry| {
             self.arena.free(entry.value_ptr.*.diagnostics);
-            entry.value_ptr.* = result;
+            entry.value_ptr.* = .{ .diagnostics = owned_diags, .typed_ast = result.typed_ast };
         } else {
             const owned_uri = try self.arena.dupe(u8, uri);
-            try self.compile_results.put(owned_uri, result);
+            try self.compile_results.put(owned_uri, .{ .diagnostics = owned_diags, .typed_ast = result.typed_ast });
+            try self.doc_arenas.put(try self.arena.dupe(u8, uri), da);
         }
 
-        try self.publishDiagnostics(uri, result.diagnostics);
+        try self.publishDiagnostics(uri, owned_diags);
     }
 
     pub fn publishDiagnostics(self: *Server, uri: []const u8, diagnostics: []const lsp_protocol.Diagnostic) !void {

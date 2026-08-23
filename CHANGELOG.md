@@ -1,3 +1,12 @@
+## [0.331.0] - 2026-08-23
+
+### Fixed
+- **LSP server no longer grows memory without bound over a long editing session** (resource-management audit finding): every diagnostic compilation ran on the process arena, so each didChange/didSave left behind the full pipeline intermediates (tokenized lines, ASTs, ResolvedAst, TypedAst) for the life of the process — an editor session issuing thousands of recompiles accumulated all of them. The server now keeps a per-document `ArenaAllocator` (`doc_arenas`): each recompile destroys the previous version's arena and compiles into a fresh one; diagnostics are copied to the long-lived arena so they survive; didClose tears the document's arena down with its cached result. Session memory is now O(open documents × document size) instead of O(total requests × document size).
+- **`rune watch` polled file contents even when nothing changed**: change detection read and wyhashed every watched file every interval. The per-file state now carries the mtime the hash was computed at and skips unchanged files via stat (content hash remains the source of truth, so mtime quirks can only cost extra reads, never miss a change). Steady-state polling drops from N×read+hash to N×stat per tick.
+
+### Added
+- Unit test: diagnostics copied out of a document arena survive its destruction (mirrors compileAndPublishDiagnostics ownership).
+
 ## [0.330.0] - 2026-08-23
 
 ### Added
