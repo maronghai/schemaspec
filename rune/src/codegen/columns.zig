@@ -20,11 +20,21 @@ pub fn emitDefault(w: *Writer, value: []const u8) !void {
         _ = std.fmt.parseFloat(f64, value) catch break :blk false;
         break :blk true;
     };
-    const is_sql_keyword = std.mem.eql(u8, value, "CURRENT_TIMESTAMP") or
-        std.mem.eql(u8, value, "NULL") or
-        std.mem.eql(u8, value, "NOW()");
+    // Case-insensitive: schemas write `=null`/`=false` in the case the spec
+    // examples use, and a quoted 'false' on a boolean column changes
+    // semantics (string comparison, never true).
+    const is_sql_keyword = std.ascii.eqlIgnoreCase(value, "CURRENT_TIMESTAMP") or
+        std.ascii.eqlIgnoreCase(value, "NULL") or
+        std.ascii.eqlIgnoreCase(value, "NOW()") or
+        std.ascii.eqlIgnoreCase(value, "TRUE") or
+        std.ascii.eqlIgnoreCase(value, "FALSE");
     if (is_num_val or is_sql_keyword) {
         try w.print(" DEFAULT {s}", .{value});
+    } else if (value.len >= 2 and value[0] == '\'' and value[value.len - 1] == '\'') {
+        // Quoted literal `='x'` — strip the outer quotes; SQL re-quotes below
+        // (same convention as the CHECK in-list path). Without this the
+        // quotes double: DEFAULT ''x''.
+        try w.print(" DEFAULT '{s}'", .{value[1 .. value.len - 1]});
     } else {
         try w.print(" DEFAULT '{s}'", .{value});
     }

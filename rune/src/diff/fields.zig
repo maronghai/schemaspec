@@ -176,6 +176,12 @@ fn detectRenames(
 ) ![]const RenamePair {
     var renames = try std.ArrayList(RenamePair).initCapacity(alloc, 4);
 
+    // Consumed targets: two dropped fields with the same signature must not
+    // both rename onto one added field — the second CHANGE COLUMN would
+    // collide with the first and the migration would fail to execute.
+    var consumed = std.StringHashMap(void).init(alloc);
+    defer consumed.deinit();
+
     for (dropped_names.items) |old_name| {
         const old_idx = old_fmap.get(old_name) orelse continue;
         const old_f = old_fields[old_idx];
@@ -196,7 +202,9 @@ fn detectRenames(
 
         if (match_count == 1 and match_name != null) {
             const new_name = match_name.?;
+            if (consumed.contains(new_name)) continue;
             const new_idx = new_fmap.get(new_name) orelse continue;
+            try consumed.put(new_name, {});
             try renames.append(alloc, .{
                 .old_name = old_name,
                 .new_name = new_name,
@@ -378,4 +386,50 @@ test "diffFields: ambiguous renames produce no rename" {
     try testing.expectEqual(@as(usize, 0), renames);
     try testing.expectEqual(@as(usize, 2), adds);
     try testing.expectEqual(@as(usize, 2), drops);
+}
+
+test "diffFields: rename targets are consumed once" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+    // Two dropped `n` fields, one added `n` field: only the first dropped
+    // field may claim it — a second CHANGE COLUMN to the same name would
+    // collide in the generated migration.
+    const old_fields = try alloc.alloc(Field, 2);
+    old_fields[0] = makeTestField("a", "n");
+    old_fields[1] = makeTestField("b", "n");
+    const new_fields = try alloc.alloc(Field, 1);
+    new_fields[0] = makeTestField("z", "n");
+
+    const diffs = try diffFields(alloc, old_fields, new_fields);
+    var renames: usize = 0;
+    var adds: usize = 0;
+    var drops: usize = 0;
+    for (diffs) |d| {
+        switch (d.action) {
+            .rename => renames += 1,
+            .add => adds += 1,
+            .drop => drops += 1,
+            else => {},
+        }
+    }
+    try testing.expectEqual(@as(usize, 1), renames);
+    try testing.expectEqual(@as(usize, 0), adds);
+    try testing.expectEqual(@as(usize, 1), drops);
+}
+
+test "diffFields: inline FK changes surface as fk diffs" {
+    // Field-level FKs are merged with table-level FKs by the diff engine
+    // (collectAllFks); fieldSignatureMatch intentionally ignores .fk so FK
+    // add/remove is not misread as a rename.
+    const a = makeTestField("owner", "n");
+    var b = makeTestField("owner", "n");
+    b.fk = .{
+        .fields = &.{"owner"},
+        .ref_table = "users",
+        .ref_fields = &.{"id"},
+        .actions = &.{},
+        .line_no = 1,
+    };
+    try testing.expect(fieldSignatureMatch(a, b));
 }

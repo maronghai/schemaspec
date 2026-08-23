@@ -79,6 +79,19 @@ pub const TableCache = struct {
         for (table.columns) |col| {
             hasher.update(col.name);
             hasher.update(@tagName(col.sql_type));
+            // Payload fields: @tagName alone would collide `varchar(50)` with
+            // `varchar(255)` and different decimal precision/scale, returning
+            // stale SQL from the cache.
+            switch (col.sql_type) {
+                .varchar => |len| hasher.update(&std.mem.toBytes(len)),
+                .decimal => |ds| {
+                    hasher.update(&std.mem.toBytes(ds.precision));
+                    hasher.update(&std.mem.toBytes(ds.scale));
+                },
+                .raw_sql => |s| hasher.update(s),
+                .passthrough => |s| hasher.update(s),
+                else => {},
+            }
             const flags_bytes = std.mem.asBytes(&col.flags);
             hasher.update(flags_bytes);
             if (col.default) |d| hasher.update(d);
@@ -629,4 +642,78 @@ test "flushToDisk + loadFromDisk roundtrips entries" {
     const sql = loaded.lookup(key);
     try std.testing.expect(sql != null);
     try std.testing.expectEqualStrings("CREATE TABLE orders (id BIGINT);", sql.?);
+}
+
+test "computeTableHash distinguishes varchar length and decimal precision" {
+    const col_v50 = typed_ast.TypedColumn{
+        .name = "name",
+        .doc = null,
+        .sql_type = .{ .varchar = 50 },
+        .ss_symbol = null,
+        .flags = .{},
+        .default = null,
+        .check = null,
+        .comment = null,
+        .enum_values = &.{},
+        .generated_expr = null,
+        .line_no = 1,
+    };
+    const col_v255 = blk: {
+        var c = col_v50;
+        c.sql_type = .{ .varchar = 255 };
+        break :blk c;
+    };
+    const t1_cols = [_]typed_ast.TypedColumn{col_v50};
+    const t2_cols = [_]typed_ast.TypedColumn{col_v255};
+    const t1 = typed_ast.TypedTable{
+        .name = "t",
+        .comment = null,
+        .doc = null,
+        .engine = null,
+        .columns = &t1_cols,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    };
+    var t2 = t1;
+    t2.columns = &t2_cols;
+    const k1 = TableCache.computeTableHash(t1, "mysql");
+    const k2 = TableCache.computeTableHash(t2, "mysql");
+    try std.testing.expect(!std.mem.eql(u8, &k1.content_hash, &k2.content_hash));
+
+    const col_d32 = typed_ast.TypedColumn{
+        .name = "amount",
+        .doc = null,
+        .sql_type = .{ .decimal = .{ .precision = 3, .scale = 2 } },
+        .ss_symbol = null,
+        .flags = .{},
+        .default = null,
+        .check = null,
+        .comment = null,
+        .enum_values = &.{},
+        .generated_expr = null,
+        .line_no = 1,
+    };
+    const col_d162 = blk: {
+        var c = col_d32;
+        c.sql_type = .{ .decimal = .{ .precision = 16, .scale = 2 } };
+        break :blk c;
+    };
+    const t3_cols = [_]typed_ast.TypedColumn{col_d32};
+    const t4_cols = [_]typed_ast.TypedColumn{col_d162};
+    const t3 = typed_ast.TypedTable{
+        .name = "t",
+        .comment = null,
+        .doc = null,
+        .engine = null,
+        .columns = &t3_cols,
+        .fks = &.{},
+        .indexes = &.{},
+        .line_no = 1,
+    };
+    var t4 = t3;
+    t4.columns = &t4_cols;
+    const k3 = TableCache.computeTableHash(t3, "mysql");
+    const k4 = TableCache.computeTableHash(t4, "mysql");
+    try std.testing.expect(!std.mem.eql(u8, &k3.content_hash, &k4.content_hash));
 }

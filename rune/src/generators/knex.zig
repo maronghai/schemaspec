@@ -161,6 +161,8 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
             try w.print("    table.{s}('{s}', {d})", .{ knexType(col), col.name, len })
         else
             try w.print("    table.{s}('{s}')", .{ knexType(col), col.name }),
+        // Precision args: knex's decimal(name, precision, scale) signature.
+        .decimal => |ds| try w.print("    table.{s}('{s}', {d}, {d})", .{ knexType(col), col.name, ds.precision, ds.scale }),
         else => try w.print("    table.{s}('{s}')", .{ knexType(col), col.name }),
     }
 

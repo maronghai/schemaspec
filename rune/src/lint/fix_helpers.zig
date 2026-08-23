@@ -40,7 +40,10 @@ pub fn tableNeedsFix(results: []const LintResult, table: []const u8, rule: []con
 }
 
 /// Detect appropriate default value based on type symbol in a field line.
-/// Returns the default value string to append (e.g., " = 0") or null if unrecognizable.
+/// Returns the default value string to append (e.g., "=0") or null if
+/// unrecognizable. No leading/trailing space: the tokenizer splits on
+/// whitespace, so "id n++ = 0" parses as two unknown tokens and the default
+/// is silently dropped — the appended text must fuse with the line.
 pub fn detectDefaultValue(field_line: []const u8) ?[]const u8 {
     const trimmed = std.mem.trim(u8, field_line, " \t");
     if (trimmed.len == 0) return null;
@@ -66,19 +69,19 @@ pub fn detectDefaultValue(field_line: []const u8) ?[]const u8 {
     if (type_sym.len > 0) {
         const first = type_sym[0];
         if (first == 'n' or first == 'N' or first == 'i' or first == 'I' or first == 'm' or first == 'M' or first == 'e') {
-            return " = 0";
+            return "=0";
         }
         if (first == 'b' and type_sym.len == 1) {
-            return " = false";
+            return "=false";
         }
         if (first == 's' or first == 'S') {
-            return " = ''";
+            return "=''";
         }
         if (first == 't' or first == 'd') {
-            return " = CURRENT_TIMESTAMP";
+            return "=CURRENT_TIMESTAMP";
         }
         if (first == 'j') {
-            return " = '{}'";
+            return "='{}'";
         }
     }
 
@@ -163,15 +166,15 @@ pub fn buildFixMaps(alloc: std.mem.Allocator, results: []const LintResult) !FixM
 const testing = std.testing;
 
 test "detectDefaultValue returns correct defaults" {
-    try testing.expectEqualStrings(" = 0", detectDefaultValue("age n").?);
-    try testing.expectEqualStrings(" = 0", detectDefaultValue("count N").?);
-    try testing.expectEqualStrings(" = false", detectDefaultValue("is_active b").?);
-    try testing.expectEqualStrings(" = ''", detectDefaultValue("name s100").?);
-    try testing.expectEqualStrings(" = ''", detectDefaultValue("email S").?);
-    try testing.expectEqualStrings(" = CURRENT_TIMESTAMP", detectDefaultValue("created_at t").?);
-    try testing.expectEqualStrings(" = '{}'", detectDefaultValue("metadata j").?);
-    try testing.expectEqualStrings(" = 0", detectDefaultValue("score e").?);
-    try testing.expectEqualStrings(" = 0", detectDefaultValue("amount m").?);
+    try testing.expectEqualStrings("=0", detectDefaultValue("age n").?);
+    try testing.expectEqualStrings("=0", detectDefaultValue("count N").?);
+    try testing.expectEqualStrings("=false", detectDefaultValue("is_active b").?);
+    try testing.expectEqualStrings("=''", detectDefaultValue("name s100").?);
+    try testing.expectEqualStrings("=''", detectDefaultValue("email S").?);
+    try testing.expectEqualStrings("=CURRENT_TIMESTAMP", detectDefaultValue("created_at t").?);
+    try testing.expectEqualStrings("='{}'", detectDefaultValue("metadata j").?);
+    try testing.expectEqualStrings("=0", detectDefaultValue("score e").?);
+    try testing.expectEqualStrings("=0", detectDefaultValue("amount m").?);
     try testing.expect(detectDefaultValue("") == null);
 }
 

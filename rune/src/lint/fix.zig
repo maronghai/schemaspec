@@ -91,7 +91,10 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
                 // Flush timestamp insertion for previous table
                 if (current_table) |prev_tbl| {
                     if (maps.needs_timestamps.contains(prev_tbl) and !ts_inserted.contains(prev_tbl) and last_field_end > 0) {
-                        try output.appendSlice(alloc, "\ncreated_at t\nupdated_at t");
+                        // Trailing newline required: without it the next table
+                        // header fuses into `updated_at t# next` and is parsed
+                        // as a field line.
+                        try output.appendSlice(alloc, "\ncreated_at t\nupdated_at t\n");
                         try fixes.append(alloc, .{
                             .rule = "no-timestamps",
                             .table = prev_tbl,
@@ -236,7 +239,7 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
     // Handle timestamps for the last table
     if (current_table) |tbl| {
         if (maps.needs_timestamps.contains(tbl) and !ts_inserted.contains(tbl)) {
-            try output.appendSlice(alloc, "\ncreated_at t\nupdated_at t");
+            try output.appendSlice(alloc, "\ncreated_at t\nupdated_at t\n");
             try fixes.append(alloc, .{
                 .rule = "no-timestamps",
                 .table = tbl,
@@ -380,7 +383,9 @@ test "fix: column-default-required adds numeric default" {
     };
     const source = "# users\nid n ++\nage n\n";
     const result = try fix(alloc, source, &results);
-    try testing.expect(std.mem.indexOf(u8, result.source, "= 0") != null);
+    // "=0" (no internal space) is the parseable form — "= 0" splits into
+    // two unknown tokens and the default silently drops.
+    try testing.expect(std.mem.indexOf(u8, result.source, " =0") != null);
     try testing.expect(result.fixes.len > 0);
 }
 
@@ -394,7 +399,7 @@ test "fix: column-default-required adds string default" {
     };
     const source = "# users\nid n ++\nname s100\n";
     const result = try fix(alloc, source, &results);
-    try testing.expect(std.mem.indexOf(u8, result.source, "= ''") != null);
+    try testing.expect(std.mem.indexOf(u8, result.source, " =''") != null);
 }
 
 test "fix: column-default-required adds boolean default" {
@@ -407,7 +412,7 @@ test "fix: column-default-required adds boolean default" {
     };
     const source = "# users\nid n ++\nis_active b\n";
     const result = try fix(alloc, source, &results);
-    try testing.expect(std.mem.indexOf(u8, result.source, "= false") != null);
+    try testing.expect(std.mem.indexOf(u8, result.source, " =false") != null);
 }
 
 test "fix: no-index-fk adds index after FK field" {
@@ -442,15 +447,15 @@ test "fix: duplicate-column removes second occurrence" {
 }
 
 test "fix: detectDefaultValue returns correct defaults" {
-    try testing.expectEqualStrings(" = 0", helpers.detectDefaultValue("age n").?);
-    try testing.expectEqualStrings(" = 0", helpers.detectDefaultValue("count N").?);
-    try testing.expectEqualStrings(" = false", helpers.detectDefaultValue("is_active b").?);
-    try testing.expectEqualStrings(" = ''", helpers.detectDefaultValue("name s100").?);
-    try testing.expectEqualStrings(" = ''", helpers.detectDefaultValue("email S").?);
-    try testing.expectEqualStrings(" = CURRENT_TIMESTAMP", helpers.detectDefaultValue("created_at t").?);
-    try testing.expectEqualStrings(" = '{}'", helpers.detectDefaultValue("metadata j").?);
-    try testing.expectEqualStrings(" = 0", helpers.detectDefaultValue("score e").?);
-    try testing.expectEqualStrings(" = 0", helpers.detectDefaultValue("amount m").?);
+    try testing.expectEqualStrings("=0", helpers.detectDefaultValue("age n").?);
+    try testing.expectEqualStrings("=0", helpers.detectDefaultValue("count N").?);
+    try testing.expectEqualStrings("=false", helpers.detectDefaultValue("is_active b").?);
+    try testing.expectEqualStrings("=''", helpers.detectDefaultValue("name s100").?);
+    try testing.expectEqualStrings("=''", helpers.detectDefaultValue("email S").?);
+    try testing.expectEqualStrings("=CURRENT_TIMESTAMP", helpers.detectDefaultValue("created_at t").?);
+    try testing.expectEqualStrings("='{}'", helpers.detectDefaultValue("metadata j").?);
+    try testing.expectEqualStrings("=0", helpers.detectDefaultValue("score e").?);
+    try testing.expectEqualStrings("=0", helpers.detectDefaultValue("amount m").?);
     try testing.expect(helpers.detectDefaultValue("") == null);
 }
 

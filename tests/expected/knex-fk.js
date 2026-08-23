@@ -14,7 +14,7 @@ exports.up = function(knex) {
 
   return knex.schema.createTable('orders', function(table) {
     table.increments('id').primary();
-    table.decimal('amount').notNullable();
+    table.decimal('amount', 16, 2).notNullable();
     table.foreign('user_id').references('users.id');
   });
 };

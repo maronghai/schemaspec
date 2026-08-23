@@ -119,7 +119,9 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
             const new_table = new.tables[bm.new_idx];
             const field_diffs = try diff_fields.diffFields(alloc, old_table.fields, new_table.fields);
             const index_diffs = try diff_indexes.diffIndexes(alloc, old_table.indexes, new_table.indexes, field_diffs);
-            const fk_diffs = try diff_fks.diffFks(alloc, old_table.fks, new_table.fks, field_diffs);
+            const old_fks = try collectAllFks(alloc, old_table);
+            const new_fks = try collectAllFks(alloc, new_table);
+            const fk_diffs = try diff_fks.diffFks(alloc, old_fks, new_fks, field_diffs);
             const metadata_diff = TableMetadataDiff{
                 .old_comment = old_table.comment,
                 .new_comment = new_table.comment,
@@ -146,7 +148,8 @@ pub fn diff(old: resolved_ast.ResolvedAst, new: resolved_ast.ResolvedAst, alloc:
             const new_table = new.tables[new_idx];
             const field_diffs = try diff_fields.createAllFieldDiffs(alloc, new_table.fields);
             const index_diffs = try diff_indexes.createAllIndexDiffs(alloc, new_table.indexes);
-            const fk_diffs = try diff_fks.createAllFkDiffs(alloc, new_table.fks);
+            const new_fks = try collectAllFks(alloc, new_table);
+            const fk_diffs = try diff_fks.createAllFkDiffs(alloc, new_fks);
             try table_diffs.append(alloc, .{
                 .name = new_table.name,
                 .action = .create,
@@ -318,10 +321,27 @@ fn customTypesEql(a: ast_mod.CustomType, b: ast_mod.CustomType) bool {
     return true;
 }
 
+/// All FKs affecting a table: table-level `>` lines plus per-field inline
+/// FKs, merged in the same order TypeResolver.resolve() uses for codegen.
+/// The diff engine compares ResolvedAst (pre-merge), so without this a
+/// schema change that only adds/removes an inline FK (`user_id > users.id`)
+/// produces an empty migration while the compiled SQL gains a constraint.
+fn collectAllFks(alloc: std.mem.Allocator, table: resolved_ast.ResolvedTable) ![]const ast_mod.FkDecl {
+    var all = try std.ArrayList(ast_mod.FkDecl).initCapacity(alloc, table.fks.len + 4);
+    for (table.fks) |fk| try all.append(alloc, fk);
+    for (table.fields) |field| {
+        if (std.mem.eql(u8, field.name, "...")) continue;
+        if (field.fk) |fk| try all.append(alloc, fk);
+    }
+    return all.toOwnedSlice(alloc);
+}
+
 fn diffTable(alloc: std.mem.Allocator, old: resolved_ast.ResolvedTable, new: resolved_ast.ResolvedTable) !TableDiff {
     const field_diffs = try diff_fields.diffFields(alloc, old.fields, new.fields);
     const index_diffs = try diff_indexes.diffIndexes(alloc, old.indexes, new.indexes, field_diffs);
-    const fk_diffs = try diff_fks.diffFks(alloc, old.fks, new.fks, field_diffs);
+    const old_fks = try collectAllFks(alloc, old);
+    const new_fks = try collectAllFks(alloc, new);
+    const fk_diffs = try diff_fks.diffFks(alloc, old_fks, new_fks, field_diffs);
 
     // Compare metadata (comment, engine)
     const metadata_diff = TableMetadataDiff{

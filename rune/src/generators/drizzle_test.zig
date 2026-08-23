@@ -169,3 +169,18 @@ test "drizzle: boolean and timestamp types" {
     try testing.expect(std.mem.indexOf(u8, result, "boolean('active')") != null);
     try testing.expect(std.mem.indexOf(u8, result, "timestamp('created_at')") != null);
 }
+
+test "drizzle: decimal precision and scale" {
+    const alloc = testing.allocator;
+    const cols = try alloc.dupe(typed_ast.TypedColumn, &.{
+        makeTestColumn("price", .{ .decimal = .{ .precision = 10, .scale = 2 } }),
+    });
+    defer alloc.free(cols);
+    const table = makeTestTable("products", cols);
+    const tables = try alloc.dupe(typed_ast.TypedTable, &.{table});
+    defer alloc.free(tables);
+    const ast = makeTestAst(tables);
+    const result = try gen.generate(alloc, ast, .mysql);
+    defer alloc.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "decimal('price', { precision: 10, scale: 2 })") != null);
+}

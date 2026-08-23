@@ -93,3 +93,37 @@ test "prisma: multiple tables" {
     try testing.expect(std.mem.indexOf(u8, result, "model users") != null);
     try testing.expect(std.mem.indexOf(u8, result, "model posts") != null);
 }
+
+test "prisma: compound FK lists all fields and references" {
+    const alloc = testing.allocator;
+    const cols = try alloc.dupe(typed_ast.TypedColumn, &.{
+        makeTestColumn("user_id", .int),
+        makeTestColumn("org_id", .int),
+    });
+    defer alloc.free(cols);
+    const table = ct.makeTestTableWithFks("memberships", cols, &.{
+        .{ .fields = &.{ "user_id", "org_id" }, .ref_table = "users", .ref_fields = &.{ "id", "org" }, .actions = &.{}, .line_no = 0 },
+    });
+    const tables = try alloc.dupe(typed_ast.TypedTable, &.{table});
+    defer alloc.free(tables);
+    const ast = makeTestAst(tables);
+    const result = try gen.generate(alloc, ast, .mysql);
+    defer alloc.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "fields: [user_id, org_id]") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "references: [id, org]") != null);
+}
+
+test "prisma: decimal precision annotation" {
+    const alloc = testing.allocator;
+    const cols = try alloc.dupe(typed_ast.TypedColumn, &.{
+        makeTestColumn("price", .{ .decimal = .{ .precision = 10, .scale = 2 } }),
+    });
+    defer alloc.free(cols);
+    const table = makeTestTable("products", cols);
+    const tables = try alloc.dupe(typed_ast.TypedTable, &.{table});
+    defer alloc.free(tables);
+    const ast = makeTestAst(tables);
+    const result = try gen.generate(alloc, ast, .mysql);
+    defer alloc.free(result);
+    try testing.expect(std.mem.indexOf(u8, result, "Decimal @db.Decimal(10, 2)") != null);
+}

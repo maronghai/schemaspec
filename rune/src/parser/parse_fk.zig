@@ -88,6 +88,10 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
     const ultra_no_dot = has_prefix and !has_sep and !ref_is_at_fi and tokens.len == 2;
     const ref_effective = if (ref_is_at_fi or ultra_no_dot) fi else ref_idx;
 
+    // Index of the last consumed reference token — actions start after it.
+    // Defaults to ref_effective; the compound branch advances it.
+    var last_ref_idx: usize = ref_effective;
+
     const ref_has_dot = tokens.len > ref_effective and std.mem.indexOfScalar(u8, tokens[ref_effective], '.') != null;
 
     // Find first dot-containing token for compound FK support
@@ -133,7 +137,8 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
         } else {
             // Standard: field(s) table.field(s)
             if (dot_tok_idx) |dti| {
-                // Compound: collect all local fields before the dot token
+                // Compound: collect all local fields before the first
+                // dot-containing token
                 var li: usize = fi;
                 while (li < dti) : (li += 1) {
                     try local_fields.append(alloc, try alloc.dupe(u8, line.tokens[li]));
@@ -141,8 +146,7 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
             } else if (fi < tokens.len) {
                 try local_fields.append(alloc, try alloc.dupe(u8, local_field_name));
             }
-            const ref = line.tokens[ref_compound];
-            const parsed = try parseDottedRef(alloc, ref, local_field_name);
+            const parsed = try parseDottedRef(alloc, line.tokens[ref_compound], local_field_name);
             ref_table = parsed.table;
             for (parsed.fields) |f| {
                 try ref_fields.append(alloc, try alloc.dupe(u8, f));
@@ -150,6 +154,58 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
             // Free parsed results after copying
             for (parsed.fields) |f| alloc.free(f);
             alloc.free(parsed.fields);
+
+            // Compound reference: consecutive further dot-tokens add more
+            // ref columns (`> a_id b_id t.col_a t.col_b`). Without this the
+            // extra columns were silently dropped and the emitted FOREIGN KEY
+            // had mismatched column counts.
+            last_ref_idx = ref_compound;
+            var si = ref_compound + 1;
+            var extra_refs: usize = 0;
+            while (si < tokens.len) : (si += 1) {
+                const t = tokens[si];
+                const dot = std.mem.indexOfScalar(u8, t, '.') orelse break;
+                const more_table = t[0..dot];
+                if (!std.mem.eql(u8, more_table, ref_table)) {
+                    diag.printDiagnostic(alloc, .{
+                        .severity = .@"error",
+                        .line_no = line.line_no,
+                        .col = diag.tokenColumn(t, line.raw),
+                        .message = "compound FK references multiple tables",
+                        .expected = try std.fmt.allocPrint(alloc, "all ref columns from '{s}'", .{ref_table}),
+                        .actual = t,
+                        .source_line = line.raw,
+                    });
+                    break;
+                }
+                const more_field = t[dot + 1 ..];
+                if (more_field.len > 0) {
+                    try ref_fields.append(alloc, try alloc.dupe(u8, more_field));
+                    extra_refs += 1;
+                }
+                last_ref_idx = si;
+            }
+
+            // Column-count validation — only for the multi-token compound
+            // form (`> a_id b_id t.x t.y`). The single-token dotted form
+            // (`t.a.b.c` projecting onto one local column) is an established
+            // shape with its own tests. A compound FK whose sides disagree is
+            // rejected by every SQL backend at execution time.
+            if (extra_refs > 0 and local_fields.items.len != ref_fields.items.len and local_fields.items.len > 0 and ref_fields.items.len > 0) {
+                var exp_buf: [32]u8 = undefined;
+                var act_buf: [16]u8 = undefined;
+                const expected = std.fmt.bufPrint(&exp_buf, "{d} local column(s)", .{ref_fields.items.len}) catch "matching local column count";
+                const actual = std.fmt.bufPrint(&act_buf, "{d}", .{local_fields.items.len}) catch "?";
+                diag.printDiagnostic(alloc, .{
+                    .severity = .@"error",
+                    .line_no = line.line_no,
+                    .col = null,
+                    .message = "compound FK column count mismatch",
+                    .expected = expected,
+                    .actual = actual,
+                    .source_line = line.raw,
+                });
+            }
         }
     } else if (ultra_no_dot) {
         // > table — ultra shorthand without dot (infer field = table_id, ref_field = id)
@@ -186,8 +242,9 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
         });
     }
 
-    // Parse FK actions after reference (-S, -N, S, N)
-    const actions = try parseFkActions(alloc, tokens, ref_compound + 1);
+    // Parse FK actions after reference (-S, -N, S, N). After a compound
+    // reference, actions start past the last ref column token, not the first.
+    const actions = try parseFkActions(alloc, tokens, last_ref_idx + 1);
 
     return .{
         .fields = try local_fields.toOwnedSlice(alloc),

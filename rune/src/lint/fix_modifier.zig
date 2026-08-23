@@ -65,8 +65,12 @@ pub fn fixBoolDefault(
     if (last_char != 'b' and !(last_char == '?' and trimmed.len >= 2 and trimmed[trimmed.len - 2] == 'b')) return false;
     if (current_table) |tbl| {
         if (helpers.tableNeedsFix(results, tbl, "bool-default")) {
-            try output.appendSlice(alloc, line);
-            try output.appendSlice(alloc, " = false");
+            // " =false" — one separator space before `=` so the tokenizer
+            // yields a standalone "=false" token; no space inside (the
+            // default would split into two unknown tokens and be dropped).
+            const bare = std.mem.trimEnd(u8, line, " \t\r");
+            try output.appendSlice(alloc, bare);
+            try output.appendSlice(alloc, " =false");
             if (line_end < source_len) try output.append(alloc, '\n');
             try fixes.append(alloc, .{
                 .rule = "bool-default",
@@ -95,8 +99,11 @@ pub fn fixNullableColumnDefault(
     if (trimmed.len == 0 or trimmed[trimmed.len - 1] != '?') return false;
     if (current_table) |tbl| {
         if (helpers.tableNeedsFix(results, tbl, "nullable-column-default")) {
-            try output.appendSlice(alloc, line);
-            try output.appendSlice(alloc, " = null");
+            // " =null" — one separator space before `=` so the tokenizer
+            // yields a standalone token; no space inside.
+            const bare = std.mem.trimEnd(u8, line, " \t\r");
+            try output.appendSlice(alloc, bare);
+            try output.appendSlice(alloc, " =null");
             if (line_end < source_len) try output.append(alloc, '\n');
             try fixes.append(alloc, .{
                 .rule = "nullable-column-default",
@@ -126,7 +133,13 @@ pub fn fixColumnDefaultRequired(
             const trimmed = std.mem.trim(u8, line, " \t");
             if (trimmed.len > 0 and !std.mem.startsWith(u8, trimmed, "index ") and std.mem.indexOf(u8, trimmed, "->") == null) {
                 if (helpers.detectDefaultValue(trimmed)) |dv| {
-                    try output.appendSlice(alloc, line);
+                    // dv carries no internal space by contract ("=0",
+                    // "=false", ...); one separator space before `=` keeps it
+                    // a single tokenizer token. " = 0" with two spaces would
+                    // split into unknown tokens and the default would drop.
+                    const bare = std.mem.trimEnd(u8, line, " \t\r");
+                    try output.appendSlice(alloc, bare);
+                    try output.append(alloc, ' ');
                     try output.appendSlice(alloc, dv);
                     if (line_end < source_len) try output.append(alloc, '\n');
                     try fixes.append(alloc, .{

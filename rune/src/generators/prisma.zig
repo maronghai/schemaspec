@@ -52,14 +52,21 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
 
         // Inline relations from FK targets (owned side)
         for (table.fks) |fk| {
-            try w.print("  {s} {s}? @relation(\"{s}_{s}\", fields: [{s}], references: [{s}])\n", .{
-                try common.toCamelSingular(alloc, fk.ref_table),
-                fk.ref_table,
-                table.name,
-                fk.ref_table,
-                fk.fields[0],
-                fk.ref_fields[0],
-            });
+            // Compound FKs list every column — Prisma requires fields and
+            // references counts to match the constraint exactly.
+            try w.writeAll("  ");
+            try w.writeAll(try common.toCamelSingular(alloc, fk.ref_table));
+            try w.print(" {s}? @relation(\"{s}_{s}\", fields: [", .{ fk.ref_table, table.name, fk.ref_table });
+            for (fk.fields, 0..) |f, i| {
+                if (i > 0) try w.writeAll(", ");
+                try w.writeAll(f);
+            }
+            try w.writeAll("], references: [");
+            for (fk.ref_fields, 0..) |f, i| {
+                if (i > 0) try w.writeAll(", ");
+                try w.writeAll(f);
+            }
+            try w.writeAll("])\n");
         }
 
         // Relation blocks for the other side
@@ -80,6 +87,13 @@ fn writeField(w: *Writer, col: typed_ast.TypedColumn) !void {
     const optional_suffix = if (col.flags.nullable and !col.flags.primary_key) "?" else "";
 
     try w.print("  {s} {s}{s}", .{ col.name, prisma_type, optional_suffix });
+
+    // Precision annotation — a bare Decimal loses precision/scale and the
+    // Prisma-migrated column degrades to the database default.
+    if (col.sql_type == .decimal) {
+        const ds = col.sql_type.decimal;
+        try w.print(" @db.Decimal({d}, {d})", .{ ds.precision, ds.scale });
+    }
 
     // Attributes — write directly to main writer
     if (col.flags.primary_key) {

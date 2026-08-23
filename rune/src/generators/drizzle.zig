@@ -246,7 +246,14 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
 // ─── Column Generation ──────────────────────────────────────────
 
 fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable, dialect: Dialect) !void {
-    try w.print("  {s}: {s}('{s}')", .{ col.name, columnConstructor(col, dialect), col.name });
+    try w.print("  {s}: {s}('{s}'", .{ col.name, columnConstructor(col, dialect), col.name });
+    // Drizzle's decimal accepts { precision, scale } — without it the column
+    // degrades to the driver's default precision.
+    if (col.sql_type == .decimal) {
+        const ds = col.sql_type.decimal;
+        try w.print(", {{ precision: {d}, scale: {d} }}", .{ ds.precision, ds.scale });
+    }
+    try w.writeAll(")");
 
     // Primary key
     if (col.flags.primary_key) {

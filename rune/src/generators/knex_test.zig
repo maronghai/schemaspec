@@ -91,7 +91,7 @@ test "knex: decimal column" {
     const ast = makeTestAst(tables);
     const result = try gen.generate(alloc, ast, .mysql);
     defer alloc.free(result);
-    try testing.expect(std.mem.indexOf(u8, result, "table.decimal('price')") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "table.decimal('price', 10, 2)") != null);
 }
 
 test "knex: FK generates foreign key reference" {
