@@ -32,6 +32,23 @@ $ schema_name [charset] [autofk]    ; charset default utf8mb4, one $ per file
 #base table_name  : comment          ; table using template
 ```
 
+### Brace Form (v0.330.0)
+
+Table bodies may optionally be wrapped in braces — the two forms are equivalent and may be mixed freely:
+
+```asm
+# users {
+id N ++ PK
+name s64
+}
+
+# posts                                ; brace-less form
+id N ++ PK
+user_id > users.id
+```
+
+The trailing `{` on a header line is structural (not part of the name); a line containing only `}` closes the table. A stray `}` outside any block is a warning. Note: `{...}` inside a field line is still a CHECK constraint — the two uses never conflict because CHECK braces are part of a field's token stream.
+
 ### Schema Version
 
 The `@version` directive declares schema version metadata for forward/backward compatibility tracking:

@@ -14,6 +14,9 @@ pub const TableHeader = struct {
     comment: ?[]const u8,
     line_no: usize,
     loc: ?SourceLocation,
+    /// True when the header carried a trailing `{` (brace form `# name { ... }`).
+    /// Informational only — the parser treats the two forms identically.
+    has_brace: bool = false,
 };
 
 /// Parse a table header line (# table_name > template_ref [: comment]).
@@ -23,7 +26,17 @@ pub fn parseTableHeader(alloc: std.mem.Allocator, line: tk.Line) !TableHeader {
     var table_name: []const u8 = "";
     var comment: ?[]const u8 = null;
 
-    const tokens = line.tokens;
+    // Brace form: `# users { ... }` — the trailing `{` token opens the body
+    // and is structural, not part of the name. Strip it before the existing
+    // token-shape branches; the matching `}` line closes the block in parser.zig.
+    var header_tokens = line.tokens;
+    var has_brace = false;
+    if (header_tokens.len > 0 and std.mem.eql(u8, header_tokens[header_tokens.len - 1], "{")) {
+        has_brace = true;
+        header_tokens = header_tokens[0 .. header_tokens.len - 1];
+    }
+
+    const tokens = header_tokens;
 
     // Check for > operator: # table_name > template_ref [: comment]
     var gt_idx: ?usize = null;
@@ -71,6 +84,7 @@ pub fn parseTableHeader(alloc: std.mem.Allocator, line: tk.Line) !TableHeader {
         .comment = comment,
         .line_no = line.line_no,
         .loc = locFromLine(line, line.tokens[0]),
+        .has_brace = has_brace,
     };
 }
 

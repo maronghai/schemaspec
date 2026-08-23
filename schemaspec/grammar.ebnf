@@ -51,7 +51,12 @@ parent_name      = word ;
 
 (* ── Table ── *)
 
-table_decl       = "#", [ template_ref ], WS, table_name, [ WS, comment_trailing ], newline, field_list ;
+table_decl       = table_header_plain, newline, field_list          (* legacy form *)
+                 | table_header_brace, newline, field_body, brace_close, newline ;  (* brace form *)
+table_header_plain = "#", [ template_ref ], WS, table_name, [ WS, comment_trailing ] ;
+table_header_brace = "#", [ template_ref ], WS, table_name, [ WS, comment_trailing ], WS, "{" ;
+brace_close      = "}" ;
+field_body       = field_list ;  (* same body grammar as the legacy form *)
 template_ref     = template_name ;
 table_name       = word ;
 

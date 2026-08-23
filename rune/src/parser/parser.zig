@@ -126,6 +126,7 @@ pub const Parser = struct {
             self.fks.deinit(alloc);
             self.indexes.deinit(alloc);
             self.conditional_blocks.deinit(alloc);
+            self.embeds.deinit(alloc);
             // Note: parents_buf uses fixed storage, no deallocation needed.
         }
     };
@@ -143,6 +144,9 @@ pub const Parser = struct {
         var composites = try std.ArrayList(ast_mod.Composite).initCapacity(self.alloc, 4);
 
         var block = try BlockState.init(self.alloc);
+        // Fatal parse errors return early (when no DiagnosticCollector is
+        // attached); the success path deinits explicitly below.
+        errdefer block.deinit(self.alloc);
 
         var line_idx: usize = 0;
         while (line_idx < lines.len) : (line_idx += 1) {
@@ -336,6 +340,30 @@ pub const Parser = struct {
                     block.mode = .composite;
                 },
                 .Field => {
+                    // Brace-form table body terminator: a line that is just `}`.
+                    // Real field names can never be `}` (name_char excludes it),
+                    // so this is unambiguous structural syntax.
+                    if (line.tokens.len == 1 and std.mem.eql(u8, line.tokens[0], "}")) {
+                        if (block.mode == .table) {
+                            try self.flushCurrentTable(&tables, &block);
+                            block.mode = .none;
+                        } else if (block.mode == .template) {
+                            try self.flushCurrentTemplate(&templates, &block);
+                            block.mode = .none;
+                        } else if (block.mode == .composite) {
+                            self.flushCurrentComposite(&composites, &block);
+                            block.mode = .none;
+                        } else {
+                            diag.printDiagnostic(self.alloc, .{
+                                .severity = .warning,
+                                .line_no = line.line_no,
+                                .col = if (line.tokens.len > 0) diag.tokenColumn(line.tokens[0], line.raw) else null,
+                                .message = "unexpected closing brace '}' outside any block — ignored",
+                                .source_line = line.raw,
+                            });
+                        }
+                        continue;
+                    }
                     if (block.mode != .none) {
                         var fld = parse_field.parseField(self.alloc, line) catch |err| {
                             if (!self.handleParseError(err, line, "failed to parse field")) return err;

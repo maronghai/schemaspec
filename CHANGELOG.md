@@ -1,3 +1,13 @@
+## [0.330.0] - 2026-08-23
+
+### Added
+- **Brace-form table syntax is now official language grammar** (`# name { ... }`): deep analysis revealed the brace form was a "ghost syntax" — the entire tooling ecosystem treated it as valid (LSP folding_range implements stack-based closing-brace handling, signature_help/references tests use it as canonical input, v0.329.0 fixed format/tune for it) but the parser never did: the tokenizer's CHECK-constraint splitting turned `# users {` into name `{`, and a lone `}` line was swallowed as a varchar field — single-table schemas silently compiled to `CREATE TABLE `{` (`}` varchar...)` while multi-table ones failed with misleading duplicate-name errors. Now: `parseTableHeader` strips the trailing `{` (TableHeader.has_brace records it), and a `}`-only line flushes the current table/template/composite block; stray `}` outside any block warns. CHECK braces are unaffected (they live inside field token streams). Documented in schemaspec/schema.md §1 and grammar.ebnf.
+- Golden tests: 33-brace-syntax (MySQL/PostgreSQL) and sqlite-brace-syntax (SQLite) — first table-level brace coverage in the 169-file golden corpus.
+
+### Fixed
+- **printDiagnostic leaked its formatting buffer on every call** (found by new parser tests): the Writer.Allocating → toArrayList handoff never freed — every warning/error printed by every compile leaked. Now freed after emission.
+- **Parser BlockState.deinit missed the embeds list** (allocated in init, never freed) and **parse() skipped deinit entirely on fatal-error early returns** when no DiagnosticCollector is attached; both paths now clean up (errdefer).
+
 ## [0.329.0] - 2026-08-23
 
 ### Fixed

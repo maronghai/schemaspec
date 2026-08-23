@@ -331,3 +331,112 @@ test "parser: @if creates conditional block" {
     try testing.expectEqual(@as(usize, 3), table.conditional_blocks[0].end_field);
     try testing.expectEqualStrings("pg", table.conditional_blocks[0].dialects[0]);
 }
+
+// ─── v0.330.0: brace-form table bodies ──────────────────────
+
+/// Shared cleanup for an Ast produced by Parser.parse in tests.
+fn freeTree(alloc: std.mem.Allocator, tree: *ast_mod.Ast) void {
+    for (tree.tables) |t| {
+        alloc.free(t.name);
+        for (t.fields) |*f| {
+            alloc.free(f.name);
+            alloc.free(f.modifiers);
+            if (f.comment) |c| alloc.free(c);
+            if (f.doc) |d| alloc.free(d);
+            if (f.default_val) |dv| alloc.free(dv.value);
+            if (f.check) |ck| alloc.free(ck.expr);
+            if (f.fk) |*fk| {
+                alloc.free(fk.fields);
+                alloc.free(fk.ref_fields);
+                alloc.free(fk.actions);
+            }
+            if (f.generated_expr) |ge| alloc.free(ge);
+        }
+        alloc.free(t.fields);
+        alloc.free(t.fks);
+        alloc.free(t.indexes);
+        for (t.conditional_blocks) |cb| {
+            for (cb.dialects) |d| alloc.free(d);
+            alloc.free(cb.dialects);
+        }
+        alloc.free(t.conditional_blocks);
+        if (t.template_ref) |tr| alloc.free(tr);
+        if (t.comment) |c| alloc.free(c);
+        if (t.doc) |d| alloc.free(d);
+        if (t.engine) |e| alloc.free(e);
+    }
+    alloc.free(tree.tables);
+    if (tree.schema) |s| {
+        alloc.free(s.name);
+        alloc.free(s.custom_types);
+    }
+    alloc.free(tree.templates);
+    alloc.free(tree.views);
+    alloc.free(tree.sql_comments);
+}
+
+fn parseSource(alloc: std.mem.Allocator, source: []const u8) !ast_mod.Ast {
+    var line_list = try std.ArrayList([]const u8).initCapacity(alloc, 16);
+    defer line_list.deinit(alloc);
+    var line_it = std.mem.splitScalar(u8, source, '\n');
+    while (line_it.next()) |line| {
+        try line_list.append(alloc, line);
+    }
+    const raw_lines = try line_list.toOwnedSlice(alloc);
+    defer alloc.free(raw_lines);
+    const tokenizer = tk.Tokenizer.init(raw_lines);
+    const lines = try tokenizer.tokenizeAll(alloc);
+    defer {
+        for (lines) |line| {
+            if (line.tokens.len > 0) alloc.free(line.tokens);
+        }
+        alloc.free(lines);
+    }
+    var parser_inst = Parser.init(alloc);
+    return parser_inst.parse(lines);
+}
+
+test "parser: brace table closes on } line" {
+    const alloc = testing.allocator;
+    const source =
+        \\# users {
+        \\id N
+        \\name s100
+        \\}
+        \\
+    ;
+    var tree = try parseSource(alloc, source);
+    defer freeTree(alloc, &tree);
+
+    try testing.expectEqual(@as(usize, 1), tree.tables.len);
+    try testing.expectEqualStrings("users", tree.tables[0].name);
+    try testing.expectEqual(@as(usize, 2), tree.tables[0].fields.len); // `}` must not become a field
+}
+
+test "parser: two brace tables stay distinct" {
+    const alloc = testing.allocator;
+    const source =
+        \\# users {
+        \\id N
+        \\}
+        \\
+        \\# posts {
+        \\title s
+        \\}
+        \\
+    ;
+    var tree = try parseSource(alloc, source);
+    defer freeTree(alloc, &tree);
+
+    try testing.expectEqual(@as(usize, 2), tree.tables.len);
+    try testing.expectEqualStrings("users", tree.tables[0].name);
+    try testing.expectEqualStrings("posts", tree.tables[1].name);
+}
+
+test "parser: orphan closing brace warns and is ignored" {
+    const alloc = testing.allocator;
+    const source = "}\n";
+    var tree = try parseSource(alloc, source);
+    defer freeTree(alloc, &tree);
+    try testing.expectEqual(@as(usize, 0), tree.tables.len);
+}

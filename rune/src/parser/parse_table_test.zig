@@ -135,3 +135,45 @@ test "processViewLine: view without query" {
     try std.testing.expectEqualStrings("my_view", view.name);
     try std.testing.expectEqualStrings("", view.query);
 }
+
+// ─── v0.330.0: brace-form table headers ─────────────────────
+
+test "parseTableHeader: brace form strips trailing open brace" {
+    const alloc = std.testing.allocator;
+    const tokens = [_][]const u8{ "#", "users", "{" };
+    const hdr = try parse_table.parseTableHeader(alloc, makeLine(&tokens, .Table, 1));
+    defer {
+        alloc.free(hdr.name);
+        if (hdr.template_ref) |t| alloc.free(t);
+        if (hdr.comment) |c| alloc.free(c);
+    }
+    try std.testing.expectEqualStrings("users", hdr.name);
+    try std.testing.expect(hdr.has_brace);
+}
+
+test "parseTableHeader: brace form with template ref" {
+    const alloc = std.testing.allocator;
+    const tokens = [_][]const u8{ "#", "user", ">", "base", "{" };
+    const hdr = try parse_table.parseTableHeader(alloc, makeLine(&tokens, .Table, 1));
+    defer {
+        alloc.free(hdr.name);
+        if (hdr.template_ref) |t| alloc.free(t);
+        if (hdr.comment) |c| alloc.free(c);
+    }
+    try std.testing.expectEqualStrings("user", hdr.name);
+    try std.testing.expectEqualStrings("base", hdr.template_ref.?);
+    try std.testing.expect(hdr.has_brace);
+}
+
+test "parseTableHeader: brace-less form unaffected" {
+    const alloc = std.testing.allocator;
+    const tokens = [_][]const u8{ "#", "users" };
+    const hdr = try parse_table.parseTableHeader(alloc, makeLine(&tokens, .Table, 1));
+    defer {
+        alloc.free(hdr.name);
+        if (hdr.template_ref) |t| alloc.free(t);
+        if (hdr.comment) |c| alloc.free(c);
+    }
+    try std.testing.expectEqualStrings("users", hdr.name);
+    try std.testing.expect(!hdr.has_brace);
+}

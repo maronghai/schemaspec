@@ -114,8 +114,12 @@ pub fn printDiagnostic(alloc: std.mem.Allocator, d: Diagnostic) void {
     if (comptime @import("builtin").target.cpu.arch.isWasm()) return;
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
-    formatDiagnosticTo(w, d) catch return;
-    const out = aw.toArrayList();
+    formatDiagnosticTo(w, d) catch {
+        aw.deinit();
+        return;
+    };
+    var out = aw.toArrayList();
+    defer out.deinit(alloc);
     std.debug.print("{s}", .{out.items});
 }
 
