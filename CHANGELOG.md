@@ -1,3 +1,12 @@
+## [0.332.0] - 2026-08-23
+
+### Fixed
+- **`rune reverse` now captures inline column-level foreign keys** (silent data loss in the reverse pipeline): `a_id INT REFERENCES users(id) ON DELETE CASCADE` — the dominant FK style in mysqldump and SQLite .schema output — was previously only token-skipped, and worse, unconsumed `ON DELETE CASCADE` fragments leaked into the column loop as ghost fields (`DELETE CASCADE ?`). The SQL parser records an `inline_fk` on the column (reference table, optional column list, full ON DELETE/ON UPDATE action chain with tolerant failure), and reverse codegen emits them alongside table-level constraints.
+  - classifyFk omits empty reference parentheses (`> (editor_id) users`, not `users()`) for bare `REFERENCES table`.
+  - RESTRICT / NO ACTION actions emit no action token: they are the .ss omission default (the language's tokens are -C/-N/C/N), so emitting `-?` pseudo-tokens would corrupt round-trips.
+  - Composite reference lists keep the existing full-form bracket convention (`> (tag_a) tags(a, b)`).
+- Golden tests: tests/reverse/inline-fk.* across mysql/pg/sqlite (CASCADE / bare-table-name / composite-ref scenarios); reverse suite 21 → 24 cases. Unit tests 2092 → 2094.
+
 ## [0.331.0] - 2026-08-23
 
 ### Fixed

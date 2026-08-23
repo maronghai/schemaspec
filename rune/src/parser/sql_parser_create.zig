@@ -265,6 +265,7 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
     var generated_expr: ?[]const u8 = null;
     var is_stored = false;
     var is_virtual = false;
+    var inline_fk: ?*SqlForeignKey = null;
 
     self.skipSpaces();
     while (self.pos < self.src.len) {
@@ -386,13 +387,15 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
                 check_expr = try self.parseParenExpr();
             }
         } else if (self.matchKeyword("references") or self.matchKeyword("REFERENCES")) {
-            self.skipSpaces();
-            _ = try self.parseIdentifier();
-            self.skipSpaces();
-            if (self.peek() == '(') {
-                self.advance();
-                while (self.peek() != ')' and self.pos < self.src.len) self.advance();
-                if (self.peek() == ')') self.advance();
+            // Inline column-level FK: capture table, optional column list, and
+            // ON DELETE/UPDATE actions. Previously this branch only skipped the
+            // tokens, silently dropping the FK from the reverse pipeline.
+            if (self.parseInlineReferences()) |fk| {
+                inline_fk = try self.alloc.create(SqlForeignKey);
+                inline_fk.?.* = fk;
+            } else |err| {
+                if (err != error.ExpectedDeleteOrUpdate and err != error.ExpectedFkAction) return err;
+                // Unparseable action list: keep the reference without actions.
             }
         } else if (self.matchKeyword("AS")) {
             // Short form: col_name type AS (expr) [STORED|VIRTUAL]
@@ -448,6 +451,7 @@ pub fn parseColumn(self: *sp.SqlParser) !SqlColumn {
         .generated_expr = generated_expr,
         .is_stored = is_stored,
         .is_virtual = is_virtual,
+        .inline_fk = inline_fk,
     };
 }
 

@@ -258,4 +258,23 @@ fn emitForeignKeys(self: *ReverseCodegen, w: anytype, table: sp.SqlTable) !void 
         try w.writeAll("\n");
         if (cls.text) |txt| try w.writeAll(txt);
     }
+
+    // Inline column-level FKs (`y INT REFERENCES a(x)`): collected on the
+    // column by the SQL parser; previously silently dropped.
+    for (table.columns) |col| {
+        const fk = col.inline_fk orelse continue;
+        // Fill in the local field (the parser leaves it empty — the column
+        // itself declares the reference).
+        var local = [_][]const u8{col.name};
+        const full = sp.SqlForeignKey{
+            .fields = local[0..],
+            .ref_table = fk.ref_table,
+            .ref_fields = if (fk.ref_fields.len > 0) fk.ref_fields else local[0..0],
+            .actions = fk.actions,
+        };
+        const cls = rf.classifyFk(self.alloc, full);
+        defer if (cls.text) |txt| self.alloc.free(txt);
+        try w.writeAll("\n");
+        if (cls.text) |txt| try w.writeAll(txt);
+    }
 }

@@ -25,6 +25,9 @@ pub const SqlColumn = struct {
     generated_expr: ?[]const u8 = null,
     is_stored: bool = false,
     is_virtual: bool = false,
+    /// Inline column-level foreign key (`y INT REFERENCES a(x) ON DELETE ...`).
+    /// Table-level FOREIGN KEY constraints are collected separately.
+    inline_fk: ?*SqlForeignKey = null,
 };
 
 pub const SqlIndex = struct {

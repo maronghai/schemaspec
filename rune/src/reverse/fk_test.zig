@@ -81,3 +81,37 @@ test "classifyFk shorthand with non-id reference" {
     try testing.expect(result.text != null);
     try testing.expectEqualStrings("> email auth(email)", result.text.?);
 }
+
+// ─── v0.332.0: inline column-level FK round-trip ────────────
+
+test "classifyFk omits empty reference column list" {
+    // `a_id INT REFERENCES a` — no explicit column list; output must not
+    // render empty parentheses.
+    const alloc = testing.allocator;
+    const fk_data = sp.SqlForeignKey{
+        .fields = &.{"a_id"},
+        .ref_table = "a",
+        .ref_fields = &.{},
+        .actions = &.{},
+    };
+    const result = fk.classifyFk(alloc, fk_data);
+    defer if (result.text) |t| alloc.free(t);
+    try testing.expectEqualStrings("> (a_id) a", result.text orelse "");
+}
+
+test "classifyFk drops default-severity actions" {
+    // RESTRICT / NO ACTION are the .ss omission default — no token emitted.
+    const alloc = testing.allocator;
+    const fk_data = sp.SqlForeignKey{
+        .fields = &.{"z"},
+        .ref_table = "c",
+        .ref_fields = &.{"x"},
+        .actions = &.{
+            .{ .trigger = .on_delete, .action = .no_action },
+            .{ .trigger = .on_update, .action = .restrict },
+        },
+    };
+    const result = fk.classifyFk(alloc, fk_data);
+    defer if (result.text) |t| alloc.free(t);
+    try testing.expectEqualStrings("> z c(x)", result.text orelse "");
+}

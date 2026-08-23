@@ -338,6 +338,10 @@ pub const SqlParser = struct {
         return sql_parser_fk.parseForeignKey(self);
     }
 
+    pub fn parseInlineReferences(self: *SqlParser) !SqlForeignKey {
+        return sql_parser_fk.parseInlineReferences(self);
+    }
+
     // ─── INDEX declarations ───────────────────────────────────────
 
     pub fn parsePrimaryKey(self: *SqlParser) !SqlIndex {

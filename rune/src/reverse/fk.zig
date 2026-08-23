@@ -33,14 +33,21 @@ pub fn classifyFk(alloc: std.mem.Allocator, fk: sp.SqlForeignKey) FkClassificati
     }
     buf.append(alloc, ' ') catch return .{ .form = .full, .text = null };
     buf.appendSlice(alloc, fk.ref_table) catch return .{ .form = .full, .text = null };
-    buf.append(alloc, '(') catch return .{ .form = .full, .text = null };
-    for (fk.ref_fields, 0..) |f, i| {
-        if (i > 0) buf.appendSlice(alloc, ", ") catch return .{ .form = .full, .text = null };
-        buf.appendSlice(alloc, f) catch return .{ .form = .full, .text = null };
+    // No explicit column list (`REFERENCES table`) — omit the parentheses;
+    // the target defaults to the referenced table's primary key.
+    if (fk.ref_fields.len > 0) {
+        buf.append(alloc, '(') catch return .{ .form = .full, .text = null };
+        for (fk.ref_fields, 0..) |f, i| {
+            if (i > 0) buf.appendSlice(alloc, ", ") catch return .{ .form = .full, .text = null };
+            buf.appendSlice(alloc, f) catch return .{ .form = .full, .text = null };
+        }
+        buf.append(alloc, ')') catch return .{ .form = .full, .text = null };
     }
-    buf.append(alloc, ')') catch return .{ .form = .full, .text = null };
 
     for (fk.actions) |a| {
+        // RESTRICT / NO ACTION are the .ss default (omitted) — emitting them
+        // would round-trip as explicit tokens the language doesn't have.
+        if (a.action == .restrict or a.action == .no_action) continue;
         buf.append(alloc, ' ') catch return .{ .form = .full, .text = null };
         switch (a.trigger) {
             .on_delete => switch (a.action) {

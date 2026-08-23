@@ -1,8 +1,8 @@
 {
-  "version": "0.331.0",
+  "version": "0.332.0",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/rune-lang/rune/releases/download/v0.331.0/rune-windows-x86_64.zip",
+      "url": "https://github.com/rune-lang/rune/releases/download/v0.332.0/rune-windows-x86_64.zip",
       "hash": ""
     }
   },
