@@ -55,6 +55,8 @@ pub fn cliArgErrorMessage(err: cli.ArgError) []const u8 {
         error.UnknownGenerator => "unknown generator. Run 'rune generate --list' for available generators.",
         error.UnknownShell => "unknown shell. Expected: bash, zsh, fish, powershell.",
         error.UnknownHookType => "unknown hook type. Available: pre-commit.",
+        error.CacheUnsupportedWithWatch => "--cache is not supported with watch mode (no per-table cache integration).",
+        error.CacheUnsupportedWithParallel => "--cache is not supported with parallel compilation.",
     };
 }
 

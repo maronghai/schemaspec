@@ -117,5 +117,32 @@ if [ -z "$FILTER" ] || [[ "import-dialect" == *"$FILTER"* ]]; then
   rm -f "$tmp_file"
 fi
 
+
+# ─── Test 7: Diamond import (main→a,b; a,b→common) ──────────────
+if [ -z "$FILTER" ] || [[ "import-diamond" == *"$FILTER"* ]]; then
+  tmp_dir=$(mktemp -d)
+  trap "rm -rf '$tmp_dir'" EXIT
+
+  printf '# common\ntotal m\n' > "$tmp_dir/common.ss"
+  printf '@import "common.ss"\n# table_a\ncode s8 !\n' > "$tmp_dir/a.ss"
+  printf '@import "common.ss"\n# table_b\nid n ++\nref n > table_a.code\n' > "$tmp_dir/b.ss"
+  printf '@import "a.ss"\n@import "b.ss"\n# main_t\nid n ++\n' > "$tmp_dir/main.ss"
+
+  # Diamond must compile (v0.334.0: was falsely rejected as circular) and
+  # common's tables must appear exactly once.
+  out_file=$(mktemp)
+  if "$COMPILER" "$tmp_dir/main.ss" -o "$out_file" 2>/dev/null; then
+    n_common=$(grep -c 'CREATE TABLE `common`' "$out_file" || true)
+    if [ "$n_common" = "1" ] && grep -q 'CREATE TABLE `table_b`' "$out_file"; then
+      pass "import-diamond"
+    else
+      fail "import-diamond" "common merged $n_common times or table_b missing"
+    fi
+  else
+    fail "import-diamond" "compiler failed on diamond import"
+  fi
+  rm -f "$out_file"
+fi
+
 summary "Import"
 [ "$FAIL" -eq 0 ] && exit 0 || exit 1

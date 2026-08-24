@@ -141,7 +141,7 @@ fn compileGroupConcurrent(
     for (threads.items) |thread| thread.join();
 
     if (all_spawned) {
-        for (results) |result_opt| {
+        for (results, 0..) |result_opt, slot| {
             if (result_opt) |result| {
                 const sql = try alloc.dupe(u8, result.sql);
                 tables.appendAssumeCapacity(.{
@@ -152,17 +152,17 @@ fn compileGroupConcurrent(
                 total_size += sql.len;
                 result.arena.deinit();
             } else {
-                // Thread compilation failed — fall back to sequential for this group
-                for (group) |table_idx| {
-                    const sql = try compileOneTable(alloc, dialect, all_tables[table_idx]);
-                    tables.appendAssumeCapacity(.{
-                        .name = all_tables[table_idx].name,
-                        .sql = sql,
-                        .line_no = all_tables[table_idx].line_no,
-                    });
-                    total_size += sql.len;
-                }
-                break;
+                // This slot's thread failed — recompile ONLY the failed table
+                // sequentially. Recompiling the whole group would duplicate
+                // every table whose thread succeeded (and overrun capacity).
+                const table_idx = group[slot];
+                const sql = try compileOneTable(alloc, dialect, all_tables[table_idx]);
+                tables.appendAssumeCapacity(.{
+                    .name = all_tables[table_idx].name,
+                    .sql = sql,
+                    .line_no = all_tables[table_idx].line_no,
+                });
+                total_size += sql.len;
             }
         }
     } else {

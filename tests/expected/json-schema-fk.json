@@ -5,7 +5,7 @@
   "$defs": {
     "order": {
       "type": "object",
-      "description": ": 订单表",
+      "description": "订单表",
       "properties": {
         "id": {"type":"integer"},
         "user_id": {"type":"integer"},
@@ -18,7 +18,7 @@
     },
     "user": {
       "type": "object",
-      "description": ": 用户表",
+      "description": "用户表",
       "properties": {
         "id": {"type":"integer"},
         "name": {"type":"string"}

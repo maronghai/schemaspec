@@ -5,8 +5,13 @@ const Position = protocol.Position;
 const TextEdit = protocol.TextEdit;
 const makeRange = @import("helpers.zig").makeRange;
 const wordAtPosition = @import("helpers.zig").wordAtPosition;
+const lineNoToZeroBased = @import("helpers.zig").lineNoToZeroBased;
 
 // ─── Rename ──────────────────────────────────────────────
+// Renaming is AST-driven: the symbol under the cursor must be a known table
+// or column name, and edits are emitted only for positions the AST knows
+// about (declarations, FK reference lines). Free-text scanning of the whole
+// document would corrupt comments and unrelated words.
 
 /// Result of a rename operation: list of edits to apply.
 pub const RenameResult = struct {
@@ -27,44 +32,67 @@ pub fn prepareRename(ast: TypedAst, position: Position, doc_text: []const u8) ?[
 }
 
 /// Find all references to a symbol at the given position and return rename edits.
+///
+/// Edits cover:
+/// - the table declaration line (rename target is a table)
+/// - every FK line whose ref_table (or ref_fields, when renaming a column)
+///   matches — Rune FK syntax is `user_id > users.id [-C]`
+/// - column declarations when renaming a column
 pub fn getRenameLinks(alloc: std.mem.Allocator, ast: TypedAst, position: Position, doc_text: []const u8, new_name: []const u8) ?RenameResult {
     const old_name = wordAtPosition(doc_text, position.line, position.character) orelse return null;
 
+    var is_table_rename = false;
+    var is_column_rename = false;
+    for (ast.tables) |table| {
+        if (std.mem.eql(u8, table.name, old_name)) is_table_rename = true;
+        for (table.columns) |col| {
+            if (std.mem.eql(u8, col.name, old_name)) is_column_rename = true;
+        }
+    }
+    if (!is_table_rename and !is_column_rename) return null;
+
     var edits = std.ArrayList(TextEdit).initCapacity(alloc, 16) catch return null;
+    var seen = std.ArrayList([2]u32).initCapacity(alloc, 16) catch return null;
+    defer seen.deinit(alloc);
 
-    var line_start: usize = 0;
-    var current_line: u32 = 0;
-    for (doc_text, 0..) |c, i| {
-        const is_last = i == doc_text.len - 1;
-        const line_text = if (is_last) doc_text[line_start..] else doc_text[line_start..i];
+    // Table declaration line(s).
+    if (is_table_rename) {
+        for (ast.tables) |table| {
+            if (!std.mem.eql(u8, table.name, old_name)) continue;
+            addEditForOccurrenceOnLine(alloc, &edits, &seen, doc_text, lineNoToZeroBased(table.line_no), old_name, new_name);
+        }
+    }
 
-        var search_start: usize = 0;
-        while (search_start < line_text.len) {
-            const pos = std.mem.indexOf(u8, line_text[search_start..], old_name) orelse break;
-            const abs_pos = search_start + pos;
+    // Column declaration line(s).
+    if (is_column_rename) {
+        for (ast.tables) |table| {
+            for (table.columns) |col| {
+                if (!std.mem.eql(u8, col.name, old_name)) continue;
+                addEditForOccurrenceOnLine(alloc, &edits, &seen, doc_text, lineNoToZeroBased(col.line_no), old_name, new_name);
+            }
+        }
+    }
 
-            const before_ok = abs_pos == 0 or !std.ascii.isAlphanumeric(doc_text[line_start + abs_pos - 1]);
-            const after_end = line_start + abs_pos + old_name.len;
-            const after_ok = after_end >= doc_text.len or !std.ascii.isAlphanumeric(doc_text[after_end]);
-
-            if (before_ok and after_ok) {
-                const is_table_decl = isTableDeclaration(line_text, old_name);
-                const is_fk_ref = isFkReference(line_text, old_name, ast);
-
-                if (is_table_decl or is_fk_ref) {
-                    edits.append(alloc, .{
-                        .range = makeRange(current_line, @intCast(abs_pos), current_line, @intCast(abs_pos + old_name.len)),
-                        .new_text = new_name,
-                    }) catch {};
+    // FK lines referencing this table (ref_table token) or this column
+    // (local field / referenced field names on the FK line).
+    for (ast.tables) |table| {
+        for (table.fks) |fk| {
+            const fk_line = lineNoToBased(fk.line_no);
+            const renames_ref_table = is_table_rename and std.mem.eql(u8, fk.ref_table, old_name);
+            var renames_field = false;
+            if (is_column_rename) {
+                for (fk.fields) |f| {
+                    if (std.mem.eql(u8, f, old_name)) renames_field = true;
+                }
+                for (fk.ref_fields) |rf| {
+                    if (std.mem.eql(u8, rf, old_name)) renames_field = true;
                 }
             }
-
-            search_start = abs_pos + 1;
-        }
-
-        if (c == '\n' or is_last) {
-            line_start = i + 1;
-            current_line += 1;
+            if (!renames_ref_table and !renames_field) continue;
+            // The FK's ref_table appears as a bare or dotted token on the FK
+            // line; field names appear as leading tokens. One occurrence edit
+            // per name per line is enough for either form.
+            addEditForOccurrenceOnLine(alloc, &edits, &seen, doc_text, fk_line, old_name, new_name);
         }
     }
 
@@ -75,34 +103,31 @@ pub fn getRenameLinks(alloc: std.mem.Allocator, ast: TypedAst, position: Positio
     return .{ .changes = edits.toOwnedSlice(alloc) catch return null };
 }
 
-fn isTableDeclaration(line_text: []const u8, name: []const u8) bool {
-    const trimmed = std.mem.trim(u8, line_text, " \t\r\n");
-    // Rune syntax: # table_name { ... }  or  % template_name { ... }  or  & view_name { ... }
-    if (trimmed.len > 0 and (trimmed[0] == '#' or trimmed[0] == '%' or trimmed[0] == '&')) {
-        if (std.mem.indexOf(u8, trimmed, name) != null) return true;
-    }
-    // Also support SQL DDL syntax: table_name, template_name, view_name
-    if (std.mem.startsWith(u8, trimmed, "table ") and std.mem.indexOf(u8, trimmed, name) != null) return true;
-    if (std.mem.startsWith(u8, trimmed, "template ") and std.mem.indexOf(u8, trimmed, name) != null) return true;
-    if (std.mem.startsWith(u8, trimmed, "view ") and std.mem.indexOf(u8, trimmed, name) != null) return true;
-    return false;
+fn lineNoToBased(line_no: usize) u32 {
+    return lineNoToZeroBased(line_no);
 }
 
-fn isFkReference(line_text: []const u8, name: []const u8, ast: TypedAst) bool {
-    const trimmed = std.mem.trim(u8, line_text, " \t\r\n");
-    // Rune syntax uses -> for FK references, not "FK" keyword
-    const has_fk_indicator = std.mem.indexOf(u8, trimmed, "->") != null or std.mem.indexOf(u8, trimmed, "FK") != null;
-    if (!has_fk_indicator) return false;
-    for (ast.tables) |table| {
-        for (table.fks) |fk| {
-            if (std.mem.eql(u8, fk.ref_table, name)) return true;
-            for (fk.ref_fields) |rf| {
-                if (std.mem.eql(u8, rf, name)) return true;
-            }
-            for (fk.fields) |f| {
-                if (std.mem.eql(u8, f, name)) return true;
-            }
-        }
+/// Append one edit for the first whole-word occurrence of `old_name` on the
+/// given 0-based line, unless that (line, char) cell was already claimed by a
+/// previous edit. At most one edit per occurrence; no overlapping ranges.
+fn addEditForOccurrenceOnLine(
+    alloc: std.mem.Allocator,
+    edits: *std.ArrayList(TextEdit),
+    seen: *std.ArrayList([2]u32),
+    doc_text: []const u8,
+    line: u32,
+    old_name: []const u8,
+    new_name: []const u8,
+) void {
+    const helpers = @import("helpers.zig");
+    const range = helpers.findNameInLine(doc_text, line, old_name) orelse return;
+    const cell = [2]u32{ range.start.line, range.start.character };
+    for (seen.items) |s| {
+        if (s[0] == cell[0] and s[1] == cell[1]) return;
     }
-    return false;
+    seen.append(alloc, cell) catch {};
+    edits.append(alloc, .{
+        .range = range,
+        .new_text = new_name,
+    }) catch {};
 }

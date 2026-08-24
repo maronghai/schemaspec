@@ -37,3 +37,40 @@ test "diagnostics copied out of a doc arena survive its destruction" {
     try testing.expectEqualStrings("parse error in doc arena", owned[0].message);
     try testing.expectEqual(@as(u32, 3), owned[0].range.start.line);
 }
+
+test "repeated recompiles keep exactly one doc arena registered (no leak)" {
+    // Mirrors didOpen → didChange × 3: compileAndPublishDiagnostics must
+    // destroy the previous version's arena each round, leaving exactly one
+    // entry in doc_arenas. The testing.allocator fails this test on any leak.
+    const Server = @import("server.zig").Server;
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+
+    var server = Server.init(arena.allocator(), testing.io);
+    defer server.deinit();
+
+    const uri = "file:///test-leak.ss";
+    const versions = [_][]const u8{
+        "# users\nid n ++\n",
+        "# users\nid n ++\nname s32\n",
+        "# users\nid n ++\nname s64\nemail s128\n",
+        "# users\nid n ++\nname s128\n",
+    };
+
+    for (versions) |text| {
+        try server.documents.open(uri, 1, text, "rune");
+        try server.compileAndPublishDiagnostics(uri);
+
+        // Exactly one live doc arena at any point; it holds this version's AST.
+        var count: usize = 0;
+        var it = server.doc_arenas.iterator();
+        while (it.next()) |_| count += 1;
+        try testing.expectEqual(@as(usize, 1), count);
+        try testing.expect(server.getTypedAst(uri) != null);
+    }
+
+    // didClose tears down everything.
+    _ = server.compile_results.fetchRemove(uri);
+    server.destroyDocArena(uri);
+    try testing.expectEqual(@as(usize, 0), server.doc_arenas.count());
+}

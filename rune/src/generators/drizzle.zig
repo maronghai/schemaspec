@@ -196,10 +196,11 @@ fn writeEnumDef(w: *Writer, col: typed_ast.TypedColumn, dialect: Dialect) !void 
 fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
     const table_fn = drizzleTableFn(dialect);
 
-    try w.print("export const {s} = {s}('{s}', {{\n", .{ table.name, table_fn, table.name });
+    // Comment BEFORE the table declaration — inside the object literal only
+    // `//`-style comments are legal, and a comment belongs above its target.
+    try common.writeComment(w, table.comment, "//", "");
 
-    // Comment
-    try common.writeComment(w, table.comment, "#", "");
+    try w.print("export const {s} = {s}('{s}', {{\n", .{ table.name, table_fn, table.name });
 
     // Columns
     for (table.columns, 0..) |col, ci| {
@@ -213,6 +214,10 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
     // Table callback for indexes and composite FK constraints
     const has_indexes = common.tableHasNonPkIndexes(table);
     const has_composite_fks = common.tableHasCompositeFks(table);
+    var has_fulltext = false;
+    for (table.indexes) |idx| {
+        if (idx.kind == .fulltext) has_fulltext = true;
+    }
 
     if (has_indexes or has_composite_fks) {
         try w.writeAll(", (");
@@ -226,12 +231,13 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
             if (fk.fields.len <= 1) continue; // single-column handled by .references()
             if (!first) try w.writeAll(", ");
             first = false;
-            try writeFkConstraint(w, fk);
+            try writeFkConstraint(w, fk, table.name);
         }
 
-        // Indexes
+        // Indexes — fulltext is skipped here (no drizzle equivalent); it is
+        // noted in a comment AFTER the statement, where `//` is legal.
         for (table.indexes) |idx| {
-            if (idx.kind == .primary_key) continue;
+            if (idx.kind == .primary_key or idx.kind == .fulltext) continue;
             if (!first) try w.writeAll(", ");
             first = false;
             try writeIndexDef(w, idx);
@@ -241,26 +247,62 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable, dialect: Dialect) !void {
     }
 
     try w.writeAll(");\n");
+
+    if (has_fulltext) {
+        for (table.indexes) |idx| {
+            if (idx.kind != .fulltext) continue;
+            try w.print("// fulltext index '{s}' on ({s}): not supported by drizzle\n", .{ idx.name, idx.fields[0] });
+        }
+    }
 }
 
 // ─── Column Generation ──────────────────────────────────────────
 
 fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable, dialect: Dialect) !void {
-    try w.print("  {s}: {s}('{s}'", .{ col.name, columnConstructor(col, dialect), col.name });
-    // Drizzle's decimal accepts { precision, scale } — without it the column
-    // degrades to the driver's default precision.
-    if (col.sql_type == .decimal) {
-        const ds = col.sql_type.decimal;
-        try w.print(", {{ precision: {d}, scale: {d} }}", .{ ds.precision, ds.scale });
-    }
-    try w.writeAll(")");
+    try w.print("  {s}: ", .{col.name});
 
-    // Primary key
+    // Enum columns use the dialect's enum constructor — the old code emitted
+    // text() everywhere while also declaring pgEnum/mysqlEnum values that no
+    // column ever referenced (dead enum + lost CHECK/enum typing).
+    if (col.flags.is_enum and col.enum_values.len > 0) {
+        switch (dialect) {
+            .pg => {
+                // pgEnum reference: the enum was declared as <col>Enum above.
+                try w.print("{s}Enum('{s}')", .{ col.name, col.name });
+            },
+            else => {
+                try w.print("{s}Enum('{s}', {s}Values)", .{ drizzleDialectPrefix(dialect), col.name, col.name });
+            },
+        }
+    } else {
+        try w.print("{s}('{s}'", .{ columnConstructor(col, dialect), col.name });
+        // varchar length: without it the column degrades to the driver default.
+        if (col.sql_type == .varchar) {
+            const len = col.sql_type.varchar;
+            if (len > 0) try w.print(", {{ length: {d} }}", .{len});
+        }
+        // Drizzle's decimal accepts { precision, scale }.
+        if (col.sql_type == .decimal) {
+            const ds = col.sql_type.decimal;
+            try w.print(", {{ precision: {d}, scale: {d} }}", .{ ds.precision, ds.scale });
+        }
+        try w.writeAll(")");
+    }
+
+    // Primary key. pg-core has no `.autoincrement()` on integer — PG identity
+    // comes from serial() or identity columns; emitting the mysql-only chain
+    // method was a TS type error on every pg build.
     if (col.flags.primary_key) {
         try w.writeAll(".primaryKey()");
-        if (col.flags.auto_increment) {
+        if (col.flags.auto_increment and dialect != .pg) {
             try w.writeAll(".autoincrement()");
         }
+    }
+
+    // Unsigned modifier (mysql-core supports .unsigned(); pg/sqlite have no
+    // unsigned concept).
+    if (col.flags.unsigned and dialect == .mysql) {
+        try w.writeAll(".unsigned()");
     }
 
     // Not null (non-nullable, non-primary-key)
@@ -273,16 +315,22 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
         try w.writeAll(".unique()");
     }
 
-    // Default value
+    // Default value — exactly ONE .default(): the user's explicit default if
+    // present, otherwise the first enum value for enums. The old code chained
+    // both for enums with an explicit default; the second call silently won.
+    var wrote_default = false;
     if (col.default) |dflt| {
         try common.writeOrmDefault(w, dflt, ".default(", ")", .drizzle);
+        wrote_default = true;
+    }
+    if (!wrote_default and col.flags.is_enum and col.enum_values.len > 0) {
+        try w.print(".default('{s}')", .{col.enum_values[0]});
     }
 
-    // Enum default
-    if (col.flags.is_enum) {
-        if (col.enum_values.len > 0) {
-            try w.print(".default('{s}')", .{col.enum_values[0]});
-        }
+    // datetime `+` / `++` means DEFAULT CURRENT_TIMESTAMP (v0.326.0 invariant:
+    // NOT auto-increment). typeorm already honored this; drizzle dropped it.
+    if (!wrote_default and col.flags.has_timestamp_default) {
+        try w.print(".defaultNow()", .{});
     }
 
     // Inline FK reference (single-column only)
@@ -292,6 +340,17 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
             break;
         }
     }
+}
+
+fn drizzleDialectPrefix(dialect: Dialect) []const u8 {
+    return switch (dialect) {
+        .mysql => "mysql",
+        .pg => "pg",
+        .sqlite => "sqlite",
+        .mssql => "mssql",
+        .oracle => "pg",
+        .db2 => "pg",
+    };
 }
 
 fn columnConstructor(col: typed_ast.TypedColumn, dialect: Dialect) []const u8 {
@@ -324,18 +383,23 @@ fn columnConstructor(col: typed_ast.TypedColumn, dialect: Dialect) []const u8 {
 
 // ─── FK Constraint Generation (composite) ──────────────────────
 
-fn writeFkConstraint(w: *Writer, fk: FkDecl) !void {
+/// Composite FK in drizzle's third-generation callback API: the columns/
+/// references arrays must be `table.<col>` member accesses — bare identifiers
+/// are undefined variables and the generated module fails to compile.
+fn writeFkConstraint(w: *Writer, fk: FkDecl, table_name: []const u8) !void {
     try w.writeAll("foreignKey({");
-    try w.print("columns: [{s}", .{fk.fields[0]});
+    try w.print("columns: [{s}.{s}", .{ table_name, fk.fields[0] });
     for (fk.fields[1..]) |field| {
-        try w.print(", {s}", .{field});
+        try w.print(", {s}.{s}", .{ table_name, field });
     }
     try w.writeAll("], ");
-    try w.print("references: [{s}", .{fk.ref_fields[0]});
+    try w.print("references: [{s}.{s}", .{ fk.ref_table, fk.ref_fields[0] });
     for (fk.ref_fields[1..]) |field| {
-        try w.print(", {s}", .{field});
+        try w.print(", {s}.{s}", .{ fk.ref_table, field });
     }
-    try w.writeAll("]})");
+    try w.writeAll("]");
+    try common.writeJsFkActions(w, fk.actions);
+    try w.writeAll("})");
 }
 
 // ─── Index Generation ──────────────────────────────────────────

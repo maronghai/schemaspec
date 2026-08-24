@@ -9,6 +9,7 @@ const dialect_enum = @import("../dialect/enum.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const import_res = @import("import_resolver.zig");
 const stats_mod = @import("stats.zig");
+const diag_mod = @import("../diagnostic.zig");
 
 // ─── Forward Pipeline: .ss → SQL ─────────────────────────────
 // No dependency on cli.zig — output format dispatch is the caller's responsibility.
@@ -108,9 +109,37 @@ fn compileInternal(
 ) !CompileInternalResult {
     const raw_lines = try import_res.splitLines(alloc, file_data);
 
+    // The parser and import resolver print some diagnostics directly to stderr
+    // (CHECK-bracket errors, unrecognized-token warnings) without recording
+    // them in any error_count — a root file or an imported file with such an
+    // error exited 0 even under --check. Route everything through the capture
+    // hook for the whole parse phase and count hard errors.
+    var direct_errors: usize = 0;
+    var capture = try diag_mod.DiagnosticCollector.init(alloc);
+    defer capture.diagnostics.deinit(alloc);
+    const prev_collector = diag_mod.active_collector;
+    diag_mod.active_collector = &capture;
+    defer diag_mod.active_collector = prev_collector;
+
     // Resolve @import directives only when enabled and io is available
+    // Imported-file parse errors must count toward the compile's exit code —
+    // a broken import is a broken compile. resolveImports accumulates child
+    // error_count values into this tally via the import context.
+    var import_errors: usize = 0;
+    if (cfg.import_ctx) |ctx| {
+        ctx.accumulated_errors = &import_errors;
+        ctx.json_errors = cfg.json_errors;
+    }
+
     const imports_result = if (cfg.resolve_imports and cfg.import_ctx != null and cfg.io != null)
-        try import_res.resolveImports(cfg.io.?, alloc, raw_lines, cfg.import_ctx.?)
+        import_res.resolveImports(cfg.io.?, alloc, raw_lines, cfg.import_ctx.?) catch |err| {
+            // Error paths in resolveImports return before reaching the print
+            // below — flush the captured diagnostics (missing-import path,
+            // depth limit, cycle) so stderr keeps its historical output.
+            diag_mod.active_collector = null;
+            capture.printAll();
+            return err;
+        }
     else
         null;
 
@@ -121,8 +150,23 @@ fn compileInternal(
     // The tree is always valid; error_count indicates partial results.
     const result = try import_res.tokenizeAndParseWithLines(alloc, final_lines, cfg.json_errors);
 
+    // CLI keeps the historical stderr behavior: everything the parser and
+    // import resolver printed directly is re-emitted from the capture
+    // collector (the hook swallowed the prints). LSP uses its own compile()
+    // path, which reads the collected slice instead of printing.
+    diag_mod.active_collector = null;
+    capture.printAll();
+
+    for (capture.diagnostics.items) |d| {
+        if (d.severity == .@"error") direct_errors += 1;
+    }
+
     // Merge imported definitions if requested
     var tree = result.tree;
+    tree.error_count += direct_errors;
+    if (import_errors > 0) {
+        tree.error_count += import_errors;
+    }
     if (imports_result) |imports| {
         if (imports.templates.len > 0 or imports.tables.len > 0) {
             tree = .{
@@ -191,16 +235,30 @@ pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []c
     var imported = ImportSet.init(alloc);
     defer imported.deinit();
 
+    // Recursion-path set for TRUE cycle detection: the root file sits on the
+    // path from the start, so a→b→a is caught (a plain visited set can't tell
+    // that apart from a diamond a→b, a→c, b→d, c→d).
+    var in_progress = ImportSet.init(alloc);
+    defer in_progress.deinit();
+
     // Cache for memoizing parsed imports (avoids re-parsing the same file)
     var cache = ImportCache.init(alloc);
     defer cache.deinit();
 
-    // Track the initial file to prevent self-import
-    try imported.put(file_path, {});
+    // Track the initial file to prevent self-import. The key must match the
+    // form resolveImports computes for children (base_dir + "/" + name), or
+    // a→b→a cycle detection never sees the root back-edge.
+    const root_key = if (base_dir.len > 0)
+        try std.fmt.allocPrint(alloc, "{s}/{s}", .{ base_dir, std.fs.path.basename(file_path) })
+    else
+        try alloc.dupe(u8, file_path);
+    try imported.put(root_key, {});
+    try in_progress.put(root_key, {});
 
     var ctx = ImportContext{
         .base_dir = base_dir,
         .imported = &imported,
+        .in_progress = &in_progress,
         .cache = &cache,
         .import_paths = import_paths,
     };

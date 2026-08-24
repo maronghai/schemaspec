@@ -30,11 +30,22 @@ pub const ImportCache = std.StringHashMap(CachedImport);
 pub const ImportContext = struct {
     base_dir: []const u8,
     imported: *ImportSet,
+    /// Files on the current recursion path — a file found here is a TRUE
+    /// cycle. `imported` alone can't distinguish a diamond (main→a, main→b,
+    /// both→common) from a cycle; this set is push-on-enter/pop-on-done.
+    in_progress: ?*ImportSet = null,
     cache: ?*ImportCache = null,
     depth: u8 = 0,
     max_depth: u8 = MAX_IMPORT_DEPTH,
     /// Additional search paths for imports (from --import-path flag).
     import_paths: []const []const u8 = &.{},
+    /// When non-null, parse errors from imported children accumulate here so
+    /// the caller can fold them into the root tree's error_count (exit codes,
+    /// CI gates). Null = don't track (tests).
+    accumulated_errors: ?*usize = null,
+    /// JSON error formatting for child-file parse diagnostics (--json-errors
+    /// must reach imports too, or output becomes mixed-format).
+    json_errors: bool = false,
 };
 
 /// Result of resolving @import directives from a set of lines.
@@ -110,6 +121,35 @@ pub fn tokenizeAndParseLenient(alloc: std.mem.Allocator, lines: []const []const 
     return .{ .tree = tree, .tokenized = tokenized };
 }
 
+/// Tokenize and parse silently, handing the caller the collected parse
+/// diagnostics instead of printing them to stderr. The returned slice is
+/// allocated with `alloc` (arena-style callers get cleanup for free) and
+/// each diagnostic's message is duped into `alloc`, so the collector may be
+/// deinit'd afterwards. Used by the LSP compile service, which must surface
+/// per-error ranges to editors rather than a generic "has errors" marker.
+pub fn tokenizeAndParseQuiet(
+    alloc: std.mem.Allocator,
+    lines: []const []const u8,
+    out_diagnostics: *[]const diag.Diagnostic,
+) !struct { tree: ast_mod.Ast, tokenized: []tokenizer.Line } {
+    const tok = tokenizer.Tokenizer.init(lines);
+    const tokenized = try tok.tokenizeAll(alloc);
+    var diagnostics = try diag.DiagnosticCollector.init(alloc);
+    var p = parser.Parser.initWithDiagnostics(alloc, &diagnostics);
+    var tree = try p.parse(tokenized);
+    if (diagnostics.hasErrors()) {
+        tree.error_count = diagnostics.errorCount();
+    }
+    var collected = try std.ArrayList(diag.Diagnostic).initCapacity(alloc, diagnostics.diagnostics.items.len);
+    for (diagnostics.diagnostics.items) |d| {
+        var copy = d;
+        if (d.message.len > 0) copy.message = try alloc.dupe(u8, d.message);
+        try collected.append(alloc, copy);
+    }
+    out_diagnostics.* = try collected.toOwnedSlice(alloc);
+    return .{ .tree = tree, .tokenized = tokenized };
+}
+
 /// Shared import resolution logic: iterates lines, resolves @import directives
 /// recursively, and returns filtered lines plus accumulated definitions.
 pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []const u8, import_ctx: *ImportContext) !ImportResult {
@@ -176,30 +216,60 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
             else
                 try alloc.dupe(u8, import_path);
 
-            // Circular dependency detection
-            if (import_ctx.imported.contains(resolved_path)) {
-                diag.printDiagnostic(alloc, .{
-                    .severity = .@"error",
-                    .line_no = 0,
-                    .message = "circular import detected",
-                    .actual = resolved_path,
-                });
-                return error.ParseError;
+            // Cycle detection: only a file on the CURRENT recursion path is a
+            // true cycle. A file that was already fully imported (visited set)
+            // but is not in progress is a diamond/repeat — reuse its cache and
+            // skip, without error.
+            if (import_ctx.in_progress) |stack| {
+                if (stack.contains(resolved_path)) {
+                    diag.printDiagnostic(alloc, .{
+                        .severity = .@"error",
+                        .line_no = 0,
+                        .message = "circular import detected",
+                        .actual = resolved_path,
+                    });
+                    return error.ParseError;
+                }
             }
 
             // Read imported file
-            const imported_data = std.Io.Dir.cwd().readFileAlloc(io, resolved_path, alloc, .unlimited) catch |err| {
+            const imported_data = std.Io.Dir.cwd().readFileAlloc(io, resolved_path, alloc, .unlimited) catch {
                 diag.printDiagnostic(alloc, .{
                     .severity = .@"error",
                     .line_no = 0,
                     .message = "failed to read imported file",
-                    .actual = @errorName(err),
+                    .actual = import_path,
                 });
                 return error.ParseError;
             };
 
+            // Already merged earlier in this compile (diamond or repeat)?
+            // Its definitions are already in the merged result — skip without
+            // duplicating them.
+            if (import_ctx.imported.contains(resolved_path)) {
+                continue;
+            }
+
             // Track this import
             try import_ctx.imported.put(resolved_path, {});
+
+            // Push onto the recursion path for the duration of child resolution
+            var stack_set: ImportSet = undefined;
+            var own_stack = false;
+            var active_stack: *ImportSet = undefined;
+            if (import_ctx.in_progress) |outer| {
+                active_stack = outer;
+            } else {
+                stack_set = ImportSet.init(alloc);
+                own_stack = true;
+                active_stack = &stack_set;
+                import_ctx.in_progress = active_stack;
+            }
+            try active_stack.put(resolved_path, {});
+            defer {
+                _ = active_stack.remove(resolved_path);
+                if (own_stack) import_ctx.in_progress = null;
+            }
 
             // Check cache before parsing
             var child_tree: ast_mod.Ast = undefined;
@@ -222,13 +292,25 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
                 var child_ctx = ImportContext{
                     .base_dir = computeBaseDir(alloc, resolved_path),
                     .imported = import_ctx.imported,
+                    .in_progress = import_ctx.in_progress,
                     .cache = import_ctx.cache,
                     .depth = import_ctx.depth + 1,
+                    .import_paths = import_ctx.import_paths,
+                    .accumulated_errors = import_ctx.accumulated_errors,
+                    .json_errors = import_ctx.json_errors,
                 };
                 const child_lines = try splitLines(alloc, imported_data);
                 child_imports = try resolveImports(io, alloc, child_lines, &child_ctx);
-                const child_result = try tokenizeAndParseWithLines(alloc, child_imports.processed_lines, false);
+                const child_result = try tokenizeAndParseWithLines(alloc, child_imports.processed_lines, import_ctx.json_errors);
                 child_tree = child_result.tree;
+                // A broken import is a broken compile: fold the child's error
+                // count into the root's tally so exit codes / CI gates see it
+                // (previously only the root file's own errors were counted).
+                if (child_tree.error_count > 0) {
+                    if (import_ctx.accumulated_errors) |acc| {
+                        acc.* += child_tree.error_count;
+                    }
+                }
                 if (child_imports.templates.len > 0 or child_imports.tables.len > 0) {
                     child_tree = .{
                         .schema = child_tree.schema,

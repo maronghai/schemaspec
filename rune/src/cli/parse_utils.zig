@@ -155,6 +155,9 @@ pub fn parseLintArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
 
 pub fn parseWatchArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     if (fargs.len < 2) return error.MissingArgs;
+    // Watch has no per-table cache integration — reject --cache instead of
+    // silently accepting and ignoring it.
+    if (opts.cache_flag) return error.CacheUnsupportedWithWatch;
     var interval_ms: u64 = 1000;
     var stream = false;
     var parallel = false;

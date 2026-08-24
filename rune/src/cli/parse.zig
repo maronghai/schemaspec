@@ -273,7 +273,7 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
             } else {
                 return error.MissingTargetValue;
             }
-        } else if (std.mem.eql(u8, arg, "--format")) {
+        } else if (flag_reg.matchesFlag(arg, .{ .long = "--format", .short = "-f" })) {
             if (i + 1 < raw_args.len) {
                 if (std.mem.eql(u8, raw_args[i + 1], "json")) {
                     diff_format = .json;
@@ -404,6 +404,7 @@ pub fn parseArgs(alloc: std.mem.Allocator, raw_args: []const []const u8) !Parsed
         .summary = flags.want_summary,
         .config_path = flags.config_path,
         .init_flag = flags.want_init,
+        .cache_flag = flags.want_cache,
     };
 
     // No positional args or starts with a flag: default compile or help

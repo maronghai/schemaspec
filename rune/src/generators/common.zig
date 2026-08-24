@@ -266,6 +266,47 @@ pub fn findFkRefTable(col_name: []const u8, fks: []const FkDecl) ?[]const u8 {
     return null;
 }
 
+/// SQL spelling of an FkActionType for ON DELETE / ON UPDATE clauses.
+pub fn fkActionSql(action: ast_mod.FkActionType) []const u8 {
+    return switch (action) {
+        .cascade => "CASCADE",
+        .set_null => "SET NULL",
+        .set_default => "SET DEFAULT",
+        .restrict => "RESTRICT",
+        .no_action => "NO ACTION",
+    };
+}
+
+/// Lowercase spelling for JS option objects (`onDelete: 'set null'`).
+pub fn fkActionSqlLower(action: ast_mod.FkActionType) []const u8 {
+    return switch (action) {
+        .cascade => "cascade",
+        .set_null => "set null",
+        .set_default => "set default",
+        .restrict => "restrict",
+        .no_action => "no action",
+    };
+}
+
+/// Write `onDelete`/`onUpdate` option entries (JS object style, e.g. for
+/// drizzle's foreignKey({ onDelete: 'cascade' })) — comma-separated, no braces.
+pub fn writeJsFkActions(w: *std.Io.Writer, actions: []const @import("../types/ast.zig").FkAction) !void {
+    for (actions) |a| {
+        const key = switch (a.trigger) {
+            .on_delete => "onDelete",
+            .on_update => "onUpdate",
+        };
+        const val = switch (a.action) {
+            .cascade => "cascade",
+            .set_null => "set null",
+            .set_default => "set default",
+            .restrict => "restrict",
+            .no_action => "no action",
+        };
+        try w.print(", {s}: '{s}'", .{ key, val });
+    }
+}
+
 // ─── Shared Enum Value Writer ─────────────────────────────────
 // Eliminates duplicated enum value iteration across ORM generators.
 
@@ -499,11 +540,13 @@ pub fn writeTableSchemaJson(
     if (table.columns.len > 0) try w.writeAll("\n");
     try w.print("{s}  }},\n", .{indent});
 
-    // Required: non-nullable columns
+    // Required: non-nullable columns, except those the database fills in —
+    // a datetime with `+` has DEFAULT CURRENT_TIMESTAMP, so requiring the
+    // client to supply it would make every insert fail validation.
     try w.print("{s}  \"required\": [", .{indent});
     var first = true;
     for (table.columns) |col| {
-        if (!col.flags.nullable) {
+        if (!col.flags.nullable and !col.flags.has_timestamp_default) {
             if (!first) try w.writeAll(", ");
             first = false;
             try w.print("\"{s}\"", .{col.name});

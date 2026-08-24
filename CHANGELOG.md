@@ -1,3 +1,45 @@
+## [0.334.0] - 2026-08-25
+
+### Fixed — LSP (all AST-based features were dead on real documents)
+
+- **The LSP fed the entire document to the tokenizer as a single "line"**: `compile_service.compile` passed the unsliced text where the main pipeline always splits into lines first. Multi-line schemas parsed to zero tables, so hover, go-to-definition, references, document symbols, workspace symbols, inlay hints, code lens, and rename-preparation were all silently no-op; diagnostics collapsed onto line 1. The LSP now splits exactly like `rune compile`, and a unit test asserts a two-table document produces two tables.
+- **Parse diagnostics reach the editor per-error with real locations** (was one vague "Schema has parse errors" pinned to an arbitrary line): a new `active_collector` routing hook captures what the parser previously printed straight to stderr and dropped; the LSP publishes each diagnostic at its own line/column. CLI behavior is unchanged (captured output is re-emitted).
+- **References/highlights compared columns against table header lines**: copy-paste `table.line_no -| 1` instead of `col.line_no` meant column queries never matched. FK reference lookups now locate names on the FK's own line (`fk.line_no`) rather than the table header.
+- **`findNameInLine` searched from the target line to EOF and pinned matches back onto it**: a name on any later line produced a range on the wrong line. Now strictly bounded to the requested line.
+- **Rename emitted N overlapping identical TextEdits per occurrence** (byte-at-a-time scan) and recognized FK syntax as literal `->`/`FK` (Rune uses `>`), so renames corrupted files and never updated real FK references; comments mentioning a table name were renamed too. Rewritten AST-driven: one edit per known position (declarations + FK lines), comments untouched.
+- **Completion catalog contradicted the parser/spec**: suggested nonexistent symbols (`dt`, `uid`, `json`, `jsonb`, `text`, `f`, `u`), mislabeled real ones (`i` is SMALLINT not BIGINT, `t` is DATETIME not TIMESTAMP), and described modifiers backwards (`!` is PRIMARY KEY not NOT NULL, `+`/`++` are AUTO_INCREMENT/timestamp defaults, `@`/`@u` are INDEX/UNIQUE INDEX). Catalog now mirrors `tryParseType`/`DEFAULT_SYM_MAP`/schemaspec §Modifiers with parity tests.
+- **Folding ranges skipped the dominant brace-less form**: `# name` + fields until the next header produced zero fold regions. Brace-less tables now fold from their header to the next top-level declaration (or last content line); brace form unchanged.
+
+### Fixed — pipeline & live workflows
+
+- **`--stream --cache` served freed memory on cache hits**: cache-hit SQL aliased cache-owned buffers that `table_cache.deinit()` released before formatting read them. Output is now formatted before teardown; second-run output verified byte-identical.
+- **Diamond imports rejected as circular**: cycle detection used a global visited set, so any second arrival at a file (`main→a,b; a,b→common`) aborted compilation. Detection now uses a recursion-path set (push-on-enter/pop-on-done); diamonds compile with `common` merged exactly once, true cycles and self-import still fail. Root-file key normalized to match child resolution (`base_dir/name`).
+- **Imported-file parse errors didn't count toward exit codes**: child `error_count` was discarded and direct-print parser errors (CHECK-bracket etc.) never entered any counter — a broken import or broken root file exited 0 even under `--check`. Both now propagate: `--check` exits 1, lenient mode keeps partial output with warnings. Missing-import diagnostics name the file instead of the error enum.
+- **Parallel compilation duplicated tables after a thread failure**: the fallback recompiled the whole group and appended every already-successful result again (overrunning reserved capacity). Only failed slots are recompiled now.
+- **`share` formatted output through a writer whose buffer lived in a returned-from stack frame** (UB by construction): buffer ownership moved to the caller's frame.
+- **Incremental cache hash ignored comments/docs/ss_symbol**: editing only a comment re-served stale SQL under `--cache`. All four fields enter the hash now (verified: comment change → miss).
+- **Watch mode leaked the process arena every poll cycle** (per-cycle arena now; v0.331.0 fixed LSP but not watch), missed same-tick writes (size participates in the short-circuit alongside mtime), warned about deleted files every poll forever (warn once, then evict).
+- **Streaming/parallel output silently dropped `$ mydb` and `@version`**: sequential/streaming/parallel now emit byte-identical schema headers for the same input.
+- **`rune migrate status` printed NUL bytes / garbage labels** (the ROADMAP "Windows bash pipe encoding" known-issue since v0.333.0 was actually a dangling pointer): `collectMigrateFiles` duped only `.name` while `.seq`/`.label` pointed into the directory iterator's reused buffer. Windows migrate_status suite 2/7 → 7/7.
+- **Flag honesty**: `--stream --parallel --cache` and `watch --cache` now error explicitly instead of silently ignoring `--cache`; `--format` gained the `-f` short form (previously `-f json` was silently swallowed and text output returned); unknown single-dash flags remain out of scope.
+- **`diff --summary` glued its parts together** (`1 table changed1 modified`) contradicting its own help text; now emits `1 table changed (1 modified)` across all three output paths (10 golden footers updated).
+
+### Fixed — generator output fidelity
+
+- **knex migrations omitted FK columns entirely while emitting constraints that referenced them** (runtime failure on migrate); **sqlalchemy models did the same** (`ForeignKey` imported but never used). Both now emit the column plus its constraint/knob.
+- **drizzle emitted uncompilable TypeScript four ways**: `//` comment inside the index-callback array (commented out `]);`), `#`-prefixed table comments inside object literals, composite-FK columns as bare undefined identifiers, and `.autoincrement()` on pg-core integer. All fixed; enums actually wire up now (pgEnum/mysqlEnum referenced by columns — previously declared then unused as text()), varchar lengths carry `{ length }`, unsigned → `.unsigned()`, datetime `+` → `.defaultNow()`, enum defaults respect the user's value (previously chained a second `.default(first)` that silently won).
+- **typeorm lost primary keys without auto-increment** (single or composite — entities rejected by TypeORM at load time): plain PKs emit `@PrimaryColumn`. Also: inline unique/index flags surface (`unique: true`, `@Index()`), table-level `@Index('name', col)` quotes the field (bare identifier), referential actions emit `{ onDelete/onUpdate }`, unsigned surfaces, `Index` import tracked.
+- **graphql SDL referenced types it never declared**: mutations returned `Post!` while objects were declared as `type posts`. Object/input types now use the same PascalCase mapping as mutation signatures; duplicate relation fields when two FKs target one table get column-derived names; duplicate enum declarations dedupe (identical values share, differing values qualify by table).
+- **prisma forced enum defaults to the first value** (ignoring `=live`), emitted raw unquoted string defaults (`@default(none)` parses as identifier), and dropped referential actions. Defaults quote correctly, actions emit `onDelete: Cascade`, unsigned surfaces as `@db.UnsignedInt`.
+- **Referential actions (`-C`/`-N`/…) were dropped by every ORM generator** (knex/drizzle/prisma/typeorm) — generated migrations silently behaved differently from the declared schema. knex chains `.onDelete()/.onUpdate()`.
+- **datetime `t+` semantics**: openapi/json-schema marked such columns `required` (client would have to supply what the database defaults); both exclude them now.
+- **docs truncated compound FKs to the first column** in relationships tables and mermaid labels; full column lists render.
+- **Unescaped strings broke JSON consumers**: symbol-index (verified `JSON.parse` failure), docs JSON mode, and json-schema titles escape through the shared helper now.
+- **Table-header comments carried their syntax colon** (`: User accounts table` stored verbatim, leaking into docs/knex/typeorm/drizzle/json-schema/prisma output); the marker is stripped at parse time. Golden files asserting the old forms updated.
+
+### Added
+- Unit tests 2100 → 2111 (LSP multi-line parse parity, per-error diagnostics, arena-lifetime invariant, rename no-overlap/no-comments, completion spec parity, folding brace-less, diamond-import golden in test_imports.sh suite 7/7). Goldens regenerated where they had baked in defects (knex-fk, sqlalchemy-fk, graphql ×4, json-schema ×2, migrate-comment, diff footer ×10).
+
 ## [0.333.0] - 2026-08-23
 
 ### Fixed

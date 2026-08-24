@@ -182,13 +182,16 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
     // Comment
     try common.writeComment(w, col.comment, "#", "    ");
 
-    // Check if this column is an FK — if so, skip it (handled by relationship)
-    if (common.findFkRefTable(col.name, table.fks) != null) {
-        return; // FK column handled by relationship
-    }
-
     try w.print("    {s} = Column(", .{col.name});
     try writeColumnType(w, col);
+
+    // FK columns carry ForeignKey('table.col') in their Column — the old
+    // code skipped them entirely (the import existed but was never used),
+    // so generated models were missing the column and the constraint.
+    if (common.findFkRefTable(col.name, table.fks)) |ref_table| {
+        const ref_field = findFkRefField(col.name, table.fks) orelse "id";
+        try w.print(", ForeignKey('{s}.{s}')", .{ ref_table, ref_field });
+    }
 
     // Primary key
     if (col.flags.primary_key) {
@@ -219,6 +222,17 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
     }
 
     try w.writeAll(")\n");
+}
+
+/// Referenced field of the single-column FK whose local field is col_name.
+fn findFkRefField(col_name: []const u8, fks: []const FkDecl) ?[]const u8 {
+    for (fks) |fk| {
+        if (fk.fields.len == 1 and std.mem.eql(u8, fk.fields[0], col_name)) {
+            if (fk.ref_fields.len > 0) return fk.ref_fields[0];
+            return null;
+        }
+    }
+    return null;
 }
 
 fn writeColumnType(w: *Writer, col: typed_ast.TypedColumn) !void {

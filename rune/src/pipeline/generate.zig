@@ -198,6 +198,7 @@ pub fn handleGenerate(
         const stdout_file = std.Io.File.stdout();
         var stdout_writer = stdout_file.writer(io, &buf);
         try generator.listAllGeneratorsWithPlugins(&stdout_writer.interface);
+        try stdout_writer.interface.flush();
         return;
     }
     if (cfg.check) {

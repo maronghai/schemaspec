@@ -27,7 +27,9 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
 
     // Title from schema name
     if (typed.schema_name) |name| {
-        try w.print("  \"title\": \"{s}\",\n", .{name});
+        try w.writeAll("  \"title\": \"");
+        try utils.jsonEscapeString(w, name);
+        try w.writeAll("\",\n");
     } else {
         try w.writeAll("  \"title\": \"rune-schema\",\n");
     }

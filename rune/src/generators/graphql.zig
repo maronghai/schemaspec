@@ -53,10 +53,23 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
     }
 
     // ── Enum types (from enum columns) ──
+    // Same column name in multiple tables would declare the same enum twice
+    // (invalid). Identical value sets share one declaration; differing sets
+    // get a table-qualified name.
     var has_enums = false;
+    var enum_names = std.StringHashMap([]const u8).init(alloc); // col name -> declared values signature
+    defer enum_names.deinit();
     for (typed.tables) |table| {
         for (table.columns) |col| {
-            if (col.flags.is_enum and col.enum_values.len > 0) {
+            if (!(col.flags.is_enum and col.enum_values.len > 0)) continue;
+            const sig = try joinEnumValues(alloc, col.enum_values);
+            if (enum_names.get(col.name)) |existing_sig| {
+                if (std.mem.eql(u8, existing_sig, sig)) continue; // identical — reuse silently
+                // Differing values: qualify with table name.
+                has_enums = true;
+                try writeQualifiedEnumType(w, col, table.name);
+            } else {
+                try enum_names.put(try alloc.dupe(u8, col.name), sig);
                 has_enums = true;
                 try writeEnumType(w, col);
             }
@@ -65,6 +78,9 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
     if (has_enums) try w.writeAll("\n");
 
     // ── Object types (tables) ──
+    // Object type names use the same PascalCase-singular mapping as the
+    // mutation signatures — the old mix (`type posts` + `createPost(): Post!`)
+    // referenced a type that was never declared, invalidating the SDL.
     for (typed.tables, 0..) |table, ti| {
         if (ti > 0) try w.writeAll("\n");
         try writeObjectType(w, table, alloc);
@@ -90,9 +106,15 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
         try w.writeAll("\ntype Query {\n");
         for (typed.tables) |table| {
             try w.print("  \"\"\"Fetch a {s} by ID.\"\"\"\n", .{table.name});
-            try w.print("  {s}(id: ID!): {s}\n", .{ try common.toCamelSingular(alloc, table.name), table.name });
+            try w.writeAll("  ");
+            try writeCamelSingular(alloc, w, table.name);
+            try w.writeAll("(id: ID!): ");
+            try writePascalSingular(alloc, w, table.name);
+            try w.writeAll("\n");
             try w.print("  \"\"\"List all {s} records.\"\"\"\n", .{table.name});
-            try w.print("  {s}List(limit: Int, offset: Int): [{s}!]!\n", .{ table.name, table.name });
+            try w.print("  {s}List(limit: Int, offset: Int): [", .{table.name});
+            try writePascalSingular(alloc, w, table.name);
+            try w.writeAll("!]!\n");
         }
         for (typed.views) |view| {
             try w.print("  \"\"\"Fetch from view {s}.\"\"\"\n", .{view.name});
@@ -108,14 +130,18 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
             try w.print("  \"\"\"Create a new {s}.\"\"\"\n", .{table.name});
             try w.writeAll("  create");
             try writePascalSingular(alloc, w, table.name);
-            try w.print("(input: {s}Input!): ", .{table.name});
+            try w.writeAll("(input: ");
+            try writePascalSingular(alloc, w, table.name);
+            try w.writeAll("Input!): ");
             try writePascalSingular(alloc, w, table.name);
             try w.writeAll("!\n");
 
             try w.print("  \"\"\"Update an existing {s}.\"\"\"\n", .{table.name});
             try w.writeAll("  update");
             try writePascalSingular(alloc, w, table.name);
-            try w.print("(id: ID!, input: {s}Input!): ", .{table.name});
+            try w.writeAll("(id: ID!, input: ");
+            try writePascalSingular(alloc, w, table.name);
+            try w.writeAll("Input!): ");
             try writePascalSingular(alloc, w, table.name);
             try w.writeAll("!\n");
 
@@ -141,6 +167,24 @@ fn writeEnumType(w: *Writer, col: typed_ast.TypedColumn) !void {
     try w.writeAll("}\n");
 }
 
+/// Table-qualified enum for same-column-different-values collisions.
+fn writeQualifiedEnumType(w: *Writer, col: typed_ast.TypedColumn, table_name: []const u8) !void {
+    try w.print("enum {s}_{s}Type {{\n", .{ col.name, table_name });
+    for (col.enum_values) |val| {
+        try w.print("  {s}\n", .{val});
+    }
+    try w.writeAll("}\n");
+}
+
+fn joinEnumValues(alloc: std.mem.Allocator, values: []const []const u8) ![]const u8 {
+    var buf = try std.ArrayList(u8).initCapacity(alloc, 32);
+    for (values, 0..) |v, i| {
+        if (i > 0) try buf.append(alloc, ',');
+        try buf.appendSlice(alloc, v);
+    }
+    return buf.items;
+}
+
 // ─── Object Type (table) ──────────────────────────────────────
 
 fn writeObjectType(w: *Writer, table: typed_ast.TypedTable, alloc: std.mem.Allocator) !void {
@@ -152,18 +196,40 @@ fn writeObjectType(w: *Writer, table: typed_ast.TypedTable, alloc: std.mem.Alloc
             try w.writeAll("\n\"\"\"\n");
         }
     }
-    try w.print("type {s} {{\n", .{table.name});
+    try w.writeAll("type ");
+    try writePascalSingular(alloc, w, table.name);
+    try w.writeAll(" {\n");
 
     for (table.columns) |col| {
         try writeField(w, col, table, alloc);
     }
 
-    // FK relation fields (object reference, not scalar)
+    // FK relation fields (object reference, not scalar). Two FKs may target
+    // the same table — the bare singular name would then be declared twice,
+    // which GraphQL rejects as a duplicate field. Disambiguate with the FK
+    // column name.
+    var seen_rel_names = std.StringHashMap(void).init(alloc);
+    defer seen_rel_names.deinit();
+    var rel_name_buf = try std.ArrayList(u8).initCapacity(alloc, 64);
+    defer rel_name_buf.deinit(alloc);
+
     for (table.fks) |fk| {
-        if (fk.fields.len == 1) {
-            try w.print("  \"\"\"Reference to {s}\"\"\"\n", .{fk.ref_table});
-            try w.print("  {s}: {s}\n", .{ try common.toCamelSingular(alloc, fk.ref_table), fk.ref_table });
+        if (fk.fields.len != 1) continue;
+        rel_name_buf.clearRetainingCapacity();
+        const base = try common.toCamelSingular(alloc, fk.ref_table);
+        try rel_name_buf.appendSlice(alloc, base);
+        if (!seen_rel_names.contains(rel_name_buf.items)) {
+            try seen_rel_names.put(try alloc.dupe(u8, rel_name_buf.items), {});
+        } else {
+            // Second relation to the same table: derive from the FK column
+            // name (snake_case kept as-is — GraphQL field names allow _).
+            rel_name_buf.clearRetainingCapacity();
+            try rel_name_buf.appendSlice(alloc, fk.fields[0]);
+            if (seen_rel_names.contains(rel_name_buf.items)) continue; // give up on further dupes
+            try seen_rel_names.put(try alloc.dupe(u8, rel_name_buf.items), {});
         }
+        try w.print("  \"\"\"Reference to {s}\"\"\"\n", .{fk.ref_table});
+        try w.print("  {s}: {s}\n", .{ rel_name_buf.items, fk.ref_table });
     }
 
     try w.writeAll("}\n");
@@ -187,7 +253,9 @@ fn writeViewType(w: *Writer, view: typed_ast.TypedView) !void {
 // ─── Input Type (table) ───────────────────────────────────────
 
 fn writeInputType(w: *Writer, table: typed_ast.TypedTable, alloc: std.mem.Allocator) !void {
-    try w.print("input {s}Input {{\n", .{table.name});
+    try w.writeAll("input ");
+    try writePascalSingular(alloc, w, table.name);
+    try w.writeAll("Input {\n");
 
     for (table.columns) |col| {
         // Skip auto-generated fields
@@ -274,4 +342,9 @@ fn writePascalSingular(alloc: std.mem.Allocator, w: *Writer, name: []const u8) !
     if (singular.len > 1) {
         try w.writeAll(singular[1..]);
     }
+}
+
+fn writeCamelSingular(alloc: std.mem.Allocator, w: *Writer, name: []const u8) !void {
+    const singular = try common.toCamelSingular(alloc, name);
+    try w.writeAll(singular);
 }

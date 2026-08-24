@@ -42,7 +42,7 @@ pub const GLOBAL_FLAG_REGISTRY = [_]FlagEntry{
     .{ .long = "--dry-run", .description = "Show what would be done" },
     .{ .long = "--dialect", .short = "-d", .kind = .value_with_short, .description = "Target SQL dialect" },
     .{ .long = "--target", .kind = .value, .description = "Output target (sql|json-schema)" },
-    .{ .long = "--format", .kind = .value, .description = "Output format (text|json|sarif|markdown)" },
+    .{ .long = "--format", .short = "-f", .kind = .value_with_short, .description = "Output format (text|json|sarif|markdown)" },
     .{ .long = "--validate-only", .description = "Reverse: validate only" },
     .{ .long = "--init", .description = "Create starter schema" },
     .{ .long = "--strict", .description = "Treat warnings as errors" },

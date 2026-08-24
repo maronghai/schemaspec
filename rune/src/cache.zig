@@ -104,6 +104,11 @@ pub const TableCache = struct {
             if (col.generated_expr) |ge| {
                 hasher.update(ge);
             }
+            // Comments/doc/symbol markers reach the SQL output (COMMENT ON
+            // statements, @sym metadata) — a change must invalidate the entry.
+            if (col.comment) |c| hasher.update(c);
+            if (col.doc) |d| hasher.update(d);
+            if (col.ss_symbol) |s| hasher.update(s);
         }
 
         // Hash foreign keys
@@ -126,6 +131,10 @@ pub const TableCache = struct {
 
         // Hash engine
         if (table.engine) |e| hasher.update(e);
+
+        // Table-level comment/doc reach the SQL output (COMMENT ON) — include them.
+        if (table.comment) |c| hasher.update(c);
+        if (table.doc) |d| hasher.update(d);
 
         var digest: [32]u8 = undefined;
         hasher.final(&digest);

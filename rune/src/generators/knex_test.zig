@@ -122,8 +122,10 @@ test "knex: FK generates foreign key reference" {
     const ast = makeTestAst(tables);
     const result = try gen.generate(alloc, ast, .pg);
     defer alloc.free(result);
-    // FK column should be excluded from table.<type>()
-    try testing.expect(std.mem.indexOf(u8, result, "table.integer('user_id')") == null);
+    // FK columns are real columns — the column must be created before the
+    // constraint references it (v0.334.0: it was previously dropped entirely,
+    // producing a migration that failed at runtime).
+    try testing.expect(std.mem.indexOf(u8, result, "table.integer('user_id')") != null);
     try testing.expect(std.mem.indexOf(u8, result, "table.foreign('user_id')") != null);
     try testing.expect(std.mem.indexOf(u8, result, ".references('users.id')") != null);
 }

@@ -2,6 +2,7 @@ const std = @import("std");
 const codegen = @import("../codegen/codegen.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
 const dialect_enum = @import("../dialect/enum.zig");
+const dialect_mod = @import("../dialect/dialect.zig");
 const interleave = @import("interleave.zig");
 const version = @import("../version.zig");
 const cache_mod = @import("../cache.zig");
@@ -190,11 +191,34 @@ pub const StreamingCodegen = struct {
 /// Format streaming result as complete SQL.
 /// Data is already in line-number order from generateStreaming,
 /// so we iterate linearly through the interleaved results.
+/// Streaming-formatting metadata: schema-level header pieces the sequential
+/// codegen emits but the streaming path generates before it has seen. Both
+/// fields optional; null fields emit nothing (byte-identical to before).
+pub const SchemaHeaderInfo = struct {
+    schema_version: ?[]const u8 = null,
+    schema_name: ?[]const u8 = null,
+    schema_charset: ?[]const u8 = null,
+};
+
 pub fn formatStreamingResult(alloc: std.mem.Allocator, result: *const StreamingResult, dialect: codegen.Dialect) ![]const u8 {
+    return formatStreamingResultWithHeader(alloc, result, dialect, .{});
+}
+
+pub fn formatStreamingResultWithHeader(alloc: std.mem.Allocator, result: *const StreamingResult, dialect: codegen.Dialect, header: SchemaHeaderInfo) ![]const u8 {
     var aw = std.Io.Writer.Allocating.init(alloc);
     const w = &aw.writer;
 
     try dialect_enum.writeHeader(w, dialect);
+
+    // Schema-level header — parity with sequential fillWriter: --stream and
+    // --parallel must not silently drop $ mydb / @version declarations.
+    if (header.schema_version) |ver| {
+        try w.print("-- Schema version: {s}\n\n", .{ver});
+    }
+    if (header.schema_name) |name| {
+        const backend = dialect_mod.getBackend(dialect);
+        backend.emitCreateDatabase(w, name, header.schema_charset) catch {};
+    }
 
     var lm = interleave.LineMerger.init(result.tables, result.views, result.comments);
     const total = result.tables.len + result.views.len + result.comments.len;

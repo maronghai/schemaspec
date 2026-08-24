@@ -189,11 +189,14 @@ fn collectMigrateFiles(io: std.Io, alloc: std.mem.Allocator, dir_path: []const u
                 const digits = base[0..underscore_pos];
                 if (digits.len > 0) {
                     if (std.fmt.parseInt(u32, digits, 10)) |_| {
+                        // seq/label must be duped too: entry.name is an iterator-reused
+                        // buffer, so slices into it are overwritten by the next iteration.
                         const owned_name = try alloc.dupe(u8, name);
+                        const owned_base = try alloc.dupe(u8, base);
                         try entries.append(alloc, .{
                             .name = owned_name,
-                            .seq = base[0..underscore_pos],
-                            .label = base[underscore_pos + 1 ..],
+                            .seq = owned_base[0..underscore_pos],
+                            .label = owned_base[underscore_pos + 1 ..],
                         });
                     } else |_| {}
                 }

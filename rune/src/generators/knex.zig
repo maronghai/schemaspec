@@ -37,16 +37,19 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
 
     try w.writeAll("};\n\n");
 
-    // Generate exports.down
+    // Generate exports.down — reverse creation order so FK constraints
+    // reference tables that still exist when the rollback runs.
     try w.writeAll("/**\n");
     try w.writeAll(" * @param {import('knex').Knex} knex\n");
     try w.writeAll(" * @returns {Promise<void>}\n");
     try w.writeAll(" */\n");
     try w.writeAll("exports.down = function(knex) {\n");
 
-    for (typed.tables, 0..) |table, ti| {
-        if (ti > 0) try w.writeAll("\n");
-        try writeDownTable(w, table);
+    var di = typed.tables.len;
+    while (di > 0) {
+        di -= 1;
+        if (di < typed.tables.len - 1) try w.writeAll("\n");
+        try writeDownTable(w, typed.tables[di]);
     }
 
     try w.writeAll("};\n");
@@ -71,11 +74,13 @@ fn writeUpTable(w: *Writer, table: typed_ast.TypedTable) !void {
     // Single-column foreign keys
     for (table.fks) |fk| {
         if (fk.fields.len == 1) {
-            try w.print("    table.foreign('{s}').references('{s}.{s}');\n", .{
+            try w.print("    table.foreign('{s}').references('{s}.{s}')", .{
                 fk.fields[0],
                 fk.ref_table,
                 fk.ref_fields[0],
             });
+            try writeFkActions(w, fk);
+            try w.writeAll(";\n");
         } else {
             // Composite FK
             try w.print("    table.foreign([", .{});
@@ -88,7 +93,9 @@ fn writeUpTable(w: *Writer, table: typed_ast.TypedTable) !void {
                 if (fi > 0) try w.writeAll(", ");
                 try w.print("'{s}'", .{field});
             }
-            try w.print("]).inTable('{s}');\n", .{fk.ref_table});
+            try w.print("]).inTable('{s}')", .{fk.ref_table});
+            try writeFkActions(w, fk);
+            try w.writeAll(";\n");
         }
     }
 
@@ -132,14 +139,13 @@ fn writeDownTable(w: *Writer, table: typed_ast.TypedTable) !void {
 
 // ─── Column Generation ──────────────────────────────────────────
 
-fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTable) !void {
+fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, _: typed_ast.TypedTable) !void {
     // Comment
     try common.writeComment(w, col.comment, "//", "    ");
 
-    // Check if this column is an FK — if so, skip it (handled by .foreign())
-    if (common.findFkRefTable(col.name, table.fks) != null) {
-        return; // FK column handled by .foreign()
-    }
+    // FK columns are real columns — they must be created before the
+    // table.foreign() constraint can reference them. (The old code skipped
+    // them entirely, producing a migration that failed at runtime.)
 
     // Primary key with autoincrement
     if (col.flags.primary_key and col.flags.auto_increment) {
@@ -155,6 +161,19 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
         return;
     }
 
+    // Enum column: knex requires the values array as second argument.
+    if (col.flags.is_enum) {
+        try w.print("    table.enu('{s}', [", .{col.name});
+        for (col.enum_values, 0..) |ev, i| {
+            if (i > 0) try w.writeAll(", ");
+            try w.print("'{s}'", .{ev});
+        }
+        try w.writeAll("])");
+        try writeEnumColumnOptions(w, col);
+        try w.writeAll(";\n");
+        return;
+    }
+
     // Regular column
     switch (col.sql_type) {
         .varchar => |len| if (len > 0)
@@ -164,6 +183,11 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
         // Precision args: knex's decimal(name, precision, scale) signature.
         .decimal => |ds| try w.print("    table.{s}('{s}', {d}, {d})", .{ knexType(col), col.name, ds.precision, ds.scale }),
         else => try w.print("    table.{s}('{s}')", .{ knexType(col), col.name }),
+    }
+
+    // Unsigned modifier (MySQL-family integer types)
+    if (col.flags.unsigned) {
+        try w.writeAll(".unsigned()");
     }
 
     // Modifiers
@@ -183,6 +207,26 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
     }
 
     try w.writeAll(";\n");
+}
+
+fn writeEnumColumnOptions(w: *Writer, col: typed_ast.TypedColumn) !void {
+    if (!col.flags.nullable) {
+        try w.writeAll(".notNullable()");
+    }
+    if (col.default) |dflt| {
+        try common.writeOrmDefault(w, dflt, ".defaultTo(", ")", .knex);
+    }
+}
+
+/// Append .onDelete()/.onUpdate() chain calls for a FK's referential actions.
+fn writeFkActions(w: *Writer, fk: FkDecl) !void {
+    for (fk.actions) |a| {
+        const key = switch (a.trigger) {
+            .on_delete => "onDelete",
+            .on_update => "onUpdate",
+        };
+        try w.print(".{s}('{s}')", .{ key, common.fkActionSql(a.action) });
+    }
 }
 
 fn knexType(col: typed_ast.TypedColumn) []const u8 {

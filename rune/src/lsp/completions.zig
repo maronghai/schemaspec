@@ -27,33 +27,45 @@ const KEYWORDS = [_]struct { label: []const u8, kind: CompletionItemKind }{
     .{ .label = "IXI", .kind = .keyword },
 };
 
+// Type symbols mirror parser.tryParseType / dialect DEFAULT_SYM_MAP exactly
+// (schemaspec/type.md §Type Symbols). Every label here must parse as a real
+// type — suggesting nonexistent symbols inserts tokens the compiler warns on.
 const TYPE_SYMBOLS = [_]struct { label: []const u8, detail: []const u8, kind: CompletionItemKind }{
     .{ .label = "n", .detail = "INT", .kind = .value },
-    .{ .label = "i", .detail = "BIGINT", .kind = .value },
-    .{ .label = "u", .detail = "INT UNSIGNED", .kind = .value },
+    .{ .label = "N", .detail = "BIGINT", .kind = .value },
+    .{ .label = "i", .detail = "SMALLINT", .kind = .value },
+    .{ .label = "m", .detail = "DECIMAL(16,2)", .kind = .value },
+    .{ .label = "M", .detail = "DECIMAL(20,6)", .kind = .value },
     .{ .label = "s", .detail = "VARCHAR(255)", .kind = .value },
+    .{ .label = "s32", .detail = "VARCHAR(32)", .kind = .value },
     .{ .label = "s64", .detail = "VARCHAR(64)", .kind = .value },
     .{ .label = "s128", .detail = "VARCHAR(128)", .kind = .value },
-    .{ .label = "s512", .detail = "VARCHAR(512)", .kind = .value },
-    .{ .label = "m", .detail = "TEXT", .kind = .value },
-    .{ .label = "f", .detail = "FLOAT", .kind = .value },
-    .{ .label = "d", .detail = "DATE", .kind = .value },
-    .{ .label = "dt", .detail = "DATETIME", .kind = .value },
-    .{ .label = "t", .detail = "TIMESTAMP", .kind = .value },
+    .{ .label = "S", .detail = "TEXT", .kind = .value },
     .{ .label = "b", .detail = "BOOLEAN", .kind = .value },
-    .{ .label = "uid", .detail = "UUID", .kind = .value },
-    .{ .label = "json", .detail = "JSON", .kind = .value },
-    .{ .label = "jsonb", .detail = "JSONB", .kind = .value },
-    .{ .label = "text", .detail = "TEXT", .kind = .value },
+    .{ .label = "B", .detail = "BLOB", .kind = .value },
+    .{ .label = "j", .detail = "JSON", .kind = .value },
+    .{ .label = "J", .detail = "JSONB", .kind = .value },
+    .{ .label = "I", .detail = "INET", .kind = .value },
+    .{ .label = "d", .detail = "DATE", .kind = .value },
+    .{ .label = "t", .detail = "DATETIME (+ = CURRENT_TIMESTAMP default)", .kind = .value },
+    .{ .label = "T", .detail = "TIMESTAMP WITH TIME ZONE", .kind = .value },
+    .{ .label = "U", .detail = "UUID", .kind = .value },
+    .{ .label = "p", .detail = "SERIAL (auto-incrementing PK)", .kind = .value },
 };
 
+// Modifiers mirror schemaspec/schema.md §Modifiers. `!` is PRIMARY KEY,
+// `+`/`++` are AUTO_INCREMENT / timestamp defaults (type-sensitive),
+// `@`/`@u` are INDEX / UNIQUE INDEX. Fields are NOT NULL by default.
 const MODIFIERS = [_]struct { label: []const u8, detail: []const u8, kind: CompletionItemKind }{
-    .{ .label = "++", .detail = "Auto-increment PK", .kind = .keyword },
-    .{ .label = "!", .detail = "NOT NULL", .kind = .keyword },
-    .{ .label = "*", .detail = "UNIQUE", .kind = .keyword },
-    .{ .label = "+", .detail = "Inline index", .kind = .keyword },
-    .{ .label = "-", .detail = "Inline unique", .kind = .keyword },
-    .{ .label = "@", .detail = "Generated column", .kind = .keyword },
+    .{ .label = "++", .detail = "AUTO_INCREMENT + PRIMARY KEY (datetime: + ON UPDATE CURRENT_TIMESTAMP)", .kind = .keyword },
+    .{ .label = "+", .detail = "AUTO_INCREMENT (datetime: DEFAULT CURRENT_TIMESTAMP)", .kind = .keyword },
+    .{ .label = "!", .detail = "PRIMARY KEY", .kind = .keyword },
+    .{ .label = "?", .detail = "NULL (fields are NOT NULL by default)", .kind = .keyword },
+    .{ .label = "=value", .detail = "DEFAULT value (attached: =0, ='x')", .kind = .keyword },
+    .{ .label = "@u", .detail = "UNIQUE INDEX", .kind = .keyword },
+    .{ .label = "@", .detail = "INDEX", .kind = .keyword },
+    .{ .label = "[min,max]", .detail = "CHECK constraint range", .kind = .keyword },
+    .{ .label = ":text", .detail = "COMMENT", .kind = .keyword },
 };
 
 /// Extract the word being typed at cursor position (for prefix filtering).
@@ -349,4 +361,47 @@ test "Completion: context-sensitive inside table" {
         }
     }
     try std.testing.expect(has_type);
+}
+
+test "Completion: every type symbol parses as a real type" {
+    // The catalog must never suggest a token the parser rejects — each label
+    // goes through the same tryParseType the compiler uses.
+    const parse_field = @import("../parser/parse_field.zig");
+    for (TYPE_SYMBOLS) |ts| {
+        const parsed = parse_field.tryParseType(ts.label);
+        if (parsed == null) {
+            // Multi-char suggestion forms like "=value" are modifier-side; type
+            // symbols must all be parseable, no exceptions.
+            std.debug.print("type symbol '{s}' does not parse\n", .{ts.label});
+            try std.testing.expect(false);
+        }
+    }
+}
+
+test "Completion: i is SMALLINT and t is DATETIME per spec" {
+    var found_i = false;
+    var found_t = false;
+    for (TYPE_SYMBOLS) |ts| {
+        if (std.mem.eql(u8, ts.label, "i")) {
+            found_i = true;
+            try std.testing.expect(std.mem.indexOf(u8, ts.detail, "SMALLINT") != null);
+        }
+        if (std.mem.eql(u8, ts.label, "t")) {
+            found_t = true;
+            try std.testing.expect(std.mem.indexOf(u8, ts.detail, "DATETIME") != null);
+        }
+    }
+    try std.testing.expect(found_i);
+    try std.testing.expect(found_t);
+}
+
+test "Completion: ! is PRIMARY KEY and @ is INDEX per spec" {
+    for (MODIFIERS) |m| {
+        if (std.mem.eql(u8, m.label, "!")) {
+            try std.testing.expect(std.mem.indexOf(u8, m.detail, "PRIMARY KEY") != null);
+        }
+        if (std.mem.eql(u8, m.label, "@")) {
+            try std.testing.expect(std.mem.indexOf(u8, m.detail, "INDEX") != null);
+        }
+    }
 }

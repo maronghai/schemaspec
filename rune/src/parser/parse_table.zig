@@ -55,7 +55,7 @@ pub fn parseTableHeader(alloc: std.mem.Allocator, line: tk.Line) !TableHeader {
             if (gt + 2 < tokens.len) {
                 const cand = tokens[gt + 2];
                 if (cand.len >= 1 and cand[0] == ':') {
-                    comment = try alloc.dupe(u8, cand);
+                    comment = try alloc.dupe(u8, stripCommentColon(cand));
                 }
             }
         }
@@ -67,7 +67,7 @@ pub fn parseTableHeader(alloc: std.mem.Allocator, line: tk.Line) !TableHeader {
         if (tokens[2].len >= 1 and tokens[2][0] == ':') {
             // # table_name : comment
             table_name = try alloc.dupe(u8, tokens[1]);
-            comment = try alloc.dupe(u8, tokens[2]);
+            comment = try alloc.dupe(u8, stripCommentColon(tokens[2]));
         } else {
             // # template_ref table_name [: comment]
             template_ref = try alloc.dupe(u8, tokens[1]);
@@ -208,4 +208,13 @@ fn detectSetOperation(query: ?[]const u8) ?SetOperationResult {
         }
     }
     return null;
+}
+
+/// Strip the leading `:` (and following space) from a comment token —
+/// `: user accounts table` is stored as `user accounts table`. The colon is
+/// syntax, not content; generators were rendering it verbatim.
+fn stripCommentColon(tok: []const u8) []const u8 {
+    var rest = tok[1..]; // skip ':'
+    if (rest.len > 0 and rest[0] == ' ') rest = rest[1..];
+    return rest;
 }

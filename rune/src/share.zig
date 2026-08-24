@@ -41,21 +41,20 @@ pub fn handleShare(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, 
         .compressed_size = encoded.len,
     };
 
-    // Output based on format
+    // Output based on format. The writer's buffer lives in THIS frame —
+    // File.Writer stores a pointer to it, so handing one back from a helper
+    // would leave the interface pointing at that helper's dead stack.
+    var buf: [8192]u8 = undefined;
+    var out = try getOutputWriter(io, alloc, cfg.output, &buf);
+    defer out.flush() catch {};
     switch (cfg.format) {
         .url => {
-            var out = try getOutputWriter(io, alloc, cfg.output);
-            defer out.flush() catch {};
             try (&out.interface).print("{s}\n", .{result.url});
         },
         .json => {
-            var out = try getOutputWriter(io, alloc, cfg.output);
-            defer out.flush() catch {};
             try (&out.interface).print("{{\n  \"url\": \"{s}\",\n  \"encoded\": \"{s}\",\n  \"original_size\": {d},\n  \"compressed_size\": {d}\n}}\n", .{ result.url, result.encoded, result.original_size, result.compressed_size });
         },
         .qr => {
-            var out = try getOutputWriter(io, alloc, cfg.output);
-            defer out.flush() catch {};
             try printQrCode(&out.interface, result.url);
         },
     }
@@ -98,16 +97,15 @@ fn buildPlaygroundUrl(alloc: std.mem.Allocator, encoded: []const u8) ![]const u8
     return url;
 }
 
-/// Get output writer (file or stdout).
-fn getOutputWriter(io: std.Io, alloc: std.mem.Allocator, output: ?[]const u8) anyerror!std.Io.File.Writer {
+/// Get output writer (file or stdout). `buf` must outlive the returned
+/// writer — File.Writer stores a pointer to it (see io.zig's same-frame rule).
+fn getOutputWriter(io: std.Io, alloc: std.mem.Allocator, output: ?[]const u8, buf: *[8192]u8) anyerror!std.Io.File.Writer {
     if (output) |path| {
         const file = try io_mod.openFileForWrite(io, alloc, path);
-        var buf: [8192]u8 = undefined;
-        return file.writer(io, &buf);
+        return file.writer(io, buf);
     }
-    var buf: [8192]u8 = undefined;
     const stdout_file = std.Io.File.stdout();
-    return stdout_file.writer(io, &buf);
+    return stdout_file.writer(io, buf);
 }
 
 /// Print QR code (simplified - just outputs the URL for now).

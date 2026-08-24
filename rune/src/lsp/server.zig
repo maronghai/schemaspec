@@ -212,6 +212,16 @@ pub const Server = struct {
         } else {
             const owned_uri = try self.arena.dupe(u8, uri);
             try self.compile_results.put(owned_uri, .{ .diagnostics = owned_diags, .typed_ast = result.typed_ast });
+        }
+        // Every recompile must (re)register its arena — otherwise only the
+        // first version's arena is tracked and every subsequent didChange
+        // leaks a full document arena when destroyDocArena frees the stale
+        // first entry instead of the one that just went out of scope.
+        if (self.doc_arenas.getEntry(uri)) |da_entry| {
+            da_entry.value_ptr.*.deinit();
+            self.arena.destroy(da_entry.value_ptr.*);
+            da_entry.value_ptr.* = da;
+        } else {
             try self.doc_arenas.put(try self.arena.dupe(u8, uri), da);
         }
 

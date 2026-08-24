@@ -109,6 +109,7 @@ pub fn formatSummaryStats(w: anytype, stats: DiffStats, use_color: bool) !void {
     if (use_color) try w.writeAll(color_mod.BOLD);
     if (total_tables > 0) {
         try w.print("{d} table{s} changed", .{ total_tables, if (total_tables != 1) "s" else "" });
+        try w.writeAll(" (");
         var parts: usize = 0;
         if (stats.added_tables > 0) {
             if (use_color) try w.writeAll(color_mod.GREEN);
@@ -131,10 +132,12 @@ pub fn formatSummaryStats(w: anytype, stats: DiffStats, use_color: bool) !void {
             if (use_color) try w.writeAll(color_mod.RESET);
             parts += 1;
         }
+        try w.writeAll(")");
     }
     if (total_ct > 0) {
         if (total_tables > 0) try w.writeAll(", ");
         try w.print("{d} type{s} changed", .{ total_ct, if (total_ct != 1) "s" else "" });
+        try w.writeAll(" (");
         var parts: usize = 0;
         if (stats.added_custom_types > 0) {
             if (use_color) try w.writeAll(color_mod.GREEN);
@@ -157,6 +160,7 @@ pub fn formatSummaryStats(w: anytype, stats: DiffStats, use_color: bool) !void {
             if (use_color) try w.writeAll(color_mod.RESET);
             parts += 1;
         }
+        try w.writeAll(")");
     }
     if (use_color) try w.writeAll(color_mod.RESET);
     try w.writeAll("\n");

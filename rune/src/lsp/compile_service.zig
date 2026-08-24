@@ -40,8 +40,38 @@ pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8
     _ = file_path;
     var diagnostics = try std.ArrayList(Diagnostic).initCapacity(alloc, 16);
 
-    // Stage 1: Tokenize and parse
-    const tokenized = import_res.tokenizeAndParseWithLines(alloc, &.{text}, false) catch |err| {
+    // Split the document into lines exactly like the main pipeline
+    // (import_resolver.splitLines) — the tokenizer is line-oriented and
+    // treats each slice as one physical line. Passing the whole document
+    // as a single "line" collapses every AST-based feature to garbage.
+    const lines = import_res.splitLines(alloc, text) catch |err| {
+        diagnostics.append(alloc, .{
+            .range = .{
+                .start = .{ .line = 0, .character = 0 },
+                .end = .{ .line = 0, .character = 0 },
+            },
+            .severity = .error_sev,
+            .message = switch (err) {
+                error.OutOfMemory => "Out of memory",
+            },
+        }) catch {};
+        return .{ .diagnostics = try diagnostics.toOwnedSlice(alloc) };
+    };
+
+    // Stage 1: Tokenize and parse — collect per-error diagnostics instead of
+    // printing them to stderr; editors need each error's real location.
+    // The parser prints some diagnostics directly via printDiagnostic; routing
+    // them into a collector captures those too (single-threaded LSP only).
+    var parse_diagnostics: []const diag_mod.Diagnostic = &.{};
+    var capture = diag_mod.DiagnosticCollector.init(alloc) catch {
+        return .{ .diagnostics = try diagnostics.toOwnedSlice(alloc) };
+    };
+    defer capture.diagnostics.deinit(alloc);
+    const prev_collector = diag_mod.active_collector;
+    diag_mod.active_collector = &capture;
+    defer diag_mod.active_collector = prev_collector;
+
+    const tokenized = import_res.tokenizeAndParseQuiet(alloc, lines, &parse_diagnostics) catch |err| {
         diagnostics.append(alloc, .{
             .range = .{
                 .start = .{ .line = 0, .character = 0 },
@@ -56,22 +86,44 @@ pub fn compile(alloc: std.mem.Allocator, text: []const u8, file_path: []const u8
         return .{ .diagnostics = try diagnostics.toOwnedSlice(alloc) };
     };
 
-    const tree = tokenized.tree;
-
-    // Collect parse errors from the AST
-    if (tree.error_count > 0) {
-        // Parse errors exist but details are embedded in the AST structure.
-        // Report a general parse error with location from the first table.
-        const first_loc: usize = if (tree.tables.len > 0) tree.tables[0].line_no else 1;
+    for (parse_diagnostics) |d| {
+        const severity: DiagnosticSeverity = switch (d.severity) {
+            .@"error" => .error_sev,
+            .warning => .warning,
+            .note => .information,
+        };
+        const line = lineNoToZeroBased(d.line_no);
+        const col: u32 = if (d.col) |c| @intCast(c -| 1) else 0;
         diagnostics.append(alloc, .{
             .range = .{
-                .start = .{ .line = lineNoToZeroBased(first_loc), .character = 0 },
-                .end = .{ .line = lineNoToZeroBased(first_loc), .character = 100 },
+                .start = .{ .line = line, .character = col },
+                .end = .{ .line = line, .character = col + 1 },
             },
-            .severity = .error_sev,
-            .message = "Schema has parse errors",
+            .severity = severity,
+            .message = d.message,
         }) catch {};
     }
+    // Diagnostics the parser emitted through its direct-print path (warnings,
+    // recovery errors) were routed into `capture` by the active_collector hook.
+    for (capture.diagnostics.items) |d| {
+        const severity: DiagnosticSeverity = switch (d.severity) {
+            .@"error" => .error_sev,
+            .warning => .warning,
+            .note => .information,
+        };
+        const line = lineNoToZeroBased(d.line_no);
+        const col: u32 = if (d.col) |c| @intCast(c -| 1) else 0;
+        diagnostics.append(alloc, .{
+            .range = .{
+                .start = .{ .line = line, .character = col },
+                .end = .{ .line = line, .character = col + 1 },
+            },
+            .severity = severity,
+            .message = d.message,
+        }) catch {};
+    }
+
+    const tree = tokenized.tree;
 
     // Stage 2: Semantic analysis with diagnostic capture
     var collector = diag_mod.DiagnosticCollector.init(alloc) catch {
@@ -161,9 +213,8 @@ test "compile valid schema" {
     const alloc = arena.allocator();
 
     const result = try compile(alloc,
-        \\# users table
-        \\table users {
-        \\  id    n   ++ PK
+        \\# users {
+        \\  id    n   ++
         \\  name  s64
         \\}
     , "test.ss", .mysql);
@@ -174,6 +225,85 @@ test "compile valid schema" {
             try std.testing.expect(false); // Should not have errors
         }
     }
+}
+
+test "multi-line document parses into real tables (LSP pipeline parity)" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const result = try compile(alloc,
+        \\# users
+        \\id n ++
+        \\name s32
+        \\
+        \\# orders
+        \\id n ++
+        \\user_id n > users.id
+    , "test.ss", .mysql);
+
+    // The document must be split into lines before parsing — the whole
+    // point of the LSP compile service is to see the same AST as `rune compile`.
+    const typed = result.typed_ast orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqual(@as(usize, 2), typed.tables.len);
+    try std.testing.expectEqualStrings("users", typed.tables[0].name);
+    try std.testing.expectEqualStrings("orders", typed.tables[1].name);
+
+    for (result.diagnostics) |d| {
+        if (d.severity == .error_sev) {
+            try std.testing.expect(false); // valid schema must not produce errors
+        }
+    }
+}
+
+test "parse errors surface as per-error diagnostics with real locations" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // An unterminated CHECK-style bracket is a hard parse error; the LSP
+    // must surface the parser's own diagnostic (with its real line) rather
+    // than a single vague "has errors" marker.
+    const result = try compile(alloc,
+        \\# users
+        \\id n ++
+        \\name s32 [0,
+        \\# posts
+        \\title s64
+    , "test.ss", .mysql);
+
+    try std.testing.expect(result.diagnostics.len > 0);
+    var saw_error = false;
+    for (result.diagnostics) |d| {
+        if (d.severity == .error_sev) {
+            saw_error = true;
+            // The unclosed bracket starts on line index 2 (0-based).
+            try std.testing.expectEqual(@as(u32, 2), d.range.start.line);
+        }
+    }
+    try std.testing.expect(saw_error);
+}
+
+test "unrecognized tokens surface as warnings pinned to their own line" {
+    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    // Lenient recovery: `??? garbage ???` warns (field named ???), it does
+    // not abort — but the warning must carry the right line to the editor.
+    const result = try compile(alloc,
+        \\# users
+        \\id n ++
+        \\??? garbage ???
+    , "test.ss", .mysql);
+
+    var saw_warning_on_line_2 = false;
+    for (result.diagnostics) |d| {
+        if (d.severity == .warning and d.range.start.line == 2) {
+            saw_warning_on_line_2 = true;
+        }
+    }
+    try std.testing.expect(saw_warning_on_line_2);
 }
 
 test "compile invalid schema" {

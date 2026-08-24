@@ -27,7 +27,8 @@ test "drizzle: single table basic columns" {
     defer alloc.free(result);
     try testing.expect(std.mem.indexOf(u8, result, "pgTable('users'") != null);
     try testing.expect(std.mem.indexOf(u8, result, "integer('id')") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "varchar('name')") != null);
+    // varchar now carries its length (driver default was a silent degradation).
+    try testing.expect(std.mem.indexOf(u8, result, "varchar('name', { length: 64 })") != null);
 }
 
 test "drizzle: nullable column gets no .notNull()" {

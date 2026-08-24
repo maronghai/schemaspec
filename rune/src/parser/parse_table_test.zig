@@ -41,7 +41,8 @@ test "parseTableHeader: # table_name : comment" {
     }
     try std.testing.expectEqual(@as(?[]const u8, null), hdr.template_ref);
     try std.testing.expectEqualStrings("users", hdr.name);
-    try std.testing.expectEqualStrings(":user accounts", hdr.comment.?);
+    // The `:` marker is syntax, not content — stripped since v0.334.0.
+    try std.testing.expectEqualStrings("user accounts", hdr.comment.?);
 }
 
 test "parseTableHeader: # template_ref table_name" {

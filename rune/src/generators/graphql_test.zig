@@ -121,15 +121,15 @@ test "query and mutation types generated" {
 
     const result = try graphql.generate(alloc, ast, .mysql);
 
-    // Query type
+    // Query type — object types are PascalCase singular, matching mutations
     try testing.expect(std.mem.indexOf(u8, result, "type Query {") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "user(id: ID!): users") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "usersList(limit: Int, offset: Int): [users!]!") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "user(id: ID!): User") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "usersList(limit: Int, offset: Int): [User!]!") != null);
 
     // Mutation type — PascalCase singular strips trailing 's'
     try testing.expect(std.mem.indexOf(u8, result, "type Mutation {") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "createUser(input: usersInput!): User!") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "updateUser(id: ID!, input: usersInput!): User!") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "createUser(input: UserInput!): User!") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "updateUser(id: ID!, input: UserInput!): User!") != null);
     try testing.expect(std.mem.indexOf(u8, result, "deleteUser(id: ID!): Boolean!") != null);
 }
 
@@ -147,10 +147,10 @@ test "input type: skips auto-generated fields" {
 
     const result = try graphql.generate(alloc, ast, .mysql);
 
-    // Input type should exist
-    try testing.expect(std.mem.indexOf(u8, result, "input usersInput {") != null);
+    // Input type should exist (PascalCase, matching object/mutation names)
+    try testing.expect(std.mem.indexOf(u8, result, "input UserInput {") != null);
     // id (auto_increment) should be skipped
-    try testing.expect(std.mem.indexOf(u8, result, "usersInput {") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "UserInput {") != null);
     // name should be present
     try testing.expect(std.mem.indexOf(u8, result, "  name: String!") != null);
 }

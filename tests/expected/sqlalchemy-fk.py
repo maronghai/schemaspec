@@ -18,4 +18,5 @@ class orders(Base):
     __tablename__ = 'orders'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     amount = Column(Numeric(precision=16, scale=2), nullable=False)

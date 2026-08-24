@@ -18,6 +18,9 @@ pub fn getFoldingRanges(alloc: std.mem.Allocator, text: []const u8) ![]const Fol
     var lines = std.mem.splitScalar(u8, text, '\n');
     var line_no: u32 = 0;
     var template_start: ?u32 = null;
+    // Last line that had content — EOF regions end here, not at the
+    // trailing-empty-line index a final newline produces.
+    var last_content_line: u32 = 0;
 
     while (lines.next()) |raw_line| {
         const line = std.mem.trim(u8, raw_line, " \t\r");
@@ -26,21 +29,27 @@ pub fn getFoldingRanges(alloc: std.mem.Allocator, text: []const u8) ![]const Fol
             line_no += 1;
             continue;
         }
+        last_content_line = line_no;
 
         const first_char = line[0];
 
-        // Table block: # name { ... }
+        // Table block: # name { ... }  — or legacy/main brace-less form
+        // `# name` + fields until the next top-level declaration.
         if (first_char == '#') {
-            // Close any open template block
-            if (template_start) |ts| {
-                if (line_no > ts + 1) {
+            try closeTemplateBlock(alloc, &ranges, &template_start, line_no);
+            // A new header closes any open brace-less table: the legacy form
+            // has no closing brace, its region ends at the previous line.
+            while (block_stack.items.len > 0) {
+                const open = block_stack.items[block_stack.items.len - 1];
+                if (open.kind != .table) break;
+                if (line_no > open.start_line + 1) {
                     try ranges.append(alloc, .{
-                        .start_line = ts,
+                        .start_line = open.start_line,
                         .end_line = line_no - 1,
                         .kind = .region,
                     });
                 }
-                template_start = null;
+                _ = block_stack.pop();
             }
             try block_stack.append(alloc, .{
                 .kind = .table,
@@ -50,31 +59,13 @@ pub fn getFoldingRanges(alloc: std.mem.Allocator, text: []const u8) ![]const Fol
 
         // Template declaration: % name (folds until next top-level declaration)
         if (first_char == '%') {
-            // Close any open template block
-            if (template_start) |ts| {
-                if (line_no > ts + 1) {
-                    try ranges.append(alloc, .{
-                        .start_line = ts,
-                        .end_line = line_no - 1,
-                        .kind = .region,
-                    });
-                }
-            }
+            try closeTemplateBlock(alloc, &ranges, &template_start, line_no);
             template_start = line_no;
         }
 
         // Other top-level declarations close open template blocks
         if (first_char == '$' or first_char == '~' or first_char == '&' or first_char == '@') {
-            if (template_start) |ts| {
-                if (line_no > ts + 1) {
-                    try ranges.append(alloc, .{
-                        .start_line = ts,
-                        .end_line = line_no - 1,
-                        .kind = .region,
-                    });
-                }
-                template_start = null;
-            }
+            try closeTemplateBlock(alloc, &ranges, &template_start, line_no);
         }
 
         // @if conditional block start
@@ -126,18 +117,36 @@ pub fn getFoldingRanges(alloc: std.mem.Allocator, text: []const u8) ![]const Fol
         line_no += 1;
     }
 
-    // Close any remaining template block at end of file
-    if (template_start) |ts| {
-        if (line_no > ts + 1) {
+    // Close brace-less blocks that ran to EOF: any open table/template block
+    // without a closing `}` folds until the last content line. Without this,
+    // the legacy/main `# name` + fields form produces no folding at all.
+    for (block_stack.items) |open_block| {
+        if (last_content_line > open_block.start_line) {
             try ranges.append(alloc, .{
-                .start_line = ts,
-                .end_line = line_no - 1,
+                .start_line = open_block.start_line,
+                .end_line = last_content_line,
                 .kind = .region,
             });
         }
     }
 
+    try closeTemplateBlock(alloc, &ranges, &template_start, last_content_line + 1);
+
     return try ranges.toOwnedSlice(alloc);
+}
+
+/// Emit a template region ending just before `at_line` and clear the marker.
+fn closeTemplateBlock(alloc: std.mem.Allocator, ranges: *std.ArrayList(FoldingRange), template_start: *?u32, at_line: u32) !void {
+    if (template_start.*) |ts| {
+        if (at_line > ts + 1) {
+            try ranges.append(alloc, .{
+                .start_line = ts,
+                .end_line = at_line - 1,
+                .kind = .region,
+            });
+        }
+        template_start.* = null;
+    }
 }
 
 // ─── Internal Types ──────────────────────────────────────────

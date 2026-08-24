@@ -108,7 +108,17 @@ fn formatDiagnosticTo(w: anytype, d: Diagnostic) !void {
     }
 }
 
+/// Optional routing hook: when set, printDiagnostic forwards diagnostics to
+/// this collector INSTEAD OF printing to stderr. Lets embedders (LSP) capture
+/// the parser's direct-print warnings/errors with their real locations.
+/// Single-threaded contexts only (CLI, LSP); not synchronized.
+pub var active_collector: ?*DiagnosticCollector = null;
+
 pub fn printDiagnostic(alloc: std.mem.Allocator, d: Diagnostic) void {
+    if (active_collector) |c| {
+        c.push(d);
+        return;
+    }
     // WASM builds have no stderr; std.debug.print's locked-writer path
     // overflows the stack there. Errors surface via rune_last_error().
     if (comptime @import("builtin").target.cpu.arch.isWasm()) return;

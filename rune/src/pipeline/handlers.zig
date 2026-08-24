@@ -57,9 +57,16 @@ pub fn handleCompileRequest(
     const typed = try TypeResolver.resolve(alloc, pipeline.resolved, cfg.dialect);
 
     const output = if (cfg.stream and cfg.parallel and cfg.format == .sql) blk: {
+        // The parallel path has no per-table cache integration; fail loudly
+        // rather than silently ignoring --cache.
+        if (cfg.cache) return error.CacheUnsupportedWithParallel;
         const parallel_mod = @import("../codegen/parallel.zig");
         const result = try parallel_mod.compileParallel(alloc, cfg.dialect, typed, .{});
-        break :blk try @import("../codegen/streaming.zig").formatStreamingResult(alloc, &result, cfg.dialect);
+        break :blk try @import("../codegen/streaming.zig").formatStreamingResultWithHeader(alloc, &result, cfg.dialect, .{
+            .schema_version = typed.schema_version,
+            .schema_name = typed.schema_name,
+            .schema_charset = typed.schema_charset,
+        });
     } else if (cfg.stream and cfg.format == .sql) blk: {
         const streaming = @import("../codegen/streaming.zig");
         var pool = codegen.BufferPool.init(alloc);
@@ -95,6 +102,15 @@ pub fn handleCompileRequest(
 
         const result = try sc.generateStreaming(typed);
 
+        // Format BEFORE freeing the cache: on a cache hit, result.tables[i].sql
+        // aliases cache-owned memory (streaming.zig does not copy), so the
+        // formatted output must be produced while every entry is still alive.
+        const formatted = try streaming.formatStreamingResultWithHeader(alloc, &result, cfg.dialect, .{
+            .schema_version = typed.schema_version,
+            .schema_name = typed.schema_name,
+            .schema_charset = typed.schema_charset,
+        });
+
         // Flush cache to disk and report statistics
         if (cfg.cache) {
             table_cache.flushToDisk();
@@ -105,7 +121,7 @@ pub fn handleCompileRequest(
             table_cache.deinit();
         }
 
-        break :blk try streaming.formatStreamingResult(alloc, &result, cfg.dialect);
+        break :blk formatted;
     } else switch (cfg.format) {
         .sql => blk: {
             var pool = codegen.BufferPool.init(alloc);

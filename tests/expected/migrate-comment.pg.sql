@@ -2,6 +2,6 @@
 
 BEGIN;
 
-COMMENT ON TABLE "users" IS ': User accounts table';
+COMMENT ON TABLE "users" IS 'User accounts table';
 
 COMMIT;

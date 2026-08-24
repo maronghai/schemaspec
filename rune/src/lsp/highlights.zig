@@ -48,7 +48,7 @@ pub fn getDocumentHighlights(alloc: std.mem.Allocator, typed: TypedAst, line: u3
                 for (typed.tables) |other_table| {
                     for (other_table.fks) |fk| {
                         if (std.mem.eql(u8, fk.ref_table, table.name)) {
-                            const fk_line = lineNoToZeroBased(other_table.line_no);
+                            const fk_line = lineNoToZeroBased(fk.line_no);
                             if (fk.fields.len > 0) {
                                 if (findNameInLine(doc_text, fk_line, fk.fields[0])) |range| {
                                     highlights.append(alloc, .{
@@ -68,13 +68,15 @@ pub fn getDocumentHighlights(alloc: std.mem.Allocator, typed: TypedAst, line: u3
         // Check columns for name match
         for (table.columns) |col| {
             if (std.mem.eql(u8, col.name, "")) continue;
-            const col_line = lineNoToZeroBased(table.line_no);
+            const col_line = lineNoToZeroBased(col.line_no);
             if (line == col_line) {
-                const line_len = @as(u32, @intCast(getLineText(doc_text, col_line).len));
+                // Highlight only the column name itself, not the whole line —
+                // the line may carry type/modifiers/FK text beyond the name.
+                const name_len: u32 = @intCast(col.name.len);
                 highlights.append(alloc, .{
                     .range = .{
                         .start = .{ .line = col_line, .character = 0 },
-                        .end = .{ .line = col_line, .character = line_len },
+                        .end = .{ .line = col_line, .character = name_len },
                     },
                     .kind = .write,
                 }) catch {};
@@ -85,7 +87,7 @@ pub fn getDocumentHighlights(alloc: std.mem.Allocator, typed: TypedAst, line: u3
                         if (std.mem.eql(u8, fk.ref_table, table.name)) {
                             // Check if this FK references this specific column
                             if (fk.ref_fields.len > 0 and std.mem.eql(u8, fk.ref_fields[0], col.name)) {
-                                const fk_line = lineNoToZeroBased(fk_table.line_no);
+                                const fk_line = lineNoToZeroBased(fk.line_no);
                                 if (fk.fields.len > 0) {
                                     if (findNameInLine(doc_text, fk_line, fk.fields[0])) |range| {
                                         highlights.append(alloc, .{

@@ -5,7 +5,7 @@
   "$defs": {
     "t": {
       "type": "object",
-      "description": ": 用户表",
+      "description": "用户表",
       "properties": {
         "id": {"type":"integer"},
         "name": {"type":"string"},

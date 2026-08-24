@@ -49,18 +49,26 @@ fn hashFileContent(io: std.Io, path: []const u8) ?u64 {
     return std.hash.Wyhash.hash(0, file_data);
 }
 
-/// Per-file watch state: content hash plus the mtime it was computed at.
-/// The mtime is a short-circuit hint — a poll skips reading and hashing when
-/// the timestamp is unchanged. Content hash remains the source of truth, so
-/// coarse/odd mtime behavior can only cost extra reads, never miss a change.
+/// Per-file watch state: content hash plus the stat snapshot it was computed
+/// at. Both mtime and size participate in the short-circuit: an mtime-equal
+/// check alone misses a write landing within the same timestamp tick (FAT
+/// family granularity), which would never be sampled again.
 const FileState = struct {
     hash: u64,
     mtime_ns: i128,
+    size: u64,
 };
+
+const StatSnapshot = struct { mtime_ns: i128, size: u64 };
 
 fn statMtimeNs(io: std.Io, path: []const u8) ?i128 {
     const st = std.Io.Dir.cwd().statFile(io, path, .{}) catch return null;
     return st.mtime.nanoseconds;
+}
+
+fn statFileSnapshot(io: std.Io, path: []const u8) ?StatSnapshot {
+    const st = std.Io.Dir.cwd().statFile(io, path, .{}) catch return null;
+    return .{ .mtime_ns = st.mtime.nanoseconds, .size = st.size };
 }
 
 /// Run one compilation cycle. Returns true on success, false on error.
@@ -155,15 +163,15 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
         std.debug.print("Press Ctrl+C to stop\n\n", .{});
     }
 
-    // Build initial state map (content hash + mtime)
+    // Build initial state map (content hash + stat snapshot). Keys and the
+    // map itself live in `alloc` (command lifetime); everything a single
+    // poll cycle allocates goes into a per-cycle arena freed below.
     var hashes = std.StringHashMap(FileState).init(alloc);
-    var initial_errors: u32 = 0;
     for (files.items) |file_path| {
         if (hashFileContent(io, file_path)) |hash| {
-            const mtime_ns = statMtimeNs(io, file_path) orelse 0;
-            hashes.put(file_path, .{ .hash = hash, .mtime_ns = mtime_ns }) catch {};
-        } else {
-            initial_errors += 1;
+            const snap = statFileSnapshot(io, file_path) orelse StatSnapshot{ .mtime_ns = 0, .size = 0 };
+            const owned_path = try alloc.dupe(u8, file_path);
+            hashes.put(owned_path, .{ .hash = hash, .mtime_ns = snap.mtime_ns, .size = snap.size }) catch {};
         }
     }
 
@@ -173,8 +181,10 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
     }
     var success_count: u32 = 0;
     var fail_count: u32 = 0;
+    var initial_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer initial_arena.deinit();
     for (files.items) |file_path| {
-        const ok = compileOnce(io, alloc, cfg, file_path);
+        const ok = compileOnce(io, initial_arena.allocator(), cfg, file_path);
         if (ok) success_count += 1 else fail_count += 1;
     }
     if (!cfg.quiet) {
@@ -185,7 +195,9 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
         }
     }
 
-    // Poll loop
+    // Poll loop. Each cycle compiles on a fresh arena — without this, every
+    // recompile's pipeline intermediates accumulate in the command-lifetime
+    // allocator and long watch sessions grow without bound.
     var change_count: u64 = 0;
     var error_streak: u32 = 0;
     while (true) {
@@ -196,9 +208,13 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
         };
         dur.sleep(io) catch {};
 
+        var cycle_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        defer cycle_arena.deinit();
+        const cycle_alloc = cycle_arena.allocator();
+
         // Check for new files (in directory mode)
         if (cfg.recursive) {
-            const new_files = try collectFiles(io, alloc, cfg.input, true);
+            const new_files = collectFiles(io, cycle_alloc, cfg.input, true) catch return error.FileNotFound;
             for (new_files.items) |file_path| {
                 if (!hashes.contains(file_path)) {
                     // New file detected — add it
@@ -206,12 +222,13 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
                         std.debug.print("New file detected: {s}\n", .{file_path});
                     }
                     if (hashFileContent(io, file_path)) |hash| {
-                        const mtime_ns = statMtimeNs(io, file_path) orelse 0;
-                        hashes.put(file_path, .{ .hash = hash, .mtime_ns = mtime_ns }) catch {};
+                        const snap = statFileSnapshot(io, file_path) orelse StatSnapshot{ .mtime_ns = 0, .size = 0 };
+                        const owned_path = try alloc.dupe(u8, file_path);
+                        try hashes.put(owned_path, .{ .hash = hash, .mtime_ns = snap.mtime_ns, .size = snap.size });
                         if (!cfg.quiet) {
                             std.debug.print("Compiling {s}...\n", .{file_path});
                         }
-                        const ok = compileOnce(io, alloc, cfg, file_path);
+                        const ok = compileOnce(io, cycle_alloc, cfg, file_path);
                         if (ok) error_streak = 0 else error_streak += 1;
                     }
                 }
@@ -221,27 +238,32 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
         // Check for changes in existing files
         var iter = hashes.iterator();
         while (iter.next()) |entry| {
-            // mtime short-circuit: unchanged timestamp → skip the read+hash.
-            if (statMtimeNs(io, entry.key_ptr.*)) |mtime_ns| {
-                if (mtime_ns == entry.value_ptr.mtime_ns) continue;
-            }
-            const current_hash = hashFileContent(io, entry.key_ptr.*);
-            if (current_hash == null) {
-                // File disappeared
+            const path = entry.key_ptr.*;
+            // Short-circuit: identical mtime AND size → skip read+hash. Size
+            // participates because a write can land within the same mtime tick.
+            const snap = statFileSnapshot(io, path) orelse {
+                // File disappeared: warn once, then evict so we stop polling
+                // a ghost every cycle (a later re-creation re-registers).
                 if (!cfg.quiet) {
                     fmt.printWarn("file disappeared");
-                    std.debug.print("  {s}\n", .{entry.key_ptr.*});
+                    std.debug.print("  {s}\n", .{path});
                 }
+                _ = hashes.remove(path);
+                alloc.free(path);
                 continue;
-            }
+            };
+            if (snap.mtime_ns == entry.value_ptr.mtime_ns and snap.size == entry.value_ptr.size) continue;
+
+            const current_hash = hashFileContent(io, path);
+            if (current_hash == null) continue; // vanished mid-cycle; next poll evicts
 
             if (current_hash != entry.value_ptr.hash) {
-                entry.value_ptr.* = .{ .hash = current_hash.?, .mtime_ns = statMtimeNs(io, entry.key_ptr.*) orelse 0 };
+                entry.value_ptr.* = .{ .hash = current_hash.?, .mtime_ns = snap.mtime_ns, .size = snap.size };
                 change_count += 1;
                 if (!cfg.quiet) {
-                    std.debug.print("[{d}] Change detected in {s}, recompiling...\n", .{ change_count, entry.key_ptr.* });
+                    std.debug.print("[{d}] Change detected in {s}, recompiling...\n", .{ change_count, path });
                 }
-                const ok = compileOnce(io, alloc, cfg, entry.key_ptr.*);
+                const ok = compileOnce(io, cycle_alloc, cfg, path);
                 if (ok) {
                     error_streak = 0;
                     if (!cfg.quiet) {
@@ -257,6 +279,10 @@ pub fn watch(io: std.Io, alloc: std.mem.Allocator, cfg: WatchConfig) !void {
                         std.debug.print("\n\n", .{});
                     }
                 }
+            } else {
+                // Hash unchanged — just refresh the snapshot so the
+                // short-circuit keeps working after touch-style rewrites.
+                entry.value_ptr.* = .{ .hash = current_hash.?, .mtime_ns = snap.mtime_ns, .size = snap.size };
             }
         }
     }

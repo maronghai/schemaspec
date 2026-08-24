@@ -163,12 +163,15 @@ test "docs: Mermaid ER diagram present" {
 }
 
 test "docs: Mermaid diagram with FK relationships" {
-    const alloc = testing.allocator;
+    // Arena allocator: docs.generate composes temporary fragments (compound
+    // FK field lists) that are only freed with the output slice.
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
     const cols1 = try alloc.dupe(typed_ast.TypedColumn, &.{
         makeTestColumn("id", .int),
         makeTestColumn("user_id", .int),
     });
-    defer alloc.free(cols1);
     const fks = try alloc.dupe(ast_mod.FkDecl, &.{
         .{
             .fields = &.{"user_id"},
@@ -178,18 +181,14 @@ test "docs: Mermaid diagram with FK relationships" {
             .line_no = 1,
         },
     });
-    defer alloc.free(fks);
     var table = makeTestTable("posts", cols1);
     table.fks = fks;
     const users_cols = try alloc.dupe(typed_ast.TypedColumn, &.{makeTestColumn("id", .int)});
-    defer alloc.free(users_cols);
     const tables = try alloc.dupe(typed_ast.TypedTable, &.{
         makeTestTable("users", users_cols),
         table,
     });
-    defer alloc.free(tables);
     const ast = makeTestAst(tables);
     const result = try gen.generate(alloc, ast, .mysql);
-    defer alloc.free(result);
     try testing.expect(std.mem.indexOf(u8, result, "    posts }|--|| users : \"user_id\"") != null);
 }

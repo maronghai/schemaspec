@@ -203,3 +203,82 @@ test "getRenameLinks: table rename updates FK references" {
     // Free the allocated changes
     testing.allocator.free(result.?.changes);
 }
+
+// ─── v0.334.0: real Rune FK syntax + no-duplicate-edits ──────
+
+test "getRenameLinks: exactly one edit per occurrence with > FK syntax" {
+    // Real Rune syntax: `user_id > users.id`. Renaming users must produce
+    // exactly 2 edits (declaration + FK line), each at a distinct position —
+    // the old byte-by-byte scan emitted 3 overlapping edits at one position.
+    const doc = "# users {\n  id n ++\n}\n# orders {\n  user_id n > users.id\n}\n";
+    const ast = typed_ast.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{
+            .{
+                .name = "users",
+                .line_no = 1,
+                .columns = &.{},
+                .fks = &.{},
+                .indexes = &.{},
+                .comment = null,
+                .engine = null,
+            },
+            .{
+                .name = "orders",
+                .line_no = 4,
+                .columns = &.{},
+                .fks = &.{
+                    .{
+                        .fields = &.{"user_id"},
+                        .ref_table = "users",
+                        .ref_fields = &.{"id"},
+                        .actions = &.{},
+                        .line_no = 5,
+                    },
+                },
+                .indexes = &.{},
+                .comment = null,
+                .engine = null,
+            },
+        },
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const result = rename_mod.getRenameLinks(testing.allocator, ast, .{ .line = 0, .character = 2 }, doc, "accounts");
+    try testing.expect(result != null);
+    defer testing.allocator.free(result.?.changes);
+    try testing.expectEqual(@as(usize, 2), result.?.changes.len);
+    // Edits must not overlap: declaration at line 0, FK reference at line 4.
+    try testing.expectEqual(@as(u32, 0), result.?.changes[0].range.start.line);
+    try testing.expectEqual(@as(u32, 4), result.?.changes[1].range.start.line);
+}
+
+test "getRenameLinks: comments are never renamed" {
+    // A comment mentioning a table name must not produce an edit — only
+    // AST-known positions (declarations, FK lines) get edited.
+    const doc = "# users\nid n ++\n: TODO fix users handling later\n";
+    const ast = typed_ast.TypedAst{
+        .schema_name = null,
+        .schema_charset = null,
+        .tables = &.{
+            .{
+                .name = "users",
+                .line_no = 1,
+                .columns = &.{},
+                .fks = &.{},
+                .indexes = &.{},
+                .comment = null,
+                .engine = null,
+            },
+        },
+        .views = &.{},
+        .sql_comments = &.{},
+    };
+    const result = rename_mod.getRenameLinks(testing.allocator, ast, .{ .line = 0, .character = 2 }, doc, "accounts");
+    try testing.expect(result != null);
+    defer testing.allocator.free(result.?.changes);
+    // Exactly one edit: the table declaration. The comment line is untouched.
+    try testing.expectEqual(@as(usize, 1), result.?.changes.len);
+    try testing.expectEqual(@as(u32, 0), result.?.changes[0].range.start.line);
+}

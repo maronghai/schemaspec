@@ -199,9 +199,9 @@ fn generateMarkdown(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]cons
             }
             try w.print("| `{s}` | `{s}` | `{s}.{s}` | {s} |\n", .{
                 table.name,
-                fk.fields[0],
+                try joinFields(alloc, fk.fields),
                 fk.ref_table,
-                fk.ref_fields[0],
+                try joinFields(alloc, fk.ref_fields),
                 action_buf[0..action_len],
             });
         }
@@ -263,20 +263,26 @@ fn generateJson(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]const u8
     try w.writeAll("  \"table_list\": [\n");
     for (typed.tables, 0..) |table, ti| {
         if (ti > 0) try w.writeAll(",\n");
-        try w.print("    {{ \"name\": \"{s}\"", .{table.name});
+        try w.writeAll("    { \"name\": ");
+        try writeJsonStr(alloc, w, table.name);
         if (table.doc) |doc| {
-            try w.print(", \"doc\": \"{s}\"", .{doc});
+            try w.writeAll(", \"doc\": ");
+            try writeJsonStr(alloc, w, doc);
         } else if (table.comment) |c| {
-            try w.print(", \"description\": \"{s}\"", .{c});
+            try w.writeAll(", \"description\": ");
+            try writeJsonStr(alloc, w, c);
         }
         try w.writeAll(", \"columns\": [");
         for (table.columns, 0..) |col, ci| {
             if (ci > 0) try w.writeAll(", ");
-            try w.print("{{ \"name\": \"{s}\"", .{col.name});
+            try w.writeAll("{ \"name\": ");
+            try writeJsonStr(alloc, w, col.name);
             if (col.doc) |doc| {
-                try w.print(", \"doc\": \"{s}\"", .{doc});
+                try w.writeAll(", \"doc\": ");
+                try writeJsonStr(alloc, w, doc);
             } else if (col.comment) |c| {
-                try w.print(", \"description\": \"{s}\"", .{c});
+                try w.writeAll(", \"description\": ");
+                try writeJsonStr(alloc, w, c);
             }
             try w.writeAll(" }");
         }
@@ -371,4 +377,25 @@ fn colTypeToMermaid(alloc: std.mem.Allocator, col: typed_ast.TypedColumn) ![]con
 fn writeType(w: *Writer, col: typed_ast.TypedColumn) !void {
     const common = @import("common.zig");
     try common.writeSqlTypeString(w, col.sql_type, true);
+}
+
+/// Comma-join FK field names for docs tables — compound FKs were previously
+/// truncated to their first column, hiding half the constraint.
+fn joinFields(alloc: std.mem.Allocator, fields: []const []const u8) ![]const u8 {
+    var buf = try std.ArrayList(u8).initCapacity(alloc, 32);
+    for (fields, 0..) |f, i| {
+        if (i > 0) try buf.append(alloc, ',');
+        try buf.appendSlice(alloc, f);
+    }
+    return buf.items;
+}
+
+/// JSON string with escaping — table/column comments can contain quotes;
+/// raw interpolation produced invalid JSON (v0.334.0).
+fn writeJsonStr(alloc: std.mem.Allocator, w: *Writer, s: []const u8) !void {
+    _ = alloc;
+    const utils = @import("../utils.zig");
+    try w.writeAll("\"");
+    try utils.jsonEscapeString(w, s);
+    try w.writeAll("\"");
 }

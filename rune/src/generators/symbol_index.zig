@@ -1,6 +1,7 @@
 const std = @import("std");
 const typed_ast = @import("../types/typed_ast.zig");
 const sql_type_mod = @import("../types/sql_type.zig");
+const utils = @import("../utils.zig");
 const Dialect = @import("../dialect/enum.zig").Dialect;
 
 // ─── Symbol Index Generator ─────────────────────────────────────
@@ -15,26 +16,33 @@ pub fn generate(alloc: std.mem.Allocator, ast: typed_ast.TypedAst, dialect: Dial
 
     try w.writeAll("{\n  \"schema\": ");
     if (ast.schema_name) |name| {
-        try w.print("\"{s}\"", .{name});
+        try writeJsonStr(w, name);
     } else {
         try w.writeAll("null");
     }
     try w.writeAll(",\n  \"tables\": [\n");
 
     for (ast.tables, 0..) |table, table_idx| {
-        try w.print("    {{\n      \"name\": \"{s}\",\n      \"line\": {d},\n", .{ table.name, table.line_no });
+        try w.writeAll("    {\n      \"name\": ");
+        try writeJsonStr(w, table.name);
+        try w.print(",\n      \"line\": {d},\n", .{table.line_no});
 
         if (table.comment) |comment| {
-            try w.print("      \"comment\": \"{s}\",\n", .{comment});
+            try w.writeAll("      \"comment\": ");
+            try writeJsonStr(w, comment);
+            try w.writeAll(",\n");
         }
 
         try w.writeAll("      \"columns\": [\n");
         for (table.columns, 0..) |col, col_idx| {
-            try w.print("        {{ \"name\": \"{s}\", \"type\": \"", .{col.name});
+            try w.writeAll("        { \"name\": ");
+            try writeJsonStr(w, col.name);
+            try w.writeAll(", \"type\": \"");
             try writeSqlType(w, col.sql_type);
             try w.writeAll("\"");
             if (col.comment) |comment| {
-                try w.print(", \"comment\": \"{s}\"", .{comment});
+                try w.writeAll(", \"comment\": ");
+                try writeJsonStr(w, comment);
             }
             if (col.flags.primary_key) {
                 try w.writeAll(", \"primaryKey\": true");
@@ -57,12 +65,14 @@ pub fn generate(alloc: std.mem.Allocator, ast: typed_ast.TypedAst, dialect: Dial
             for (table.fks, 0..) |fk, fk_idx| {
                 try w.writeAll("        { \"fields\": [");
                 for (fk.fields, 0..) |field, field_idx| {
-                    try w.print("\"{s}\"", .{field});
+                    try writeJsonStr(w, field);
                     if (field_idx < fk.fields.len - 1) try w.writeAll(", ");
                 }
-                try w.print("], \"references\": {{ \"table\": \"{s}\", \"fields\": [", .{fk.ref_table});
+                try w.writeAll("], \"references\": { \"table\": ");
+                try writeJsonStr(w, fk.ref_table);
+                try w.writeAll(", \"fields\": [");
                 for (fk.ref_fields, 0..) |ref_field, ref_idx| {
-                    try w.print("\"{s}\"", .{ref_field});
+                    try writeJsonStr(w, ref_field);
                     if (ref_idx < fk.ref_fields.len - 1) try w.writeAll(", ");
                 }
                 try w.writeAll("] } }");
@@ -76,9 +86,11 @@ pub fn generate(alloc: std.mem.Allocator, ast: typed_ast.TypedAst, dialect: Dial
         if (table.indexes.len > 0) {
             try w.writeAll("      \"indexes\": [\n");
             for (table.indexes, 0..) |idx, idx_idx| {
-                try w.print("        {{ \"name\": \"{s}\", \"fields\": [", .{idx.name});
+                try w.writeAll("        { \"name\": ");
+                try writeJsonStr(w, idx.name);
+                try w.writeAll(", \"fields\": [");
                 for (idx.fields, 0..) |field, field_idx| {
-                    try w.print("\"{s}\"", .{field});
+                    try writeJsonStr(w, field);
                     if (field_idx < idx.fields.len - 1) try w.writeAll(", ");
                 }
                 try w.writeAll("]");
@@ -104,6 +116,14 @@ pub fn generate(alloc: std.mem.Allocator, ast: typed_ast.TypedAst, dialect: Dial
     try w.writeAll("}\n");
 
     return try aw.toOwnedSlice();
+}
+
+/// Write a JSON string literal with proper escaping — comments and names can
+/// contain quotes; raw interpolation produced output that failed JSON.parse.
+fn writeJsonStr(w: anytype, s: []const u8) !void {
+    try w.writeAll("\"");
+    try utils.jsonEscapeString(w, s);
+    try w.writeAll("\"");
 }
 
 fn writeSqlType(w: anytype, sql_type: sql_type_mod.SqlType) !void {

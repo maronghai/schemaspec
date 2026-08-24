@@ -81,6 +81,10 @@ pub const ArgError = error{
     DiffMissingArgs,
     MigrateMissingArgs,
     MissingArgs,
+    /// `--cache` given to a subcommand without cache support (watch).
+    CacheUnsupportedWithWatch,
+    /// `--cache` given with `--stream --parallel` (no integration there).
+    CacheUnsupportedWithParallel,
 };
 
 /// Flags extracted from the global pass (shared by all subcommands).
@@ -102,6 +106,9 @@ pub const GlobalFlags = struct {
     /// Global `--init` was seen. Subcommands give it their own meaning;
     /// bare `rune --init` short-circuits to the starter schema (main.zig).
     init_flag: bool = false,
+    /// Global `--cache` was seen. Subcommands without cache support reject it
+    /// loudly instead of silently ignoring the flag.
+    cache_flag: bool = false,
 };
 
 // ─── Command Registry ─────────────────────────────────────────

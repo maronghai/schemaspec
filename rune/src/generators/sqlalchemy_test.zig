@@ -123,8 +123,9 @@ test "sqlalchemy: FK generates ForeignKey" {
     const ast = makeTestAst(tables);
     const result = try gen.generate(alloc, ast, .pg);
     defer alloc.free(result);
-    // FK column should be excluded from Column definition
-    try testing.expect(std.mem.indexOf(u8, result, "user_id = Column(") == null);
+    // FK columns are real columns — they must appear with their ForeignKey
+    // constraint (v0.334.0: the column itself was previously dropped).
+    try testing.expect(std.mem.indexOf(u8, result, "user_id = Column(Integer, ForeignKey('users.id')") != null);
 }
 
 test "sqlalchemy: composite index generates __table_args__" {

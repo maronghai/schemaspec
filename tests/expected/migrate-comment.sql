@@ -3,5 +3,5 @@
 BEGIN;
 
 ALTER TABLE `users`
-COMMENT=': User accounts table';
+COMMENT='User accounts table';
 COMMIT;

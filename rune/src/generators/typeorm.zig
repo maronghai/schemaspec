@@ -58,6 +58,8 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst) !void {
             } else {
                 need_column = true;
             }
+            // Inline index/unique flags emit @Index()/unique options.
+            if (col.flags.inline_index) need_index = true;
             if (col.flags.has_timestamp_default and col.flags.is_datetime) {
                 if (col.flags.on_update_current_timestamp) {
                     need_update_date_column = true;
@@ -127,11 +129,12 @@ fn writeImports(w: *Writer, typed: typed_ast.TypedAst) !void {
 // ─── Entity Generation ──────────────────────────────────────────
 
 fn writeEntity(w: *Writer, table: typed_ast.TypedTable) !void {
-    // Index decorators on the class
+    // Index decorators on the class. Field names are strings — a bare
+    // identifier is an undefined variable in the generated TS.
     for (table.indexes) |idx| {
         if (idx.kind == .primary_key) continue;
         if (idx.fields.len == 1) {
-            try w.print("@Index('{s}', {s})\n", .{ idx.name, idx.fields[0] });
+            try w.print("@Index('{s}', ['{s}'])\n", .{ idx.name, idx.fields[0] });
         } else {
             try w.print("@Index('{s}', [", .{idx.name});
             try common.writeFieldList(w, idx.fields);
@@ -163,7 +166,23 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
     // Check if this column is an FK — emit @ManyToOne + @JoinColumn
     for (table.fks) |fk| {
         if (fk.fields.len == 1 and std.mem.eql(u8, fk.fields[0], col.name)) {
-            try w.print("  @ManyToOne(() => {s})\n", .{fk.ref_table});
+            // Referential actions surface as onDelete/onUpdate options —
+            // dropping them made the entity's runtime FK behavior differ
+            // from what the schema declared.
+            if (fk.actions.len > 0) {
+                try w.print("  @ManyToOne(() => {s}, {{ ", .{fk.ref_table});
+                for (fk.actions, 0..) |a, ai| {
+                    if (ai > 0) try w.writeAll(", ");
+                    const key = switch (a.trigger) {
+                        .on_delete => "onDelete",
+                        .on_update => "onUpdate",
+                    };
+                    try w.print("{s}: '{s}'", .{ key, common.fkActionSqlLower(a.action) });
+                }
+                try w.writeAll(" })\n");
+            } else {
+                try w.print("  @ManyToOne(() => {s})\n", .{fk.ref_table});
+            }
             try w.print("  @JoinColumn({{ name: '{s}' }})\n", .{col.name});
             try w.print("  {s}: {s};\n\n", .{ col.name, fk.ref_table });
             return;
@@ -174,6 +193,20 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
     if (col.flags.primary_key and col.flags.auto_increment) {
         try w.writeAll("  @PrimaryGeneratedColumn()\n");
         try w.print("  {s}: number;\n\n", .{col.name});
+        return;
+    }
+
+    // Primary key without autoincrement (single or composite): TypeORM
+    // requires @PrimaryColumn — a plain @Column leaves the entity without a
+    // primary key and TypeORM rejects it at load time.
+    if (col.flags.primary_key) {
+        try w.writeAll("  @PrimaryColumn({ ");
+        try writeColumnType(w, col);
+        if (col.default) |dflt| {
+            try common.writeOrmDefault(w, dflt, ", default: ", "", .typeorm);
+        }
+        try w.writeAll(" })\n");
+        try w.print("  {s}: {s};\n\n", .{ col.name, tsType(col) });
         return;
     }
 
@@ -196,10 +229,22 @@ fn writeColumn(w: *Writer, col: typed_ast.TypedColumn, table: typed_ast.TypedTab
     if (col.flags.nullable) {
         try w.writeAll(", nullable: true");
     }
+    // Inline unique/index flags — the old code dropped both, silently
+    // losing the constraint in the generated entity.
+    if (col.flags.inline_unique) {
+        try w.writeAll(", unique: true");
+    }
+    if (col.flags.unsigned) {
+        try w.writeAll(", unsigned: true");
+    }
     if (col.default) |dflt| {
         try common.writeOrmDefault(w, dflt, ", default: ", "", .typeorm);
     }
     try w.writeAll(" })\n");
+    // Inline index flag → column-level @Index decorator above the property.
+    if (col.flags.inline_index) {
+        try w.print("  @Index()\n", .{});
+    }
 
     // TypeScript type
     try w.print("  {s}: {s};\n\n", .{ col.name, tsType(col) });

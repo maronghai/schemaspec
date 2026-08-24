@@ -15,8 +15,11 @@ pub fn readStdin(io: std.Io, alloc: std.mem.Allocator) ![]const u8 {
     var buf: [STDIN_BUFFER_SIZE]u8 = undefined;
     var r = stdin_file.readerStreaming(io, &buf);
     var result = try std.ArrayList(u8).initCapacity(alloc, STDIN_BUFFER_SIZE);
+    // Any read failure is fatal — swallowing an error after the first chunk
+    // would silently compile a truncated schema.
     r.interface.appendRemainingUnlimited(alloc, &result) catch |e| {
-        if (result.items.len == 0) return e;
+        result.deinit(alloc);
+        return e;
     };
     return try result.toOwnedSlice(alloc);
 }

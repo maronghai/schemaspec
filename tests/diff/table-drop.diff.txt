@@ -3,4 +3,4 @@
   + id
   + val
 
-2 tables changed1 added, 1 dropped
+2 tables changed (1 added, 1 dropped)
