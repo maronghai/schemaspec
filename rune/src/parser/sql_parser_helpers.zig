@@ -295,12 +295,17 @@ pub fn skipWord(self: *sp.SqlParser) void {
 }
 
 // ─── Keyword Matching ──────────────────────────────────────────
+//
+// SQL keywords are case-insensitive per standard; dumps in any case
+// (mysqldump emits lowercase `create table`, pg_dump mixed case) must parse
+// identically. Identifiers keep their original bytes — only keyword
+// comparison folds case.
 
 pub fn matchKeyword(self: *sp.SqlParser, kw: []const u8) bool {
     const saved = self.pos;
     self.skipSpacesAndNewlines();
     const word = self.parseWord();
-    if (std.mem.eql(u8, word, kw)) return true;
+    if (std.ascii.eqlIgnoreCase(word, kw)) return true;
     self.pos = saved;
     return false;
 }
@@ -308,7 +313,7 @@ pub fn matchKeyword(self: *sp.SqlParser, kw: []const u8) bool {
 pub fn expectKeyword(self: *sp.SqlParser, kw: []const u8) void {
     self.skipSpaces();
     const word = self.parseWord();
-    if (!std.mem.eql(u8, word, kw)) {
+    if (!std.ascii.eqlIgnoreCase(word, kw)) {
         // Don't hard-fail during parsing — just stop gracefully
     }
 }
@@ -353,7 +358,7 @@ pub fn lookaheadIs(self: *sp.SqlParser, kw: []const u8) bool {
     const saved = self.pos;
     self.skipSpacesAndNewlines();
     const word = self.parseWord();
-    const result = std.mem.eql(u8, word, kw);
+    const result = std.ascii.eqlIgnoreCase(word, kw);
     self.pos = saved;
     return result;
 }

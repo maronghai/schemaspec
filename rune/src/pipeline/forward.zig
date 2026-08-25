@@ -8,6 +8,7 @@ const codegen = @import("../codegen/codegen.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const typed_ast = @import("../types/typed_ast.zig");
 const import_res = @import("import_resolver.zig");
+const io_mod = @import("../io.zig");
 const stats_mod = @import("stats.zig");
 const diag_mod = @import("../diagnostic.zig");
 
@@ -229,7 +230,7 @@ pub fn compileFile(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, 
 /// (@if(dialect=...)) are resolved during semantic analysis, so a
 /// dropped dialect here silently resolves them for the wrong target.
 pub fn compileFileWithPaths(io: std.Io, alloc: std.mem.Allocator, file_path: []const u8, import_paths: []const []const u8, json_errors: bool, dialect: dialect_enum.Dialect) !PipelineResult {
-    const file_data = try std.Io.Dir.cwd().readFileAlloc(io, file_path, alloc, .unlimited);
+    const file_data = io_mod.stripBomFrom(try std.Io.Dir.cwd().readFileAlloc(io, file_path, alloc, .unlimited));
     const base_dir = import_res.computeBaseDir(alloc, file_path);
 
     var imported = ImportSet.init(alloc);

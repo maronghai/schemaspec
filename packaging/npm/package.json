@@ -1,6 +1,6 @@
 {
   "name": "rune-schema",
-  "version": "0.334.0",
+  "version": "0.335.0",
   "description": "Minimal DSL for declaring database schemas using single-character symbols",
   "main": "bin/rune",
   "bin": {

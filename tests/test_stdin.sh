@@ -79,4 +79,25 @@ name s'
   fi
 fi
 
+# Test 5: UTF-8 BOM is stripped, not fatal (Windows editors emit it by
+# default; before v0.335.0 a BOM silently compiled to zero tables).
+if [ -z "$FILTER" ] || [[ "stdin-bom" == *"$FILTER"* ]]; then
+  tmp_file=$(mktemp)
+  printf '\xef\xbb\xbf# user\nid n!\nname s32\n' > "$tmp_file"
+
+  if "$COMPILER" "$tmp_file" 2>/dev/null | grep -q "CREATE TABLE \`user\`"; then
+    pass "stdin-bom"
+  else
+    fail "stdin-bom" "BOM-prefixed schema did not compile to its table"
+  fi
+
+  bom_validate=$("$COMPILER" validate "$tmp_file" --format json 2>/dev/null)
+  if echo "$bom_validate" | grep -q '"tables":1'; then
+    pass "stdin-bom-validate"
+  else
+    fail "stdin-bom-validate" "validate saw 0 tables for BOM schema: $bom_validate"
+  fi
+  rm -f "$tmp_file"
+fi
+
 summary "Stdin"

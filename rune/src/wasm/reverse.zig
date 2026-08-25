@@ -19,7 +19,7 @@ pub export fn rune_reverse(sql_ptr: [*]const u8, sql_len: usize, options_ptr: [*
     const with_templates = common.parseOption(options, "templates") != null;
 
     // Auto-detect dialect if not specified
-    const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect.detectSqlDialect(sql) else dialect;
+    const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect.detectSqlDialect(alloc, sql) else dialect;
 
     // Parse SQL
     var sp_parser = sql_parser.SqlParser.init(alloc, sql, sql_dialect) catch |err| {

@@ -3,6 +3,7 @@ const tk = @import("tokenizer.zig");
 const ast_mod = @import("../types/ast.zig");
 const SourceLocation = ast_mod.SourceLocation;
 const locFromLine = @import("loc.zig").locFromLine;
+const parse_field = @import("parse_field.zig");
 
 // ─── Table Parsing ────────────────────────────────────────────
 // Extracted from parser.zig for single-responsibility.
@@ -61,17 +62,17 @@ pub fn parseTableHeader(alloc: std.mem.Allocator, line: tk.Line) !TableHeader {
         }
     } else if (tokens.len == 2) {
         // # table_name  (no template ref)
-        table_name = try alloc.dupe(u8, tokens[1]);
+        table_name = try alloc.dupe(u8, parse_field.stripQuotes(tokens[1]));
     } else if (tokens.len >= 3) {
         // Check if tokens[2] is a comment
         if (tokens[2].len >= 1 and tokens[2][0] == ':') {
             // # table_name : comment
-            table_name = try alloc.dupe(u8, tokens[1]);
+            table_name = try alloc.dupe(u8, parse_field.stripQuotes(tokens[1]));
             comment = try alloc.dupe(u8, stripCommentColon(tokens[2]));
         } else {
             // # template_ref table_name [: comment]
             template_ref = try alloc.dupe(u8, tokens[1]);
-            table_name = try alloc.dupe(u8, tokens[2]);
+            table_name = try alloc.dupe(u8, parse_field.stripQuotes(tokens[2]));
             if (tokens.len >= 4) {
                 comment = try alloc.dupe(u8, tokens[3]);
             }

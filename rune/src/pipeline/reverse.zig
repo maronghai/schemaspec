@@ -25,7 +25,7 @@ pub const ReverseConfig = struct {
 /// Handle the `rune reverse` command: parse SQL DDL and generate .ss schema output.
 pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8, cfg: ReverseConfig) !void {
     // Auto-detect dialect from SQL content when not explicitly specified
-    const sql_dialect: sql_parser.Dialect = if (cfg.dialect == .mysql) dialect_detect.detectSqlDialect(file_data) else cfg.dialect;
+    const sql_dialect: sql_parser.Dialect = if (cfg.dialect == .mysql) dialect_detect.detectSqlDialect(alloc, file_data) else cfg.dialect;
 
     // Use DiagnosticCollector for consistent error handling with forward pipeline
     var diagnostics = try diag.DiagnosticCollector.init(alloc);
@@ -110,16 +110,24 @@ pub fn handleReverse(io: std.Io, alloc: std.mem.Allocator, file_data: []const u8
 }
 
 // ─── Reverse JSON Output ──────────────────────────────────────
+//
+// Separator discipline: every object member is written through a `first`
+// flag — the first member carries no leading comma, later ones carry `,\n`.
+// Unconditional trailing commas (the v0.334.0-and-earlier behavior) produced
+// invalid JSON for any column without bool flags.
 
-fn writeJsonStringField(w: anytype, comptime key: []const u8, val: []const u8) !void {
+fn writeJsonStringField(w: anytype, comptime key: []const u8, val: []const u8, first: *bool) !void {
     const utils = @import("../utils.zig");
+    if (!first.*) try w.writeAll(",\n");
     try w.writeAll("          \"" ++ key ++ "\": \"");
     try utils.jsonEscapeString(w, val);
-    try w.writeAll("\",\n");
+    try w.writeAll("\"");
+    first.* = false;
 }
 
-fn writeJsonStringArray(w: anytype, comptime key: []const u8, items: []const []const u8) !void {
+fn writeJsonStringArrayField(w: anytype, comptime key: []const u8, items: []const []const u8, first: *bool) !void {
     const utils = @import("../utils.zig");
+    if (!first.*) try w.writeAll(",\n");
     try w.writeAll("          \"" ++ key ++ "\": [");
     for (items, 0..) |item, i| {
         if (i > 0) try w.writeAll(", ");
@@ -127,7 +135,8 @@ fn writeJsonStringArray(w: anytype, comptime key: []const u8, items: []const []c
         try utils.jsonEscapeString(w, item);
         try w.writeByte('"');
     }
-    try w.writeAll("]\n");
+    try w.writeAll("]");
+    first.* = false;
 }
 
 fn writeJsonBoolField(w: anytype, comptime key: []const u8, val: bool, first: *bool) !void {
@@ -153,62 +162,62 @@ fn generateReverseJson(alloc: std.mem.Allocator, schema: sql_parser.SqlSchema) !
 
     for (schema.tables, 0..) |table, ti| {
         try w.writeAll("    {\n");
-        try writeJsonStringField(w, "name", table.name);
+        var table_first = true;
+        try writeJsonStringField(w, "name", table.name, &table_first);
         if (table.comment) |c| {
-            try writeJsonStringField(w, "comment", c);
+            try writeJsonStringField(w, "comment", c, &table_first);
         }
         // Columns
+        if (!table_first) try w.writeAll(",\n");
+        table_first = false;
         try w.writeAll("      \"columns\": [\n");
         for (table.columns, 0..) |col, ci| {
             try w.writeAll("        {\n");
-            try writeJsonStringField(w, "name", col.name);
-            try writeJsonStringField(w, "type", col.type_sql);
             var first = true;
+            try writeJsonStringField(w, "name", col.name, &first);
+            try writeJsonStringField(w, "type", col.type_sql, &first);
             try writeJsonBoolField(w, "primary_key", col.primary_key, &first);
             try writeJsonBoolField(w, "auto_increment", col.auto_increment, &first);
             try writeJsonBoolField(w, "nullable", col.nullable, &first);
             if (col.default_val) |dv| {
-                if (!first) try w.writeAll(",\n");
-                try w.writeAll("          \"default\": \"");
-                try utils.jsonEscapeString(w, dv);
-                try w.writeAll("\"");
+                try writeJsonStringFieldRaw(w, "default", dv, &first);
             }
             try w.writeAll("\n        }");
             if (ci < table.columns.len - 1) try w.writeAll(",");
             try w.writeAll("\n");
         }
-        try w.writeAll("      ],\n");
+        try w.writeAll("      ]");
         // Indexes
         if (table.indexes.len > 0) {
-            try w.writeAll("      \"indexes\": [\n");
+            try w.writeAll(",\n      \"indexes\": [\n");
             for (table.indexes, 0..) |idx, ii| {
                 try w.writeAll("        {\n");
-                try writeJsonStringField(w, "name", idx.name);
-                try w.writeAll("          \"kind\": \"");
-                try w.writeAll(@tagName(idx.kind));
-                try w.writeAll("\",\n");
-                try writeJsonStringArray(w, "fields", idx.fields);
-                try w.writeAll("        }");
+                var idx_first = true;
+                try writeJsonStringField(w, "name", idx.name, &idx_first);
+                try writeJsonStringFieldRaw(w, "kind", @tagName(idx.kind), &idx_first);
+                try writeJsonStringArrayField(w, "fields", idx.fields, &idx_first);
+                try w.writeAll("\n        }");
                 if (ii < table.indexes.len - 1) try w.writeAll(",");
                 try w.writeAll("\n");
             }
-            try w.writeAll("      ],\n");
+            try w.writeAll("      ]");
         }
         // Foreign keys
         if (table.foreign_keys.len > 0) {
-            try w.writeAll("      \"foreign_keys\": [\n");
+            try w.writeAll(",\n      \"foreign_keys\": [\n");
             for (table.foreign_keys, 0..) |fk, fi| {
                 try w.writeAll("        {\n");
-                try writeJsonStringArray(w, "fields", fk.fields);
-                try writeJsonStringField(w, "ref_table", fk.ref_table);
-                try writeJsonStringArray(w, "ref_fields", fk.ref_fields);
-                try w.writeAll("        }");
+                var fk_first = true;
+                try writeJsonStringArrayField(w, "fields", fk.fields, &fk_first);
+                try writeJsonStringField(w, "ref_table", fk.ref_table, &fk_first);
+                try writeJsonStringArrayField(w, "ref_fields", fk.ref_fields, &fk_first);
+                try w.writeAll("\n        }");
                 if (fi < table.foreign_keys.len - 1) try w.writeAll(",");
                 try w.writeAll("\n");
             }
-            try w.writeAll("      ]\n");
+            try w.writeAll("      ]");
         }
-        try w.writeAll("    }");
+        try w.writeAll("\n    }");
         if (ti < schema.tables.len - 1) try w.writeAll(",");
         try w.writeAll("\n");
     }
@@ -217,6 +226,12 @@ fn generateReverseJson(alloc: std.mem.Allocator, schema: sql_parser.SqlSchema) !
 
     try w.flush();
     return try aw.toOwnedSlice();
+}
+
+/// String field whose value is emitted verbatim (already-safe content such as
+/// an enum tag name); still escaped defensively.
+fn writeJsonStringFieldRaw(w: anytype, comptime key: []const u8, val: []const u8, first: *bool) !void {
+    try writeJsonStringField(w, key, val, first);
 }
 
 // ─── Trace Helper ──────────────────────────────────────────────

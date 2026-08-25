@@ -6,6 +6,13 @@ const LintFix = helpers.LintFix;
 // ─── Modifier Fix Handlers ───────────────────────────────────
 // Fixes for field modifiers: serial-type, bool-default, nullable-column-default, column-default-required.
 
+/// True when the line carries an inline comment (`field s32 : note`).
+/// Appending a default after the comment would compile the marker text into
+/// COMMENT '…' and silently drop the default — such lines are no-fix.
+fn hasInlineComment(line: []const u8) bool {
+    return std.mem.indexOfScalar(u8, line, ':') != null;
+}
+
 /// Fix serial-type: replace "serial"/"bigserial" with "n++" modifier.
 /// Returns true if this line was handled (caller should skip normal output).
 pub fn fixSerialType(
@@ -59,6 +66,7 @@ pub fn fixBoolDefault(
     results: []const LintResult,
 ) !bool {
     if (std.mem.indexOf(u8, line, "=") != null) return false;
+    if (hasInlineComment(line)) return false;
     const trimmed = std.mem.trim(u8, line, " \t");
     if (trimmed.len == 0) return false;
     const last_char = trimmed[trimmed.len - 1];
@@ -95,6 +103,7 @@ pub fn fixNullableColumnDefault(
     results: []const LintResult,
 ) !bool {
     if (std.mem.indexOf(u8, line, "=") != null) return false;
+    if (hasInlineComment(line)) return false;
     const trimmed = std.mem.trim(u8, line, " \t");
     if (trimmed.len == 0 or trimmed[trimmed.len - 1] != '?') return false;
     if (current_table) |tbl| {
@@ -128,6 +137,7 @@ pub fn fixColumnDefaultRequired(
     needs_column_default: *const std.StringHashMap(void),
 ) !bool {
     if (std.mem.indexOf(u8, line, "=") != null) return false;
+    if (hasInlineComment(line)) return false;
     if (current_table) |tbl| {
         if (needs_column_default.contains(tbl)) {
             const trimmed = std.mem.trim(u8, line, " \t");

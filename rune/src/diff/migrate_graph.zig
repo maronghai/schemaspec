@@ -127,8 +127,12 @@ pub fn buildGraph(io: std.Io, alloc: std.mem.Allocator, dir_path: []const u8) !M
         try graph.migrations.put(entry_name, info);
     }
 
-    // Second pass - build dependencies
-    var prev_tables = std.StringHashMap(void).init(alloc);
+    // Second pass - build dependencies.
+    // prev_tables maps table name → the most recent earlier migration (in
+    // name order) that touched it; only that migration becomes a dependency,
+    // never every historical toucher.
+    const PrevOwner = struct { name: []const u8 };
+    var prev_tables = std.StringHashMap(PrevOwner).init(alloc);
     defer prev_tables.deinit();
 
     var sorted_iter = graph.migrations.iterator();
@@ -148,39 +152,33 @@ pub fn buildGraph(io: std.Io, alloc: std.mem.Allocator, dir_path: []const u8) !M
     for (sorted_entries.items) |item| {
         var table_iter = item.info.tables.keyIterator();
         while (table_iter.next()) |table| {
-            // Check if this table was modified by any previous migration
-            var prev_iter = prev_tables.keyIterator();
-            while (prev_iter.next()) |prev_table| {
-                if (std.mem.eql(u8, table.*, prev_table.*)) {
-                    // Find which previous migration modified this table
-                    var dep_iter = graph.migrations.iterator();
-                    while (dep_iter.next()) |dep_entry| {
-                        if (dep_entry.value_ptr.tables.contains(table.*)) {
-                            const dep_name = dep_entry.key_ptr.*;
-                            if (!std.mem.eql(u8, dep_name, item.name)) {
-                                // Check if already a dependency
-                                var already_dep = false;
-                                for (item.info.depends_on.items) |d| {
-                                    if (std.mem.eql(u8, d, dep_name)) {
-                                        already_dep = true;
-                                        break;
-                                    }
-                                }
-                                if (!already_dep) {
-                                    try item.info.depends_on.append(alloc, dep_name);
-                                }
-                            }
+            // Depend only on the most recent earlier migration that touched
+            // this table. The previous implementation scanned every
+            // migration for the table, so 002 and 003 both altering `a`
+            // each picked up the other — mutual edges reported as a cycle.
+            // Entries are processed in name order, so prev_tables holds the
+            // last strictly-earlier owner when this lookup happens.
+            if (prev_tables.get(table.*)) |prev_owner| {
+                if (!std.mem.eql(u8, prev_owner.name, item.name)) {
+                    var already_dep = false;
+                    for (item.info.depends_on.items) |d| {
+                        if (std.mem.eql(u8, d, prev_owner.name)) {
+                            already_dep = true;
+                            break;
                         }
                     }
-                    break;
+                    if (!already_dep) {
+                        try item.info.depends_on.append(alloc, try alloc.dupe(u8, prev_owner.name));
+                    }
                 }
             }
         }
 
-        // Add this migration's tables to prev_tables
+        // Record this migration as the latest owner of each of its tables.
         var add_iter = item.info.tables.keyIterator();
         while (add_iter.next()) |table| {
-            try prev_tables.put(table.*, {});
+            const owned_name = try alloc.dupe(u8, item.name);
+            try prev_tables.put(table.*, .{ .name = owned_name });
         }
 
         try graph.order.append(alloc, item.name);

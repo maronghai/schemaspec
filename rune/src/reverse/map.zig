@@ -224,14 +224,16 @@ pub fn reverseLookup(sql_type: []const u8, col_name: []const u8, is_auto_inc: bo
         return .{ .sym = result.sym, .omit = result.omit, .score = computeConfidence(result.score, col_name) };
     }
 
-    // General path: exact match from REVERSE_MAP for all dialects + parameterized types
-    // Matches against mysql, pg, mssql, oracle, and db2 type columns.
+    // General path: exact match from REVERSE_MAP + parameterized types.
+    // Case-insensitive: dumps use any case (INT/int/Int) for the same type.
+    // Comptime iteration over all dialect columns — a hit on any column maps
+    // cross-dialect (e.g. REAL under db2 borrows sqlite's entry); lowest
+    // rev_priority wins when several entries carry the same spelling.
     var best_match: ?ReverseResult = null;
     var best_priority: u32 = std.math.maxInt(u32);
     for (REVERSE_MAP) |m| {
-        // Comptime iteration over all dialects — no hardcoded `or` chain.
         inline for (reverse_map_mod.DIALECT_NAMES) |d| {
-            if (std.mem.eql(u8, t, reverse_map_mod.getDialectType(m.types, d))) {
+            if (std.ascii.eqlIgnoreCase(t, reverse_map_mod.getDialectType(m.types, d))) {
                 if (m.rev_priority < best_priority) {
                     best_priority = m.rev_priority;
                     best_match = .{ .sym = m.sym, .omit = canOmitType(col_name, m.sym, is_auto_inc, is_default_ts), .score = computeConfidence(m.confidence_base, col_name) };

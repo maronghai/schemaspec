@@ -475,11 +475,11 @@ pub fn parseColumnType(self: *sp.SqlParser) ![]const u8 {
         self.skipSpaces();
         const word = self.peekWord();
         // Type continuation keywords (not column modifiers)
-        if (std.mem.eql(u8, word, "WITH") or std.mem.eql(u8, word, "TIME") or
-            std.mem.eql(u8, word, "ZONE") or std.mem.eql(u8, word, "LOCAL") or
-            std.mem.eql(u8, word, "PRECISION") or std.mem.eql(u8, word, "VARYING") or
-            std.mem.eql(u8, word, "FOR") or std.mem.eql(u8, word, "BIT") or
-            std.mem.eql(u8, word, "DATA"))
+        if (std.ascii.eqlIgnoreCase(word, "WITH") or std.ascii.eqlIgnoreCase(word, "TIME") or
+            std.ascii.eqlIgnoreCase(word, "ZONE") or std.ascii.eqlIgnoreCase(word, "LOCAL") or
+            std.ascii.eqlIgnoreCase(word, "PRECISION") or std.ascii.eqlIgnoreCase(word, "VARYING") or
+            std.ascii.eqlIgnoreCase(word, "FOR") or std.ascii.eqlIgnoreCase(word, "BIT") or
+            std.ascii.eqlIgnoreCase(word, "DATA"))
         {
             self.pos = self.pos + word.len; // advance past the word
         } else {

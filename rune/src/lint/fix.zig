@@ -148,6 +148,13 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
             }
         }
 
+        // Views (`& name = ...`), templates (`% name ...`), and composite
+        // declarations (`* name`) end the current table body — timestamp
+        // insertion at EOF must never land after them.
+        if (line.len > 0 and (line[0] == '&' or line[0] == '%' or line[0] == '*')) {
+            in_table = false;
+        }
+
         // Detect field lines
         if (in_table and line.len > 0 and
             line[0] != '#' and line[0] != ';' and line[0] != '@' and line[0] != '$')
@@ -236,15 +243,19 @@ pub fn fix(alloc: std.mem.Allocator, source: []const u8, results: []const LintRe
         }
     }
 
-    // Handle timestamps for the last table
-    if (current_table) |tbl| {
-        if (maps.needs_timestamps.contains(tbl) and !ts_inserted.contains(tbl)) {
-            try output.appendSlice(alloc, "\ncreated_at t\nupdated_at t\n");
-            try fixes.append(alloc, .{
-                .rule = "no-timestamps",
-                .table = tbl,
-                .description = "added created_at and updated_at fields",
-            });
+    // Handle timestamps for the last table — only when the file actually
+    // ends inside that table's body (a trailing view/index leaves
+    // in_table false; appending fields after it would orphan them).
+    if (in_table) {
+        if (current_table) |tbl| {
+            if (maps.needs_timestamps.contains(tbl) and !ts_inserted.contains(tbl)) {
+                try output.appendSlice(alloc, "\ncreated_at t\nupdated_at t\n");
+                try fixes.append(alloc, .{
+                    .rule = "no-timestamps",
+                    .table = tbl,
+                    .description = "added created_at and updated_at fields",
+                });
+            }
         }
     }
 
@@ -472,4 +483,40 @@ test "fix: index-missing-fk-columns adds index for FK column" {
     try testing.expect(std.mem.indexOf(u8, result.source, "index idx_posts_user_id user_id") != null);
     try testing.expect(result.fixes.len > 0);
     try testing.expectEqualStrings("index-missing-fk-columns", result.fixes[0].rule);
+}
+
+test "fix: no-timestamps skips when file ends with a view" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const results = [_]LintResult{
+        .{ .rule = "no-timestamps", .table = "users", .message = "no ts", .severity = .warning },
+    };
+    const source = "# users\nid n !\nname s32\n\n& active_users = SELECT * FROM users WHERE status = 1\n";
+    const result = try fix(alloc, source, &results);
+    // Timestamps must never land after the view — appending there orphans
+    // them as top-level junk and every later migrate run warns per line.
+    const view_pos = std.mem.indexOf(u8, result.source, "& active_users").?;
+    if (std.mem.indexOf(u8, result.source, "created_at")) |ts_pos| {
+        try testing.expect(ts_pos < view_pos);
+    }
+}
+
+test "fix: inline comment lines get no appended default" {
+    var arena = std.heap.ArenaAllocator.init(testing.allocator);
+    defer arena.deinit();
+    const alloc = arena.allocator();
+
+    const results = [_]LintResult{
+        .{ .rule = "column-default-required", .table = "t2", .message = "needs default", .severity = .warning },
+    };
+    const source = "# t2\nname s32 : the name\nnum n\n";
+    const result = try fix(alloc, source, &results);
+    // Appending after the comment would compile the marker text into
+    // COMMENT 'the name =0' with no actual default.
+    try testing.expect(std.mem.indexOf(u8, result.source, "the name =0") == null);
+    try testing.expect(std.mem.indexOf(u8, result.source, "the name") != null);
+    // The plain numeric field still gets its default.
+    try testing.expect(std.mem.indexOf(u8, result.source, "num n =0") != null);
 }

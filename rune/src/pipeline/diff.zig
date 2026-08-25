@@ -19,7 +19,7 @@ fn compileSqlToAst(alloc: std.mem.Allocator, sql_text: []const u8, dialect: dial
     const dialect_detect_mod = @import("../reverse/dialect_detect.zig");
 
     // Auto-detect dialect from SQL content when using default MySQL
-    const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect_mod.detectSqlDialect(sql_text) else dialect;
+    const sql_dialect: sql_parser.Dialect = if (dialect == .mysql) dialect_detect_mod.detectSqlDialect(alloc, sql_text) else dialect;
 
     // Parse SQL → SqlSchema
     var sp_parser = try sql_parser.SqlParser.init(alloc, sql_text, sql_dialect);

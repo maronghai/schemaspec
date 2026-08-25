@@ -28,7 +28,11 @@ pub fn emitDefault(w: *Writer, value: []const u8) !void {
         std.ascii.eqlIgnoreCase(value, "NOW()") or
         std.ascii.eqlIgnoreCase(value, "TRUE") or
         std.ascii.eqlIgnoreCase(value, "FALSE");
-    if (is_num_val or is_sql_keyword) {
+    // Function-call defaults (`=NOW()`, `=CURRENT_DATE()`) are SQL
+    // expressions — emit verbatim; quoting would produce DEFAULT 'NOW()'.
+    if (std.mem.indexOfScalar(u8, value, '(') != null) {
+        try w.print(" DEFAULT {s}", .{value});
+    } else if (is_num_val or is_sql_keyword) {
         try w.print(" DEFAULT {s}", .{value});
     } else if (value.len >= 2 and value[0] == '\'' and value[value.len - 1] == '\'') {
         // Quoted literal `='x'` — strip the outer quotes; SQL re-quotes below

@@ -197,18 +197,16 @@ pub fn formatDiffSarif(alloc: std.mem.Allocator, d: SchemaDiff, dialect: Dialect
             try w.writeByte(q);
             try jsonEscapeString(w, td.name);
             try w.writeByte(q);
-            try w.writeAll("\"");
             if (fk.new_fk) |nfk| {
                 try w.writeAll(" referencing ");
                 try jsonEscapeString(w, nfk.ref_table);
             }
-            try w.writeAll("\",\n");
-            try w.writeAll("        },\n");
+            try w.writeAll("\"");
+            try w.writeAll("\n        },\n");
             try w.writeAll("        \"locations\": [{\"physicalLocation\": {\"artifactLocation\": {\"uri\": \"schema.ss\"}}}]\n");
             try w.writeAll("      }");
             result_idx += 1;
         }
-
         // Metadata diffs
         if (td.metadata_diff) |md| {
             if (md.hasChanges()) {

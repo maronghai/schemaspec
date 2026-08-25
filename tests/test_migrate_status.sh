@@ -156,6 +156,30 @@ test_json_empty() {
   fi
 }
 
+test_graph_shared_table_chain() {
+  # Three migrations touching a shared table must NOT report a false cycle:
+  # 001 creates a, 002 alters a + creates b, 003 creates c + alters a again.
+  local tmpdir="$TEST_BASE/tgraph"
+  rm -rf "$tmpdir"
+  mkdir -p "$tmpdir/mg"
+
+  printf 'CREATE TABLE a (id INT);\n' > "$tmpdir/mg/001_a.sql"
+  printf 'ALTER TABLE a ADD COLUMN z INT;\nCREATE TABLE b (id INT);\n' > "$tmpdir/mg/002_b.sql"
+  printf 'CREATE TABLE c (id INT);\nALTER TABLE a ADD COLUMN w INT;\n' > "$tmpdir/mg/003_c.sql"
+  printf '# x\nid n\n' > "$tmpdir/x.ss"
+  printf '# x\nid n\n' > "$tmpdir/y.ss"
+
+  if "$COMPILER" migrate "$tmpdir/x.ss" "$tmpdir/y.ss" --graph --dir "$tmpdir/mg" > "$tmpdir/graph.txt" 2>&1; then
+    if grep -q "002_b.sql →001_a" "$tmpdir/graph.txt" && ! grep -qi "circular" "$tmpdir/graph.txt"; then
+      pass "graph shared-table chain has no false cycle"
+    else
+      fail "graph shared-table chain has no false cycle" "$(cat "$tmpdir/graph.txt")"
+    fi
+  else
+    fail "graph shared-table chain has no false cycle" "migrate --graph exited nonzero: $(cat "$tmpdir/graph.txt")"
+  fi
+}
+
 # ── Run tests ──
 
 if [[ -z "$FILTER" || "$FILTER" == *"4digit"* ]]; then test_4digit; fi
@@ -165,5 +189,6 @@ if [[ -z "$FILTER" || "$FILTER" == *"empty"* ]]; then test_empty; fi
 if [[ -z "$FILTER" || "$FILTER" == *"non_migration"* ]]; then test_non_migration; fi
 if [[ -z "$FILTER" || "$FILTER" == *"json"* ]]; then test_json_output; fi
 if [[ -z "$FILTER" || "$FILTER" == *"json_empty"* ]]; then test_json_empty; fi
+if [[ -z "$FILTER" || "$FILTER" == *"graph_chain"* ]]; then test_graph_shared_table_chain; fi
 
 summary "Migrate Status"

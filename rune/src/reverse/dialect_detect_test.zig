@@ -11,7 +11,7 @@ test "detectSqlDialect: MySQL patterns" {
         \\  PRIMARY KEY (`id`)
         \\) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ;
-    try testing.expectEqual(codegen.Dialect.mysql, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.mysql, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: PostgreSQL patterns" {
@@ -21,7 +21,7 @@ test "detectSqlDialect: PostgreSQL patterns" {
         \\);
         \\COMMENT ON TABLE "user" IS 'User accounts';
     ;
-    try testing.expectEqual(codegen.Dialect.pg, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.pg, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: SQLite patterns" {
@@ -30,7 +30,7 @@ test "detectSqlDialect: SQLite patterns" {
         \\  "id" INTEGER PRIMARY KEY AUTOINCREMENT
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.sqlite, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.sqlite, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: SQLite STRICT" {
@@ -40,7 +40,7 @@ test "detectSqlDialect: SQLite STRICT" {
         \\  "value" TEXT
         \\) STRICT;
     ;
-    try testing.expectEqual(codegen.Dialect.sqlite, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.sqlite, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: PostgreSQL CREATE EXTENSION" {
@@ -50,7 +50,7 @@ test "detectSqlDialect: PostgreSQL CREATE EXTENSION" {
         \\  "id" integer NOT NULL
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.pg, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.pg, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: MySQL UNSIGNED and FULLTEXT" {
@@ -60,7 +60,7 @@ test "detectSqlDialect: MySQL UNSIGNED and FULLTEXT" {
         \\  FULLTEXT INDEX `idx_search` (`name`)
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.mysql, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.mysql, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: ambiguous defaults to MySQL" {
@@ -69,7 +69,7 @@ test "detectSqlDialect: ambiguous defaults to MySQL" {
         \\  id int NOT NULL
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.mysql, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.mysql, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: MSSQL patterns" {
@@ -80,7 +80,7 @@ test "detectSqlDialect: MSSQL patterns" {
         \\  PRIMARY KEY CLUSTERED ([id])
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.mssql, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.mssql, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: MSSQL DATETIME2 and NTEXT" {
@@ -91,7 +91,7 @@ test "detectSqlDialect: MSSQL DATETIME2 and NTEXT" {
         \\  [created_at] DATETIME2 DEFAULT GETDATE()
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.mssql, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.mssql, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: Oracle patterns" {
@@ -103,7 +103,7 @@ test "detectSqlDialect: Oracle patterns" {
         \\  CONSTRAINT pk_users PRIMARY KEY (id)
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.oracle, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.oracle, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: Oracle NCLOB and sequences" {
@@ -114,7 +114,7 @@ test "detectSqlDialect: Oracle NCLOB and sequences" {
         \\  bio NCLOB
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.oracle, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.oracle, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: Db2 patterns" {
@@ -125,7 +125,7 @@ test "detectSqlDialect: Db2 patterns" {
         \\  score DECFLOAT DEFAULT 0
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: Db2 generated columns" {
@@ -136,7 +136,7 @@ test "detectSqlDialect: Db2 generated columns" {
         \\  tax DECIMAL(10,2) GENERATED ALWAYS AS (total * 0.1) STORED
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: Db2 FOR BIT DATA" {
@@ -146,7 +146,7 @@ test "detectSqlDialect: Db2 FOR BIT DATA" {
         \\  "uuid_col" CHAR(16) FOR BIT DATA NOT NULL
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(testing.allocator, sql));
 }
 
 test "detectSqlDialect: Db2 NOT NULL WITH DEFAULT" {
@@ -156,5 +156,5 @@ test "detectSqlDialect: Db2 NOT NULL WITH DEFAULT" {
         \\  "setting" VARCHAR(100) NOT NULL WITH DEFAULT 'foo'
         \\);
     ;
-    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(sql));
+    try testing.expectEqual(codegen.Dialect.db2, detect.detectSqlDialect(testing.allocator, sql));
 }

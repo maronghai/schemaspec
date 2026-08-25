@@ -21,15 +21,28 @@ pub fn readStdin(io: std.Io, alloc: std.mem.Allocator) ![]const u8 {
         result.deinit(alloc);
         return e;
     };
-    return try result.toOwnedSlice(alloc);
+    return stripBom(try result.toOwnedSlice(alloc));
 }
+
+/// Strip a leading UTF-8 BOM (EF BB BF). Windows editors emit it by default;
+/// without this a valid schema parses to zero tables with exit 0 — total
+/// silent data loss. Single choke point for every command's file/stdin read.
+pub fn stripBom(data: []const u8) []const u8 {
+    if (data.len >= 3 and data[0] == 0xEF and data[1] == 0xBB and data[2] == 0xBF) {
+        return data[3..];
+    }
+    return data;
+}
+
+/// stripBom alias for callers importing this module under another name.
+pub const stripBomFrom = stripBom;
 
 /// Read a file by path, or stdin if path is "-" or empty.
 pub fn readFileOrStdin(io: std.Io, alloc: std.mem.Allocator, path: []const u8) ![]const u8 {
     if (path.len == 0 or std.mem.eql(u8, path, STDIN_PATH)) {
         return readStdin(io, alloc);
     }
-    return try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited);
+    return stripBom(try std.Io.Dir.cwd().readFileAlloc(io, path, alloc, .unlimited));
 }
 
 /// Write data to a file or stdout. If output_path is null, writes to stdout.

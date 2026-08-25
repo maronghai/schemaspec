@@ -90,10 +90,18 @@ pub fn handleMigrate(io: std.Io, alloc: std.mem.Allocator, cfg: MigrateConfig) !
         if (has_fixable) {
             const fix_result = try lint_mod.lintFix(alloc, new_source, lint_results.items);
             if (fix_result.fixes.len > 0) {
-                // Write fixed source to a temp file and use it for migration
+                // Write fixed source to a temp file and use it for migration.
+                // Deleted after the diff completes so no `.lint-fixed.ss`
+                // litter is left in the user's schema directory.
                 const tmp_path = try std.fmt.allocPrint(alloc, "{s}.lint-fixed.ss", .{cfg.new_path});
+                var tmp_used = false;
+                defer if (tmp_used) std.Io.Dir.cwd().deleteFile(io, tmp_path) catch {};
+                errdefer {
+                    tmp_used = false;
+                }
                 try io_mod.writeOutput(io, fix_result.source, tmp_path, true);
                 actual_new_path = tmp_path;
+                tmp_used = true;
                 // Report fixes to stderr
                 for (fix_result.fixes) |fx| {
                     try io_mod.writeOutput(io, try std.fmt.allocPrint(alloc, "fixed: [{s}] {s} — {s}\n", .{ fx.rule, fx.table, fx.description }), null, true);

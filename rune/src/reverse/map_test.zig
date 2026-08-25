@@ -604,9 +604,12 @@ test "reverse db2: REAL maps to real (passthrough via sqlite match)" {
     try testing.expectEqualStrings("real", r.sym);
 }
 
-test "reverse db2: DOUBLE PRECISION maps to r" {
+test "reverse db2: DOUBLE PRECISION maps to float8 (passthrough, case-insensitive)" {
+    // Case-insensitive matching (v0.335.0) means the lowercase
+    // "double precision" spelling on the pg-passthrough `float8` entry
+    // (rev_priority 10) matches before the db2-specific `r` entry (20).
     const r = reverseLookup("DOUBLE PRECISION", "col", false, false, .db2);
-    try testing.expectEqualStrings("r", r.sym);
+    try testing.expectEqualStrings("float8", r.sym);
 }
 
 test "reverse db2: CHAR(16) FOR BIT DATA maps to U" {

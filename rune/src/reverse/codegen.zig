@@ -137,6 +137,28 @@ fn emitTemplates(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_l
     }
 }
 
+/// Emit an identifier, backtick-quoting it when it contains characters
+/// outside `[A-Za-z0-9_]` (spaces, dashes, reserved-word collisions) so the
+/// emitted .ss recompiles to the same name.
+fn writeName(w: anytype, name: []const u8) !void {
+    const needs_quote = blk: {
+        if (name.len == 0) break :blk true;
+        for (name) |c| {
+            if (!std.ascii.isAlphanumeric(c) and c != '_') break :blk true;
+        }
+        // All-numeric names also need quoting (would parse as a modifier tail).
+        if (std.ascii.isDigit(name[0])) break :blk true;
+        break :blk false;
+    };
+    if (needs_quote) {
+        try w.writeAll("`");
+        try w.writeAll(name);
+        try w.writeAll("`");
+    } else {
+        try w.writeAll(name);
+    }
+}
+
 fn emitTables(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_list: []template_ext.TemplateCandidate) !void {
     // Pre-build table_index → template_index lookup map for O(1) template resolution
     var table_to_template = std.AutoHashMap(usize, usize).init(self.alloc);
@@ -168,11 +190,14 @@ fn emitTables(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_list
         }
 
         // # [template_ref] table_name : comment
+        // Names with non-identifier characters (spaces, reserved words)
+        // are emitted backtick-quoted so the .ss recompiles to the same
+        // table instead of splitting into template-ref + partial name.
         try w.writeAll("# ");
         if (table_template) |tn| {
             try w.print("{s} ", .{tn});
         }
-        try w.writeAll(table.name);
+        try writeName(w, table.name);
         if (table.comment) |c| {
             try w.print(" : {s}", .{c});
         }
@@ -190,7 +215,7 @@ fn emitTables(self: *ReverseCodegen, w: anytype, schema: sp.SqlSchema, tmpl_list
                 }
                 if (in_template) continue;
             }
-            try w.writeAll(col.name);
+            try writeName(w, col.name);
             const ck = if (col.check_expr) |ce| rc.reverseCheck(self.alloc, ce, col.name) else check_map.get(col.name);
             try rc.writeColumnSuffix(w, col, table.indexes, ck, self.dialect);
             try w.writeAll("\n");

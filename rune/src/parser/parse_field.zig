@@ -14,6 +14,21 @@ const FkDecl = ast_mod.FkDecl;
 
 /// Check if a token is an alphanumeric identifier (potential custom type name).
 /// Must start with a letter, contain only alphanumeric chars and underscores.
+/// Strip surrounding quote characters (backtick, double, single) from a
+/// name token. Hand-written `.ss` may quote identifiers containing spaces
+/// or reserved words; the quotes are syntax, not part of the name — leaking
+/// them into the DDL produced `` `"nick"` ``.
+pub fn stripQuotes(tok: []const u8) []const u8 {
+    if (tok.len >= 2) {
+        const first = tok[0];
+        const last = tok[tok.len - 1];
+        if ((first == '`' and last == '`') or (first == '"' and last == '"') or (first == '\'' and last == '\'')) {
+            return tok[1 .. tok.len - 1];
+        }
+    }
+    return tok;
+}
+
 fn isAlphaIdent(tok: []const u8) bool {
     if (tok.len == 0) return false;
     if (!std.ascii.isAlphabetic(tok[0]) and tok[0] != '_') return false;
@@ -22,6 +37,16 @@ fn isAlphaIdent(tok: []const u8) bool {
     }
     // Exclude known modifier tokens that are single chars
     if (tok.len == 1) return false;
+    return true;
+}
+
+/// True when the token looks like a function name — starts with a letter or
+/// underscore — whose call parens the tokenizer split off (`NOW` before
+/// `(` `)`). Numeric defaults (`=0`) followed by `(…)` are CHECK ranges,
+/// not calls.
+fn isIdentTail(tok: []const u8) bool {
+    if (tok.len == 0) return false;
+    if (!std.ascii.isAlphabetic(tok[0]) and tok[0] != '_') return false;
     return true;
 }
 
@@ -255,7 +280,7 @@ pub fn parseEnumType(alloc: std.mem.Allocator, tokens: []const []const u8, idx: 
 pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
     if (line.tokens.len == 0) return error.EmptyField;
 
-    const name = try alloc.dupe(u8, line.tokens[0]);
+    const name = try alloc.dupe(u8, stripQuotes(line.tokens[0]));
     var type_info: TypeInfo = .none;
     var modifiers = try std.ArrayList(Modifier).initCapacity(alloc, 8);
     var default_val: ?DefaultVal = null;
@@ -395,6 +420,47 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
         if (tok[0] == '=' and tok.len > 1) {
             default_val = .{ .value = tok[1..], .line_no = line.line_no };
             i += 1;
+            // Function-call defaults (`=NOW()`): the tokenizer splits the
+            // balanced parens off as bare `(` / `)` tokens. Absorb a
+            // `(` … `)` run that immediately follows so the parens stay part
+            // of the default instead of being eaten as an empty CHECK.
+            // Only identifier-shaped defaults absorb (NOW, CURRENT_DATE);
+            // a numeric/quoted default (`=0`, `='x'`) followed by `(…)` is
+            // the CHECK range syntax, not a call.
+            if (isIdentTail(default_val.?.value) and
+                i + 1 < line.tokens.len and std.mem.eql(u8, line.tokens[i], "("))
+            {
+                var depth: usize = 0;
+                var j = i;
+                var paren_count: usize = 0;
+                while (j < line.tokens.len) : (j += 1) {
+                    if (std.mem.eql(u8, line.tokens[j], "(")) {
+                        depth += 1;
+                        paren_count += 1;
+                    } else if (std.mem.eql(u8, line.tokens[j], ")")) {
+                        depth -= 1;
+                        if (depth == 0) break;
+                    }
+                }
+                if (paren_count > 0 and j < line.tokens.len and depth == 0) {
+                    var needed: usize = default_val.?.value.len;
+                    var m = i;
+                    while (m <= j) : (m += 1) needed += line.tokens[m].len;
+                    const buf = try alloc.alloc(u8, needed);
+                    @memcpy(buf[0..default_val.?.value.len], default_val.?.value);
+                    var k: usize = default_val.?.value.len;
+                    m = i;
+                    // No separators: the tokenizer already split on spaces,
+                    // so re-joining the paren tokens directly restores the
+                    // original spelling (`NOW(` + `)` → `NOW()`).
+                    while (m <= j) : (m += 1) {
+                        @memcpy(buf[k .. k + line.tokens[m].len], line.tokens[m]);
+                        k += line.tokens[m].len;
+                    }
+                    default_val = .{ .value = buf, .line_no = line.line_no };
+                    i = j + 1;
+                }
+            }
             continue;
         }
 
@@ -415,6 +481,38 @@ pub fn parseField(alloc: std.mem.Allocator, line: tk.Line) !Field {
 
         // 10. Potential custom type name (alphanumeric identifier, not a modifier)
         if (type_info == .none and tok.len > 0 and isAlphaIdent(tok)) {
+            // A `Name(` immediately following an unknown multi-char
+            // identifier is a parameterized raw type (`CHAR(2)` from a
+            // reverse passthrough), not a CHECK — absorb the balanced parens
+            // into a raw_sql type so length/payload survives the roundtrip.
+            if (tok.len > 1 and i + 1 < line.tokens.len and std.mem.eql(u8, line.tokens[i + 1], "(")) {
+                var depth: usize = 0;
+                var j = i + 1;
+                while (j < line.tokens.len) : (j += 1) {
+                    if (std.mem.eql(u8, line.tokens[j], "(")) {
+                        depth += 1;
+                    } else if (std.mem.eql(u8, line.tokens[j], ")")) {
+                        depth -= 1;
+                        if (depth == 0) break;
+                    }
+                }
+                if (j < line.tokens.len and depth == 0) {
+                    var needed: usize = tok.len;
+                    var m = i + 1;
+                    while (m <= j) : (m += 1) needed += line.tokens[m].len;
+                    const buf = try alloc.alloc(u8, needed);
+                    @memcpy(buf[0..tok.len], tok);
+                    var k: usize = tok.len;
+                    m = i + 1;
+                    while (m <= j) : (m += 1) {
+                        @memcpy(buf[k .. k + line.tokens[m].len], line.tokens[m]);
+                        k += line.tokens[m].len;
+                    }
+                    type_info = .{ .raw_sql = buf };
+                    i = j + 1;
+                    continue;
+                }
+            }
             type_info = .{ .simple = try alloc.dupe(u8, tok) };
             i += 1;
             continue;

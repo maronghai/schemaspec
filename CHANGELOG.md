@@ -1,3 +1,33 @@
+## [0.335.0] - 2026-08-25
+
+### Fixed — reverse engineering pipeline (first deep audit of this subsystem)
+
+- **Dialect auto-detection matched keywords as substrings anywhere in the file**: `indexOf("STRICT")` scored inside the word "RESTRICT", so a single `-- RESTRICT` comment flipped a MySQL dump to SQLite — dropping its inline `KEY idx_name(...)` indexes and degrading type resolution to raw passthrough. Patterns now require non-identifier word boundaries, and scoring runs against a copy with SQL comments (`--`, `/* */`) blanked out (string literals respected). "BIT" no longer matches identifiers containing "bit".
+- **`reverse --format json` emitted invalid JSON**: the emitter wrote an unconditional trailing comma per field while bool fields could be entirely absent, and array fields carried no separator to the next key (`"fields": [...]` glued to `"ref_table"`). Every member is now emitted through a first-field flag; output verified parseable by `python -m json.tool` (test added to test_reverse.sh).
+- **`diff --format sarif` broke whenever an FK modify existed**: `referencing <table>` was appended *outside* the already-closed JSON string, terminating it early; the message object also carried a trailing comma. The suffix now lives inside the escaped string; SARIF parses clean.
+- **SQL keyword matching was case-sensitive**: lowercase dumps (`create table … primary key … not null`) parsed `primary key`/`not null` as phantom column declarations, and fully-lowercase input failed outright with "no CREATE statement found". Keyword comparison (matchKeyword/expectKeyword/lookaheadIs + type-continuation words) is now ASCII case-insensitive; REVERSE_MAP exact-match lookup likewise folds case (INT/int/Int are one type). The db2 DOUBLE PRECISION unit expectation updated: case-insensitive matching lets the pg-passthrough `float8` entry (rev_priority 10) win over the db2-specific `r` entry (20) — passthrough roundtrips identically.
+- **`ALTER TABLE t ADD [COLUMN] c TYPE …` was silently dropped**: only ADD-FK was handled; every other ALTER hit `skipToSemicolon()` with no diagnostic while `--check` still passed. Added columns now parse through the same column parser as CREATE TABLE and appear in reverse output (old slice freed on append — also fixes a latent leak on repeated FK appends).
+
+### Fixed — forward pipeline
+
+- **Function-call defaults compiled to invalid SQL**: `a n =NOW()` produced `` DEFAULT 'NOW' CHECK () `` — the tokenizer split the parens off, the default captured only `NOW` (then string-quoted), and the leftover `(` became an empty CHECK expression that `validate` happily accepted. Identifier-shaped defaults now absorb their balanced call parens back into the default token and emit verbatim (`DEFAULT NOW()`); numeric/quoted defaults followed by `(…)` still start CHECK ranges. This also un-breaks the reverse→forward roundtrip, since reverse emits `=NOW()` for `DEFAULT NOW()` input.
+- **Parameterized unknown types lost their length on recompile**: reverse passthrough `code CHAR(2)` re-tokenized into `CHAR` + a fabricated `CHECK (code = 2)`. A multi-char identifier immediately followed by balanced parens now parses as a raw_sql type (`CHAR(2)` survives intact).
+- **UTF-8 BOM silently voided the entire schema** (exit 0, zero tables, "schema is valid"): Windows editors emit BOM by default. All read entry points (file and stdin) strip a leading EF BB BF.
+- **Spaced/quoted identifiers corrupted on roundtrip**: reverse emitted unquoted headers for spaced names (`# order details` recompiled as table `details`), and hand-written quoted field names leaked quote characters into the DDL (`` `"nick"` ``). Reverse now backtick-quotes any non-identifier-safe name; the forward tokenizer keeps backtick-quoted segments as single tokens across spaces, and table/field name parsing strips surrounding quotes.
+
+### Fixed — migrate & lint boundaries
+
+- **The no-timestamps fixer appended audit fields after trailing views/indexes**, orphaning them as top-level junk and making every subsequent `rune migrate` warn per line (migrate auto-lints by default). Views/templates/composites now close the current table body during fixing; EOF insertion only happens when the file ends inside a table.
+- **Default-value fixers appended defaults into inline comments**: `name s32 : the name` became `name s32 : the name =0`, compiling to `COMMENT 'the name =0'` with no default at all. Comment-bearing lines are no-fix for bool-default / nullable-column-default / column-default-required.
+- **`rune migrate` left `<new>.ss.lint-fixed.ss` litter** next to the user's schema on every auto-lint run. The intermediate file is deleted after the diff completes.
+- **`migrate --graph` reported false circular dependencies** for legal shared-table histories: the dependency builder linked every pair of migrations touching the same table, so 001→002→003 all altering table `a` came out mutually dependent (exit 1). Edges now point only at the most recent earlier migration owning each table (three-file repro renders `002_b.sql →001_a`, `003_c.sql →002_b`; regression test added).
+
+### Added
+- Unit tests 2111 → 2117 (dialect detection comments/identifiers/block-comments, lint fixer view-tail + inline-comment guards). Goldens: reverse lowercase-dump (mysql), reverse JSON validity check, BOM stdin ×2, migrate graph shared-table chain. Reverse suite 24 → 26 checks; stdin suite 4 → 6; migrate status 7 → 8.
+- Repo hygiene: stale tracked duplicates removed from `rune/` (ROADMAP.md frozen at v0.260-era content, CHANGELOG.md at v0.307, plans/, plus a 5.8 MB binary blob accidentally committed as `rune/tests` in v0.191.0). The repo root holds the authoritative versions of each.
+
+
+
 ## [0.334.0] - 2026-08-25
 
 ### Fixed — LSP (all AST-based features were dead on real documents)

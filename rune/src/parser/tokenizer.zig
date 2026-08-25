@@ -92,20 +92,39 @@ pub const Tokenizer = struct {
     }
 
     pub fn tokenizeLine(alloc: std.mem.Allocator, line: []const u8) ![]const []const u8 {
-        // First pass: split by spaces
+        // First pass: split by spaces, but a backtick-quoted segment
+        // (`order details`) is one token even across spaces — quoted
+        // identifiers may contain them.
         var raw_tokens = try std.ArrayList([]const u8).initCapacity(alloc, 8);
         defer raw_tokens.deinit(alloc);
-        var space_it = std.mem.splitScalar(u8, line, ' ');
-        while (space_it.next()) |tok| {
-            if (tok.len == 0) continue;
-            if (tok.len >= 2 and tok[0] == '-' and tok[1] == '-') break;
-            if (tok[0] == ';') break;
-            if (tok[0] == ':') {
-                const comment = line[tok.ptr - line.ptr ..];
-                try raw_tokens.append(alloc, comment);
-                break;
+        {
+            var i: usize = 0;
+            while (i < line.len) {
+                const c = line[i];
+                if (c == ' ' or c == '\t') {
+                    i += 1;
+                    continue;
+                }
+                if (c == '-' and i + 1 < line.len and line[i + 1] == '-') break;
+                if (c == ';') break;
+                if (c == ':') {
+                    try raw_tokens.append(alloc, line[i..]);
+                    break;
+                }
+                const start = i;
+                if (c == '`') {
+                    i += 1;
+                    while (i < line.len and line[i] != '`') : (i += 1) {}
+                    if (i < line.len) i += 1; // closing backtick
+                    // Glue an immediately-following word (`` `name`s32 `` is
+                    // not produced by the reverse emitter, but be tolerant).
+                    while (i < line.len and line[i] != ' ' and line[i] != '\t') : (i += 1) {}
+                    try raw_tokens.append(alloc, line[start..i]);
+                    continue;
+                }
+                while (i < line.len and line[i] != ' ' and line[i] != '\t') : (i += 1) {}
+                try raw_tokens.append(alloc, line[start..i]);
             }
-            try raw_tokens.append(alloc, tok);
         }
 
         // Second pass: iteratively split tokens
