@@ -2,6 +2,7 @@ const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const codegen_mod = @import("codegen.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
+const dialect_common = @import("../dialect/common.zig");
 const typed_ast_mod = @import("../types/typed_ast.zig");
 const Writer = std.Io.Writer;
 
@@ -38,9 +39,11 @@ pub fn emitDefault(w: *Writer, value: []const u8) !void {
         // Quoted literal `='x'` — strip the outer quotes; SQL re-quotes below
         // (same convention as the CHECK in-list path). Without this the
         // quotes double: DEFAULT ''x''.
-        try w.print(" DEFAULT '{s}'", .{value[1 .. value.len - 1]});
+        try w.writeAll(" DEFAULT ");
+        try dialect_common.writeSqlSingleQuoted(w, value[1 .. value.len - 1]);
     } else {
-        try w.print(" DEFAULT '{s}'", .{value});
+        try w.writeAll(" DEFAULT ");
+        try dialect_common.writeSqlSingleQuoted(w, value);
     }
 }
 
@@ -140,7 +143,7 @@ pub fn emitCheckExpr(w: *Writer, field_name: []const u8, ck: ast_mod.CheckConstr
                         trimmed[1 .. trimmed.len - 1]
                     else
                         trimmed;
-                    try w.print("'{s}'", .{val});
+                    try dialect_common.writeSqlSingleQuoted(w, val);
                 }
             }
             try w.writeAll(")");

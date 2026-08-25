@@ -77,7 +77,9 @@ fn writeTableSchema(alloc: std.mem.Allocator, w: *Writer, table: typed_ast.Typed
 // ─── View Schema (read-only) ─────────────────────────────────
 
 fn writeViewSchema(w: *Writer, view: typed_ast.TypedView) !void {
-    try w.print("      \"{s}\": {{\n", .{view.name});
+    try w.writeAll("      \"");
+    try utils.jsonEscapeString(w, view.name);
+    try w.writeAll("\": {\n");
     try w.writeAll("        \"type\": \"object\",\n");
 
     if (view.comment) |c| {

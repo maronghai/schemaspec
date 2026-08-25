@@ -69,12 +69,26 @@ pub fn parseTableHeader(alloc: std.mem.Allocator, line: tk.Line) !TableHeader {
             // # table_name : comment
             table_name = try alloc.dupe(u8, parse_field.stripQuotes(tokens[1]));
             comment = try alloc.dupe(u8, stripCommentColon(tokens[2]));
-        } else {
-            // # template_ref table_name [: comment]
+        } else if (tokens.len == 3 or tokens.len == 4) {
+            // Legacy two-word form: `# template_ref table_name [: comment]`.
+            // A colon-leading 4th token is the `:` comment syntax (strip the
+            // colon); a plain 4th token is taken verbatim (historical
+            // behavior the typeorm goldens lock in:
+            // `# TypeORM Basic Test` → template=TypeORM, table=Basic, // Test).
             template_ref = try alloc.dupe(u8, tokens[1]);
             table_name = try alloc.dupe(u8, parse_field.stripQuotes(tokens[2]));
-            if (tokens.len >= 4) {
-                comment = try alloc.dupe(u8, tokens[3]);
+            if (tokens.len == 4) {
+                comment = if (tokens[3].len >= 1 and tokens[3][0] == ':')
+                    try alloc.dupe(u8, stripCommentColon(tokens[3]))
+                else
+                    try alloc.dupe(u8, tokens[3]);
+            }
+        } else {
+            // 5+ free-text tokens: a comment line, not a header. Degrade to
+            // one junk-named table instead of fabricating template refs.
+            table_name = try alloc.dupe(u8, parse_field.stripQuotes(tokens[1]));
+            if (tokens.len >= 4 and tokens[3].len >= 1 and tokens[3][0] == ':') {
+                comment = try alloc.dupe(u8, stripCommentColon(tokens[3]));
             }
         }
     }

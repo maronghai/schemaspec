@@ -125,8 +125,22 @@ fn resolveTemplate(
     }
 
     const result = try mergeFields(resolved.allocator, base_fields, tmpl.fields, &.{}, tmpl.slot_index);
-    try resolved.put(tname, result);
+    try resolved.put(tname, dedupeTemplateFields(resolved.allocator, result));
     return result;
+}
+
+/// Drop duplicate field names within a resolved template body (later
+/// definition wins). Without this, `name s` + `name s64` in one template
+/// both reach the DDL as identical columns and the database rejects it.
+fn dedupeTemplateFields(alloc: std.mem.Allocator, fields: []const Field) []const Field {
+    var seen = std.StringHashMap(void).init(alloc);
+    var out = std.ArrayList(Field).initCapacity(alloc, fields.len) catch return fields;
+    for (fields) |f| {
+        if (seen.contains(f.name)) continue;
+        seen.put(f.name, {}) catch return fields;
+        out.append(alloc, f) catch return fields;
+    }
+    return out.toOwnedSlice(alloc) catch fields;
 }
 
 fn mergeFields(
@@ -160,14 +174,34 @@ fn mergeFields(
     for (child_after) |f| try override_names.put(f.name, {});
     for (concrete_fields) |f| try override_names.put(f.name, {});
 
+    // Dedupe within the child field list itself: two same-named fields in one
+    // template body would both reach the DDL (two identical columns — every
+    // database rejects that). Later definition wins, mirroring parent-override
+    // semantics.
+    var child_dedup = try std.ArrayList(Field).initCapacity(alloc, child_before.len + child_after.len);
+    var seen_child = std.StringHashMap(void).init(alloc);
+    for (child_before) |f| {
+        if (seen_child.contains(f.name)) continue;
+        try seen_child.put(f.name, {});
+        try child_dedup.append(alloc, f);
+    }
+    for (child_after) |f| {
+        if (seen_child.contains(f.name)) continue;
+        try seen_child.put(f.name, {});
+        try child_dedup.append(alloc, f);
+    }
+    const deduped = try child_dedup.toOwnedSlice(alloc);
+    const child_before_d = deduped[0..child_before.len];
+    const child_after_d = if (child_after.len > 0) deduped[child_before.len..] else &[_]Field{};
+
     var result = try std.ArrayList(Field).initCapacity(alloc, 8);
 
     for (parent_before) |f| {
         if (!override_names.contains(f.name)) try result.append(alloc, f);
     }
-    for (child_before) |f| try result.append(alloc, f);
+    for (child_before_d) |f| try result.append(alloc, f);
     for (concrete_fields) |f| try result.append(alloc, f);
-    for (child_after) |f| try result.append(alloc, f);
+    for (child_after_d) |f| try result.append(alloc, f);
     for (parent_after) |f| {
         if (!override_names.contains(f.name)) try result.append(alloc, f);
     }

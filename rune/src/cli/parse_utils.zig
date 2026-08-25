@@ -22,12 +22,14 @@ pub fn parseDocsArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
 
 pub fn parseExportArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, target: Target, opts: GlobalFlags) anyerror!ParsedArgs {
     const input = if (fargs.len > 1) fargs[1] else null;
-    // Map global --format flag to export format
-    const export_format: types.ExportFormat = switch (opts.format) {
-        .json => .json,
-        .sarif => .markdown,
-        else => .text,
-    };
+    // --format is forwarded by the global parser (pass-through); parse it
+    // here because export has its own json|text|markdown namespace.
+    var export_format: types.ExportFormat = .json;
+    for (fargs[1..]) |arg| {
+        if (std.mem.eql(u8, arg, "json") or std.mem.eql(u8, arg, "text") or std.mem.eql(u8, arg, "markdown")) {
+            export_format = std.meta.stringToEnum(types.ExportFormat, arg) orelse .json;
+        }
+    }
     return shared.parseSimpleSubcommand(dialect, target, .{ .export_cmd = .{ .input = input, .output = shared.parseOutputFlag(fargs, 1), .format = export_format } }, opts);
 }
 
@@ -67,7 +69,7 @@ pub fn parseInitArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, t
         } else if (std.mem.eql(u8, fargs[j], "--template") and j + 1 < fargs.len) {
             j += 1;
             template = fargs[j];
-        } else if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
+        } else if ((std.mem.eql(u8, fargs[j], "-o") or std.mem.eql(u8, fargs[j], "--output")) and j + 1 < fargs.len) {
             j += 1;
             output = fargs[j];
         } else if (fargs[j][0] != '-') {
@@ -241,7 +243,7 @@ pub fn parseShareArgs(fargs: []const []const u8, dialect: dialect_enum.Dialect, 
             } else if (!std.mem.eql(u8, fargs[j], "url")) {
                 return error.UnknownFormat;
             }
-        } else if (std.mem.eql(u8, fargs[j], "-o") and j + 1 < fargs.len) {
+        } else if ((std.mem.eql(u8, fargs[j], "-o") or std.mem.eql(u8, fargs[j], "--output")) and j + 1 < fargs.len) {
             j += 1;
             output = fargs[j];
         } else if (fargs[j][0] != '-') {

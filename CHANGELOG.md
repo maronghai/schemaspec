@@ -1,3 +1,52 @@
+## [0.336.0] - 2026-08-26
+
+### Fixed — CLI flag routing (single root cause)
+
+- **The global `--format` flag was swallowed and never forwarded**: the global parser consumed `--format json|sarif|markdown|text` into diff's format but did not pass it through to subcommands, so `lint --format sarif` silently emitted plain text (CI gates lost SARIF), and `export --format sarif` was "mapped" to Markdown. The flag is now forwarded like `-o`; export parses its own `json|text|markdown` namespace from forwarded args (default json, matching help text), lint's existing local parsing now actually runs, docs maps json/markdown.
+- `export` with no flag defaulted to text while help claimed JSON — now defaults to json.
+
+### Fixed — JSON/Markdown escaping across emitters
+
+- **`export --format json` emitted invalid JSON** for names containing quotes/backslashes (`we"ird\table` → raw interpolation). All string fields go through the shared JSON escaper now; output verified with `python -m json.tool`.
+- **json-schema / openapi / symbol-index / stats broke on hostile identifiers**: table keys, `$ref`s, required arrays, CHECK enum values, view schema keys, per-table stats names — all were raw `{s}` interpolations. Enum *values* containing quotes corrupted every generator downstream of `SqlType.toJsonSchema`. All sites escaped; symbol-index escapes whole rendered type strings.
+- **SQL comments containing apostrophes corrupted four dialects**: `: it's a name` produced `COMMENT 'it's a name'` — a broken statement on MySQL inline comments, PG/Oracle/Db2 `COMMENT ON … IS '…'`, alter-comment paths, string defaults, and CHECK in-list values. Single quotes are now doubled in every single-quoted SQL literal (shared `writeSqlSingleQuoted`; SQLite `--`/MSSQL `/* */` forms unaffected).
+- **docs Markdown tables broke on pipe characters in comments** (cell splitting) and newlines (row splitting); Mermaid erDiagram emitted illegal entity ids for spaced/special-character table names (now quoted form). Column descriptions, FK labels sanitized.
+
+### Fixed — forward parser boundaries
+
+- **Bare inline foreign keys emitted garbage DDL**: `user_id > users` produced `FOREIGN KEY () REFERENCES ``()` (empty columns, empty table) because the type-skip heuristic unconditionally consumed the token after `>`; the `-C` variant treated action tokens as reference tables. Skipping now only fires when the token actually parses as a type symbol.
+- **Enum values with spaces shattered**: `e('admin user','guest')` → `ENUM(''admin', 'user'', 'guest')` — the tokenizer split at spaces inside quotes. Quote-aware scanning keeps `'…'`/`"…"`/`` `…` `` segments as single tokens (with a same-quote-close check and unterminated fallback); `='hello world'` defaults survive too.
+- **Typo'd template references inherited zero fields silently**: `# users > bas` dropped every template field (PK gone) with exit 0. Unknown references are now an error when the schema declares templates; files without templates keep lenient behavior (legacy two-word headers are syntactically indistinguishable from comment lines).
+- **Legacy two-word header recognition tightened**: `# This is a comment` fabricated a bogus template reference (`This`) and a junk table; only exact `# ref name [: comment]` shapes take the legacy path now, everything else degrades to one junk-named table as before.
+- **Typedef enum base lost its values**: `~ status = e(active,inactive)` compiled column references to bare `e` (invalid SQL). The typedef parser absorbs the balanced enum parens.
+- **Descending index sort was parsed everywhere but emitted nowhere**: `@ (a-, b)` → `(a, b)` — silent semantic flip. Emitters now honor `.descending`; spec §6 updated (DESC was documented as supported while listed under limitations).
+- **Parenthesized free-form CHECK mangled into nonsense**: `(price > 100)` range-decomposed into `CHECK (price > price AND price < >)`.
+
+### Fixed — semantic layer feature interactions
+
+- **Imported composites vanished**: the import merge carried templates/tables/views/comments but not composite declarations, so any file importing a module with tables failed on `unknown composite`. `ImportResult`/`CachedImport`/both tree-rebuild sites now concat composites.
+- **Compound FK type mismatches invisible after the first pair**: validate_fk_types returned instead of continuing per pair — second-onwards type conflicts in compound FKs were never reported.
+- **autofk/suffix_inference dropped `template_ref` when rebuilding tables**, permanently disabling the template_type_conflict pass (table-overrides-template warnings never fired) and letting mismatched types reach generated FKs.
+- **Composite embed colliding with an existing field duplicated the column** (MySQL rejects the DDL): resolve_composites now errors naming the embed, field, and table; pre-populated name set catches collisions against ANY original field, not just ones already consumed.
+- **Duplicate fields inside one template body both reached the DDL**: template resolution dedupes (later definition wins), mirroring parent-override semantics.
+- **A `* name` declaration after a brace-free table was parsed as an embed** of an undefined name (two cascading errors); spacing disambiguates declaration vs embed.
+- **View FROM scanner false warnings**: tab after FROM (`FROM\tusers`) and subqueries (`FROM (SELECT …) x`) reported unknown tables like `users)`; scanner skips whitespace/tabs, skips balanced parens, strips trailing punctuation.
+
+### Fixed — formatter & tune (source-rewriting tools)
+
+- **Formatter renamed fields inside @if blocks**: `comment s128` → `COMMENT s128`, `row n` → `ROW n` — legal Rune field names hit the SQL keyword list. Keyword casing now protects the first identifier whenever the second identifier is a Rune type symbol (field declarations pass their name verbatim; genuine SQL fragments still uppercase from word one). `@endif` with trailing content (`@endif ; note`) no longer leaves uppercase state stuck on for following lines.
+- **tune dropped the preamble**: `$ schema`, `@version`, and `~` typedefs before the first table were deleted by tuning — uuid types degraded, CREATE DATABASE vanished. Preamble is preserved verbatim.
+- **tune deleted member tables' indexes** (@ lines never entered body collection) and **picked conflicting field variants from whichever table iterated first** (`status n` vs `status s32` silently rewrote semantics). Extraction now requires byte-identical field lines, orders template fields by first appearance (deterministic — hash iteration order shuffled columns between runs), skips `^engine` headers, and backtick-quoted table names survive reference emission.
+- **`rune init --output custom.ss` created custom.ss.ss** (--output wasn't accepted, fell into positional-name path).
+- **init templates failed their own `rune format --check`** (column-aligned bodies vs canonical style); init now runs templates through the formatter before writing.
+
+### Added
+
+- Unit tests 2117 → 2122. Formatter: field-name protection + @endif boundary cases. tune: preamble/conflict/index/engine/backtick tests ×5. Parser: legacy-header guard test expectations updated (`:accounts` colon-strip). Docs: Mermaid indentation fix aligned with new safe-entity emitter.
+- Legacy two-word table headers (`# template_ref table_name [: comment]`) now bounded to exactly 3-4 tokens: 5+-token free-text tails (`# This is a longer note`) degrade to one junk-named table instead of fabricating a template reference from the second word; plain (non-colon) 4th tokens are taken verbatim as comments, matching the typeorm/sqlalchemy/knex goldens.
+
+---
+
 ## [0.335.0] - 2026-08-25
 
 ### Fixed — reverse engineering pipeline (first deep audit of this subsystem)

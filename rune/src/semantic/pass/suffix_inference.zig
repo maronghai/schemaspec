@@ -35,6 +35,7 @@ pub fn run(ctx: *PassContext) !void {
             .fks = table.fks,
             .indexes = table.indexes,
             .line_no = table.line_no,
+            .template_ref = table.template_ref,
         });
     }
     ctx.tables.* = ti_tables;

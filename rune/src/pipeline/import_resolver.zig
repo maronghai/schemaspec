@@ -21,6 +21,7 @@ pub const CachedImport = struct {
     tables: []const ast_mod.Table,
     views: []const ast_mod.View,
     comments: []const ast_mod.SqlComment,
+    composites: []const ast_mod.Composite = &.{},
 };
 
 /// Cache of parsed import files — keyed by resolved path.
@@ -55,6 +56,7 @@ pub const ImportResult = struct {
     tables: []const ast_mod.Table,
     views: []const ast_mod.View,
     comments: []const ast_mod.SqlComment,
+    composites: []const ast_mod.Composite = &.{},
 };
 
 /// Split file data into lines, stripping trailing \r.
@@ -158,6 +160,7 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
     var imported_tables = try std.ArrayList(ast_mod.Table).initCapacity(alloc, 8);
     var imported_views = try std.ArrayList(ast_mod.View).initCapacity(alloc, 8);
     var imported_comments = try std.ArrayList(ast_mod.SqlComment).initCapacity(alloc, 8);
+    var imported_composites = try std.ArrayList(ast_mod.Composite).initCapacity(alloc, 4);
 
     for (lines) |line| {
         const trimmed = std.mem.trim(u8, line, " \t");
@@ -283,6 +286,7 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
                     for (cached.tables) |t| try imported_tables.append(alloc, t);
                     for (cached.views) |v| try imported_views.append(alloc, v);
                     for (cached.comments) |c| try imported_comments.append(alloc, c);
+                    for (cached.composites) |c| try imported_composites.append(alloc, c);
                     cache_hit = true;
                 }
             }
@@ -318,6 +322,7 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
                         .tables = try concatSlices(alloc, ast_mod.Table, child_tree.tables, child_imports.tables),
                         .views = child_tree.views,
                         .sql_comments = child_tree.sql_comments,
+                        .composites = try concatSlices(alloc, ast_mod.Composite, child_tree.composites, child_imports.composites),
                     };
                 }
 
@@ -326,6 +331,7 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
                 for (child_tree.tables) |t| try imported_tables.append(alloc, t);
                 for (child_tree.views) |v| try imported_views.append(alloc, v);
                 for (child_tree.sql_comments) |c| try imported_comments.append(alloc, c);
+                for (child_tree.composites) |c| try imported_composites.append(alloc, c);
 
                 // Store in cache for future imports of the same file
                 if (import_ctx.cache) |cache| {
@@ -334,6 +340,7 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
                         .tables = try concatSlices(alloc, ast_mod.Table, child_tree.tables, child_imports.tables),
                         .views = child_tree.views,
                         .comments = child_tree.sql_comments,
+                        .composites = try concatSlices(alloc, ast_mod.Composite, child_tree.composites, child_imports.composites),
                     };
                     try cache.put(resolved_path, cached);
                 }
@@ -349,5 +356,6 @@ pub fn resolveImports(io: std.Io, alloc: std.mem.Allocator, lines: []const []con
         .tables = try imported_tables.toOwnedSlice(alloc),
         .views = try imported_views.toOwnedSlice(alloc),
         .comments = try imported_comments.toOwnedSlice(alloc),
+        .composites = try imported_composites.toOwnedSlice(alloc),
     };
 }

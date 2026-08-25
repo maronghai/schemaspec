@@ -99,7 +99,10 @@ fn mysqlEmitStandaloneIndex(_: *Writer, _: []const u8, _: IndexDecl) anyerror!vo
 fn mysqlEmitInlineColumnComment(w: *Writer, comment: []const u8) anyerror!void {
     const ct = if (comment.len >= 1 and comment[0] == ':') comment[1..] else comment;
     const tr = std.mem.trim(u8, ct, " ");
-    if (tr.len > 0) try w.print(" COMMENT '{s}'", .{tr});
+    if (tr.len > 0) {
+        try w.writeAll(" COMMENT ");
+        try common.writeSqlSingleQuoted(w, tr);
+    }
 }
 
 fn mysqlEmitEnumTypeCheck(_: *Writer, _: []const u8, _: []const []const u8) anyerror!void {

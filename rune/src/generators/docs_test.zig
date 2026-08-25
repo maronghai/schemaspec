@@ -159,7 +159,7 @@ test "docs: Mermaid ER diagram present" {
     try testing.expect(std.mem.indexOf(u8, result, "## Schema Diagram") != null);
     try testing.expect(std.mem.indexOf(u8, result, "```mermaid") != null);
     try testing.expect(std.mem.indexOf(u8, result, "erDiagram") != null);
-    try testing.expect(std.mem.indexOf(u8, result, "    users {") != null);
+    try testing.expect(std.mem.indexOf(u8, result, "    users {\n") != null);
 }
 
 test "docs: Mermaid diagram with FK relationships" {

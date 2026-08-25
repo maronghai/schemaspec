@@ -285,6 +285,11 @@ fn parseGlobalFlags(alloc: std.mem.Allocator, raw_args: []const []const u8) !Fla
                     return error.UnknownFormat;
                 }
                 i += 1;
+                // Pass-through: subcommands with their own format namespace
+                // (export/lint/docs) re-parse --format from filtered args;
+                // diff/stats/validate/check consume the global value.
+                try filtered.append(alloc, "--format");
+                try filtered.append(alloc, raw_args[i]);
             } else {
                 return error.MissingFormatValue;
             }

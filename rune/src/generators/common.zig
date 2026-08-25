@@ -426,7 +426,9 @@ pub fn writeColumnPropJson(
     indent: []const u8,
     ref_prefix: []const u8,
 ) !void {
-    try w.print("{s}\"{s}\": ", .{ indent, col.name });
+    try w.print("{s}\"", .{indent});
+    try utils.jsonEscapeString(w, col.name);
+    try w.writeAll("\": ");
 
     const fk_ref_table = findFkRefTable(col.name, table.fks);
 
@@ -473,7 +475,9 @@ pub fn writeColumnPropJson(
                         try w.print("{s}  \"enum\": [", .{indent});
                         for (items, 0..) |item, ii| {
                             if (ii > 0) try w.writeAll(", ");
-                            try w.print("\"{s}\"", .{item});
+                            try w.writeAll("\"");
+                            try utils.jsonEscapeString(w, item);
+                            try w.writeAll("\"");
                         }
                         try w.writeAll("]");
                     }
@@ -519,7 +523,9 @@ pub fn writeTableSchemaJson(
     const col_indent = try std.fmt.allocPrint(alloc, "{s}    ", .{indent});
     defer alloc.free(col_indent);
 
-    try w.print("{s}\"{s}\": {{\n", .{ indent, table.name });
+    try w.print("{s}\"", .{indent});
+    try utils.jsonEscapeString(w, table.name);
+    try w.writeAll("\": {\n");
     try w.print("{s}  \"type\": \"object\",\n", .{indent});
 
     // Description from comment
@@ -549,7 +555,9 @@ pub fn writeTableSchemaJson(
         if (!col.flags.nullable and !col.flags.has_timestamp_default) {
             if (!first) try w.writeAll(", ");
             first = false;
-            try w.print("\"{s}\"", .{col.name});
+            try w.writeAll("\"");
+            try utils.jsonEscapeString(w, col.name);
+            try w.writeAll("\"");
         }
     }
     try w.writeAll("],\n");

@@ -169,7 +169,7 @@ fn compileInternal(
         tree.error_count += import_errors;
     }
     if (imports_result) |imports| {
-        if (imports.templates.len > 0 or imports.tables.len > 0) {
+        if (imports.templates.len > 0 or imports.tables.len > 0 or imports.composites.len > 0) {
             tree = .{
                 .schema = tree.schema,
                 .error_count = tree.error_count,
@@ -183,6 +183,7 @@ fn compileInternal(
                     try import_res.concatSlices(alloc, ast_mod.SqlComment, tree.sql_comments, imports.comments)
                 else
                     tree.sql_comments,
+                .composites = try import_res.concatSlices(alloc, ast_mod.Composite, tree.composites, imports.composites),
             };
         }
     }

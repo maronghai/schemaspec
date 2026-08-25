@@ -116,18 +116,38 @@ pub fn emitEnumValues(w: *Writer, values: []const []const u8) anyerror!void {
 
 // ─── Shared Comment Emission ────────────────────────────────
 
+/// Write `s` with every single quote doubled ('') so the text survives
+/// inside a SQL single-quoted string literal (apostrophes in comments or
+/// defaults otherwise terminate the literal and corrupt the statement).
+pub fn writeSqlSingleQuoted(w: *Writer, s: []const u8) anyerror!void {
+    try w.writeByte('\'');
+    for (s) |c| {
+        if (c == '\'') try w.writeByte('\'');
+        try w.writeByte(c);
+    }
+    try w.writeByte('\'');
+}
+
 /// Shared standalone COMMENT ON TABLE implementation (PG, Oracle, Db2, MSSQL).
 pub fn emitTableCommentStandalone(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
     const ct = stripCommentPrefix(comment);
     const tr = std.mem.trim(u8, ct, " ");
-    if (tr.len > 0) try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n", .{ table_name, tr });
+    if (tr.len > 0) {
+        try w.print("COMMENT ON TABLE \"{s}\" IS ", .{table_name});
+        try writeSqlSingleQuoted(w, tr);
+        try w.writeAll(";\n");
+    }
 }
 
 /// Shared standalone COMMENT ON COLUMN implementation (PG, Oracle, Db2).
 pub fn emitColumnCommentStandalone(w: *Writer, table_name: []const u8, col_name: []const u8, comment: []const u8) anyerror!void {
     if (comment.len >= 1 and comment[0] == ':') {
         const ct = std.mem.trim(u8, stripCommentPrefix(comment), " ");
-        if (ct.len > 0) try w.print("COMMENT ON COLUMN \"{s}\".\"{s}\" IS '{s}';\n", .{ table_name, col_name, ct });
+        if (ct.len > 0) {
+            try w.print("COMMENT ON COLUMN \"{s}\".\"{s}\" IS ", .{ table_name, col_name });
+            try writeSqlSingleQuoted(w, ct);
+            try w.writeAll(";\n");
+        }
     }
 }
 
@@ -320,7 +340,9 @@ pub fn emitAlterEngineWarning(w: *Writer, _: ?[]const u8) anyerror!void {
 
 /// Shared emitAlterTableComment for dialects using COMMENT ON TABLE syntax (PG, Oracle, Db2).
 pub fn emitAlterTableCommentShared(w: *Writer, table_name: []const u8, comment: []const u8) anyerror!void {
-    try w.print("COMMENT ON TABLE \"{s}\" IS '{s}';\n\n", .{ table_name, comment });
+    try w.print("COMMENT ON TABLE \"{s}\" IS ", .{table_name});
+    try writeSqlSingleQuoted(w, comment);
+    try w.writeAll(";\n\n");
 }
 
 /// Shared emitIndex for non-MySQL dialects.

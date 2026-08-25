@@ -370,7 +370,7 @@ CREATE TABLE `order_item` (
 
 **Naming conventions**: `idx_` (regular), `uk_` (unique), `fk_` (FK), `ft_` (fulltext).
 
-**Limitations**: No unique fulltext (`@fu`), prefix indexes, descending indexes, partial indexes, or expression indexes — write SQL manually for these.
+**Limitations**: No unique fulltext (`@fu`), prefix indexes, partial indexes, or expression indexes — write SQL manually for these. Descending index columns (`@ (a-, b)` → `ORDER BY a DESC, b`) are supported and emitted as `COL DESC`.
 
 ---
 

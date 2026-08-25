@@ -1,5 +1,6 @@
 const std = @import("std");
 const Dialect = @import("dialect/enum.zig").Dialect;
+const parse_field = @import("parser/parse_field.zig");
 
 // ─── SS Formatter ─────────────────────────────────────────────
 // Auto-formats .ss files with consistent style:
@@ -96,6 +97,11 @@ const DIALECT_KEYWORDS_DB2 = [_][]const u8{
 
 /// Check if a word matches any SQL keyword (case-insensitive).
 /// When dialect is non-null, also checks dialect-specific keywords.
+/// Check if a word matches any SQL keyword (case-insensitive).
+fn isSqlKeyword(word: []const u8) bool {
+    return isSqlKeywordDialect(word, null);
+}
+
 fn isSqlKeywordDialect(word: []const u8, dialect: ?Dialect) bool {
     // Check base keywords first
     for (SQL_KEYWORDS) |kw| {
@@ -122,15 +128,38 @@ fn isSqlKeywordDialect(word: []const u8, dialect: ?Dialect) bool {
     return false;
 }
 
-/// Check if a word matches any SQL keyword (case-insensitive).
-fn isSqlKeyword(word: []const u8) bool {
-    return isSqlKeywordDialect(word, null);
-}
-
 /// Write SQL keywords uppercased directly to the output buffer.
+/// Rune FIELD-DECLARATION lines are detected by their second identifier being
+/// a Rune type symbol (n/N/s/S/m/M/b/B/j/d/t or a known type shape) — for
+/// those, the first identifier is a field name and is emitted verbatim:
+/// `comment` and `row` are legal field names, and rewriting them renames
+/// columns or breaks `*name` embeds. Everything else gets keyword casing from
+/// the first word on (`create table …`, `sysdate created_on` — behavior the
+/// dialect goldens lock in).
 /// Preserves non-keyword identifiers and string literals.
 fn writeUppercasedSqlKeywords(result: *std.ArrayList(u8), alloc: std.mem.Allocator, line: []const u8, dialect: ?Dialect) !void {
+    // Field-declaration detection: skip leading whitespace, read ident 1,
+    // skip whitespace, check whether ident 2 is a Rune type symbol. If so,
+    // ident 1 is a field name and must pass through verbatim.
+    var protect_first = false;
+    {
+        var p: usize = 0;
+        while (p < line.len and (line[p] == ' ' or line[p] == '\t')) : (p += 1) {}
+        if (p < line.len and (std.ascii.isAlphabetic(line[p]) or line[p] == '_')) {
+            while (p < line.len and isIdentChar(line[p])) p += 1;
+            while (p < line.len and (line[p] == ' ' or line[p] == '\t')) : (p += 1) {}
+            if (p < line.len and isIdentChar(line[p])) {
+                const w2_start = p;
+                while (p < line.len and isIdentChar(line[p])) p += 1;
+                const w2 = line[w2_start..p];
+                if (!isSqlKeywordDialect(w2, dialect) and parse_field.tryParseType(w2) != null) {
+                    protect_first = true;
+                }
+            }
+        }
+    }
     var i: usize = 0;
+    var first_ident = true;
     while (i < line.len) {
         const c = line[i];
         if ((c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or c == '_') {
@@ -138,14 +167,25 @@ fn writeUppercasedSqlKeywords(result: *std.ArrayList(u8), alloc: std.mem.Allocat
             const start = i;
             while (i < line.len and isIdentChar(line[i])) i += 1;
             const word = line[start..i];
-            if (isSqlKeywordDialect(word, dialect)) {
+            const is_first = first_ident;
+            if (is_first and protect_first) {
+                try result.appendSlice(alloc, word);
+            } else if (!first_ident and isSqlKeywordDialect(word, dialect)) {
                 // Uppercase the keyword
+                for (word) |wc| {
+                    try result.append(alloc, std.ascii.toUpper(wc));
+                }
+            } else if (first_ident and word[0] == '*') {
+                try result.appendSlice(alloc, word);
+            } else if (first_ident and isSqlKeywordDialect(word, dialect)) {
                 for (word) |wc| {
                     try result.append(alloc, std.ascii.toUpper(wc));
                 }
             } else {
                 try result.appendSlice(alloc, word);
             }
+            first_ident = false;
+            continue;
         } else if (c == '\'') {
             // String literal — preserve as-is
             try result.append(alloc, c);
@@ -244,8 +284,12 @@ pub fn formatDialect(alloc: std.mem.Allocator, input: []const u8, dialect: ?Dial
             try result.appendSlice(alloc, line);
             try result.append(alloc, '\n');
         } else if ((line.len >= 3 and std.mem.startsWith(u8, line, "@if") and (line.len == 3 or line[3] == '(')) or std.mem.eql(u8, line, "@endif")) {
-            // @if(...) / @endif — conditional block control flow, always at root level
-            if (std.mem.startsWith(u8, line, "@if")) {
+            // @if(...) / @endif — conditional block control flow, always at root level.
+            // @endif matches by prefix + word boundary: the parser accepts
+            // trailing content after @endif (`@endif ; cmt`), and treating
+            // that as a non-endif line left in_if_block stuck on, uppercasing
+            // every following field.
+            if (std.mem.startsWith(u8, line, "@if") and (line.len == 3 or !isIdentChar(line[3]))) {
                 in_if_block = true;
                 // `@if(dialect=x) {` opens a nested brace block: its `}` is
                 // indented like a field and must not close the table.
@@ -253,6 +297,8 @@ pub fn formatDialect(alloc: std.mem.Allocator, input: []const u8, dialect: ?Dial
                     brace_depth += 1;
                     in_if_block = false; // the brace's contents are plain fields
                 }
+            } else if (std.mem.startsWith(u8, line, "@endif") and (line.len == 6 or !isIdentChar(line[6]))) {
+                in_if_block = false;
             } else {
                 in_if_block = false;
             }

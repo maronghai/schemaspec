@@ -50,7 +50,11 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
     try w.writeAll("  \"properties\": {\n");
     for (typed.tables, 0..) |table, ti| {
         if (ti > 0) try w.writeAll(",\n");
-        try w.print("    \"{s}\": {{ \"$ref\": \"#/$defs/{s}\" }}", .{ table.name, table.name });
+        try w.writeAll("    \"");
+        try utils.jsonEscapeString(w, table.name);
+        try w.writeAll("\": { \"$ref\": \"#/$defs/");
+        try utils.jsonEscapeString(w, table.name);
+        try w.writeAll("\" }");
     }
     if (typed.tables.len > 0) try w.writeAll("\n");
     try w.writeAll("  },\n");
@@ -59,7 +63,9 @@ pub fn generate(alloc: std.mem.Allocator, typed: typed_ast.TypedAst, _: Dialect)
     try w.writeAll("  \"required\": [");
     for (typed.tables, 0..) |table, ti| {
         if (ti > 0) try w.writeAll(", ");
-        try w.print("\"{s}\"", .{table.name});
+        try w.writeAll("\"");
+        try utils.jsonEscapeString(w, table.name);
+        try w.writeAll("\"");
     }
     try w.writeAll("]\n");
 

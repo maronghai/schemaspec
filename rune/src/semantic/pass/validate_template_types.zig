@@ -5,7 +5,25 @@ const PassContext = @import("../analyzer.zig").PassContext;
 const TypeInfo = ast.TypeInfo;
 
 /// Template type consistency: warn when child template overrides parent field with different type.
+/// Also errors on table template references that resolve to nothing when the
+/// schema actually defines templates — a typo like `# users > bas` previously
+/// inherited zero fields silently (exit 0, missing PK). Files with NO template
+/// declarations skip this check: their `# word1 word2` headers are more likely
+/// comment junk than legacy template references (legacy two-word headers are
+/// syntactically indistinguishable from comment lines).
 pub fn run(ctx: *PassContext) !void {
+    const has_templates = ctx.templates.count() > 0;
+    for (ctx.tables.items) |table| {
+        const tref = table.template_ref orelse continue;
+        if (tref.len == 0) continue;
+        if (!ctx.templates.contains(tref)) {
+            ctx.diagnostics.push(.{
+                .severity = if (has_templates) .@"error" else .warning,
+                .line_no = table.line_no,
+                .message = try std.fmt.allocPrint(ctx.alloc, "unknown template: '{s}' is not defined (referenced by table '{s}')", .{ tref, table.name }),
+            });
+        }
+    }
     var it = ctx.templates.iterator();
     while (it.next()) |entry| {
         const tmpl = entry.value_ptr.*;

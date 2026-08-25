@@ -70,7 +70,7 @@ test "parseTableHeader: # template_ref table_name : comment" {
     }
     try std.testing.expectEqualStrings("base_entity", hdr.template_ref.?);
     try std.testing.expectEqualStrings("users", hdr.name);
-    try std.testing.expectEqualStrings(":accounts", hdr.comment.?);
+    try std.testing.expectEqualStrings("accounts", hdr.comment.?);
 }
 
 test "stripEngineTokens: ^ alone" {

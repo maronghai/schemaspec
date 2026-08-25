@@ -37,9 +37,14 @@ pub fn generate(alloc: std.mem.Allocator, ast: typed_ast.TypedAst, dialect: Dial
         for (table.columns, 0..) |col, col_idx| {
             try w.writeAll("        { \"name\": ");
             try writeJsonStr(w, col.name);
-            try w.writeAll(", \"type\": \"");
-            try writeSqlType(w, col.sql_type);
-            try w.writeAll("\"");
+            // Type strings can contain quotes (enum values); escape the whole
+            // rendered type rather than trusting writeSqlType's raw output.
+            var type_buf = std.Io.Writer.Allocating.init(alloc);
+            defer type_buf.deinit();
+            try writeSqlType(&type_buf.writer, col.sql_type);
+            try w.writeAll(", \"type\": ");
+            try writeJsonStr(w, type_buf.written());
+            try w.writeAll("");
             if (col.comment) |comment| {
                 try w.writeAll(", \"comment\": ");
                 try writeJsonStr(w, comment);

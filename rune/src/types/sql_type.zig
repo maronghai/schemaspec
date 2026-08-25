@@ -2,6 +2,7 @@ const std = @import("std");
 const dialect_enum = @import("../dialect/enum.zig");
 const dialect_mod = @import("../dialect/dialect.zig");
 const ast_mod = @import("../types/ast.zig");
+const utils = @import("../utils.zig");
 const TypeInfo = ast_mod.TypeInfo;
 const Writer = std.Io.Writer;
 const Dialect = dialect_enum.Dialect;
@@ -81,7 +82,9 @@ pub const SqlType = union(enum) {
                 try w.writeAll("{\"type\":\"string\",\"enum\":[");
                 for (vals, 0..) |v, vi| {
                     if (vi > 0) try w.writeAll(",");
-                    try w.print("\"{s}\"", .{v});
+                    try w.writeAll("\"");
+                    try utils.jsonEscapeString(w, v);
+                    try w.writeAll("\"");
                 }
                 try w.writeAll("]}");
             },

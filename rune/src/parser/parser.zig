@@ -298,7 +298,15 @@ pub const Parser = struct {
                         continue;
                     }
                     const comp_name = try self.alloc.dupe(u8, line.tokens[1]);
-                    if (block.mode == .table) {
+                    // `*name` (no space) inside a table body is an embed.
+                    // `* name` (space) is a NEW top-level declaration: close
+                    // the current table and start collecting the composite —
+                    // same rule as `#` closing a table. Without this a
+                    // declaration after a brace-free table became an embed
+                    // of an undefined name (two cascading errors).
+                    const is_embed = block.mode == .table and
+                        line.raw.len > 1 and line.raw[1] != ' ' and line.raw[1] != '\t';
+                    if (is_embed) {
                         // Embed site inside a table body — record position for in-place expansion.
                         // If the embed line sits inside an @if block, carry its dialects:
                         // embed lines add no field, so conditional-block ranges can't cover them.

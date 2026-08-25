@@ -69,7 +69,9 @@ fn generateMarkdown(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]cons
         try w.writeAll("## Schema Diagram\n\n");
         try w.writeAll("```mermaid\nerDiagram\n");
         for (typed.tables) |table| {
-            try w.print("    {s} {{\n", .{table.name});
+            try w.writeAll("    ");
+            try writeMermaidEntity(w, table.name);
+            try w.writeAll(" {\n");
             for (table.columns) |col| {
                 const type_str = try colTypeToMermaid(alloc, col);
                 defer alloc.free(type_str);
@@ -102,12 +104,13 @@ fn generateMarkdown(alloc: std.mem.Allocator, typed: typed_ast.TypedAst) ![]cons
                     }
                     // Mermaid cardinality: }|--|| = mandatory many-to-one, }|o--o| = optional many-to-one
                     const rel = if (is_nullable) "}|o--o|" else "}|--||";
-                    try w.print("    {s} {s} {s} : \"{s}\"\n", .{
-                        table.name,
-                        rel,
-                        fk.ref_table,
-                        fk.fields[0],
-                    });
+                    try w.writeAll("    ");
+                    try writeMermaidEntity(w, table.name);
+                    try w.print(" {s} ", .{rel});
+                    try writeMermaidEntity(w, fk.ref_table);
+                    try w.writeAll(" : \"");
+                    try writeMarkdownCell(w, fk.fields[0]);
+                    try w.writeAll("\"\n");
                 }
             }
         }
@@ -326,7 +329,7 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable) !void {
         try w.writeAll(" | ");
         const col_desc = col.doc orelse col.comment;
         if (col_desc) |c| {
-            try w.writeAll(c);
+            try writeMarkdownCell(w, c);
         }
         try w.writeAll(" |\n");
     }
@@ -363,6 +366,38 @@ fn writeTable(w: *Writer, table: typed_ast.TypedTable) !void {
     }
 
     try w.writeAll("\n");
+}
+
+/// Write `s` as a Markdown table cell: escape pipes (they would split the
+/// cell) and drop backticks-unbalanced content hazards by escaping bare
+/// backticks. Newlines become spaces (a row must stay one line).
+fn writeMarkdownCell(w: *Writer, s: []const u8) !void {
+    for (s) |c| {
+        switch (c) {
+            '|' => try w.writeAll("\\|"),
+            '\n', '\r' => try w.writeByte(' '),
+            else => try w.writeByte(c),
+        }
+    }
+}
+
+/// Write a Mermaid erDiagram entity name. Mermaid identifiers cannot contain
+/// spaces or most punctuation; quoted form `["name"]` handles those.
+fn writeMermaidEntity(w: *Writer, name: []const u8) !void {
+    var safe = true;
+    for (name) |c| {
+        if (!(std.ascii.isAlphanumeric(c) or c == '_')) {
+            safe = false;
+            break;
+        }
+    }
+    if (safe and name.len > 0 and !std.ascii.isDigit(name[0])) {
+        try w.writeAll(name);
+    } else {
+        try w.writeAll("[\"");
+        try writeMarkdownCell(w, name);
+        try w.writeAll("\"]");
+    }
 }
 
 /// Convert a TypedColumn's SQL type to a Mermaid-friendly type string.

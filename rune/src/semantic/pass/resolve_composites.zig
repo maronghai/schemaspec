@@ -92,6 +92,15 @@ fn expandTable(
 
     var out = try std.ArrayList(Field).initCapacity(ctx.alloc, table.fields.len + 8);
     var consumed: usize = 0; // fields copied from the original list so far
+    // Pre-populate with every literal field name so an embed colliding with
+    // ANY original field (not just ones already consumed) is caught.
+    var seen_names = std.StringHashMap(void).init(ctx.alloc);
+    defer seen_names.deinit();
+    for (table.fields) |f| {
+        if (!std.mem.eql(u8, f.name, "...")) {
+            try seen_names.put(f.name, {});
+        }
+    }
     for (embeds) |embed| {
         while (consumed < embed.insert_pos and consumed < table.fields.len) : (consumed += 1) {
             try out.append(ctx.alloc, table.fields[consumed]);
@@ -106,6 +115,19 @@ fn expandTable(
         };
         for (comp.fields) |f| {
             if (std.mem.eql(u8, f.name, "...")) continue;
+            // Duplicate detection: a composite field colliding with an
+            // existing column (from the table body or an earlier embed)
+            // would emit two identical DDL columns — the database rejects
+            // the statement. Templates dedupe; composites must too.
+            if (seen_names.contains(f.name)) {
+                ctx.diagnostics.push(.{
+                    .severity = .@"error",
+                    .line_no = f.line_no,
+                    .message = try std.fmt.allocPrint(ctx.alloc, "composite '{s}' field '{s}' duplicates existing field in table '{s}'", .{ embed.name, f.name, table.name }),
+                });
+                continue;
+            }
+            try seen_names.put(f.name, {});
             try out.append(ctx.alloc, f);
         }
     }

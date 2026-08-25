@@ -48,6 +48,27 @@ pub fn run(ctx: *PassContext) !void {
 }
 
 /// Check that table references in a view query exist in the schema.
+/// Skip spaces and tabs in a query scan.
+fn skipQuerySpace(q: []const u8, start: usize) usize {
+    var i = start;
+    while (i < q.len and (q[i] == ' ' or q[i] == '\t')) : (i += 1) {}
+    return i;
+}
+
+/// Return the index just past the balanced `(...)` group starting at `start`.
+fn skipParens(q: []const u8, start: usize) usize {
+    var depth: usize = 0;
+    var i = start;
+    while (i < q.len) : (i += 1) {
+        if (q[i] == '(') depth += 1;
+        if (q[i] == ')') {
+            depth -= 1;
+            if (depth == 0) return i + 1;
+        }
+    }
+    return i;
+}
+
 /// Uses a simple heuristic: looks for FROM <word> and JOIN <word> patterns.
 fn checkQueryReferences(
     ctx: *PassContext,
@@ -68,15 +89,22 @@ fn checkQueryReferences(
         // Look for FROM keyword
         if (i + 4 < upper_query.len and std.mem.eql(u8, upper_query[i .. i + 4], "FROM")) {
             i += 4;
-            // Skip whitespace
-            while (i < upper_query.len and upper_query[i] == ' ') : (i += 1) {}
+            i = skipQuerySpace(upper_query, i);
+            // Subquery: skip the parenthesized body entirely
+            if (i < upper_query.len and upper_query[i] == '(') {
+                i = skipParens(upper_query, i);
+                continue;
+            }
             // Extract table name (until space, comma, newline, or end)
             const start = i;
-            while (i < upper_query.len and upper_query[i] != ' ' and upper_query[i] != ',' and upper_query[i] != '\n') : (i += 1) {}
+            while (i < upper_query.len and upper_query[i] != ' ' and upper_query[i] != ',' and upper_query[i] != '\n' and upper_query[i] != '\t') : (i += 1) {}
             if (i > start) {
-                const table_ref = query[start..i];
+                var end = i;
+                // Trailing punctuation is not part of the name (`users)` etc.)
+                while (end > start and (upper_query[end - 1] == ')' or upper_query[end - 1] == ';' or upper_query[end - 1] == ',')) : (end -= 1) {}
+                const table_ref = query[start..end];
                 // Skip subquery markers and quoted identifiers
-                if (table_ref[0] != '(' and table_ref[0] != '"' and table_ref[0] != '`' and table_ref[0] != '\'') {
+                if (table_ref.len > 0 and table_ref[0] != '(' and table_ref[0] != '"' and table_ref[0] != '`' and table_ref[0] != '\'') {
                     if (!table_names.contains(table_ref)) {
                         const msg = try std.fmt.allocPrint(ctx.alloc, "view '{s}' references unknown table '{s}'", .{ view_name, table_ref });
                         ctx.diagnostics.record(.{
@@ -94,14 +122,19 @@ fn checkQueryReferences(
         // Look for JOIN keyword
         if (i + 4 < upper_query.len and std.mem.eql(u8, upper_query[i .. i + 4], "JOIN")) {
             i += 4;
-            // Skip whitespace
-            while (i < upper_query.len and upper_query[i] == ' ') : (i += 1) {}
+            i = skipQuerySpace(upper_query, i);
+            if (i < upper_query.len and upper_query[i] == '(') {
+                i = skipParens(upper_query, i);
+                continue;
+            }
             // Extract table name
             const start = i;
-            while (i < upper_query.len and upper_query[i] != ' ' and upper_query[i] != ',' and upper_query[i] != '\n') : (i += 1) {}
+            while (i < upper_query.len and upper_query[i] != ' ' and upper_query[i] != ',' and upper_query[i] != '\n' and upper_query[i] != '\t') : (i += 1) {}
             if (i > start) {
-                const table_ref = query[start..i];
-                if (table_ref[0] != '(' and table_ref[0] != '"' and table_ref[0] != '`' and table_ref[0] != '\'') {
+                var end = i;
+                while (end > start and (upper_query[end - 1] == ')' or upper_query[end - 1] == ';' or upper_query[end - 1] == ',')) : (end -= 1) {}
+                const table_ref = query[start..end];
+                if (table_ref.len > 0 and table_ref[0] != '(' and table_ref[0] != '"' and table_ref[0] != '`' and table_ref[0] != '\'') {
                     if (!table_names.contains(table_ref)) {
                         const msg = try std.fmt.allocPrint(ctx.alloc, "view '{s}' references unknown table '{s}'", .{ view_name, table_ref });
                         ctx.diagnostics.record(.{

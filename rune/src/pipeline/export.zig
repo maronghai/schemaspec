@@ -3,6 +3,7 @@ const forward = @import("forward.zig");
 const Stats = forward.Stats;
 const io_mod = @import("../io.zig");
 const fmt = @import("../diagnostic/format.zig");
+const utils = @import("../utils.zig");
 
 // ─── Export & Validation Output Formatters ───────────────────
 // Extracted from handlers.zig for single-responsibility.
@@ -103,7 +104,9 @@ fn exportAsJson(alloc: std.mem.Allocator, pipeline: forward.PipelineResult) ![]c
     // Schema info
     if (pipeline.resolved.schema_name) |name| {
         try w.print("  \"schema\": {{\n", .{});
-        try w.print("    \"name\": \"{s}\"\n", .{name});
+        try w.writeAll("    \"name\": \"");
+        try utils.jsonEscapeString(w, name);
+        try w.writeAll("\"\n");
         try w.print("  }},\n", .{});
     }
 
@@ -112,9 +115,13 @@ fn exportAsJson(alloc: std.mem.Allocator, pipeline: forward.PipelineResult) ![]c
     for (pipeline.resolved.tables, 0..) |table, i| {
         if (i > 0) try w.writeAll(",\n");
         try w.print("    {{\n", .{});
-        try w.print("      \"name\": \"{s}\",\n", .{table.name});
+        try w.writeAll("      \"name\": \"");
+        try utils.jsonEscapeString(w, table.name);
+        try w.writeAll("\",\n");
         if (table.template_ref) |tref| {
-            try w.print("      \"template\": \"{s}\",\n", .{tref});
+            try w.writeAll("      \"template\": \"");
+            try utils.jsonEscapeString(w, tref);
+            try w.writeAll("\",\n");
         }
         try w.print("      \"fields\": {d},\n", .{table.fields.len});
         try w.print("      \"indexes\": {d},\n", .{table.indexes.len});

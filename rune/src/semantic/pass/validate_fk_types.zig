@@ -43,6 +43,8 @@ fn validateFk(
     const ref_table = table_map.get(fk.ref_table) orelse return;
 
     // For each FK field, find the corresponding ref field and compare types.
+    // `continue` per pair — an early `return` here silently skipped every
+    // mismatch after the first unresolved/missing field in compound FKs.
     for (fk.fields, 0..) |fk_field, i| {
         const ref_field_name = if (i < fk.ref_fields.len) fk.ref_fields[i] else {
             // Not enough ref fields — FK has fewer fields than ref_fields.
@@ -50,14 +52,14 @@ fn validateFk(
             return;
         };
 
-        const fk_field_type = findFieldType(table, fk_field) orelse return;
-        const ref_field_type = findFieldType(ref_table.*, ref_field_name) orelse return;
+        const fk_field_type = findFieldType(table, fk_field) orelse continue;
+        const ref_field_type = findFieldType(ref_table.*, ref_field_name) orelse continue;
 
         // Skip if either type is unresolved (.none).
-        if (std.meta.activeTag(fk_field_type.*) == .none or std.meta.activeTag(ref_field_type.*) == .none) return;
+        if (std.meta.activeTag(fk_field_type.*) == .none or std.meta.activeTag(ref_field_type.*) == .none) continue;
 
         // Skip if types are exactly equal — no issue.
-        if (fk_field_type.eql(ref_field_type.*)) return;
+        if (fk_field_type.eql(ref_field_type.*)) continue;
 
         // Types differ — check if they're at least in the same category.
         const same_category = (fk_field_type.isNumeric() and ref_field_type.isNumeric()) or

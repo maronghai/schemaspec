@@ -1,6 +1,7 @@
 const std = @import("std");
 const ast_mod = @import("../types/ast.zig");
 const resolved_ast = @import("../types/resolved_ast.zig");
+const utils = @import("../utils.zig");
 
 // ─── Schema Statistics ────────────────────────────────────────
 //
@@ -305,10 +306,16 @@ pub fn formatPerTableStatsJson(alloc: std.mem.Allocator, table_stats: []const Ta
     try buf.appendSlice(alloc, "[");
     for (table_stats, 0..) |ts, i| {
         if (i > 0) try buf.appendSlice(alloc, ",");
+        try buf.appendSlice(alloc, "{\"name\":\"");
+        {
+            var esc = std.Io.Writer.Allocating.fromArrayList(alloc, &buf);
+            defer esc.deinit();
+            try utils.jsonEscapeString(&esc.writer, ts.name);
+            buf = esc.toArrayList();
+        }
         const entry = try std.fmt.allocPrint(alloc,
-            \\{{"name":"{s}","fields":{d},"not_null":{d},"numeric":{d},"string":{d},"datetime":{d},"boolean":{d},"other":{d},"foreign_keys":{d},"indexes":{d},"check_constraints":{d}}}
+            \\","fields":{d},"not_null":{d},"numeric":{d},"string":{d},"datetime":{d},"boolean":{d},"other":{d},"foreign_keys":{d},"indexes":{d},"check_constraints":{d}}}
         , .{
-            ts.name,
             ts.fields,
             ts.not_null_fields,
             ts.numeric_fields,
@@ -352,6 +359,7 @@ pub fn formatPerTableStatsMarkdown(alloc: std.mem.Allocator, table_stats: []cons
             ts.check_constraints,
         });
         try buf.appendSlice(alloc, row);
+        try buf.appendSlice(alloc, "\n");
     }
     return try buf.toOwnedSlice(alloc);
 }

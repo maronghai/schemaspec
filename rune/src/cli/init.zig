@@ -2,6 +2,7 @@ const std = @import("std");
 const io_mod = @import("../io.zig");
 const dialect_enum = @import("../dialect/enum.zig");
 const fmt = @import("../diagnostic/format.zig");
+const formatter = @import("../formatter.zig");
 
 // ─── `rune init` ──────────────────────────────────────────────
 // Supports --template flag to choose from preset schemas.
@@ -214,10 +215,13 @@ pub fn handleInit(io: std.Io, alloc: std.mem.Allocator, name: ?[]const u8, outpu
         return error.UnknownTemplate;
     };
 
-    // Prepend dialect hint comment for the user
+    // Prepend dialect hint comment for the user, then run the result through
+    // the formatter so shipped templates are canonical style (the raw
+    // templates use column-aligned bodies that format --check would flag).
     const dialect_name = @tagName(dialect);
     const schema_with_hint = try std.fmt.allocPrint(alloc, "; Target dialect: {s}\n{s}", .{ dialect_name, schema });
-    try io_mod.writeOutput(io, schema_with_hint, out_path, false);
+    const formatted = formatter.formatDialect(alloc, schema_with_hint, dialect) catch schema_with_hint;
+    try io_mod.writeOutput(io, formatted, out_path, false);
     std.debug.print("Created {s} (dialect: {s}, template: {s})\n", .{ out_path, dialect_name, tpl_name });
     std.debug.print("Edit this file, then run: rune {s} -d {s}\n", .{ out_path, dialect_name });
 }

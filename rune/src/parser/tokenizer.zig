@@ -85,6 +85,10 @@ pub const Tokenizer = struct {
         if (line.len >= 4 and line[0] == '@' and std.mem.eql(u8, line[0..4], "@if(")) return .ConditionalIf;
         if (line.len >= 6 and line[0] == '@' and std.mem.eql(u8, line[0..6], "@endif")) return .ConditionalEnd;
         if (line.len >= 8 and line[0] == '@' and std.mem.eql(u8, line[0..8], "@version")) return .Version;
+        // `* name` (space after star) at top level starts a composite
+        // declaration; `*name` (no space) is always an embed. The parser
+        // distinguishes declaration vs embed by block mode AND this spacing
+        // signal via tokens[1] — see parse() .Composite branch.
         if (line[0] == '*') return .Composite;
         if (line[0] == '@') return .Index;
         if (line[0] == '+') return .Doc;
@@ -112,18 +116,60 @@ pub const Tokenizer = struct {
                     break;
                 }
                 const start = i;
-                if (c == '`') {
+                if (c == '`' or c == '\'' or c == '"') {
+                    // Quoted segment: one token even across spaces. Backticks
+                    // quote identifiers; single/double quotes quote values
+                    // (defaults, enum entries). The closing quote must be the
+                    // SAME character; an unterminated segment falls back to
+                    // word-splitting (historical behavior).
+                    var closed = false;
                     i += 1;
-                    while (i < line.len and line[i] != '`') : (i += 1) {}
-                    if (i < line.len) i += 1; // closing backtick
+                    while (i < line.len) : (i += 1) {
+                        if (line[i] == c) {
+                            closed = true;
+                            i += 1;
+                            break;
+                        }
+                    }
+                    if (!closed) {
+                        i = start + 1; // rescan from after the quote char
+                        while (i < line.len and line[i] != ' ' and line[i] != '\t') : (i += 1) {}
+                    }
                     // Glue an immediately-following word (`` `name`s32 `` is
                     // not produced by the reverse emitter, but be tolerant).
                     while (i < line.len and line[i] != ' ' and line[i] != '\t') : (i += 1) {}
                     try raw_tokens.append(alloc, line[start..i]);
                     continue;
                 }
-                while (i < line.len and line[i] != ' ' and line[i] != '\t') : (i += 1) {}
-                try raw_tokens.append(alloc, line[start..i]);
+                // Plain word: a quote character INSIDE the word (`='a b'`,
+                // `e('x y',z)`) opens a quoted run that may span spaces —
+                // scan to its matching close instead of splitting at the
+                // next space. Unterminated: fall back to the space boundary.
+                {
+                    var j = i;
+                    var open_quote: u8 = 0;
+                    while (j < line.len) : (j += 1) {
+                        const jc = line[j];
+                        if (open_quote != 0) {
+                            if (jc == open_quote) open_quote = 0;
+                            continue;
+                        }
+                        if (jc == '\'' or jc == '"' or jc == '`') {
+                            open_quote = jc;
+                            continue;
+                        }
+                        if (jc == ' ' or jc == '\t') break;
+                    }
+                    if (open_quote == 0 and j > start) {
+                        i = j;
+                        try raw_tokens.append(alloc, line[start..i]);
+                        continue;
+                    }
+                    // Unterminated quote in this word — historical behavior.
+                    while (i < line.len and line[i] != ' ' and line[i] != '\t') : (i += 1) {}
+                    try raw_tokens.append(alloc, line[start..i]);
+                    continue;
+                }
             }
         }
 
@@ -175,6 +221,22 @@ pub const Tokenizer = struct {
     fn splitToken(alloc: std.mem.Allocator, tokens: *std.ArrayList([]const u8), tok: []const u8) !void {
         // Comment - keep as is
         if (tok[0] == ':') {
+            try tokens.append(alloc, tok);
+            return;
+        }
+
+        // Quoted segment (single/double/backtick) — one token, no splitting.
+        // Values like `='hello world'` or enum entries with spaces must
+        // survive as single units; consumers strip the quotes themselves.
+        if (tok.len >= 2 and (tok[0] == '\'' or tok[0] == '"') and tok[tok.len - 1] == tok[0]) {
+            try tokens.append(alloc, tok);
+            return;
+        }
+
+        // `=value` whose value is a complete quoted string (`='hello world'`)
+        // stays one token: splitting would shred the value across tokens and
+        // the default would capture only the first fragment.
+        if (tok.len >= 4 and tok[0] == '=' and (tok[1] == '\'' or tok[1] == '"') and tok[tok.len - 1] == tok[1]) {
             try tokens.append(alloc, tok);
             return;
         }

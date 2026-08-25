@@ -2,6 +2,7 @@ const std = @import("std");
 const tk = @import("tokenizer.zig");
 const diag = @import("../diagnostic.zig");
 const ast_mod = @import("../types/ast.zig");
+const parse_field = @import("parse_field.zig");
 const FkDecl = ast_mod.FkDecl;
 const FkAction = ast_mod.FkAction;
 const FkActionType = ast_mod.FkActionType;
@@ -69,13 +70,15 @@ pub fn parseFk(alloc: std.mem.Allocator, line: tk.Line) !FkDecl {
 
     // Reference index: skip > separator when present, also skip type token if present
     var ref_idx = if (has_sep) fi + 2 else next_idx;
-    // When there's a separator and the token after > is a type (not a ref), skip it
+    // When there's a separator and the token after > is a type (not a ref), skip it.
+    // Guard: only skip when the token actually parses as a type symbol — otherwise
+    // `user_id > users` would swallow the table name and emit an empty FK.
     if (has_sep and ref_idx < tokens.len) {
         const candidate = tokens[ref_idx];
         const looks_like_ref = std.mem.indexOfScalar(u8, candidate, '.') != null or
             std.mem.eql(u8, candidate, "(") or
             candidate.len == 0;
-        if (!looks_like_ref) {
+        if (!looks_like_ref and parse_field.tryParseType(candidate) != null) {
             ref_idx += 1; // skip type token
         }
     }
@@ -297,11 +300,13 @@ pub fn parseInlineFk(alloc: std.mem.Allocator, tokens: []const []const u8, idx: 
     var j: usize = idx;
     if (std.mem.eql(u8, tokens[idx], ">")) {
         j = idx + 1;
-        if (j < tokens.len) {
-            const after_gt = tokens[j];
-            if (std.mem.indexOfScalar(u8, after_gt, '.') == null) {
-                j += 1; // skip type token
-            }
+        // Skip a type token only when it really parses as one; otherwise it
+        // is the referenced table name (`user_id > users` must keep `users`).
+        if (j < tokens.len and
+            std.mem.indexOfScalar(u8, tokens[j], '.') == null and
+            parse_field.tryParseType(tokens[j]) != null)
+        {
+            j += 1;
         }
     }
     while (j < tokens.len) : (j += 1) {
